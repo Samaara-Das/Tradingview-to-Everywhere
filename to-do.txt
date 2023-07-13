@@ -1,0 +1,28 @@
+
+LEGEND:
+🟠 - Paused
+🟢 - Done
+🔴 - Pending
+🟡 - In progress
+
+
+🎯 GOAL: send tradingview chart images (with sl/tp lines of a specific entry on a specific chart) to twitter
+
+📒 TO DOs:
+
+1. 🟡 start from a top-down approach. first start try sending screenshots of chart to twitter
+   ⛏️:
+   a. open tradingview
+   b. hit "tweet image" button. i asked a question on stack overflow: https://stackoverflow.com/questions/76679747/how-do-i-click-on-the-tweet-image-button-on-tradingview
+   c. 🟡 it shud know when the recaptcha is over
+   c. 🟠 take care of that twitter log in popup (sign in/ switch to the correct window)
+
+2. 🔴 it has to take screenshots when there is an entry on the current chart. 
+   know when to take a screenshot and where to take a screenshot.    
+
+3. 🔴 something shud let the system know that a screenshot shud be taken. once it knows, open the chart where the entry is. the sl/tp lines 
+   shud be there along with their labels
+
+4. 🔴 the script/indicator has to run on all symbols and their timeframes
+
+5. 🔴 store all images and their attributes (timeframe, symbol, signal) in an sql database
