@@ -52,8 +52,19 @@ class Browser:
     sign_in_btn.click()
 
   def click_products_tab(self):
-    products_tab = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.LINK_TEXT, "Products")))
-    products_tab.click()
+    while True:
+      try:
+          # Wait for the interfering element to disappear
+          WebDriverWait(self.driver, 10).until(EC.invisibility_of_element_located((By.CSS_SELECTOR, ".header-v4NPAtHi")))
+          
+          # Click on the "Products" tab
+          product_tab = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.LINK_TEXT, "Products")))
+          product_tab.click()
+
+          # break the loop if we click on the element
+          break
+      except Exception as e:
+          print(f"⛔ Error: {str(e)}")
 
   def click_tweet_image(self):
     # click the camera button on the top-right i.e "Take a snapshot"
@@ -78,9 +89,6 @@ browser = Browser(DRIVER_PATH, True)
 
 # sign in
 browser.sign_in()
-
-# give some input so that we know that the captcha is over and we have signed in
-input("🚩press any key to continue ")
 
 # click on "Products" tab
 browser.click_products_tab()
