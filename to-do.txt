@@ -12,10 +12,13 @@ LEGEND:
 
 1. 🟡 start from a top-down approach. first start try sending screenshots of chart to twitter
    ⛏️:
-   a. open tradingview
-   b. hit "tweet image" button. i asked a question on stack overflow: https://stackoverflow.com/questions/76679747/how-do-i-click-on-the-tweet-image-button-on-tradingview
+   a. 🟢 open tradingview
+   b. 🟢 hit "tweet image" button. i asked a question on stack overflow: https://stackoverflow.com/questions/76679747/how-do-i-click-on-the-tweet-image-button-on-tradingview
    c. 🟢 it shud know when the recaptcha is over
-   d. make a seperate git branch. in that branch try logging in to browser so that it wont ask us to sign in
+   d. 🟡 make a seperate git branch. in that branch try logging in to browser so that it wont ask us to sign in. open our default browser which has us signed in
+   https://stackoverflow.com/questions/35641019/how-do-you-use-credentials-saved-by-the-browser-in-auto-login-script
+   
+
    e. 🟠 take care of that twitter log in popup (sign in/ switch to the correct window)
 
 2. 🔴 it has to take screenshots when there is an entry on the current chart. 
