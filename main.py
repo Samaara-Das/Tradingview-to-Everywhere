@@ -28,7 +28,6 @@ class Browser:
     chrome_options.add_argument(f"--user-data-dir={CHROME_PROFILE_PATH}")
     self.driver = webdriver.Chrome(service=self.service, options=chrome_options)
 
-
   def open_page(self, url: str):
     self.driver.get(url)
     self.driver.maximize_window()
@@ -62,7 +61,7 @@ class Browser:
           # Click on the "Products" tab
           product_tab = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.LINK_TEXT, "Products")))
           product_tab.click()
-
+          
           # break the loop if we click on the element
           break
       except Exception as e:
@@ -76,10 +75,24 @@ class Browser:
     tweet_image = WebDriverWait(self.driver, 20).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-name="tweet-chart-image"]')))
     tweet_image.click()
 
-  def sign_in_to_twitter(self):
-    # use switch_to() to switch to the new window
-    # https://stackoverflow.com/questions/10629815/how-to-switch-to-new-window-in-selenium-for-python
-    pass
+
+  def sign_in_to_twitter_and_tweet(self):
+    # Get the current window handle
+    current_window = self.driver.current_window_handle
+
+    # Wait for a new window to open
+    WebDriverWait(self.driver, 10).until(EC.new_window_is_opened(self.driver.window_handles))
+
+    # Switch to the new window
+    for window_handle in self.driver.window_handles:
+        if window_handle != current_window:
+            self.driver.switch_to.window(window_handle)
+            break
+
+    # Click the Tweet button
+    sendTw = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.XPATH, '//div[@role="button"]/div/span/span')))
+    sendTw.click()
+
 
   def save_chart_img(self):
     ActionChains(self.driver).key_down(Keys.ALT).send_keys('s').perform()
@@ -100,3 +113,6 @@ browser.close_pinescript_panel()
 
 # click on "Tweet Image" button
 browser.click_tweet_image()
+
+# sign in to twitter
+browser.sign_in_to_twitter_and_tweet()
