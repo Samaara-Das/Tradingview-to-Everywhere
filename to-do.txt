@@ -16,14 +16,15 @@ HOW DO WE DO IT:
 in order to post the screenshot, 
 1. take a screenshot and send it to twitter. 
 
-2. the screenshot has to be sent when an entry happens. 
+2. send the screenshot when an entry happens. 
 a new entry has to trigger it to do 1. when an entry happens, do no. 1
 
 3. open a chart which has that specified entry's timeframe & symbol so that
 it can take a screenshot of that particular chart
 
-4. the pinescript indicator has to draw the tp/sl lines on that specific chart
-
+4. 🟡 the pinescript indicator has to draw the tp/sl lines on that specific chart
+   a. 🟡 write script which copies what the screener does except that it does it for just the current chart
+   b. we will be doing this on this script: Premium Screener for 1 chart
 
 
 
