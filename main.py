@@ -10,6 +10,7 @@ from selenium.webdriver.common.by import By
 
 
 # some constants
+CHROME_PROFILE_PATH = 'C:\\Users\\Puja\\AppData\\Local\\Google\\Chrome\\User Data'
 DRIVER_PATH = 'C:\\Users\\Puja\\chromedriver'
 EMAIL = 'dassamaara@gmail.com'
 PWD = '1304sammy#'
@@ -18,13 +19,11 @@ PWD = '1304sammy#'
 
 class Browser:
 
-
-
   def __init__(self, driver: str, keep_open: bool) -> None:
     self.service = Service(driver)
     chrome_options = Options()
     chrome_options.add_experimental_option("detach", keep_open)
-    chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
+    chrome_options.add_argument(f"--user-data-dir={CHROME_PROFILE_PATH}")
     self.driver = webdriver.Chrome(service=self.service, options=chrome_options)
 
 
@@ -41,15 +40,16 @@ class Browser:
     # open the sign in page
     self.open_page("https://www.tradingview.com/#signin")
 
-    # click the email button
-    button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.NAME, "Email")))
-    button.click()
-
-    # enter email, password & click sign in
-    self.driver.find_element(By.ID, "id_username").send_keys(EMAIL)
-    self.driver.find_element(By.ID, "id_password").send_keys(PWD)
+    # click sign in (google fills our email & pwd automatically so we can just immediately click on sign in)
     sign_in_btn = self.driver.find_element(By.CSS_SELECTOR, ".submitButton-LQwxK8Bm.button-D4RPB3ZC.size-large-D4RPB3ZC.color-brand-D4RPB3ZC.variant-primary-D4RPB3ZC.stretch-D4RPB3ZC")
     sign_in_btn.click()
+
+  def close_pinescript_panel(self):
+    try:
+      minimize_panel = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[aria-label="Hide panel"]')))
+      minimize_panel.click()
+    except Exception as e:
+      print(f"⛔ Couldn't close panel: {str(e)}")
 
   def click_products_tab(self):
     while True:
@@ -87,11 +87,14 @@ class Browser:
 
 browser = Browser(DRIVER_PATH, True)
 
-# sign in
+# sign in to the browser
 browser.sign_in()
 
 # click on "Products" tab
 browser.click_products_tab()
+
+# close pinescript panel
+browser.close_pinescript_panel()
 
 # click on "Tweet Image" button
 browser.click_tweet_image()
