@@ -1,3 +1,7 @@
+'''
+this file is for sending snapshots from tradingview to twitter
+'''
+
 import time
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
