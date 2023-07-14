@@ -19,7 +19,7 @@ LEGEND:
    https://stackoverflow.com/questions/35641019/how-do-you-use-credentials-saved-by-the-browser-in-auto-login-script
    e. 🟢 merge feature1 with main
 
-   e. 🟠 take care of that twitter log in popup (sign in/ switch to the correct window)
+   e. 🟡 take care of that twitter log in popup (sign in/ switch to the correct window)
 
 2. 🔴 it has to take screenshots when there is an entry on the current chart. 
    know when to take a screenshot and where to take a screenshot.    
