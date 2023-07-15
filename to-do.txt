@@ -21,8 +21,6 @@ https://stackoverflow.com/questions/76693684/how-do-i-send-tradingview-chart-sna
 
 in order to post the screenshot, 
 
-1. ask nishant uncle
-
 1. 🟢 recieve signals from the screener. it will tell whether there are buy/sell signals and on what chart and timeframe.
    1. 🟢 get the data thru alerts on tradingview. scrape the tradingview chart for the alert. get the data from the alert
    2. 🟡 make sure that in pinescript, the alert is only showing those entries which have just closed or just opened. Also, remove the table, its just eating up space. check if the alerts are showing the correct information.
