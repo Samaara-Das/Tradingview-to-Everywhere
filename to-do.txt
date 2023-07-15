@@ -23,10 +23,21 @@ in order to post the screenshot,
 
 1. ask nishant uncle
 
-1. 🟡 recieve signals from the screener. it will tell whether there are buy/sell signals and on what chart and timeframe.
-   1. get the data thru alerts on tradingview. scrape the tradingview chart for the alert. get the data from the alert
+1. 🟢 recieve signals from the screener. it will tell whether there are buy/sell signals and on what chart and timeframe.
+   1. 🟢 get the data thru alerts on tradingview. scrape the tradingview chart for the alert. get the data from the alert
+   2. 🟡 make sure that in pinescript, the alert is only showing those entries which have just closed or just opened. Also, remove the table, its just eating up space. check if the alerts are showing the correct information.
+   (so that we can know which charts to open)
 
-2. to have a chart where pinescript draws the tp/sl lines, just draw lines in the screener script. 
+   OR 
+
+   in python, keep track of what trades just opened and what trades just closed
+
+
+2. after getting the data in the alert, go to the chart which has a new entry
+
+3. take a snapshot of it and post to twitter
+
+4. store that snapshot and other info in a database
 
 
 
