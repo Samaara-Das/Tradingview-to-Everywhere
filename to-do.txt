@@ -8,36 +8,37 @@ LEGEND:
 
 🎯 GOAL: send tradingview chart images (with sl/tp lines of a specific entry on a specific chart) to twitter
 
-HOW DO WE DO IT:
 
-🗒️ write down the steps needed to accomplish this. not programmatic steps but mini goals which add up to accomplish the bigger goal
+❓I have asked for help on stack overflow & on the discord pinescript server
+link to the stack overflow question: 
+https://stackoverflow.com/questions/76693684/how-do-i-send-tradingview-chart-snapshots-to-twitter-using-python-pinescript
+
+
+🤔 HOW DO WE DO IT:
+
+🗒️ these are the steps needed to accomplish this. not programmatic steps but mini goals which add up to accomplish the bigger goal
 
 
 in order to post the screenshot, 
-1. take a screenshot and send it to twitter. 
 
-2. send the screenshot when an entry happens. 
-a new entry has to trigger it to do 1. when an entry happens, do no. 1
+1. ask nishant uncle
 
-3. open a chart which has that specified entry's timeframe & symbol so that
-it can take a screenshot of that particular chart
+1. 🟡 recieve signals from the screener. it will tell whether there are buy/sell signals and on what chart and timeframe.
+   1. get the data thru alerts on tradingview. scrape the tradingview chart for the alert. get the data from the alert
 
-4. 🟡 the pinescript indicator has to draw the tp/sl lines on that specific chart
-   a. 🟡 write script which copies what the screener does except that it does it for just the current chart
-   b. we will be doing this on this script: Premium Screener for 1 chart
+2. to have a chart where pinescript draws the tp/sl lines, just draw lines in the screener script. 
 
 
 
-📒 TO DOs:
 
-2. 🟡 it has to take screenshots when there is an entry on the current chart. 
-   know when to take a screenshot and where to take a screenshot.    
-      a. something shud let the system know that a screenshot shud be taken. once it knows, open the chart where the entry is. the sl/tp lines 
-      shud be there along with their labels
-      b. how does python know that there is a signal and on which timeframe and which symbol
 
-3. 🔴 the script/indicator has to run on all symbols and their timeframes so that it can draw tp/sl lines for each of their trade's
-symbol.
 
-4. 🔴 store all images and their attributes (timeframe, symbol, signal) in an sql database
+
+
+
+
+
+
+
+
 
