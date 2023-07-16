@@ -72,18 +72,21 @@ class Browser:
       except Exception as e:
           print(f"⛔ Error: {str(e)}")
 
+  def close_alert(self):
+    ok_button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, ".button-D4RPB3ZC.size-small-D4RPB3ZC.color-brand-D4RPB3ZC.variant-primary-D4RPB3ZC")))
+    ok_button.click()
+
   def get_data_from_alert(self):
     # the code below only works when there is an alert setup in our account.
     # if there is no alert set up in the alerts tab, create one for the premium screener
-    alert_wrapper = None
+    alert_msg = None
 
     while True:
       try:
-        alert_wrapper = WebDriverWait(self.driver, 10).until(EC.alert_is_present())
-        print(alert_wrapper.find_element(By.CSS_SELECTOR, "div.secondaryRow-QkiHQU0S").text)
-        break
+        alert_msg = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, "div.secondaryRow-QkiHQU0S")))
+        print(alert_msg.text + '\n')
+        self.close_alert()
       except Exception as e:
-        print(f"⛔ Error: {str(e)}")
         continue
       
 
@@ -97,7 +100,8 @@ browser.sign_in()
 browser.click_products_tab()
 
 # close pinescript panel
-browser.close_pinescript_panel()
+# browser.close_pinescript_panel()
 
 # wait for an alert to popup
 browser.get_data_from_alert()
+
