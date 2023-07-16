@@ -31,7 +31,7 @@ in order to post the screenshot,
    in python, keep track of what trades just opened and what trades just closed
 
 
-2. after getting the data in the alert, go to the chart which has a new entry
+2. after getting the data in the alert (about the new trade), go to the chart and the timeframe which has that new entry
 
 3. take a snapshot of it and post to twitter
 
