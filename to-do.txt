@@ -32,9 +32,9 @@ in order to post the screenshot,
    in python, keep track of what trades just opened and what trades just closed
 
 
-2. 🟡 after getting the data in the alert, go to the chart and the timeframe which has that new entry/exit
+2. 🟡 get the data in the alert, go to the chart and the timeframe which has that new entry/exit
 
-3. 🔴 for an entry show tp, sl line with shading (use pinescript indicator). for an exit, show that same thing but make sure that price is touching the tp
+3. 🔴 (atleast do the entry part) for an entry show tp, sl line with shading (use pinescript indicator). for an exit, show that same thing but make sure that price is touching the tp
 
 4. 🔴 take a snapshot of it and post to twitter (try to use the tweepy library)
 
