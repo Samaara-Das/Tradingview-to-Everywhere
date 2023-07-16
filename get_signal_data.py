@@ -50,12 +50,39 @@ class Browser:
     sign_in_btn = self.driver.find_element(By.CSS_SELECTOR, ".submitButton-LQwxK8Bm.button-D4RPB3ZC.size-large-D4RPB3ZC.color-brand-D4RPB3ZC.variant-primary-D4RPB3ZC.stretch-D4RPB3ZC")
     sign_in_btn.click()
 
-  def close_pinescript_panel(self):
-    try:
-      minimize_panel = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[aria-label="Hide panel"]')))
-      minimize_panel.click()
-    except Exception as e:
-      print(f"⛔ Couldn't close panel: {str(e)}")
+  def read_alert(self, msg):
+    # Split the text into lines
+    lines = msg.split('\n')  
+    print(msg)
+
+    # lists for sell, buy entries and closed entries
+    sell_list = []
+    buy_list = []
+    closed_buy_list = []
+    closed_sell_list = []
+
+    # go thru each line to see which one is about a buy or sell or a closed trade
+    for i, line in enumerate(lines):
+      # break the line up
+      # parts = line.split('|')
+      pass
+
+      # if 'Buy' in line:
+      #   buy_list.append({'entry': parts[0], 'tp': parts[1], 'sl': parts[2], 'symbol': parts[3], 'timeframe': parts[4]})
+      
+      # if 'Sell' in line:
+      #   sell_list.append({'entry': parts[0], 'tp': parts[1], 'sl': parts[2], 'symbol': parts[3], 'timeframe': parts[4]})
+      
+      # if 'Closed Buy' in line and 'TP' in line:
+      #   closed_sell_list.append({'entry': parts[0], 'symbol': parts[1], 'timeframe': parts[2]})
+
+      # if 'Closed Buy' in line and 'TP' in line:
+      #   closed_buy_list.append({'entry': parts[0], 'symbol': parts[1], 'timeframe': parts[2]})
+
+      # if i == len(lines) - 1:
+      #   break
+
+
 
   def click_products_tab(self):
     while True:
@@ -84,8 +111,10 @@ class Browser:
     while True:
       try:
         alert_msg = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, "div.secondaryRow-QkiHQU0S")))
-        print(alert_msg.text + '\n')
+        print('🔔 recieved alert')
+        self.read_alert(alert_msg.text)
         self.close_alert()
+        alert_msg = None
       except Exception as e:
         continue
       
@@ -99,9 +128,12 @@ browser.sign_in()
 # click on "Products" tab
 browser.click_products_tab()
 
-# close pinescript panel
-# browser.close_pinescript_panel()
-
 # wait for an alert to popup
 browser.get_data_from_alert()
 
+
+# 🎯 TO-DO
+# classify the buys, sells and exits into dictionaries
+
+# after getting the text from the alert, read it. figure out if its about an entry or an exit (use regex)
+# after knowing if its an entry or exit, go to that chart & timeframe
