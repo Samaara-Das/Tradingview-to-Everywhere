@@ -54,6 +54,7 @@ class Browser:
     # Split the text into lines
     lines = msg.split('\n')  
     print(msg)
+    self.close_alert()
 
     # lists for sell, buy entries and closed entries
     sell_list = []
@@ -64,14 +65,13 @@ class Browser:
     # go thru each line to see which one is about a buy or sell or a closed trade
     for i, line in enumerate(lines):
       # break the line up
-      # parts = line.split('|')
-      pass
+      parts = line.split('|')
 
-      # if 'Buy' in line:
-      #   buy_list.append({'entry': parts[0], 'tp': parts[1], 'sl': parts[2], 'symbol': parts[3], 'timeframe': parts[4]})
+      if 'Buy' in line:
+        buy_list.append({'entry': parts[0], 'tp': parts[1], 'sl': parts[2], 'symbol': parts[3], 'timeframe': parts[4]})
       
-      # if 'Sell' in line:
-      #   sell_list.append({'entry': parts[0], 'tp': parts[1], 'sl': parts[2], 'symbol': parts[3], 'timeframe': parts[4]})
+      if 'Sell' in line:
+        sell_list.append({'entry': parts[0], 'tp': parts[1], 'sl': parts[2], 'symbol': parts[3], 'timeframe': parts[4]})
       
       # if 'Closed Buy' in line and 'TP' in line:
       #   closed_sell_list.append({'entry': parts[0], 'symbol': parts[1], 'timeframe': parts[2]})
@@ -79,9 +79,7 @@ class Browser:
       # if 'Closed Buy' in line and 'TP' in line:
       #   closed_buy_list.append({'entry': parts[0], 'symbol': parts[1], 'timeframe': parts[2]})
 
-      # if i == len(lines) - 1:
-      #   break
-
+    
 
 
   def click_products_tab(self):
@@ -113,7 +111,6 @@ class Browser:
         alert_msg = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, "div.secondaryRow-QkiHQU0S")))
         print('🔔 recieved alert')
         self.read_alert(alert_msg.text)
-        self.close_alert()
         alert_msg = None
       except Exception as e:
         continue
