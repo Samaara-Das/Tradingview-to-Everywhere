@@ -24,6 +24,8 @@ class Alerts:
     # open a new tab
     self.chart = open_entry_chart.OpenChart(self.driver, 0, 0, 0, '', '')
     self.chart.open_new_tab()
+    self.chart.set_up_new_tab()
+    # self.chart.switch_to_old_tab()
 
   def read_alert(self, msg):
     buy_list = []
