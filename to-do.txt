@@ -33,7 +33,7 @@ in order to post the screenshot,
 
 
 2. 🟢 get the entry data in the alert
-   🟡 structure the code and the modules correctly
+   🟡 structure the code and the modules correctly (add the code for the open_tv file)
    🔴 go to the chart and the timeframe which has that new entry 
    🟠 get the exit data too and go to the chart. we're not getting the closed sell/closed buy part of the alert. fix this in the read_alert function
 
