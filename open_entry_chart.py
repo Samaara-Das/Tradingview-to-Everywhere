@@ -27,8 +27,23 @@ class OpenChart:
     self.old_tab_handle = self.driver.window_handles[0]
 
   def open_new_tab(self):
-    self.driver.execute_script('''window.open("{}");'''.format(self.driver.current_url))  # Opening a blank new tab
+    # Opening a duplicate tab
+    self.driver.execute_script('''window.open("{}");'''.format(self.driver.current_url))  
     self.new_tab_handle = self.driver.window_handles[1]
-    self.driver.switch_to.window(self.new_tab_handle)  # Switching to newly opend tab
-    self.driver.switch_to.window(self.old_tab_handle)  # Switching to newly opend tab
+
+  def set_up_new_tab(self):
+    # right click and click the "remove all indicators" option
+    chart = WebDriverWait(self.driver, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".chart-container-border")))
+    print('about to right click...')
+    ActionChains(self.driver).context_click(chart).perform()
+
+    menu = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="menu-inner"] table tbody')))
+    options = menu.find_elements(By.CSS_SELECTOR, 'tr.item-GJX1EXhk.interactive-GJX1EXhk.normal-GJX1EXhk')
+    options[11].click()
+
+  def switch_to_old_tab(self):
+    self.driver.switch_to.window(self.old_tab_handle)
+
+  def switch_to_new_tab(self):
+    self.driver.switch_to.window(self.new_tab_handle)
     
