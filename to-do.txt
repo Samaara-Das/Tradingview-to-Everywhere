@@ -32,7 +32,10 @@ in order to post the screenshot,
    in python, keep track of what trades just opened and what trades just closed
 
 
-2. 🟡 get the data in the alert, go to the chart and the timeframe which has that new entry/exit
+2. 🟢 get the entry data in the alert
+   🟡 structure the code and the modules correctly
+   🔴 go to the chart and the timeframe which has that new entry 
+   🟠 get the exit data too and go to the chart. we're not getting the closed sell/closed buy part of the alert. fix this in the read_alert function
 
 3. 🔴 (atleast do the entry part) for an entry show tp, sl line with shading (use pinescript indicator). for an exit, show that same thing but make sure that price is touching the tp
 
@@ -40,7 +43,9 @@ in order to post the screenshot,
 
 5. 🔴 store that snapshot and other info in a database
 
-
+6. optimize:
+   try to login to tradingview without having to sign in. make sure it automatically logs in (use cookies)
+   https://stackoverflow.com/questions/45417335/python-use-cookie-to-login-with-selenium
 
 
 
