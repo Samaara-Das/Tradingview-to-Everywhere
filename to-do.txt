@@ -16,8 +16,6 @@ https://stackoverflow.com/questions/76693684/how-do-i-send-tradingview-chart-sna
 
 🤔 HOW DO WE DO IT:
 
-🗒️ these are the steps needed to accomplish this. not programmatic steps but mini goals which add up to accomplish the bigger goal
-
 
 in order to post the screenshot, 
 
@@ -43,7 +41,7 @@ in order to post the screenshot,
 
 5. 🔴 store that snapshot and other info in a database
 
-6. optimize:
+6. 🔴 optimize:
    try to login to tradingview without having to sign in. make sure it automatically logs in (use cookies)
    https://stackoverflow.com/questions/45417335/python-use-cookie-to-login-with-selenium
 
