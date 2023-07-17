@@ -1,6 +1,5 @@
 '''
-This module gets the entry signals from the premium screener on tradingview 
-by getting data from alerts
+This module opens tradingview, signs in and goes to the chart
 '''
 
 # import modules
@@ -56,37 +55,6 @@ class Browser:
     except:
       print('⛔ Couldn\'t sign in')
 
-  def read_alert(self, msg):
-    buy_list = []
-    sell_list = []
-    closed_buy_list = []
-    closed_sell_list = []
-
-    lines = msg.split('\n')
-    self.close_alert()
-
-    print('📖  reading lines')
-
-    for line in lines:
-      parts = line.split('|')
-
-      if 'Buy' in line:
-        buy_list.append({'entry': parts[1], 'tp': parts[2], 'sl': parts[3], 'symbol': parts[4], 'timeframe': parts[5]})
-        print(buy_list[len(buy_list)-1])
-
-      if 'Sell' in line:
-        sell_list.append({'entry': parts[1], 'tp': parts[2], 'sl': parts[3], 'symbol': parts[4], 'timeframe': parts[5]})
-        print(sell_list[len(sell_list)-1])
-
-      # if 'Closed Sell' in line and 'TP' in line: 
-      #   closed_sell_list.append({'entry': parts[0], 'symbol': parts[1], 'timeframe': parts[2]})
-      #   print(closed_sell_list[len(closed_sell_list)-1])
-
-      # if 'Closed Buy' in line and 'TP' in line:
-      #   closed_buy_list.append({'entry': parts[0], 'symbol': parts[1], 'timeframe': parts[2]})
-      #   print(closed_buy_list[len(closed_buy_list)-1])
-
-
   def click_products_tab(self):
     while True:
       try:
@@ -102,39 +70,5 @@ class Browser:
       except Exception as e:
           print(f"⛔ Error: {str(e)}")
 
-  def close_alert(self):
-    ok_button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, ".button-D4RPB3ZC.size-small-D4RPB3ZC.color-brand-D4RPB3ZC.variant-primary-D4RPB3ZC")))
-    ok_button.click()
-
-  def get_data_from_alert(self):
-
-    while True:
-      try:
-        alert_msg = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, "div.secondaryRow-QkiHQU0S")))
-        self.read_alert(alert_msg.text)
-        alert_msg = None
-      except Exception as e:
-        continue
-      
 
 
-browser = Browser(DRIVER_PATH, True)
-
-# sign in to the browser
-browser.sign_in()
-
-# click on "Products" tab
-browser.click_products_tab()
-
-# wait for an alert to popup
-browser.get_data_from_alert()
-
-
-# 🎯 TO-DO
-# 🟢 classify the buys, sells and exits into dictionaries
-
-# 🟢 after getting the text from the alert, read it. figure out if its about an entry or an exit (use regex)
-
-# 🟡 print out the classified entries and exits in their lists and dictionaries
-
-# 🔴 after knowing if its an entry or exit, go to that chart & timeframe
