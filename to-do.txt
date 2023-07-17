@@ -33,7 +33,7 @@ in order to post the screenshot,
 2. 🟢 get the entry data in the alert
    🟢 structure the code and the modules correctly (add the code for the open_tv file)
    🟡 go to the chart and the timeframe which has that new entry 
-      🟡remove the screener on the chart (click on the trash icon at the bottom-left)
+      🟡remove the screener on the chart (click on the trash icon at the bottom-left, right click the chart and click remove indicators, click the X at the top of the indicator label)
       🔴add a new indicator to the chart (the one which will draw tp/sl lines)
    🟠 get the exit data too and go to the chart. we're not getting the closed sell/closed buy part of the alert. fix this in the read_alert function
 
