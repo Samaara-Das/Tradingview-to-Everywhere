@@ -32,14 +32,11 @@ class OpenChart:
     self.new_tab_handle = self.driver.window_handles[1]
 
   def set_up_new_tab(self):
-    # right click and click the "remove all indicators" option
-    chart = WebDriverWait(self.driver, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".chart-container-border")))
-    print('about to right click...')
-    ActionChains(self.driver).context_click(chart).perform()
+    # click on the trash icon
+    locator = (By.XPATH, '//*[@id="drawing-toolbar"]/div/div/div/div/div[4]/div/div/div/button')
+    button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable(locator))
+    button.click()
 
-    menu = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="menu-inner"] table tbody')))
-    options = menu.find_elements(By.CSS_SELECTOR, 'tr.item-GJX1EXhk.interactive-GJX1EXhk.normal-GJX1EXhk')
-    options[11].click()
 
   def switch_to_old_tab(self):
     self.driver.switch_to.window(self.old_tab_handle)
