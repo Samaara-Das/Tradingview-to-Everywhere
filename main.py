@@ -14,8 +14,7 @@ browser.sign_in()
 # click on "Products" tab
 browser.click_products_tab()
 
-# wait for alerts and get data from them
+# wait for alerts and get data from them abt a new entry/exit
+# and then go that new entry's/exit's chart & timeframe
 alerts = get_alert_data.Alerts(browser.driver)
 alerts.get_data_from_alert()
-
-# open the chart where there's a new entry/exit

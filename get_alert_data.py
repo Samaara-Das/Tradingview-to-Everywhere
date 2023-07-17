@@ -4,6 +4,7 @@ by getting text from alerts
 '''
 
 # import modules
+import open_entry_chart
 import time
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -20,6 +21,10 @@ class Alerts:
   def __init__(self, driver) -> None:
     self.driver = driver
 
+    # open a new tab
+    self.chart = open_entry_chart.OpenChart(self.driver, 0, 0, 0, '', '')
+    self.chart.open_new_tab()
+
   def read_alert(self, msg):
     buy_list = []
     sell_list = []
@@ -28,8 +33,6 @@ class Alerts:
 
     lines = msg.split('\n')
     self.close_alert()
-
-    print('📖  reading lines')
 
     for line in lines:
       parts = line.split('|')
