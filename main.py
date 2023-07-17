@@ -1,0 +1,21 @@
+'''
+this is the main module where we use all the other modules to perform tasks
+'''
+
+import open_tv
+import get_alert_data
+
+# initiate Browser
+browser = open_tv.Browser(open_tv.DRIVER_PATH, True)
+
+# sign in to the browser
+browser.sign_in()
+
+# click on "Products" tab
+browser.click_products_tab()
+
+# wait for alerts and get data from them
+alerts = get_alert_data.Alerts(browser.driver)
+alerts.get_data_from_alert()
+
+# open the chart where there's a new entry/exit
