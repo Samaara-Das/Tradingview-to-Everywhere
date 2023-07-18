@@ -33,7 +33,6 @@ class Alerts:
 
     for line in lines:
       parts = line.split('|')
-
       if 'Buy' in line or 'Sell' in line:
         self.change_symbol_tframe(parts[4], parts[5])
 
