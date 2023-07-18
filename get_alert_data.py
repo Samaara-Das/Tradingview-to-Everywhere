@@ -4,6 +4,7 @@ by getting text from alerts
 '''
 
 # import modules
+import time
 import open_entry_chart
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -16,11 +17,10 @@ class Alerts:
     self.driver = driver
 
     # open a new tab
-    self.chart = open_entry_chart.OpenChart(self.driver, 0, 0, 0, '', '')
+    self.chart = open_entry_chart.OpenChart(self.driver)
     self.chart.open_new_tab()
-    self.chart.set_up_new_tab()
-    # self.chart.switch_to_old_tab()
-
+    self.chart.switch_to_old_tab()
+    
   def read_alert(self, msg):
     buy_list = []
     sell_list = []
@@ -48,6 +48,8 @@ class Alerts:
       # if 'Closed Buy' in line and 'TP' in line:
       #   closed_buy_list.append({'entry': parts[0], 'symbol': parts[1], 'timeframe': parts[2]})
       #   print(closed_buy_list[len(closed_buy_list)-1])
+
+
 
   def close_alert(self):
     ok_button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, ".button-D4RPB3ZC.size-small-D4RPB3ZC.color-brand-D4RPB3ZC.variant-primary-D4RPB3ZC")))
