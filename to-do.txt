@@ -39,6 +39,7 @@ in order to post the screenshot,
    🟠 get the exit data too and go to the chart. we're not getting the closed sell/closed buy part of the alert. fix this in the read_alert function
 
 3. 🔴 (atleast do the entry part) for an entry show tp, sl line with shading (use pinescript indicator). for an exit, show that same thing but make sure that price is touching the tp
+      🔴 try making a pinescript indicator which has the same code as the screener except that it only does the calculations for the current symbol. it will draw entry, tp & sl on the chart. and when the tp gets hit, it will show something to signify that the tp got hit.
 
 4. 🔴 take a snapshot of it and post to twitter (try to use the tweepy library)
 
