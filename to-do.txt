@@ -35,7 +35,7 @@ in order to post the screenshot,
    🟡 go to the chart and the timeframe which has that new entry 
       🟢 remove the screener on the chart only once & make the chart position look nice
       🟢 add a new indicator to the chart only once (the one which will draw tp/sl lines)
-      🟡 go to the new symbol and timeframe (make changes in the alert of the pinescript indicator. change the timeframe value)
+      🟡 go to the new symbol and timeframe (optimize the change tf method so that it only changes if the current timeframe is different than the wanted timeframe)
    🟠 get the exit data too and go to the chart. we're not getting the closed sell/closed buy part of the alert. fix this in the read_alert function
 
 3. 🔴 (atleast do the entry part) for an entry show tp, sl line with shading (use pinescript indicator). for an exit, show that same thing but make sure that price is touching the tp
