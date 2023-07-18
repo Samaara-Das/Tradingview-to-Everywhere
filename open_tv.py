@@ -19,6 +19,7 @@ CHROME_PROFILE_PATH = 'C:\\Users\\Puja\\AppData\\Local\\Google\\Chrome\\User Dat
 DRIVER_PATH = 'C:\\Users\\Puja\\chromedriver'
 # EMAIL = 'dassamaara@gmail.com'
 # PWD = '1304sammy#'
+# this is the best email id for logging in because tradingview automatically logs in & doesn't ask for a captcha
 EMAIL = 'nili.thp.work@gmail.com'
 PWD = 'Das12345'
 
