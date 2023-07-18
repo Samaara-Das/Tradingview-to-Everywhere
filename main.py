@@ -8,11 +8,8 @@ import get_alert_data
 # initiate Browser
 browser = open_tv.Browser(open_tv.DRIVER_PATH, True)
 
-# sign in to the browser
-browser.sign_in()
-
-# click on "Products" tab
-browser.click_products_tab()
+# open tradingview chart directly
+browser.open_tv_chart()
 
 # wait for alerts and get data from them abt a new entry/exit
 # and then go that new entry's/exit's chart & timeframe

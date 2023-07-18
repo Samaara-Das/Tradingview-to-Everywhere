@@ -46,6 +46,10 @@ class Browser:
     print("shutting down browser 💤")
     self.driver.close()
 
+  def open_tv_chart(self):
+    # open the tradingview chart 
+    self.open_page("https://www.tradingview.com/chart")
+
   def sign_in(self):
     # open the sign in page
     self.open_page("https://www.tradingview.com/#signin")
@@ -61,10 +65,10 @@ class Browser:
     while True:
       try:
           # Wait for the interfering element to disappear
-          WebDriverWait(self.driver, 10).until(EC.invisibility_of_element_located((By.CSS_SELECTOR, ".header-v4NPAtHi")))
+          # WebDriverWait(self.driver, 10).until(EC.invisibility_of_element_located((By.CSS_SELECTOR, ".header-v4NPAtHi")))
           
           # Click on the "Products" tab
-          product_tab = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.LINK_TEXT, "Products")))
+          product_tab = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.XPATH, "/html/body/div[4]/div[3]/div[2]/div[2]/nav/ul/li[1]")))
           product_tab.click()
           
           # break the loop if we click on the element
