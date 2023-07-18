@@ -34,14 +34,7 @@ class Alerts:
     for line in lines:
       parts = line.split('|')
 
-      if 'Buy' in line:
-        buy_list.append({'entry': parts[1], 'tp': parts[2], 'sl': parts[3], 'symbol': parts[4], 'timeframe': parts[5]})
-        print(buy_list[len(buy_list)-1])
-        self.change_symbol_tframe(parts[4], parts[5])
-
-      if 'Sell' in line:
-        sell_list.append({'entry': parts[1], 'tp': parts[2], 'sl': parts[3], 'symbol': parts[4], 'timeframe': parts[5]})
-        print(sell_list[len(sell_list)-1])
+      if 'Buy' in line or 'Sell' in line:
         self.change_symbol_tframe(parts[4], parts[5])
 
   def close_alert(self):
