@@ -1,15 +1,9 @@
 '''
-this opens up a chart and timeframe on tradingview where there's a new entry/exit
+this opens up a new tab in the browser and sets it up for taking snapshots of the entries/exits
 '''
 
 
 # import modules
-import time
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
