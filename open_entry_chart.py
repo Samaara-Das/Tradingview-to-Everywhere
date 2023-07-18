@@ -28,7 +28,11 @@ class OpenChart:
 
   def change_symbol(self, symbol):
     # click on Symbol Search and search for a specific symbol and hit ENTER
+    # only search for a specific symbol if the current symbol is different from that symbol
     symbol_search = WebDriverWait(self.driver, 15).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="header-toolbar-symbol-search"]')))
+    if symbol_search.find_element(By.CSS_SELECTOR, 'div').text == symbol:
+      return
+    
     symbol_search.click()
     search_input = self.driver.find_element(By.XPATH, '//*[@id="overlap-manager-root"]/div/div/div[2]/div/div[2]/div[1]/input')
     search_input.send_keys(symbol)
@@ -39,6 +43,15 @@ class OpenChart:
     tf_dropdown = WebDriverWait(self.driver, 15).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="header-toolbar-intervals"]/button')))
     tf_dropdown.click()
     
+    # choose from the dropdown options
+    options = WebDriverWait(self.driver, 15).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="overlap-manager-root"]/div/span/div[1]/div/div/div')))
+    options = options.find_elements(By.CSS_SELECTOR, 'div > div')
+
+    for option in options:
+      if option.get_attribute('data-value') == timeframe:
+        option.click()
+        break
+                                               
 
   def switch_to_old_tab(self):
     self.driver.switch_to.window(self.old_tab_handle)
