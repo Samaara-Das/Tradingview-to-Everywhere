@@ -26,11 +26,19 @@ class OpenChart:
     self.new_tab_handle = self.driver.window_handles[1]
 
   def set_up_new_tab(self):
-    # click on the trash icon
-    locator = (By.XPATH, '//*[@id="drawing-toolbar"]/div/div/div/div/div[4]/div/div/div/button')
-    button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable(locator))
-    button.click()
+    # add the inidcator onto the chart (the one which will draw entry/tp/sl lines)
+    self.add_indicator()
 
+  def add_indicator(self):
+    while True:
+      try:
+        arrow_btn = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, "button[aria-label='Indicators, Metrics & Strategies']")))
+        print('⬇️ clicked on indicator button', arrow_btn.tagname)
+        arrow_btn.click()
+        break
+      except:
+        # print('couldnt clcik on indicator button')
+        continue
 
   def switch_to_old_tab(self):
     self.driver.switch_to.window(self.old_tab_handle)
