@@ -26,11 +26,19 @@ class OpenChart:
     self.driver.execute_script('''window.open("{}");'''.format(self.driver.current_url))  
     self.new_tab_handle = self.driver.window_handles[1]
 
-  def change_symbol_tframe(self, symbol):
-    # self.switch_to_new_tab()
-    self.driver.find_element(By.CLASS_NAME, 'input-3lfOzLDc').send_keys(Keys.CONTROL + "a")
-    self.driver.find_element(By.CLASS_NAME, 'input-3lfOzLDc').send_keys(Keys.DELETE)
-    self.driver.find_element(By.CLASS_NAME, 'input-3lfOzLDc').send_keys(symbol)
+  def change_symbol(self, symbol):
+    # click on Symbol Search and search for a specific symbol and hit ENTER
+    symbol_search = WebDriverWait(self.driver, 15).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="header-toolbar-symbol-search"]')))
+    symbol_search.click()
+    search_input = self.driver.find_element(By.XPATH, '//*[@id="overlap-manager-root"]/div/div/div[2]/div/div[2]/div[1]/input')
+    search_input.send_keys(symbol)
+    search_input.send_keys(Keys.ENTER)
+
+  def change_tframe(self, timeframe):
+    # click on the timeframe and choose from the dropdown
+    tf_dropdown = WebDriverWait(self.driver, 15).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="header-toolbar-intervals"]/button')))
+    tf_dropdown.click()
+    
 
   def switch_to_old_tab(self):
     self.driver.switch_to.window(self.old_tab_handle)
