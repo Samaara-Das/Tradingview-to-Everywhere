@@ -9,6 +9,7 @@ import open_entry_chart
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
 
 # class
 class Alerts:
@@ -36,24 +37,22 @@ class Alerts:
       if 'Buy' in line:
         buy_list.append({'entry': parts[1], 'tp': parts[2], 'sl': parts[3], 'symbol': parts[4], 'timeframe': parts[5]})
         print(buy_list[len(buy_list)-1])
+        self.change_symbol_tframe(parts[4], parts[5])
 
       if 'Sell' in line:
         sell_list.append({'entry': parts[1], 'tp': parts[2], 'sl': parts[3], 'symbol': parts[4], 'timeframe': parts[5]})
         print(sell_list[len(sell_list)-1])
-
-      # if 'Closed Sell' in line and 'TP' in line: 
-      #   closed_sell_list.append({'entry': parts[0], 'symbol': parts[1], 'timeframe': parts[2]})
-      #   print(closed_sell_list[len(closed_sell_list)-1])
-
-      # if 'Closed Buy' in line and 'TP' in line:
-      #   closed_buy_list.append({'entry': parts[0], 'symbol': parts[1], 'timeframe': parts[2]})
-      #   print(closed_buy_list[len(closed_buy_list)-1])
-
-
+        self.change_symbol_tframe(parts[4], parts[5])
 
   def close_alert(self):
     ok_button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, ".button-D4RPB3ZC.size-small-D4RPB3ZC.color-brand-D4RPB3ZC.variant-primary-D4RPB3ZC")))
     ok_button.click()
+
+  def change_symbol_tframe(self, symbol, timeframe):
+    self.chart.switch_to_new_tab()
+    self.chart.change_symbol(symbol)
+    self.chart.change_tframe(timeframe)
+    self.chart.switch_to_old_tab()
 
   def get_data_from_alert(self):
 
@@ -65,3 +64,5 @@ class Alerts:
       except Exception as e:
         continue
       
+
+
