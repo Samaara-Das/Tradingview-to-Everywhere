@@ -8,6 +8,7 @@ from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.action_chains import ActionChains
 
 # class
 class OpenChart:
@@ -19,6 +20,16 @@ class OpenChart:
     # Opening a duplicate tab
     self.driver.execute_script('''window.open("{}");'''.format(self.driver.current_url))  
     self.new_tab_handle = self.driver.window_handles[1]
+
+  def change_indicator_settings(self):
+    # click on the settings option when hovering on the indicator
+    indicator = WebDriverWait(self.driver, 15).until(EC.presence_of_element_located((
+      By.XPATH, 
+      '/html/body/div[2]/div[5]/div[2]/div[1]/div/table/tr[1]/td[2]/div/div[2]/div[2]/div[2]/div[2]')))
+    
+    print(indicator)
+    print(indicator.get_attribute('data-name'))
+    ActionChains(self.driver).double_click(indicator).perform()
 
   def change_symbol(self, symbol):
     # only search for a specific symbol if the current symbol is different from that symbol
