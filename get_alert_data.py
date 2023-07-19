@@ -16,18 +16,10 @@ class Alerts:
 
   def __init__(self, driver) -> None:
     self.driver = driver
-
     # open a new tab
     self.chart = open_entry_chart.OpenChart(self.driver)
-    self.chart.open_new_tab()
-    self.chart.switch_to_old_tab()
     
   def read_alert(self, msg):
-    buy_list = []
-    sell_list = []
-    closed_buy_list = []
-    closed_sell_list = []
-
     lines = msg.split('\n')
     self.close_alert()
 
@@ -41,13 +33,10 @@ class Alerts:
     ok_button.click()
 
   def change_symbol_tframe(self, symbol, timeframe):
-    self.chart.switch_to_new_tab()
     self.chart.change_symbol(symbol)
     self.chart.change_tframe(timeframe)
-    self.chart.switch_to_old_tab()
 
   def get_data_from_alert(self):
-
     while True:
       try:
         alert_msg = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, "div.secondaryRow-QkiHQU0S")))
