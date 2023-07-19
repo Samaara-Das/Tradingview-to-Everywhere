@@ -28,7 +28,7 @@ class Alerts:
       if 'Buy' in line or 'Sell' in line:
         self.chart.change_symbol(parts[4])
         self.chart.change_tframe(parts[5])
-        self.chart.change_indicator_settings()
+        self.chart.change_indicator_settings(parts[1], parts[2], parts[3])
 
   def close_alert(self):
     ok_button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, ".button-D4RPB3ZC.size-small-D4RPB3ZC.color-brand-D4RPB3ZC.variant-primary-D4RPB3ZC")))

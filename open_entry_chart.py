@@ -21,15 +21,15 @@ class OpenChart:
     self.driver.execute_script('''window.open("{}");'''.format(self.driver.current_url))  
     self.new_tab_handle = self.driver.window_handles[1]
 
-  def change_indicator_settings(self):
-    # click on the settings option when hovering on the indicator
+  def change_indicator_settings(self, entry, tp, sl):
+    # open the settings of the indicator
     indicator = WebDriverWait(self.driver, 15).until(EC.presence_of_element_located((
       By.XPATH, 
-      '/html/body/div[2]/div[5]/div[2]/div[1]/div/table/tr[1]/td[2]/div/div[2]/div[2]/div[2]/div[2]')))
+      '/html/body/div[2]/div[5]/div[2]/div[1]/div/table/tr[1]/td[2]/div/div[2]/div[2]/div[2]/div[3]')))
     
     print(indicator)
     print(indicator.get_attribute('data-name'))
-    ActionChains(self.driver).double_click(indicator).perform()
+    ActionChains(self.driver).double_click(indicator).perform() #clicks on the settings of the chart, not indicator
 
   def change_symbol(self, symbol):
     # only search for a specific symbol if the current symbol is different from that symbol
