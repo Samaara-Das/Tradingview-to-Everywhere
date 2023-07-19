@@ -38,10 +38,13 @@ in order to post the screenshot,
       🟢 go to the new symbol and timeframe (optimize the change tf method so that it only changes if the current timeframe is different than the wanted timeframe)
    🟠 get the exit data too and go to the chart. we're not getting the closed sell/closed buy part of the alert. fix this in the read_alert function
 
-3. 🔴 (atleast do the entry part) for an entry show tp, sl line with shading (use pinescript indicator). for an exit, show that same thing but make sure that price is touching the tp
-      make an indicator which will draw the long/short position on the chart given the price & time inputs
+3. 🟠 for an exit, show that that price is touching the tp in the green part
+      🟢 make an indicator which will draw the long/short position on the chart given the price & time inputs
 
-4. 🔴 take a snapshot of it and post to twitter (try to use the tweepy library)
+4. 🟡 take a snapshot of it and post to twitter (try to use the tweepy library)
+   get the entry, sl, entry price data from the alert
+   when on that entry's chart, enter the entry price, sl & tp into the indicator
+   after that, take a snapshot
 
 5. 🔴 store that snapshot and other info in a database
 
