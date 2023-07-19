@@ -9,7 +9,7 @@ import open_entry_chart
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
+
 
 # class
 class Alerts:
@@ -26,15 +26,13 @@ class Alerts:
     for line in lines:
       parts = line.split('|')
       if 'Buy' in line or 'Sell' in line:
-        self.change_symbol_tframe(parts[4], parts[5])
+        self.chart.change_symbol(parts[4])
+        self.chart.change_tframe(parts[5])
+        self.chart.change_indicator_settings()
 
   def close_alert(self):
     ok_button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, ".button-D4RPB3ZC.size-small-D4RPB3ZC.color-brand-D4RPB3ZC.variant-primary-D4RPB3ZC")))
     ok_button.click()
-
-  def change_symbol_tframe(self, symbol, timeframe):
-    self.chart.change_symbol(symbol)
-    self.chart.change_tframe(timeframe)
 
   def get_data_from_alert(self):
     while True:
