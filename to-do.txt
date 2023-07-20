@@ -42,9 +42,14 @@ in order to post the screenshot,
       🟢 make an indicator which will draw the long/short position on the chart given the price & time inputs
 
 4. 🟡 take a snapshot of it and post to twitter (try to use the tweepy library)
-   get the entry, sl, entry price data from the alert
-   when on that entry's chart, enter the entry price, sl & tp into the indicator
-   after that, take a snapshot
+      🟢 get the entry, sl, entry price data from the alert
+      🟡 double click on indicator and enter the tp,sl and entry. asked question on stack overflow:
+         https://stackoverflow.com/questions/76727291/double-clicking-an-element-with-selenim-in-python-isnt-working
+       
+         OR 
+
+         open the pinescript script, enter the tp, sl & entry in the script and click "Save"
+      🔴 after that, take a snapshot
 
 5. 🔴 store that snapshot and other info in a database
 
