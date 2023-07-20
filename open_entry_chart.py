@@ -4,6 +4,7 @@ this opens up a new tab in the browser and sets it up for taking snapshots of th
 
 
 # import modules
+from time import sleep
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
@@ -21,15 +22,12 @@ class OpenChart:
     self.driver.execute_script('''window.open("{}");'''.format(self.driver.current_url))  
     self.new_tab_handle = self.driver.window_handles[1]
 
-  def change_indicator_settings(self):
-    # click on the settings option when hovering on the indicator
-    indicator = WebDriverWait(self.driver, 15).until(EC.presence_of_element_located((
-      By.XPATH, 
-      '/html/body/div[2]/div[5]/div[2]/div[1]/div/table/tr[1]/td[2]/div/div[2]/div[2]/div[2]/div[2]')))
-    
-    print(indicator)
-    print(indicator.get_attribute('data-name'))
-    ActionChains(self.driver).double_click(indicator).perform()
+  def change_indicator_settings(self, entry, tp, sl):
+    # double click on the indicator
+    indicator = self.driver.find_elements(By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')
+    print(indicator[0])
+    print(indicator[0].get_attribute('class'))
+    ActionChains(self.driver).double_click(indicator[0]).perform()
 
   def change_symbol(self, symbol):
     # only search for a specific symbol if the current symbol is different from that symbol
