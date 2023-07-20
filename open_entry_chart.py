@@ -18,7 +18,6 @@ class OpenChart:
     self.driver = driver
 
   def change_indicator_settings(self, _type, entry, tp, sl):
-    print(entry, tp, sl)
     # get the 1st indicator on the top of the chart
     indicators = self.driver.find_elements(By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')
 
@@ -44,7 +43,6 @@ class OpenChart:
       ActionChains(self.driver).key_down(Keys.CONTROL, inputs[i]).send_keys('a').perform()
       inputs[i].send_keys(Keys.DELETE)
       inputs[i].send_keys(val)
-      sleep(5)
 
     # click on submit
     self.driver.find_element(By.CSS_SELECTOR, 'button[name="submit"]').click()
