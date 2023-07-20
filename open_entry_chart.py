@@ -17,11 +17,6 @@ class OpenChart:
   def __init__(self, driver) -> None:
     self.driver = driver
 
-  def open_new_tab(self):
-    # Opening a duplicate tab
-    self.driver.execute_script('''window.open("{}");'''.format(self.driver.current_url))  
-    self.new_tab_handle = self.driver.window_handles[1]
-
   def change_indicator_settings(self, entry, tp, sl):
     print(entry, tp, sl)
     # get the 1st indicator on the top of the chart
