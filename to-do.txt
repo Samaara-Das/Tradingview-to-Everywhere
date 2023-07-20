@@ -51,8 +51,8 @@ in order to post the screenshot,
       🟢 make sure the tp, sl & entry are correct when inputting them in the settings
       🟢 after going to every chart, make sure that the last long/short position has been removed so that when we draw a new one, the last one won't show
       🟢 draw tp, sl, entry labels with their price
-      🟡 when inputting the sl, entry & tp, also input the type of entry i.e. Buy or Sell. do this in pytohn and pinescript
-      🔴 update script changes to drive
+      🟢 when inputting the sl, entry & tp, also input the type of entry i.e. Buy or Sell. do this in pytohn and pinescript
+      🟢 update script changes to drive
       🔴 after that, take a snapshot
 
 5. 🔴 store that snapshot and other info in a database
@@ -63,11 +63,30 @@ in order to post the screenshot,
 
 
 
+API KEY:
+gx8Uxed9AeiU4VYYisyfmXsz8
+
+API SECRET:
+3i3IA6R1O0HTIyNby8TvxHe4ExNTU9yTPyKUSJVkKGAtAbF0X1
+
+BEARER TOKEN:
+AAAAAAAAAAAAAAAAAAAAAM%2F8oAEAAAAALkY4x84f8qk1PMlgv5TTIjBUiYk%3DsBC4N3lhXmIf6DrfFd7bMH1uY9kUkou9nNiIKzVoYWoDuPUE38
 
 
+ACCESS TOKEN:
+1496761536953864194-ISDErd59d4OkOlnuPCVu7akibjhFpf
+
+ACCESS TOKEN SECRET:
+JBOHAIfWNyLQqhthnfIxPeWtk42dnFqohtwtTeImr0Sii
 
 
+OAuth 2.0 Client ID and Client Secret
 
+CLIENT ID:
+UE5xTmVvdTdCd19QX1Y5eFlCc186MTpjaQ
+
+CLIENT SECRET:
+Fm3SEOskSW2MeFYUrTwzL1pEhOXrCv-DQTZubAfaA9-8t4EJaO
 
 
 
