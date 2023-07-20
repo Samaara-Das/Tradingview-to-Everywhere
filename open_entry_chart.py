@@ -23,11 +23,34 @@ class OpenChart:
     self.new_tab_handle = self.driver.window_handles[1]
 
   def change_indicator_settings(self, entry, tp, sl):
-    # double click on the indicator
+    print(entry, tp, sl)
+    # get the 1st indicator on the top of the chart
     indicators = self.driver.find_elements(By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')
 
+    # double click on the indicator so that the settings can open 
     ActionChains(self.driver).move_to_element(indicators[0]).perform()
     ActionChains(self.driver).double_click(indicators[0]).perform()
+
+    # change the settings
+    settings = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.content-tBgV1m0B')))
+    inputs = settings.find_elements(By.CSS_SELECTOR, '.cell-tBgV1m0B input')[:-1]
+
+    for i in range(len(inputs)):
+      val = 0
+      if i == 0:
+        val = entry
+      elif i == 1:
+        val = tp
+      elif i == 2:
+        val = sl
+
+      ActionChains(self.driver).key_down(Keys.CONTROL, inputs[i]).send_keys('a').perform()
+      inputs[i].send_keys(Keys.DELETE)
+      inputs[i].send_keys(val)
+      sleep(5)
+
+    # click on submit
+    self.driver.find_element(By.CSS_SELECTOR, 'button[name="submit"]').click()
 
   def change_symbol(self, symbol):
     # only search for a specific symbol if the current symbol is different from that symbol

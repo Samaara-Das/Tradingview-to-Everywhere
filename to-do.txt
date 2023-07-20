@@ -45,6 +45,10 @@ in order to post the screenshot,
       🟢 get the entry, sl, entry price data from the alert
       🟢 double click on indicator and enter the tp,sl and entry. asked question on stack overflow & discord:
          https://stackoverflow.com/questions/76727291/double-clicking-an-element-with-selenim-in-python-isnt-working
+      🟢 make sure the tp, sl & entry are correct when inputting them in the settings
+      🟡 after going to every chart, make sure that the last long/short position has been removed so that when we draw a new one, the last one won't show
+      🔴 draw tp, sl, entry labels with their price
+      🔴 update script changes to drive
        
       🟡 after that, take a snapshot
 
