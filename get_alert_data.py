@@ -26,6 +26,7 @@ class Alerts:
     for line in lines:
       parts = line.split('|')
       if 'Buy' in line or 'Sell' in line:
+        print('\n',line)
         self.chart.change_symbol(parts[4])
         self.chart.change_tframe(parts[5])
         self.chart.change_indicator_settings(parts[1], parts[2], parts[3])
