@@ -24,10 +24,10 @@ class OpenChart:
 
   def change_indicator_settings(self, entry, tp, sl):
     # double click on the indicator
-    indicator = self.driver.find_elements(By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')
-    print(indicator[0])
-    print(indicator[0].get_attribute('class'))
-    ActionChains(self.driver).double_click(indicator[0]).perform()
+    indicators = self.driver.find_elements(By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')
+
+    ActionChains(self.driver).move_to_element(indicators[0]).perform()
+    ActionChains(self.driver).double_click(indicators[0]).perform()
 
   def change_symbol(self, symbol):
     # only search for a specific symbol if the current symbol is different from that symbol
