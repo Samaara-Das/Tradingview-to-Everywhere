@@ -48,7 +48,7 @@ in order to post the screenshot,
        
          OR 
 
-         open the pinescript script, enter the tp, sl & entry in the script and click "Save"
+      🟠 open the pinescript script, enter the tp, sl & entry in the script and click "Save"
       🔴 after that, take a snapshot
 
 5. 🔴 store that snapshot and other info in a database
