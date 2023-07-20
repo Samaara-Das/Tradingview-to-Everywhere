@@ -16,7 +16,6 @@ class Alerts:
 
   def __init__(self, driver) -> None:
     self.driver = driver
-    # open a new tab
     self.chart = open_entry_chart.OpenChart(self.driver)
     
   def read_alert(self, msg):
