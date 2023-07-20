@@ -4,6 +4,7 @@ this opens up a new tab in the browser and sets it up for taking snapshots of th
 
 
 # import modules
+from time import sleep
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
@@ -16,20 +17,37 @@ class OpenChart:
   def __init__(self, driver) -> None:
     self.driver = driver
 
-  def open_new_tab(self):
-    # Opening a duplicate tab
-    self.driver.execute_script('''window.open("{}");'''.format(self.driver.current_url))  
-    self.new_tab_handle = self.driver.window_handles[1]
+  def change_indicator_settings(self, _type, entry, tp, sl):
+    print(entry, tp, sl)
+    # get the 1st indicator on the top of the chart
+    indicators = self.driver.find_elements(By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')
 
-  def change_indicator_settings(self, entry, tp, sl):
-    # open the settings of the indicator
-    indicator = WebDriverWait(self.driver, 15).until(EC.presence_of_element_located((
-      By.XPATH, 
-      '/html/body/div[2]/div[5]/div[2]/div[1]/div/table/tr[1]/td[2]/div/div[2]/div[2]/div[2]/div[3]')))
-    
-    print(indicator)
-    print(indicator.get_attribute('data-name'))
-    ActionChains(self.driver).double_click(indicator).perform() #clicks on the settings of the chart, not indicator
+    # double click on the indicator so that the settings can open 
+    ActionChains(self.driver).move_to_element(indicators[0]).perform()
+    ActionChains(self.driver).double_click(indicators[0]).perform()
+
+    # change the settings
+    settings = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.content-tBgV1m0B')))
+    inputs = settings.find_elements(By.CSS_SELECTOR, '.cell-tBgV1m0B input')[:-1]
+
+    for i in range(len(inputs)):
+      val = 0
+      if i == 0:
+        val = entry
+      elif i == 1:
+        val = tp
+      elif i == 2:
+        val = sl
+      elif i == 3:
+        val = _type
+
+      ActionChains(self.driver).key_down(Keys.CONTROL, inputs[i]).send_keys('a').perform()
+      inputs[i].send_keys(Keys.DELETE)
+      inputs[i].send_keys(val)
+      sleep(5)
+
+    # click on submit
+    self.driver.find_element(By.CSS_SELECTOR, 'button[name="submit"]').click()
 
   def change_symbol(self, symbol):
     # only search for a specific symbol if the current symbol is different from that symbol
