@@ -5,6 +5,7 @@ this opens up a new tab in the browser and sets it up for taking snapshots of th
 
 # import modules
 from time import sleep
+from tkinter import Tk, TclError
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
@@ -16,6 +17,7 @@ class OpenChart:
 
   def __init__(self, driver) -> None:
     self.driver = driver
+    self.camera = WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.XPATH, "//button[@aria-label='Take a snapshot']/div[@id='header-toolbar-screenshot']")))
 
   def change_indicator_settings(self, _type, entry, tp, sl):
     # get the 1st indicator on the top of the chart
@@ -71,3 +73,16 @@ class OpenChart:
         option.click()
         break
                                                
+  def save_chart_img(self):
+    # copy the link of the chart
+    self.camera.click()
+    save_img = self.driver.find_element(By.XPATH, '//*[@id="overlap-manager-root"]/div/span/div[1]/div/div/div[4]')
+    save_img.click()
+
+    # get the saved link of the chart from the clipboard
+    try:
+      clipboard = Tk().clipboard_get()
+    except TclError:
+      print("Clipboard is empty.")
+
+    return clipboard
