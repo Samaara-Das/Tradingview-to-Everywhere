@@ -15,4 +15,3 @@ browser.open_tv_chart()
 # and then go that new entry's/exit's chart & timeframe
 alerts = get_alert_data.Alerts(browser.driver)
 alerts.get_data_from_alert()
- 

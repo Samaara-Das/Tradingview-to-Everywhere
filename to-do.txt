@@ -52,7 +52,10 @@ in order to post the screenshot,
          
 5. 🟡 store that snapshot and other info in a database
 
-6. 🔴 optimize & structure the code & add documentation:
-   try to login to tradingview without having to sign in. make sure it automatically logs in (use cookies)
-   https://stackoverflow.com/questions/45417335/python-use-cookie-to-login-with-selenium
+6. 🔴 finishing touches
+      🔴 optimize 
+            try to login to tradingview without having to sign in. make sure it automatically logs in (use cookies)
+            https://stackoverflow.com/questions/45417335/python-use-cookie-to-login-with-selenium
+      🔴 structure the code
+      🔴 add documentation:
 
