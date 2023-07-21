@@ -9,13 +9,7 @@ LEGEND:
 🎯 GOAL: send tradingview chart images (with sl/tp lines of a specific entry on a specific chart) to twitter
 
 
-❓I have asked for help on stack overflow & on the discord pinescript server
-link to the stack overflow question: 
-https://stackoverflow.com/questions/76693684/how-do-i-send-tradingview-chart-snapshots-to-twitter-using-python-pinescript
-
-
 🤔 HOW DO WE DO IT:
-
 
 in order to post the screenshot, 
 
@@ -41,9 +35,9 @@ in order to post the screenshot,
 3. 🟠 for an exit, show that that price is touching the tp in the green part
       🟢 make an indicator which will draw the long/short position on the chart given the price & time inputs
 
-4. 🟡 take a snapshot of it and post to twitter (try to use the tweepy library)
+4. 🟢 take a snapshot of it and post to twitter (try to use the tweepy library)
    🟢 get the entry, sl, entry price data from the alert
-   🟡 when on that entry's chart, enter the entry price, sl & tp into the indicator
+   🟢 when on that entry's chart, enter the entry price, sl & tp into the indicator
    after that, take a snapshot
       🟢 get the entry, sl, entry price data from the alert
       🟢 double click on indicator and enter the tp,sl and entry. asked question on stack overflow & discord:
@@ -53,42 +47,12 @@ in order to post the screenshot,
       🟢 draw tp, sl, entry labels with their price
       🟢 when inputting the sl, entry & tp, also input the type of entry i.e. Buy or Sell. do this in pytohn and pinescript
       🟢 update script changes to drive
-      🟡 once we have changed the indicator settings, call a method to get the link of the chart. then call the twitter class. pass in the text (Buy in EURUSD at 1.0932) with link of the chart.
+      🟢 once we have changed the indicator settings, call a method to get the link of the chart. then call the twitter class. pass in the text (Buy in EURUSD at 1.0932) with link of the chart.
+         🟠 posted question on stack overflow about this error: https://stackoverflow.com/questions/76737555/processing-error-while-using-selenium-in-python
          
-5. 🔴 store that snapshot and other info in a database
+5. 🟡 store that snapshot and other info in a database
 
-6. 🔴 optimize:
+6. 🔴 optimize & structure the code & add documentation:
    try to login to tradingview without having to sign in. make sure it automatically logs in (use cookies)
    https://stackoverflow.com/questions/45417335/python-use-cookie-to-login-with-selenium
-
-
-
-API KEY:
-gx8Uxed9AeiU4VYYisyfmXsz8
-
-API SECRET:
-3i3IA6R1O0HTIyNby8TvxHe4ExNTU9yTPyKUSJVkKGAtAbF0X1
-
-BEARER TOKEN:
-AAAAAAAAAAAAAAAAAAAAAM%2F8oAEAAAAALkY4x84f8qk1PMlgv5TTIjBUiYk%3DsBC4N3lhXmIf6DrfFd7bMH1uY9kUkou9nNiIKzVoYWoDuPUE38
-
-
-ACCESS TOKEN:
-1496761536953864194-ISDErd59d4OkOlnuPCVu7akibjhFpf
-
-ACCESS TOKEN SECRET:
-JBOHAIfWNyLQqhthnfIxPeWtk42dnFqohtwtTeImr0Sii
-
-
-OAuth 2.0 Client ID and Client Secret
-
-CLIENT ID:
-UE5xTmVvdTdCd19QX1Y5eFlCc186MTpjaQ
-
-CLIENT SECRET:
-Fm3SEOskSW2MeFYUrTwzL1pEhOXrCv-DQTZubAfaA9-8t4EJaO
-
-
-
-
 
