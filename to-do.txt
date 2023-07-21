@@ -54,6 +54,7 @@ in order to post the screenshot,
       🟢 when inputting the sl, entry & tp, also input the type of entry i.e. Buy or Sell. do this in pytohn and pinescript
       🟢 update script changes to drive
       🔴 after that, take a snapshot using tweepy. read articles and videos
+         🟡 how to tweet - https://www.youtube.com/watch?v=Ik1Sw2bkago&list=PLTqHuV0gIyxq_Wix5AbtirmUkkmJplEYn&index=2
          using the twitter api- https://developer.twitter.com/en/docs/twitter-api/getting-started/about-twitter-api
          developer portal - https://developer.twitter.com/en/portal/dashboard
 

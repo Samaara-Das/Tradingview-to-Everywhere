@@ -3,17 +3,15 @@ this file is for sending snapshots from tradingview to twitter
 '''
 
 import tweepy
-import keys
+from keys import *
 
-def api():
-    auth = tweepy.OAuthHandler(keys.api_key, keys.api_secret)
-    auth.set_access_token(keys.access_token, keys.access_token_secret)
+class TwitterClient:
+    def __init__(self):
+        self.client = tweepy.Client(bearer_token, api_key, api_secret, access_token, access_token_secret)
+        self.auth = tweepy.OAuth1UserHandler(api_key, api_secret, access_token, access_token_secret) 
+        self.api = tweepy.API(self.auth)
 
-def tweet(api: tweepy.API, message: str, image_path=None):
-    if image_path:
-        api.update_status_with_media(message, image_path)
-    else:
-        api.update_status(message)
+    def create_tweet(self, text):
+        self.client.create_tweet(text=text)
 
-    print('Tweeted successfully!')
 
