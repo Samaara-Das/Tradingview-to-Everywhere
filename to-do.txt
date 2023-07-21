@@ -52,7 +52,14 @@ in order to post the screenshot,
          
 5. 🟡 store that snapshot and other info in a database
 
-6. 🔴 finishing touches
+6. 🔴 make sure it opens the correct chrome profile on the desktop. on the home laptop, it's opening the correct chrome profile i.e. nili.thp
+
+7. 🔴 finishing touches
+      🔴 make sure it can send tweets on behalf of other accounts. try having a developer portal with those sccounts. create new keys & secrets.
+
+      OR
+
+      find out how we can send tweets on behalf of multiple accounts
       🔴 optimize 
             try to login to tradingview without having to sign in. make sure it automatically logs in (use cookies)
             https://stackoverflow.com/questions/45417335/python-use-cookie-to-login-with-selenium
