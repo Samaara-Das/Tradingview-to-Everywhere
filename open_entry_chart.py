@@ -49,6 +49,7 @@ class OpenChart:
     # click on submit
     self.driver.find_element(By.CSS_SELECTOR, 'button[name="submit"]').click()
 
+
   def change_symbol(self, symbol):
     # only search for a specific symbol if the current symbol is different from that symbol
     symbol_search = WebDriverWait(self.driver, 15).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="header-toolbar-symbol-search"]')))
@@ -74,6 +75,8 @@ class OpenChart:
         break
                                                
   def save_chart_img(self):
+    tk = Tk()
+
     # copy the link of the chart
     self.camera.click()
     save_img = self.driver.find_element(By.XPATH, '//*[@id="overlap-manager-root"]/div/span/div[1]/div/div/div[4]')
@@ -81,8 +84,8 @@ class OpenChart:
 
     # get the saved link of the chart from the clipboard
     try:
-      clipboard = Tk().clipboard_get()
+      clipboard = tk.clipboard_get()
     except TclError:
-      print("Clipboard is empty.")
+      print(str(TclError))
 
     return clipboard
