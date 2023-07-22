@@ -82,11 +82,15 @@ class OpenChart:
     open_in_new_tab.click()
 
     # get the link of the newly opened tab
-    tab_url = self.driver.current_url
-    print(tab_url)
+    for handle in self.driver.window_handles:
+      self.driver.switch_to.window(handle)
+      print(self.driver.current_url)
 
     # close the tab
-    ActionChains(self.driver).key_down(Keys.CONTROL).send_keys('w').perform()
+    last = len(self.driver.window_handles)-1
+    self.driver.switch_to.window(self.window_handles[last])
+    print('url of current driver: ', self.driver.current_url)
+    self.driver.close()
 
     # get the saved link of the chart from the clipboard
     link = pyperclip.paste()
