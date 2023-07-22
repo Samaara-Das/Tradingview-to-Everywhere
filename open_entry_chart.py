@@ -4,8 +4,8 @@ this opens up a new tab in the browser and sets it up for taking snapshots of th
 
 
 # import modules
+import pyperclip
 from time import sleep
-from tkinter import Tk, TclError
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
@@ -17,6 +17,7 @@ class OpenChart:
 
   def __init__(self, driver) -> None:
     self.driver = driver
+    self.window_handles = self.driver.window_handles[0]
     self.camera = WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.XPATH, "//button[@aria-label='Take a snapshot']/div[@id='header-toolbar-screenshot']")))
 
   def change_indicator_settings(self, _type, entry, tp, sl):
@@ -75,17 +76,21 @@ class OpenChart:
         break
                                                
   def save_chart_img(self):
-    tk = Tk()
-
     # copy the link of the chart
     self.camera.click()
-    save_img = self.driver.find_element(By.XPATH, '//*[@id="overlap-manager-root"]/div/span/div[1]/div/div/div[4]')
-    save_img.click()
+    open_in_new_tab = self.driver.find_element(By.XPATH, '//*[@id="overlap-manager-root"]/div/span/div[1]/div/div/div[5]')
+    open_in_new_tab.click()
+
+    # get the link of the newly opened tab
+    tab_url = self.driver.current_url
+    print(tab_url)
+
+    # close the tab
+    ActionChains(self.driver).key_down(Keys.CONTROL).send_keys('w').perform()
 
     # get the saved link of the chart from the clipboard
-    try:
-      clipboard = tk.clipboard_get()
-    except TclError:
-      print(str(TclError))
-
-    return clipboard
+    link = pyperclip.paste()
+    link = pyperclip.paste()
+    return link
+  
+  
