@@ -20,6 +20,12 @@ access_token2 = '1682766611533672452-4OMVioLYlQMXIfr5p3uYC69SClnWeh'
 access_token_secret2 = 'VkHrdU9FC6JheBo0LVDfKz4YiwbC1MgYVtQKiFSUVqmGe'
 
 # OAuth 2.0 Client ID and Client Secret
-client_id = 'UFBIV2RxSmhDQnhRaldRaXdmdWo6MTpjaQ'
-client_secret = 'WvF2NSIR_YtUmKUlD79OlZx8tVG2MPxfETRua0ZPturRrI95YC'
+client_id2 = 'UFBIV2RxSmhDQnhRaldRaXdmdWo6MTpjaQ'
+client_secret2 = 'WvF2NSIR_YtUmKUlD79OlZx8tVG2MPxfETRua0ZPturRrI95YC'
 
+
+def get_tokens_of_account(user: int):
+    if user == 1: #my account
+        return (bearer_token, api_key, api_secret, access_token, access_token_secret)
+    if user == 2: #nili.thp.work account
+        return (bearer_token2, api_key2, api_secret2, access_token2, access_token_secret2)

@@ -48,9 +48,14 @@ in order to post the screenshot,
       🟢 when inputting the sl, entry & tp, also input the type of entry i.e. Buy or Sell. do this in pytohn and pinescript
       🟢 update script changes to drive
       🟢 once we have changed the indicator settings, call a method to get the link of the chart. then call the twitter class. pass in the text (Buy in EURUSD at 1.0932) with link of the chart.
-         🟠 posted question on stack overflow about this error: https://stackoverflow.com/questions/76737555/processing-error-while-using-selenium-in-python
+         🟠 posted question on stack overflow about this processing error: https://stackoverflow.com/questions/76737555/processing-error-while-using-selenium-in-python
          
 5. 🟡 store that snapshot and other info in a database
+      🟡 make sure it's tweeting the correct chart that matches with the text
+         clear the clipboard
+         check whether a new thing has been added to our clipboard
+      🟠 test the db out by printing the last row of the db. get the row which is the latest
+      🟢 change the premium screener source code to remove the lines and update on drive
 
 6. 🔴 make sure it opens the correct chrome profile on the desktop. on the home laptop, it's opening the correct chrome profile i.e. nili.thp
 
@@ -60,6 +65,7 @@ in order to post the screenshot,
       OR
 
       find out how we can send tweets on behalf of multiple accounts
+      🔴 after changing the indicator settings in the read_alert method in get_alert_data.py, make sure the chart fully loads with the new indicator settings before it takes a screenshot. so that when it takes a screenshot, the screenshot has the updated symbol, tf & indicator settings
       🔴 optimize 
             try to login to tradingview without having to sign in. make sure it automatically logs in (use cookies)
             https://stackoverflow.com/questions/45417335/python-use-cookie-to-login-with-selenium
