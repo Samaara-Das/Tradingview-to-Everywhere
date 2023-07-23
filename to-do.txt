@@ -51,7 +51,7 @@ in order to post the screenshot,
          🟠 posted question on stack overflow about this processing error: https://stackoverflow.com/questions/76737555/processing-error-while-using-selenium-in-python
          
 5. 🟡 store that snapshot and other info in a database
-      🟡 get the url from the newly opened tab
+      🟡 get the url from the newly opened tab. wait for the page to fully load by checking the img element is present. then take the url and close the tab
       🟠 test the db out by printing the last row of the db. get the row which is the latest
       🟢 change the premium screener source code to remove the lines and update on drive
 
