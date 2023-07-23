@@ -81,16 +81,16 @@ class OpenChart:
     open_in_new_tab = self.driver.find_element(By.XPATH, '//*[@id="overlap-manager-root"]/div/span/div[1]/div/div/div[5]')
     open_in_new_tab.click()
 
-    # get the link of the newly opened tab
-    for handle in self.driver.window_handles:
-      self.driver.switch_to.window(handle)
-      print(self.driver.current_url)
+    # get the link of the newly opened tab after it has fully loaded
+    self.driver.switch_to.window(self.driver.window_handles[-1])
+    WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'img[class="tv-snapshot-image"]')))
+    print('url of current tab: ', self.driver.current_url)
 
-    # close the tab
-    last = len(self.driver.window_handles)-1
-    self.driver.switch_to.window(self.window_handles[last])
-    print('url of current driver: ', self.driver.current_url)
-    self.driver.close()
+    # close the tab 
+    # self.driver.close()
+
+    # switch back to the original tab
+    # self.driver.switch_to.window(self.window_handles[0])
 
     # get the saved link of the chart from the clipboard
     link = pyperclip.paste()
