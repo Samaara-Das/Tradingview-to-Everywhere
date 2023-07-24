@@ -30,5 +30,4 @@ Things to keep in mind:
 
 - make sure that any other chrome browser is closed otherwise it wont work
 - please use the nili.thp.work gmail id to login to tradingview as the chart on that account has been set up in a specific way
-- do not copy anything to the clipboard... it is using the clipboard to retrieve things which are being copied to the clipboard
-- this deletes everything from your clipboard.
+- make sure that when the selenium automated browser is opened, no other tab is manually opened
