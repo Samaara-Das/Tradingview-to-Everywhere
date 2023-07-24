@@ -54,8 +54,12 @@ in order to post the screenshot,
       🟢 get the url from the newly opened tab. wait for the page to fully load by checking the img element is present. then take the url and close the tab
       🟢 make sure it gets the url of the chart for all the messges in the alert and doesn't stop after the 1st one
       🟢 learn how to debug
-      🟡 stress test the number of pairs and tabs (optimize the pinescript script if possible... ask people how i can improve it)
-      🟠 test the db out by printing the last row of the db. get the row which is the latest
+      🟢 make sure it waits for the indicator to get fully loaded on the chart before it takes a snapshot
+      🟠 (optimize the pinescript script if possible... ask people how i can improve it) asked question on discord & stackoverflow:
+         https://stackoverflow.com/questions/76755549/how-do-i-optimize-my-pinescript-script-make-it-faster-and-simpler-to-read
+      🟡 stress test the tabs...open the tabs
+      🔴 test the db out by printing the last row of the db. get the row which is the latest
+      🔴 make sure it's posting about the closes too
       🟢 change the premium screener source code to remove the lines and update on drive
 
 6. 🔴 finishing touches
