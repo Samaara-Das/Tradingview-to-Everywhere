@@ -44,6 +44,7 @@ class Alerts:
 
         time.sleep(4) #sleep so that the indicator can show the tp, sl & entry on the chart
         self.tweet.create_tweet(_type + ' in ' + symbol + ' at ' + entry_price + '.' + self.chart.save_chart_img())
+        print('sent tweet')
 
 
   def close_alert(self):
@@ -83,8 +84,8 @@ def get_last_row():
   with conn:
     # Execute the query and fetch the last row
     cur.execute("SELECT * FROM alerts")
-    last_row = cur.fetchall()
-    print('\nlatest rows: ', last_row)
+    last_rows = cur.fetchall()
+    print('\nlatest rows: ', last_rows[-1])
 
-  return last_row
+  return last_rows[-1]
 
