@@ -13,5 +13,6 @@ browser.open_tv_chart()
 
 # wait for alerts and get data from them abt a new entry/exit
 # and then go that new entry's/exit's chart & timeframe
+# take a snapshot and send to twitter
 alerts = get_alert_data.Alerts(browser.driver)
-alerts.get_data_from_alert()
+alerts.send_to_twitter()

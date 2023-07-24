@@ -44,14 +44,13 @@ class Alerts:
 
         time.sleep(4) #sleep so that the indicator can show the tp, sl & entry on the chart
         self.tweet.create_tweet(_type + ' in ' + symbol + ' at ' + entry_price + '.' + self.chart.save_chart_img())
-        print('sent tweet')
 
 
   def close_alert(self):
     ok_button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, ".button-D4RPB3ZC.size-small-D4RPB3ZC.color-brand-D4RPB3ZC.variant-primary-D4RPB3ZC")))
     ok_button.click()
 
-  def get_data_from_alert(self):
+  def send_to_twitter(self):
     while True:
       try:
         alert_msg = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, "div.secondaryRow-QkiHQU0S")))
