@@ -4,6 +4,7 @@ this opens up a new tab in the browser and sets it up for taking snapshots of th
 
 
 # import modules
+from time import sleep
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
@@ -46,6 +47,15 @@ class OpenChart:
 
     # click on submit
     self.driver.find_element(By.CSS_SELECTOR, 'button[name="submit"]').click()
+
+    # wait for the indicator to fully load so that it can take a snapshot of the new entry, sl & tp
+    while True:
+      class_attr = indicators[0].get_attribute('class')
+      if 'loading' not in class_attr:
+        break
+      else:
+        continue
+    sleep(1)
 
   def change_symbol(self, symbol):
     # only search for a specific symbol if the current symbol is different from that symbol

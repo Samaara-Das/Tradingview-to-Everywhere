@@ -42,7 +42,6 @@ class Alerts:
         self.chart.change_tframe(parts[5])
         self.chart.change_indicator_settings(_type, entry_price, parts[2], parts[3])
 
-        time.sleep(4) #sleep so that the indicator can show the tp, sl & entry on the chart
         self.tweet.create_tweet(_type + ' in ' + symbol + ' at ' + entry_price + '.' + self.chart.save_chart_img())
 
 
