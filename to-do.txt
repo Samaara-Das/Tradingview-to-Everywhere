@@ -52,7 +52,8 @@ in order to post the screenshot,
          
 5. 🟡 store that snapshot and other info in a database
       🟢 get the url from the newly opened tab. wait for the page to fully load by checking the img element is present. then take the url and close the tab
-      🟡 make sure it gets the url of the chart for all the messges in the alert and doesn't stop after the 1st one
+      🟢 make sure it gets the url of the chart for all the messges in the alert and doesn't stop after the 1st one
+      🟡 stress test the number of pairs and tabs
       🟠 test the db out by printing the last row of the db. get the row which is the latest
       🟢 change the premium screener source code to remove the lines and update on drive
 
