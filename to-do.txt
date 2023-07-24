@@ -57,7 +57,7 @@ in order to post the screenshot,
       🟢 make sure it waits for the indicator to get fully loaded on the chart before it takes a snapshot
       🟠 (optimize the pinescript script if possible... ask people how i can improve it) asked question on discord & stackoverflow:
          https://stackoverflow.com/questions/76755549/how-do-i-optimize-my-pinescript-script-make-it-faster-and-simpler-to-read
-      🟡 stress test the tabs...open the tabs
+      🟡 stress test the tabs...open the tabs (this is currently being tested in the tabs branch)
          🟡 we hv opened our browser, 1 tab will already be open. just open 2 more duplicate tabs. go to each tab and go to their own screener's and change their symbol settings to stocks, crypto and forex pairs... 
          🔴 listen to each tab's alerts and write those alert's messages to a file and try reading that text and then by reading, knowing which symbols and timeframew to go to 
       🔴 test the db out by printing the last row of the db. get the row which is the latest
