@@ -4,7 +4,6 @@ by getting text from alerts
 '''
 
 # import modules
-import time
 import sqlite3
 import open_entry_chart
 import send_tweet
@@ -58,6 +57,9 @@ class Alerts:
       except Exception as e:
         continue
       
+
+
+
 
 
 def create_database():

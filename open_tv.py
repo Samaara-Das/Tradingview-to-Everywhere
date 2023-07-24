@@ -50,35 +50,26 @@ class Browser:
     print("shutting down browser 💤")
     self.driver.close()
 
-  def open_tv_chart(self):
-    # open the tradingview chart 
-    self.open_page("https://www.tradingview.com/chart")
+  def open_tv_tabs(self, extra_tabs: int = 2):
+    # open the tradingview tabs
+    self.open_page('https://www.tradingview.com/chart')
+    for i in range(extra_tabs):
+      self.driver.execute_script("window.open('https://www.tradingview.com/chart','_blank')")
 
-  def sign_in(self):
-    # open the sign in page
-    self.open_page("https://www.tradingview.com/#signin")
+  def change_settings(self):
+    for i in range(3):
+      # switch to each tab
+      self.driver.switch_to.window(self.driver.window_handles[i])
+      
+      # inside the tab, click on the settings of the 2nd indicator
+      indicator = self.driver.find_elements(By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')[1]
 
-    # click sign in (google fills our email & pwd automatically so we can just immediately click on sign in)
-    try:
-      sign_in_btn = self.driver.find_element(By.CSS_SELECTOR, ".submitButton-LQwxK8Bm.button-D4RPB3ZC.size-large-D4RPB3ZC.color-brand-D4RPB3ZC.variant-primary-D4RPB3ZC.stretch-D4RPB3ZC")
-      sign_in_btn.click()
-    except:
-      print('⛔ Couldn\'t sign in')
+      ActionChains(self.driver).move_to_element(indicator).perform()
+      ActionChains(self.driver).double_click(indicator).perform()
 
-  def click_products_tab(self):
-    while True:
-      try:
-          # Wait for the interfering element to disappear
-          # WebDriverWait(self.driver, 10).until(EC.invisibility_of_element_located((By.CSS_SELECTOR, ".header-v4NPAtHi")))
-          
-          # Click on the "Products" tab
-          product_tab = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.XPATH, "/html/body/div[4]/div[3]/div[2]/div[2]/nav/ul/li[1]")))
-          product_tab.click()
-          
-          # break the loop if we click on the element
-          break
-      except Exception as e:
-          print(f"⛔ Error: {str(e)}")
+      settings = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.content-tBgV1m0B')))
+      inputs = settings.find_elements(By.CSS_SELECTOR, '.cell-tBgV1m0B input')[:-1]
+      time.sleep(5)
+      
 
-
-
+    # fill up the settings
