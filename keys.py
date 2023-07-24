@@ -1,12 +1,12 @@
 
 # these are for my own account
-api_key = 'gx8Uxed9AeiU4VYYisyfmXsz8'
-api_secret = '3i3IA6R1O0HTIyNby8TvxHe4ExNTU9yTPyKUSJVkKGAtAbF0X1'
+api_key = 'DsWRxt7H9H950Svfm8SCqr5GY'
+api_secret = 'lJnfqE8ZI4ENSZe41jreSCyn8yvEvCYh5RuR4TUuBNRdzjLUAE'
 
-bearer_token = r'AAAAAAAAAAAAAAAAAAAAAM%2F8oAEAAAAALkY4x84f8qk1PMlgv5TTIjBUiYk%3DsBC4N3lhXmIf6DrfFd7bMH1uY9kUkou9nNiIKzVoYWoDuPUE38'
+bearer_token = r'AAAAAAAAAAAAAAAAAAAAAM%2F8oAEAAAAAezQvMrkkU1qqmyC615JRgw%2FLM2I%3DNwHrsACf5kW9s3WnaNJxb93omzLhlYqdenh83ego10uCD0D8Nw'
 
-access_token = '1496761536953864194-ISDErd59d4OkOlnuPCVu7akibjhFpf'
-access_token_secret = 'JBOHAIfWNyLQqhthnfIxPeWtk42dnFqohtwtTeImr0Sii'
+access_token = '1496761536953864194-LRDVHYzxm5kg03tbERvaT5BXiY3DvM'
+access_token_secret = 'htr2XRRkMgqlemSpSLojzfIxhrOdCHgltN1DNd4dSaMlR'
 
 
 
