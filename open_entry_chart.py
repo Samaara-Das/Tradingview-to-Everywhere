@@ -18,7 +18,7 @@ class OpenChart:
     self.driver = driver
     self.camera = WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.XPATH, "//button[@aria-label='Take a snapshot']/div[@id='header-toolbar-screenshot']")))
 
-  def change_indicator_settings(self, _type, entry, tp, sl):
+  def change_indicator_settings(self, _type, direction, entry, tp, sl, time_of_entry=1):
     # get the 1st indicator on the top of the chart
     indicators = self.driver.find_elements(By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')
 
@@ -28,18 +28,22 @@ class OpenChart:
 
     # change the settings
     settings = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.content-tBgV1m0B')))
-    inputs = settings.find_elements(By.CSS_SELECTOR, '.cell-tBgV1m0B input')[:-1]
+    inputs = settings.find_elements(By.CSS_SELECTOR, '.cell-tBgV1m0B input')
 
     for i in range(len(inputs)):
-      val = 0
+      val = 30
       if i == 0:
-        val = entry
-      elif i == 1:
-        val = tp
-      elif i == 2:
-        val = sl
-      elif i == 3:
         val = _type
+      if i == 1:
+        val = entry
+      elif i == 2:
+        val = tp
+      elif i == 3:
+        val = sl
+      elif i == 4:
+        val = direction
+      elif i == 6 and _type == 'Exit':
+        val = time_of_entry
 
       ActionChains(self.driver).key_down(Keys.CONTROL, inputs[i]).send_keys('a').perform()
       inputs[i].send_keys(Keys.DELETE)
