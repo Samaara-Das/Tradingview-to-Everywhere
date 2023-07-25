@@ -34,15 +34,24 @@ class Alerts:
 
     for line in lines:
       parts = line.split('|')
+      print(line)
       if 'Closed' not in line: #if this line is about an entry not an exit
         symbol = parts[4]
         entry_price = parts[1]
         _type = parts[0]
         self.chart.change_symbol(symbol)
         self.chart.change_tframe(parts[5])
-        self.chart.change_indicator_settings(_type, entry_price, parts[2], parts[3])
-
+        self.chart.change_indicator_settings('Entry', _type, entry_price, parts[2], parts[3])
         self.tweet.create_tweet(_type + ' in ' + symbol + ' at ' + entry_price + '.' + self.chart.save_chart_img())
+
+      elif 'TP' in line or 'SL' in line: #if this line is about a close which hit tp
+        symbol = parts[5]
+        entry_price = parts[2]
+        _type = parts[0]
+        self.chart.change_symbol(symbol)
+        self.chart.change_tframe(parts[6])
+        self.chart.change_indicator_settings('Exit', _type, entry_price, parts[3], parts[4], parts[7])
+        self.tweet.create_tweet(_type + ' Closed in ' + symbol + ' at TP!!' + self.chart.save_chart_img())
 
 
   def close_alert(self):
