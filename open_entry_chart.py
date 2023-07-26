@@ -27,7 +27,12 @@ class OpenChart:
     ActionChains(self.driver).double_click(indicators[0]).perform()
 
     # change the settings
-    settings = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.content-tBgV1m0B')))
+    while True:
+      try:
+        settings = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.content-tBgV1m0B')))
+        break
+      except Exception as e:
+        continue
     inputs = settings.find_elements(By.CSS_SELECTOR, '.cell-tBgV1m0B input')
 
     for i in range(len(inputs)):
