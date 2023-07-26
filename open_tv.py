@@ -4,6 +4,7 @@ This module opens tradingview, signs in and goes to the chart
 
 # import modules
 import time
+from symbol_settings import *
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
@@ -57,9 +58,11 @@ class Browser:
       self.driver.execute_script("window.open('https://www.tradingview.com/chart','_blank')")
 
   def change_settings(self):
-    for i in range(3):
+    symbols_list = [forex_symbols, stock_symbols, crypto_symbols]
+
+    for tab in range(3):
       # switch to each tab
-      self.driver.switch_to.window(self.driver.window_handles[i])
+      self.driver.switch_to.window(self.driver.window_handles[tab])
       
       # inside the tab, click on the settings of the 2nd indicator
       indicator = self.driver.find_elements(By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')[1]
@@ -67,9 +70,21 @@ class Browser:
       ActionChains(self.driver).move_to_element(indicator).perform()
       ActionChains(self.driver).double_click(indicator).perform()
 
-      settings = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.content-tBgV1m0B')))
-      inputs = settings.find_elements(By.CSS_SELECTOR, '.cell-tBgV1m0B input')[:-1]
-      time.sleep(5)
+      while True:
+        try:
+          settings = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.content-tBgV1m0B')))
+          break
+        except Exception as e:
+          continue
+      inputs = settings.find_elements(By.CSS_SELECTOR, '.inlineRow-D8g11qqA div[data-name="edit-button"]')
       
+      # fill up the settings
+      for i, symbol in enumerate(inputs):
+        to_be_symbol = symbols_list[tab][i]
+        symbol.click()
+        search_input = self.driver.find_element(By.XPATH, '//*[@id="overlap-manager-root"]/div/div/div[2]/div/div/div[2]/div/div[2]/div/input')
+        search_input.send_keys(to_be_symbol)
+        search_input.send_keys(Keys.ENTER)
 
-    # fill up the settings
+      # click on submit
+      self.driver.find_element(By.CSS_SELECTOR, 'button[name="submit"]').click()

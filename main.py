@@ -11,8 +11,7 @@ browser = open_tv.Browser(open_tv.DRIVER_PATH, True)
 # open tradingview charts directly
 browser.open_tv_tabs(2)
 
-
-# change the settings of the indicators in each tab
+# change the symbol settings of the indicators in each tab
 browser.change_settings()
 
 # wait for alerts and get data from them abt a new entry/exit
