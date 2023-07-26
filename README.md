@@ -27,7 +27,7 @@ Things to keep in mind:
     chrome_options.add_argument(f"--user-data-dir={CHROME_PROFILE_PATH}")
     ```
 
-
+- do not move/click anything on the selenium controlled browser
 - make sure that any other chrome browser is closed otherwise it wont work
 - please use the nili.thp.work gmail id to login to tradingview as the chart on that account has been set up in a specific way
-- make sure that when the selenium automated browser is opened, no other tab is manually opened
+- make sure that when the selenium controlled browser is opened, no other tab is manually opened

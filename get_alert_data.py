@@ -34,8 +34,9 @@ class Alerts:
 
     for line in lines:
       parts = line.split('|')
-      print(line)
-      if 'Closed' not in line: #if this line is about an entry not an exit
+      print(parts)
+
+      if 'closed' not in line: #if this line is about an entry not an exit
         symbol = parts[4]
         entry_price = parts[1]
         _type = parts[0]
@@ -44,7 +45,7 @@ class Alerts:
         self.chart.change_indicator_settings('Entry', _type, entry_price, parts[2], parts[3])
         self.tweet.create_tweet(_type + ' in ' + symbol + ' at ' + entry_price + '.' + self.chart.save_chart_img())
 
-      elif 'TP' in line or 'SL' in line: #if this line is about a close which hit tp
+      if 'TP' in line: #if this line is about a close which hit tp
         symbol = parts[5]
         entry_price = parts[2]
         _type = parts[0]

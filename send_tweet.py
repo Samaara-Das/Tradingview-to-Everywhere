@@ -14,6 +14,9 @@ class TwitterClient:
         self.api = tweepy.API(self.auth, wait_on_rate_limit=True)
 
     def create_tweet(self, text):
-        self.client.create_tweet(text=text)
+        try:
+            self.client.create_tweet(text=text)
+        except Exception as e:
+            print(e)
 
 
