@@ -21,12 +21,12 @@ DRIVER_PATH = 'C:\\Users\\Puja\\chromedriver'
 # CHROME_PROFILE_PATH = 'C:\\Users\\pripuja\\AppData\\Local\\Google\\Chrome\\User Data'
 # DRIVER_PATH = "C:\\Users\\pripuja\\Desktop\\Python\\chromedriver"
 
-# EMAIL = 'dassamaara@gmail.com'
-# PWD = 'MONGODB_PASSWORD_REMOVED'
+EMAIL = 'dassamaara@gmail.com'
+PWD = 'MONGODB_PASSWORD_REMOVED'
 # this is the best email id for logging in because tradingview automatically logs in & doesn't ask for a captcha
 # AND the tradingview chart on this email id has been set up in a specific way
-EMAIL = 'nili.thp.work@gmail.com'
-PWD = 'MONGODB_PASSWORD_REMOVED'
+# EMAIL = 'nili.thp.work@gmail.com'
+# PWD = 'MONGODB_PASSWORD_REMOVED'
 
 
 # class
@@ -38,7 +38,7 @@ class Browser:
     chrome_options.add_experimental_option("detach", keep_open)
 
     # make sure that any other chrome browser is closed otherwise it wont work
-    # chrome_options.add_argument('--profile-directory=Profile 5')
+    chrome_options.add_argument('--profile-directory=Profile 2')
     chrome_options.add_argument(f"--user-data-dir={CHROME_PROFILE_PATH}")
     self.driver = webdriver.Chrome(service=self.service, options=chrome_options)
 
