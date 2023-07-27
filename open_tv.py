@@ -16,10 +16,10 @@ from selenium.webdriver.common.by import By
 
 
 # some constants
-CHROME_PROFILE_PATH = 'C:\\Users\\Puja\\AppData\\Local\\Google\\Chrome\\User Data'
-DRIVER_PATH = 'C:\\Users\\Puja\\chromedriver'
-# CHROME_PROFILE_PATH = 'C:\\Users\\pripuja\\AppData\\Local\\Google\\Chrome\\User Data'
-# DRIVER_PATH = "C:\\Users\\pripuja\\Desktop\\Python\\chromedriver"
+# CHROME_PROFILE_PATH = 'C:\\Users\\Puja\\AppData\\Local\\Google\\Chrome\\User Data'
+# DRIVER_PATH = 'C:\\Users\\Puja\\chromedriver'
+CHROME_PROFILE_PATH = 'C:\\Users\\pripuja\\AppData\\Local\\Google\\Chrome\\User Data'
+DRIVER_PATH = "C:\\Users\\pripuja\\Desktop\\Python\\chromedriver"
 
 # EMAIL = 'dassamaara@gmail.com'
 # PWD = '1304sammy#'
@@ -88,3 +88,4 @@ class Browser:
 
       # click on submit
       self.driver.find_element(By.CSS_SELECTOR, 'button[name="submit"]').click()
+
