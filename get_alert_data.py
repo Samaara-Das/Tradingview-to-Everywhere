@@ -61,11 +61,12 @@ class Alerts:
   def send_to_twitter(self):
     while True:
       try:
-        alert_msg = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, "div.secondaryRow-QkiHQU0S")))
-        self.read_alert(alert_msg.text)
-        alert_msg = None
+        alert_box = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div.itemBody-ucBqatk5.item-PQUvhamm .message-PQUvhamm')))
+        print(alert_box.text.split(' '))
+        # self.read_alert(alert_box.text)
+        alert_box = None
       except Exception as e:
-        continue
+        print('\n')
       
 
 
