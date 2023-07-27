@@ -4,6 +4,7 @@ This module opens tradingview, signs in and goes to the chart
 
 # import modules
 import time
+from open_entry_chart import OpenChart
 from symbol_settings import *
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -13,6 +14,7 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import Select
 
 
 # some constants
@@ -51,40 +53,79 @@ class Browser:
     print("shutting down browser 💤")
     self.driver.close()
 
-  def open_tv_tabs(self, extra_tabs: int = 2):
-    # open the tradingview tabs
+  def open_tv(self):
+    # open tradingview
     self.open_page('https://www.tradingview.com/chart')
-    for i in range(extra_tabs):
-      self.driver.execute_script("window.open('https://www.tradingview.com/chart','_blank')")
 
-  def change_settings(self):
+  def set_alerts_and_settings(self, alerts):
+    '''
+    param alerts must be less than/equal to the number of tuples in symbols_settings.py 
+    '''
+    
     symbols_list = [forex_symbols, stock_symbols, crypto_symbols]
 
-    for tab in range(3):
-      # switch to each tab
-      self.driver.switch_to.window(self.driver.window_handles[tab])
-      
-      # inside the tab, click on the settings of the 2nd indicator
-      indicator = self.driver.find_elements(By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')[1]
+    for j in range(alerts):
+      #change settings this particular symbol
+      self.change_settings(symbols_list[j][0], symbols_list[j])
 
-      ActionChains(self.driver).move_to_element(indicator).perform()
-      ActionChains(self.driver).double_click(indicator).perform()
+      # setup alert for this particular symbol
+      self.set_alerts()
 
-      while True:
-        try:
-          settings = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.content-tBgV1m0B')))
-          break
-        except Exception as e:
-          continue
-      inputs = settings.find_elements(By.CSS_SELECTOR, '.inlineRow-D8g11qqA div[data-name="edit-button"]')
-      
-      # fill up the settings
-      for i, symbol in enumerate(inputs):
-        to_be_symbol = symbols_list[tab][i]
-        symbol.click()
-        search_input = self.driver.find_element(By.XPATH, '//*[@id="overlap-manager-root"]/div/div/div[2]/div/div/div[2]/div/div[2]/div/input')
-        search_input.send_keys(to_be_symbol)
-        search_input.send_keys(Keys.ENTER)
 
-      # click on submit
-      self.driver.find_element(By.CSS_SELECTOR, 'button[name="submit"]').click()
+  def change_settings(self, symbol, symbols_list):
+    '''
+    param symbol is the symbol you want the chart to change to
+    '''
+
+    # change the symbol of the current chart
+    OpenChart(self.driver).change_symbol(symbol)
+    
+    # inside the tab, click on the settings of the 2nd indicator
+    indicator = self.driver.find_elements(By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')[1]
+
+    ActionChains(self.driver).move_to_element(indicator).perform()
+    ActionChains(self.driver).double_click(indicator).perform()
+
+    while True:
+      try:
+        settings = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.content-tBgV1m0B')))
+        break
+      except Exception as e:
+        continue
+    inputs = settings.find_elements(By.CSS_SELECTOR, '.inlineRow-D8g11qqA div[data-name="edit-button"]')
+    
+    # fill up the settings
+    for i, _symbol in enumerate(inputs):
+      to_be_symbol = symbols_list[i]
+      _symbol.click()
+      search_input = self.driver.find_element(By.XPATH, '//*[@id="overlap-manager-root"]/div/div/div[2]/div/div/div[2]/div/div[2]/div/input')
+      search_input.send_keys(to_be_symbol)
+      search_input.send_keys(Keys.ENTER)
+
+    # click on submit
+    self.driver.find_element(By.CSS_SELECTOR, 'button[name="submit"]').click()
+
+  def set_alerts(self):
+
+    while True:
+      try:
+        # click the + button
+        self.driver.find_element(By.CSS_SELECTOR, 'div[data-name="set-alert-button"]').click()
+
+        # wait for the set alerts popup box
+        set_alerts_popup = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alerts-create-edit-dialog"]')))
+        break
+      except Exception as e:
+        continue
+
+    # click the dropdown and choose the screener
+    set_alerts_popup.find_element(By.CSS_SELECTOR, 'span[data-name="main-series-select"]').click()
+
+    for el in self.driver.find_elements(By.CSS_SELECTOR, 'div[data-name="menu-inner"] div[role="option"]'):
+      if 'Screener' in el.text:
+        el.click()
+        break    
+
+    # click on submit
+    self.driver.find_element(By.CSS_SELECTOR, 'button[data-name="submit"]').click()
+
