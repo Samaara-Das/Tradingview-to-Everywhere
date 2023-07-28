@@ -63,13 +63,20 @@ class Browser:
     '''
     
     symbols_list = [forex_symbols, stock_symbols, crypto_symbols]
+    start_time = time.time()
 
     for j in range(alerts):
-      #change settings this particular symbol
-      self.change_settings(symbols_list[j][0], symbols_list[j])
+        # change settings this particular symbol
+        self.change_settings(symbols_list[j][0], symbols_list[j])
 
-      # setup alert for this particular symbol
-      self.set_alerts()
+        # setup alert for this particular symbol
+        self.set_alerts()
+
+    end_time = time.time()
+    duration = end_time - start_time
+
+    print(f"Execution time: {duration} seconds")
+    time.sleep(30)
 
 
   def change_settings(self, symbol, symbols_list):
@@ -109,15 +116,23 @@ class Browser:
 
     while True:
       try:
-        # click the + button
-        self.driver.find_element(By.CSS_SELECTOR, 'div[data-name="set-alert-button"]').click()
-
-        # wait for the set alerts popup box
-        set_alerts_popup = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alerts-create-edit-dialog"]')))
+        # wait for the + button to be clickable
+        plus_button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-name="set-alert-button"]')))
         break
       except Exception as e:
         continue
 
+
+    # wait for the set alerts popup box
+    while True:
+      try:
+        # click on the + button
+        plus_button.click()
+        set_alerts_popup = WebDriverWait(self.driver, 10).until(EC.visibility_of_element_located((By.CSS_SELECTOR, 'div[data-name="alerts-create-edit-dialog"]')))
+        break
+      except Exception as e:
+        continue
+    
     # click the dropdown and choose the screener
     set_alerts_popup.find_element(By.CSS_SELECTOR, 'span[data-name="main-series-select"]').click()
 
