@@ -9,12 +9,7 @@ forex_symbols = (
     'NZDUSD',
     'GBPJPY',
     'EURAUD',
-    'XAUUSD',
-    'EURNZD',
-    'AUDGBP',
-    'USDAUD',
-    'CADNZD',
-    'AUDJPY'
+    'XAUUSD'
 )
 
 stock_symbols = (
@@ -27,12 +22,7 @@ stock_symbols = (
     'NFLX',
     'NVDA',
     'V',
-    'JPM',
-    'DIS',
-    'PYPL',
-    'UNH',
-    'BAC',
-    'WMT'
+    'JPM'
 )
 
 crypto_symbols = (
@@ -45,10 +35,5 @@ crypto_symbols = (
     'ADAUSD',
     'XLMUSD',
     'DOTUSD',
-    'USDTUSD',
-    'DOGEUSD',
-    'BNBUSD',
-    'EOSUSD',
-    'XMRUSD',
-    'TRXUSD'
+    'USDTUSD'
 )
