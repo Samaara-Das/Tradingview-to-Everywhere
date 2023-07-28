@@ -5,17 +5,20 @@ this is the main module where we use all the other modules to perform tasks
 import open_tv
 import get_alert_data
 
-# how many alerts do we want to set up
-ALERTS = 3
+# how many tabs do we want to set up
+TABS = 3
 
 # initiate Browser
-browser = open_tv.Browser(open_tv.DRIVER_PATH, True)
+browser = open_tv.Browser(open_tv.DRIVER_PATH, True, TABS)
 
-# open tradingview chart
+# open tradingview charts for 3 tabs
 browser.open_tv()
 
 # change the symbol settings of the indicators in differnt symbols and setup alerts for those symbol
-browser.set_alerts_and_settings(ALERTS)
+browser.set_alerts_and_settings()
+
+# delete all tabs except 1
+browser.close_tabs()
 
 # wait for alerts and get data from them abt a new entry/exit
 # and then go that new entry's/exit's chart & timeframe
