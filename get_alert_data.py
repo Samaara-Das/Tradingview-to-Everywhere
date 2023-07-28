@@ -60,12 +60,11 @@ class Alerts:
   def send_to_twitter(self):
     while True:
       try:
-        alert_boxes = WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div.itemBody-ucBqatk5.item-PQUvhamm .message-PQUvhamm')))
-        for alert_box in alert_boxes:
-          print(alert_box.text.split(' '))
-          print('\n')
-
-        self.clear_log()
+        alert_boxes = WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[class="message-PQUvhamm"]')))
+        if len(alert_boxes) > 0:
+          for alert_box in alert_boxes:
+            print('➡️ ', alert_box.text.split(' '))
+            print('\n')
 
         # self.read_alert(alert_box.text)
         alert_box = None
@@ -78,8 +77,11 @@ class Alerts:
     settings.click()
 
     # click on the "Clear log" dropdown option
-    clear_log = self.driver.find_element(By.CSS_SELECTOR, 'div[class="item-jFqVJoPk item-xZRtm41u withIcon-jFqVJoPk withIcon-xZRtm41u"]')
+    clear_log = self.driver.find_elements(By.CSS_SELECTOR, 'div[class="item-jFqVJoPk item-xZRtm41u withIcon-jFqVJoPk withIcon-xZRtm41u"]')[-1]
     clear_log.click()
+
+    # click OK when the confirm dialog pops up
+    WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[name="yes"]'))).click()
 
 
 
