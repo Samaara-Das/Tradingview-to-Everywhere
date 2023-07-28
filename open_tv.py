@@ -34,7 +34,7 @@ PWD = '1304sammy#'
 # class
 class Browser:
 
-  def __init__(self, driver: str, keep_open: bool) -> None:
+  def __init__(self, driver: str, keep_open: bool, tabs: int) -> None:
     self.service = Service(driver)
     chrome_options = Options()
     chrome_options.add_experimental_option("detach", keep_open)
@@ -43,41 +43,42 @@ class Browser:
     chrome_options.add_argument('--profile-directory=Profile 2')
     chrome_options.add_argument(f"--user-data-dir={CHROME_PROFILE_PATH}")
     self.driver = webdriver.Chrome(service=self.service, options=chrome_options)
+    self.tabs = tabs
 
   def open_page(self, url: str):
     self.driver.get(url)
     self.driver.maximize_window()
   
   def close_page(self):
-    time.sleep(5)
-    print("shutting down browser 💤")
+    print("shutting down tab 💤")
     self.driver.close()
 
   def open_tv(self):
     # open tradingview
     self.open_page('https://www.tradingview.com/chart')
 
-  def set_alerts_and_settings(self, alerts):
+    # delete all alerts
+    self.delete_alerts()
+
+    tabs = self.tabs-1
+    for i in range(tabs):
+      self.driver.execute_script("window.open('https://www.tradingview.com/chart','_blank')")
+
+  def set_alerts_and_settings(self):
     '''
     param alerts must be less than/equal to the number of tuples in symbols_settings.py 
     '''
-    
     symbols_list = [forex_symbols, stock_symbols, crypto_symbols]
-    start_time = time.time()
 
-    for j in range(alerts):
-        # change settings this particular symbol
-        self.change_settings(symbols_list[j][0], symbols_list[j])
+    for tab in range(self.tabs):
+      # switch tab
+      self.driver.switch_to.window(self.driver.window_handles[tab])
 
-        # setup alert for this particular symbol
-        self.set_alerts()
+      # change settings this particular symbol
+      self.change_settings(symbols_list[tab][0], symbols_list[tab])
 
-    end_time = time.time()
-    duration = end_time - start_time
-
-    print(f"Execution time: {duration} seconds")
-    time.sleep(30)
-
+      # setup alert for this particular symbol
+      self.set_alerts(tab)
 
   def change_settings(self, symbol, symbols_list):
     '''
@@ -112,7 +113,8 @@ class Browser:
     # click on submit
     self.driver.find_element(By.CSS_SELECTOR, 'button[name="submit"]').click()
 
-  def set_alerts(self):
+  def set_alerts(self, tab):
+    tab_no = tab + 1
 
     while True:
       try:
@@ -143,4 +145,45 @@ class Browser:
 
     # click on submit
     self.driver.find_element(By.CSS_SELECTOR, 'button[data-name="submit"]').click()
+
+    # wait untill this new alert has come up in the alerts tab (if the number of alerts are equal to the number of tabs we hv set )
+    while True:
+      if len(self.driver.find_elements(By.CSS_SELECTOR, 'div.list-G90Hl2iS div.itemBody-ucBqatk5')) == tab_no:
+        break
+      else:
+        continue
+
+  def delete_alerts(self):
+    # click the 3 dots
+    while True:
+      try:
+        settings = WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[class="button-xNqEcuN2 button-GwQQdU8S apply-common-tooltip isInteractive-GwQQdU8S"]')))
+        settings[1].click()
+        break
+      except Exception as e:
+        continue
+
+    # in the dropdown which it opens, choose the "Remove all" option
+    try:
+      WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[class="item-jFqVJoPk item-xZRtm41u withIcon-jFqVJoPk withIcon-xZRtm41u"]')))[-1].click()
+      
+      # click OK when the confirm dialog pops up
+      WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[name="yes"]'))).click()
+    except Exception as e:
+      # the error will happen when there are no alerts and the above div's class is not there
+      print(f'error in {__file__}', e)
+
+  def close_tabs(self):
+    current_window_handle = self.driver.current_window_handle
+    window_handles = self.driver.window_handles
+
+    # Close the remaining tabs
+    for handle in window_handles:
+      if handle != current_window_handle:
+        self.driver.switch_to.window(handle)
+        self.driver.close()
+
+    # switch back to the first tab
+    self.driver.switch_to.window(self.driver.window_handles[0])
+
 

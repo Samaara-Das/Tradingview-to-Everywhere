@@ -29,8 +29,9 @@ Things to keep in mind:
     ```
 
 - do not move/click anything on the selenium controlled browser
+- make sure you are fine with it deleting all the alerts and creating new ones
 - make sure that any other chrome browser is closed otherwise it wont work
-- please use the dassamaara gmail id to login to tradingview as the chart on that account has been set up in a specific way & it is a pro account (this app needs to be run on a pro account so that it can hold)
+- please use the dassamaara gmail id to login to tradingview as the chart on that account has been set up in a specific way & it is a pro account (this app needs to be run on a pro account so that it can let tradingview run on multiple tabs)
     - the background has the symbol & timeframe watermark
     - the bars are a medium sized and are a 100 bars from the right
     - the indicators on the chart: Signal on the top and Screener below it
@@ -38,4 +39,5 @@ Things to keep in mind:
     - the alert log tag is not minimized
     - there are currently no active alerts
     - in the alert settings, "On site Pop up" is not ticked
+    - the screener indicator only uses screenerFun() on 10 symbols
 - make sure that when the selenium controlled browser is opened, no other tab is manually opened
