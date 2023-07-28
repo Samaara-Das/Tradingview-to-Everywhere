@@ -53,7 +53,6 @@ class Alerts:
         self.chart.change_indicator_settings('Exit', _type, entry_price, parts[3], parts[4], parts[7])
         self.tweet.create_tweet(_type + ' Closed in ' + symbol + ' at TP!!' + self.chart.save_chart_img())
 
-
   def close_alert(self):
     ok_button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, ".button-D4RPB3ZC.size-small-D4RPB3ZC.color-brand-D4RPB3ZC.variant-primary-D4RPB3ZC")))
     ok_button.click()
@@ -61,13 +60,26 @@ class Alerts:
   def send_to_twitter(self):
     while True:
       try:
-        alert_box = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div.itemBody-ucBqatk5.item-PQUvhamm .message-PQUvhamm')))
-        print(alert_box.text.split(' '))
+        alert_boxes = WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div.itemBody-ucBqatk5.item-PQUvhamm .message-PQUvhamm')))
+        for alert_box in alert_boxes:
+          print(alert_box.text.split(' '))
+          print('\n')
+
+        self.clear_log()
+
         # self.read_alert(alert_box.text)
         alert_box = None
       except Exception as e:
-        print('\n')
+        continue
       
+  def clear_log(self):
+    # click the settings
+    settings = self.driver.find_element(By.CSS_SELECTOR, 'div[data-name="alerts-log-actions-button"]')
+    settings.click()
+
+    # click on the "Clear log" dropdown option
+    clear_log = self.driver.find_element(By.CSS_SELECTOR, 'div[class="item-jFqVJoPk item-xZRtm41u withIcon-jFqVJoPk withIcon-xZRtm41u"]')
+    clear_log.click()
 
 
 
