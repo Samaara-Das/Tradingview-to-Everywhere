@@ -39,5 +39,5 @@ Things to keep in mind:
     - the alert log tag is not minimized
     - there are currently no active alerts
     - in the alert settings, "On site Pop up" is not ticked
-    - the screener indicator only uses screenerFun() on 10 symbols
+    - the screener indicator only uses 10 symbols
 - make sure that when the selenium controlled browser is opened, no other tab is manually opened
