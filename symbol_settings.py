@@ -37,3 +37,16 @@ crypto_symbols = (
     'DOTUSD',
     'USDTUSD'
 )
+
+crypto_symbols2 = (
+    'XMRUSD',
+    'DOGEUSD',
+    'ATOMUSD',
+    'ALGOUSD',
+    'VETUSD',
+    'THETAUSD',
+    'AVAXUSD',
+    'FTMUSD',
+    'SOLUSD',
+    'MATICUSD'
+)
