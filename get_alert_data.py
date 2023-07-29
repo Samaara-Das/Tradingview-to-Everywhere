@@ -7,6 +7,7 @@ by getting text from alerts
 import sqlite3
 import open_entry_chart
 import send_tweet
+from time import sleep
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
@@ -29,13 +30,12 @@ class Alerts:
     
   def read_alert(self, msg):
     lines = msg.split('\n')
-    self.close_alert()
 
     for line in lines:
       parts = line.split('|')
       print(parts)
 
-      if 'closed' not in line: #if this line is about an entry not an exit
+      if 'TP' not in line and 'SL' not in line: #if this line is about an entry not an exit
         symbol = parts[4]
         entry_price = parts[1]
         _type = parts[0]
@@ -58,15 +58,20 @@ class Alerts:
     ok_button.click()
 
   def send_to_twitter(self):
+    message = ''
     while True:
       try:
         alert_boxes = WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[class="message-PQUvhamm"]')))
-        if len(alert_boxes) > 0:
-          for alert_box in alert_boxes:
-            print('➡️ ', alert_box.text.split(' '))
-            print('\n')
 
-        # self.read_alert(alert_box.text)
+        for alert_box in alert_boxes:
+          text = '\n'.join(alert_box.text.split(' '))
+          message += text
+
+        if len(alert_boxes) > 0:
+          self.clear_log()    
+
+        self.read_alert(message) 
+        message = '' 
         alert_box = None
       except Exception as e:
         continue
@@ -82,6 +87,9 @@ class Alerts:
 
     # click OK when the confirm dialog pops up
     WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[name="yes"]'))).click()
+
+    # sleep to give it some time to delete the alert log
+    sleep(1)
 
 
 

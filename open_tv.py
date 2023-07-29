@@ -25,11 +25,6 @@ DRIVER_PATH = 'C:\\Users\\Puja\\chromedriver'
 
 EMAIL = 'dassamaara@gmail.com'
 PWD = '1304sammy#'
-# this is the best email id for logging in because tradingview automatically logs in & doesn't ask for a captcha
-# AND the tradingview chart on this email id has been set up in a specific way
-# EMAIL = 'nili.thp.work@gmail.com'
-# PWD = 'Das12345'
-
 
 # class
 class Browser:
@@ -68,7 +63,7 @@ class Browser:
     '''
     param alerts must be less than/equal to the number of tuples in symbols_settings.py 
     '''
-    symbols_list = [forex_symbols, stock_symbols, crypto_symbols]
+    symbols_list = [crypto_symbols2, crypto_symbols, crypto_symbols2] #forex_symbols, stock_symbols,
 
     for tab in range(self.tabs):
       # switch tab
