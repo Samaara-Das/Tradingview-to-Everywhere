@@ -62,6 +62,7 @@ class Alerts:
     while True:
       try:
         alert_boxes = WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[class="message-PQUvhamm"]')))
+        # alert_boxes = alert_boxes[::-1]
 
         for alert_box in alert_boxes:
           text = '\n'.join(alert_box.text.split(' '))
