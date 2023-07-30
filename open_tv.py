@@ -63,7 +63,7 @@ class Browser:
     '''
     param alerts must be less than/equal to the number of tuples in symbols_settings.py 
     '''
-    symbols_list = [crypto_symbols2, crypto_symbols, crypto_symbols3, forex_symbols, stock_symbols] 
+    symbols_list = [crypto_symbols, forex_symbols, stock_symbols] 
 
     for tab in range(self.tabs):
       # switch tab
@@ -149,24 +149,28 @@ class Browser:
         continue
 
   def delete_alerts(self):
-    # click the 3 dots
     while True:
-      try:
-        settings = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alerts-settings-button"]')))
-        settings.click()
-        break
-      except Exception as e:
-        continue
+      # click the 3 dots
+      while True:
+        try:
+          settings = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alerts-settings-button"]')))
+          settings.click()
+          break
+        except Exception as e:
+          continue
 
-    # in the dropdown which it opens, choose the "Remove all" option
-    try:
-      WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[class="item-jFqVJoPk item-xZRtm41u withIcon-jFqVJoPk withIcon-xZRtm41u"]')))[-1].click()
-      
-      # click OK when the confirm dialog pops up
-      WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[name="yes"]'))).click()
-    except Exception as e:
-      # the error will happen when there are no alerts and the above div's class is not there
-      print(f'error in {__file__}', e)
+      try:
+        # in the dropdown which it opens, choose the "Remove all" option
+        WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[class="item-jFqVJoPk item-xZRtm41u withIcon-jFqVJoPk withIcon-xZRtm41u"]')))[-1].click()
+        
+        # click OK when the confirm dialog pops up
+        WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[name="yes"]'))).click()
+      except Exception as e:
+        # the error will happen when there are no alerts and the "Remove all" option is not there
+        print(f'error in {__file__}', e)
+
+      if len(self.driver.find_elements(By.CSS_SELECTOR, 'div.list-G90Hl2iS div.itemBody-ucBqatk5')) == 0:
+        break
 
   def close_tabs(self):
     current_window_handle = self.driver.current_window_handle
