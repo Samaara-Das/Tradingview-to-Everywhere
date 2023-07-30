@@ -44,6 +44,7 @@ class Alerts:
         self.chart.change_indicator_settings('Entry', direction, entry_price, parts[2], parts[3])
         chart_link = self.chart.save_chart_img()
         fill_database('Entry', direction, symbol, parts[5], entry_price, parts[2], parts[3], chart_link, parts[6])
+        print('🗒️ db row', get_last_row())
         self.tweet.create_tweet(direction + ' in ' + symbol + ' at ' + entry_price + '.' + chart_link)
 
       if 'TP' in line: #if this line is about a close which hit tp

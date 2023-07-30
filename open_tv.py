@@ -63,7 +63,7 @@ class Browser:
     '''
     param alerts must be less than/equal to the number of tuples in symbols_settings.py 
     '''
-    symbols_list = [crypto_symbols, forex_symbols, stock_symbols] 
+    symbols_list = [crypto_symbols, crypto_symbols2, crypto_symbols3] 
 
     for tab in range(self.tabs):
       # switch tab
@@ -147,6 +147,15 @@ class Browser:
         break
       else:
         continue
+
+  def is_eye_loaded(self):
+    while True:
+      try:
+        indicator = self.driver.find_elements(By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')[1]
+        if indicator.get_attribute('class') == 'item-jFqVJoPk withIcon-jFqVJoPk withIcon-xZRtm41u':
+          return True   
+      except Exception as e:
+        return False
 
   def delete_alerts(self):
     while True:
