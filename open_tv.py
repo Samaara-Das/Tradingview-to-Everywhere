@@ -63,7 +63,7 @@ class Browser:
     '''
     param alerts must be less than/equal to the number of tuples in symbols_settings.py 
     '''
-    symbols_list = [crypto_symbols2, crypto_symbols, crypto_symbols2] #forex_symbols, stock_symbols,
+    symbols_list = [crypto_symbols2, crypto_symbols, crypto_symbols3, forex_symbols, stock_symbols] 
 
     for tab in range(self.tabs):
       # switch tab
@@ -95,7 +95,7 @@ class Browser:
         break
       except Exception as e:
         continue
-    inputs = settings.find_elements(By.CSS_SELECTOR, '.inlineRow-D8g11qqA div[data-name="edit-button"]')
+    inputs = settings.find_elements(By.CSS_SELECTOR, '.inlineRow-D8g11qqA div[data-name="edit-button"]')[:-2]
     
     # fill up the settings
     for i, _symbol in enumerate(inputs):
@@ -152,8 +152,8 @@ class Browser:
     # click the 3 dots
     while True:
       try:
-        settings = WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[class="button-xNqEcuN2 button-GwQQdU8S apply-common-tooltip isInteractive-GwQQdU8S"]')))
-        settings[1].click()
+        settings = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alerts-settings-button"]')))
+        settings.click()
         break
       except Exception as e:
         continue

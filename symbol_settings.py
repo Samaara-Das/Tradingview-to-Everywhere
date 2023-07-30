@@ -34,8 +34,7 @@ crypto_symbols = (
     'LINKUSD',
     'ADAUSD',
     'XLMUSD',
-    'DOTUSD',
-    'USDTUSD'
+    'DOTUSD'
 )
 
 crypto_symbols2 = (
@@ -49,4 +48,12 @@ crypto_symbols2 = (
     'FTMUSD',
     'SOLUSD',
     'MATICUSD'
+)
+
+crypto_symbols3 = (
+    'MATICUSD',
+    'THETAUSD',
+    'AVAXUSD',
+    'FTMUSD',
+    'SOLUSD',
 )
