@@ -38,20 +38,22 @@ class Alerts:
       if 'TP' not in line and 'SL' not in line: #if this line is about an entry not an exit
         symbol = parts[4]
         entry_price = parts[1]
-        _type = parts[0]
+        direction = parts[0]
         self.chart.change_symbol(symbol)
         self.chart.change_tframe(parts[5])
-        self.chart.change_indicator_settings('Entry', _type, entry_price, parts[2], parts[3])
-        self.tweet.create_tweet(_type + ' in ' + symbol + ' at ' + entry_price + '.' + self.chart.save_chart_img())
+        self.chart.change_indicator_settings('Entry', direction, entry_price, parts[2], parts[3])
+        chart_link = self.chart.save_chart_img()
+        fill_database('Entry', direction, symbol, parts[5], entry_price, parts[2], parts[3], chart_link, parts[6])
+        self.tweet.create_tweet(direction + ' in ' + symbol + ' at ' + entry_price + '.' + chart_link)
 
       if 'TP' in line: #if this line is about a close which hit tp
         symbol = parts[5]
         entry_price = parts[2]
-        _type = parts[0]
+        direction = parts[0]
         self.chart.change_symbol(symbol)
         self.chart.change_tframe(parts[6])
-        self.chart.change_indicator_settings('Exit', _type, entry_price, parts[3], parts[4], parts[7])
-        self.tweet.create_tweet(_type + ' Closed in ' + symbol + ' at TP!!' + self.chart.save_chart_img())
+        self.chart.change_indicator_settings('Exit', direction, entry_price, parts[3], parts[4], parts[7])
+        self.tweet.create_tweet(direction + ' Closed in ' + symbol + ' at TP!!' + self.chart.save_chart_img())
 
   def close_alert(self):
     ok_button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, ".button-D4RPB3ZC.size-small-D4RPB3ZC.color-brand-D4RPB3ZC.variant-primary-D4RPB3ZC")))
@@ -62,7 +64,7 @@ class Alerts:
     while True:
       try:
         alert_boxes = WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[class="message-PQUvhamm"]')))
-        # alert_boxes = alert_boxes[::-1]
+        alert_boxes = alert_boxes[::-1]
 
         for alert_box in alert_boxes:
           text = '\n'.join(alert_box.text.split(' '))
@@ -100,7 +102,8 @@ def create_database():
   with conn:
     cur.execute('''CREATE TABLE IF NOT EXISTS alerts 
                 (trade_counter INTEGER PRIMARY KEY,
-                type text, 
+                type TEXT,
+                direction TEXT, 
                 symbol TEXT, 
                 tframe INTEGER, 
                 entry REAL, 
@@ -109,10 +112,11 @@ def create_database():
                 chart_link TEXT, 
                 date TEXT)''')
 
-def fill_database(_type, symbol, tframe, entry, tp, sl, chart_link, date):
+def fill_database(_type, direction, symbol, tframe, entry, tp, sl, chart_link, date):
   with conn:
     trade_counter += 1
-    cur.execute('''INSERT INTO alerts VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)''', (trade_counter, _type, symbol, tframe, entry, tp, sl, chart_link, date))
+    # _type = Entry/Exit, direction = Buy/Sell, symbol = EURUSD, tframe = 5, entry = 1.20, tp = 1.20, sl = 1.20, chart_link = link of the chart snapshot, date = date of the time this entry/exit happened
+    cur.execute('''INSERT INTO alerts VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)''', (trade_counter, _type, direction, symbol, tframe, entry, tp, sl, chart_link, date))
 
 def get_last_row():
   with conn:
