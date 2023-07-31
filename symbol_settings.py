@@ -84,7 +84,8 @@ crypto_symbols = (
     'LTCUSD',
     'BCHUSD',
     'LINKUSD',
-    'ADAUSD'
+    'ADAUSD',
+    'JPM'
 )
 
 crypto_symbols4 = (
@@ -94,7 +95,8 @@ crypto_symbols4 = (
     'LTCUSD',
     'BCHUSD',
     'LINKUSD',
-    'ADAUSD'
+    'ADAUSD',
+    'JPM'
 )
 
 crypto_symbols2 = (
@@ -104,6 +106,8 @@ crypto_symbols2 = (
     'ALGOUSD',
     'VETUSD',
     'MATICUSD',
+    'ADAUSD',
+    'JPM'
 )
 
 crypto_symbols3 = (
@@ -112,5 +116,7 @@ crypto_symbols3 = (
     'FTMUSD',
     'SOLUSD',
     'XLMUSD',
-    'DOTUSD'
+    'DOTUSD',
+    'NFLX',
+    'JPM'
 )

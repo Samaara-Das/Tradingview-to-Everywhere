@@ -11,7 +11,7 @@ TABS = 9
 # initiate Browser
 browser = open_tv.Browser(open_tv.DRIVER_PATH, True, TABS)
 
-# open tradingview charts for 3 tabs
+# open tradingview charts for X amount of tabs
 browser.open_tv()
 
 # change the symbol settings of the indicators in differnt symbols and setup alerts for those symbol

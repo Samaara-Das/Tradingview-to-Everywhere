@@ -7,6 +7,7 @@ by getting text from alerts
 import sqlite3
 import open_entry_chart
 import send_tweet
+import send_to_discord
 from time import sleep
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -27,6 +28,7 @@ class Alerts:
     create_database()
     self.chart = open_entry_chart.OpenChart(self.driver)
     self.tweet = send_tweet.TwitterClient()
+    self.discord = send_to_discord.Discord()
     
   def read_alert(self, msg):
     lines = msg.split('\n')
@@ -42,10 +44,11 @@ class Alerts:
         self.chart.change_symbol(symbol)
         self.chart.change_tframe(parts[5])
         self.chart.change_indicator_settings('Entry', direction, entry_price, parts[2], parts[3])
-        # chart_link = self.chart.save_chart_img()
+        chart_link = self.chart.save_chart_img()
         # fill_database('Entry', direction, symbol, parts[5], entry_price, parts[2], parts[3], chart_link, parts[6])
         # print('🗒️ db row', get_last_row())
-        self.tweet.create_tweet(direction + ' in ' + symbol + ' at ' + entry_price + '.' + self.chart.save_chart_img())
+        self.tweet.create_tweet(direction + ' in ' + symbol + ' at ' + entry_price + '.' + chart_link)
+        self.discord.create_msg(direction + ' in ' + symbol + ' at ' + entry_price + '.' + chart_link)
 
       if 'TP' in line: #if this line is about a close which hit tp
         symbol = parts[5]
@@ -54,7 +57,9 @@ class Alerts:
         self.chart.change_symbol(symbol)
         self.chart.change_tframe(parts[6])
         self.chart.change_indicator_settings('Exit', direction, entry_price, parts[3], parts[4], parts[7])
-        self.tweet.create_tweet(direction + ' Closed in ' + symbol + ' at TP!!' + self.chart.save_chart_img())
+        chart_link = self.chart.save_chart_img()
+        self.tweet.create_tweet(direction + ' Closed in ' + symbol + ' at TP!!' + chart_link)
+        self.discord.create_msg(direction + ' Closed in ' + symbol + ' at TP!!' + chart_link)
 
   def close_alert(self):
     ok_button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, ".button-D4RPB3ZC.size-small-D4RPB3ZC.color-brand-D4RPB3ZC.variant-primary-D4RPB3ZC")))
