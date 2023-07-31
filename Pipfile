@@ -6,7 +6,9 @@ name = "pypi"
 [packages]
 selenium = "*"
 tweepy = "*"
-pyperclip = "*"
+discord = "*"
+discord-webhook = "*"
+requests = "*"
 
 [dev-packages]
 
