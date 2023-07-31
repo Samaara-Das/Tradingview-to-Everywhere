@@ -25,6 +25,7 @@ Things to keep in mind:
     DRIVER_PATH = "C:\\Users\\pripuja\\Desktop\\Python\\chromedriver"
 
     # put this in the __init__ method
+    chrome_options.add_argument('--profile-directory=Profile 1')
     chrome_options.add_argument(f"--user-data-dir={CHROME_PROFILE_PATH}")
     ```
 
