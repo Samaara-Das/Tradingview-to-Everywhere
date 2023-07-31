@@ -76,6 +76,7 @@ class Browser:
       # setup alert for this particular symbol
       self.set_alerts(tab)
 
+    
   def change_settings(self, symbol, symbols_list):
     '''
     param symbol is the symbol you want the chart to change to
@@ -96,7 +97,7 @@ class Browser:
         break
       except Exception as e:
         continue
-    inputs = settings.find_elements(By.CSS_SELECTOR, '.inlineRow-D8g11qqA div[data-name="edit-button"]')[:-2]
+    inputs = settings.find_elements(By.CSS_SELECTOR, '.inlineRow-D8g11qqA div[data-name="edit-button"]')
     
     # fill up the settings
     for i, _symbol in enumerate(inputs):
@@ -114,6 +115,9 @@ class Browser:
 
     # wait for the indicator to fully load
     self.is_eye_loaded()
+
+    # hide the screener indicator by clicking the eye
+    self.hide_indicator()
 
     while True:
       try:
@@ -135,7 +139,10 @@ class Browser:
         continue
     
     # click the dropdown and choose the screener
-    set_alerts_popup.find_element(By.CSS_SELECTOR, 'span[data-name="main-series-select"]').click()
+    try:
+      set_alerts_popup.find_element(By.CSS_SELECTOR, 'span[data-name="main-series-select"]').click()
+    except Exception as e:
+      print('couldn\'t find screener dropdown when making alert')
 
     for el in self.driver.find_elements(By.CSS_SELECTOR, 'div[data-name="menu-inner"] div[role="option"]'):
       if 'Screener' in el.text:
@@ -145,14 +152,8 @@ class Browser:
     # click on submit
     self.driver.find_element(By.CSS_SELECTOR, 'button[data-name="submit"]').click()
 
-    # wait untill this new alert has come up in the alerts tab (if the number of alerts are equal to the number of tabs we hv set )
-    # while True:
-    #   if len(self.driver.find_elements(By.CSS_SELECTOR, 'div.list-G90Hl2iS div.itemBody-ucBqatk5')) == tab_no:
-    #     break
-    #   else:
-    #     continue
-
   def is_eye_loaded(self):
+    time.sleep(1)
     while True:
       try:
         indicator = self.driver.find_elements(By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')[1]
@@ -160,6 +161,15 @@ class Browser:
           break   
       except Exception as e:
         continue
+
+  def hide_indicator(self):
+    # click on the screener indicator to make it visible
+    indicator = self.driver.find_elements(By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')[1]
+    indicator.click()
+
+    # click on the eye
+    self.driver.find_element(By.XPATH, '/html/body/div[2]/div[5]/div[2]/div[1]/div/table/tr[1]/td[2]/div/div[2]/div[2]/div[2]/div[3]/div[1]/div[2]/div/div[1]').click()
+
 
   def delete_alerts(self):
     while True:
@@ -172,15 +182,15 @@ class Browser:
         except Exception as e:
           continue
 
-      try:
+      alert_options = self.driver.find_elements(By.CSS_SELECTOR, 'div[class="item-jFqVJoPk item-xZRtm41u withIcon-jFqVJoPk withIcon-xZRtm41u"]')
+      if alert_options:
         # in the dropdown which it opens, choose the "Remove all" option
-        WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[class="item-jFqVJoPk item-xZRtm41u withIcon-jFqVJoPk withIcon-xZRtm41u"]')))[-1].click()
-        
-        # click OK when the confirm dialog pops up
-        WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[name="yes"]'))).click()
-      except Exception as e:
-        # the error will happen when there are no alerts and the "Remove all" option is not there
-        print(f'error in {__file__}', e)
+        alert_options[-1].click()
+        try:
+          # click OK when the confirm dialog pops up
+          WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[name="yes"]'))).click()
+        except Exception as e:
+          print(f'error in {__file__} delete_function. error: {e}')
 
       if len(self.driver.find_elements(By.CSS_SELECTOR, 'div.list-G90Hl2iS div.itemBody-ucBqatk5')) == 0:
         break
@@ -193,7 +203,15 @@ class Browser:
     for handle in window_handles:
       if handle != current_window_handle:
         self.driver.switch_to.window(handle)
-        self.driver.close()
+        # try 3 times to close the tab
+        for _ in range(3):
+          try:
+            self.driver.close()
+            break
+          except Exception as e:
+            print(f'error in {__file__}... can\'t close tab', e)
+
 
     # switch back to the first tab
     self.driver.switch_to.window(self.driver.window_handles[0])
+
