@@ -63,7 +63,8 @@ class Browser:
     '''
     param alerts must be less than/equal to the number of tuples in symbols_settings.py 
     '''
-    symbols_list = [crypto_symbols, crypto_symbols2, crypto_symbols3] 
+    symbols_list = [forex_symbols, stock_symbols, forex_symbols2, stock_symbols2, forex_symbols3, stock_symbols3, 
+                    crypto_symbols, crypto_symbols2, crypto_symbols3, crypto_symbols4] 
 
     for tab in range(self.tabs):
       # switch tab
@@ -111,6 +112,9 @@ class Browser:
   def set_alerts(self, tab):
     tab_no = tab + 1
 
+    # wait for the indicator to fully load
+    self.is_eye_loaded()
+
     while True:
       try:
         # wait for the + button to be clickable
@@ -142,20 +146,20 @@ class Browser:
     self.driver.find_element(By.CSS_SELECTOR, 'button[data-name="submit"]').click()
 
     # wait untill this new alert has come up in the alerts tab (if the number of alerts are equal to the number of tabs we hv set )
-    while True:
-      if len(self.driver.find_elements(By.CSS_SELECTOR, 'div.list-G90Hl2iS div.itemBody-ucBqatk5')) == tab_no:
-        break
-      else:
-        continue
+    # while True:
+    #   if len(self.driver.find_elements(By.CSS_SELECTOR, 'div.list-G90Hl2iS div.itemBody-ucBqatk5')) == tab_no:
+    #     break
+    #   else:
+    #     continue
 
   def is_eye_loaded(self):
     while True:
       try:
         indicator = self.driver.find_elements(By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')[1]
-        if indicator.get_attribute('class') == 'item-jFqVJoPk withIcon-jFqVJoPk withIcon-xZRtm41u':
-          return True   
+        if 'loading' not in indicator.get_attribute('class'):
+          break   
       except Exception as e:
-        return False
+        continue
 
   def delete_alerts(self):
     while True:
@@ -193,5 +197,3 @@ class Browser:
 
     # switch back to the first tab
     self.driver.switch_to.window(self.driver.window_handles[0])
-
-

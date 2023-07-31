@@ -106,5 +106,3 @@ class OpenChart:
     self.driver.switch_to.window(self.driver.window_handles[0])
 
     return url
-  
-  

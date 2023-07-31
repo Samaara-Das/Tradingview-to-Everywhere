@@ -42,10 +42,10 @@ class Alerts:
         self.chart.change_symbol(symbol)
         self.chart.change_tframe(parts[5])
         self.chart.change_indicator_settings('Entry', direction, entry_price, parts[2], parts[3])
-        chart_link = self.chart.save_chart_img()
-        fill_database('Entry', direction, symbol, parts[5], entry_price, parts[2], parts[3], chart_link, parts[6])
-        print('🗒️ db row', get_last_row())
-        self.tweet.create_tweet(direction + ' in ' + symbol + ' at ' + entry_price + '.' + chart_link)
+        # chart_link = self.chart.save_chart_img()
+        # fill_database('Entry', direction, symbol, parts[5], entry_price, parts[2], parts[3], chart_link, parts[6])
+        # print('🗒️ db row', get_last_row())
+        self.tweet.create_tweet(direction + ' in ' + symbol + ' at ' + entry_price + '.' + self.chart.save_chart_img())
 
       if 'TP' in line: #if this line is about a close which hit tp
         symbol = parts[5]
@@ -65,7 +65,7 @@ class Alerts:
     while True:
       try:
         alert_boxes = WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[class="message-PQUvhamm"]')))
-        alert_boxes = alert_boxes[::-1]
+        alert_boxes = alert_boxes[::-1] #to make the oldest alerts come first in the list to post about the oldest alerts first
 
         for alert_box in alert_boxes:
           text = '\n'.join(alert_box.text.split(' '))
@@ -127,4 +127,3 @@ def get_last_row():
     print('\nlatest rows: ', last_rows[-1])
 
   return last_rows[-1]
-
