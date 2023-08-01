@@ -3,7 +3,7 @@ This module opens tradingview, signs in and goes to the chart
 '''
 
 # import modules
-import time
+from time import sleep
 from open_entry_chart import OpenChart
 from symbol_settings import *
 from selenium import webdriver
@@ -54,6 +54,9 @@ class Browser:
 
     # delete all alerts
     self.delete_alerts()
+
+    #give it some time to delete all those alerts
+    sleep(2) 
 
     tabs = self.tabs-1
     for i in range(tabs):
@@ -152,8 +155,15 @@ class Browser:
     # click on submit
     self.driver.find_element(By.CSS_SELECTOR, 'button[data-name="submit"]').click()
 
+    # wait untill this new alert has come up in the alerts tab (if the number of alerts are equal to the number of tabs we hv set )
+    while True:
+      if len(self.driver.find_elements(By.CSS_SELECTOR, 'div.list-G90Hl2iS div.itemBody-ucBqatk5')) == tab_no:
+        break
+      else:
+        continue
+
   def is_eye_loaded(self):
-    time.sleep(1)
+    sleep(1)
     while True:
       try:
         indicator = self.driver.find_elements(By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')[1]
@@ -182,18 +192,21 @@ class Browser:
         except Exception as e:
           continue
 
-      alert_options = self.driver.find_elements(By.CSS_SELECTOR, 'div[class="item-jFqVJoPk item-xZRtm41u withIcon-jFqVJoPk withIcon-xZRtm41u"]')
-      if alert_options:
+      try:
         # in the dropdown which it opens, choose the "Remove all" option
-        alert_options[-1].click()
-        try:
-          # click OK when the confirm dialog pops up
-          WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[name="yes"]'))).click()
-        except Exception as e:
-          print(f'error in {__file__} delete_function. error: {e}')
+        WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[class="item-jFqVJoPk item-xZRtm41u withIcon-jFqVJoPk withIcon-xZRtm41u"]')))[-1].click()
+        
+        # click OK when the confirm dialog pops up
+        WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[name="yes"]'))).click()
+      except Exception as e:
+        # the error will happen when there are no alerts and the remove all option is not there
+        print(f'can\'t delete alerts. error in {__file__}', e)
 
+      # if there are no alerts visible, break
+      sleep(1)
       if len(self.driver.find_elements(By.CSS_SELECTOR, 'div.list-G90Hl2iS div.itemBody-ucBqatk5')) == 0:
         break
+
 
   def close_tabs(self):
     current_window_handle = self.driver.current_window_handle
