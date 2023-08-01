@@ -4,7 +4,6 @@ by getting text from alerts
 '''
 
 # import modules
-import sqlite3
 import open_entry_chart
 import send_tweet
 import send_to_discord
@@ -15,51 +14,51 @@ from selenium.webdriver.common.by import By
 
 
 # database setup
-DB_NAME = 'alerts.db' 
-conn = sqlite3.connect(DB_NAME)
-cur = conn.cursor()
 trade_counter = 0 #to track and access the trades
 
 # class
 class Alerts:
 
-  def __init__(self, driver) -> None:
+  def __init__(self, driver, browser) -> None:
     self.driver = driver
     create_database()
     self.chart = open_entry_chart.OpenChart(self.driver)
     self.tweet = send_tweet.TwitterClient()
     self.discord = send_to_discord.Discord()
+    self.browser = browser
     
   def read_alert(self, msg):
     lines = msg.split('\n')
 
     for line in lines:
       parts = line.split('|')
-      print(parts)
+      symbol = None
+      entry_price = None
+      direction = None
+      tframe = None
+      tp = None
+      sl = None
+      time_of_entry = None
+      content = ' '
+      _type = 'Entry' if 'TP' not in line and 'SL' not in line else 'Exit'
 
-      if 'TP' not in line and 'SL' not in line: #if this line is about an entry not an exit
-        symbol = parts[4]
-        entry_price = parts[1]
-        direction = parts[0]
-        self.chart.change_symbol(symbol)
-        self.chart.change_tframe(parts[5])
-        self.chart.change_indicator_settings('Entry', direction, entry_price, parts[2], parts[3])
-        chart_link = self.chart.save_chart_img()
-        # fill_database('Entry', direction, symbol, parts[5], entry_price, parts[2], parts[3], chart_link, parts[6])
-        # print('🗒️ db row', get_last_row())
-        self.tweet.create_tweet(direction + ' in ' + symbol + ' at ' + entry_price + '.' + chart_link)
-        self.discord.create_msg(direction + ' in ' + symbol + ' at ' + entry_price + '.' + chart_link)
+      if _type == 'Exit':
+        symbol, entry_price, direction, tframe, tp, sl, time_of_entry = (parts[5], parts[2], parts[0], parts[6], parts[3], parts[4], parts[7])
+        content = f"{direction} closed in {symbol} at TP!! {{}}"
+      else:
+        symbol, entry_price, direction, tframe, tp, sl = (parts[4], parts[1], parts[0], parts[5], parts[2], parts[3])
+        content = f"{direction} in {symbol} at {entry_price} {{}}"
 
-      if 'TP' in line: #if this line is about a close which hit tp
-        symbol = parts[5]
-        entry_price = parts[2]
-        direction = parts[0]
-        self.chart.change_symbol(symbol)
-        self.chart.change_tframe(parts[6])
-        self.chart.change_indicator_settings('Exit', direction, entry_price, parts[3], parts[4], parts[7])
-        chart_link = self.chart.save_chart_img()
-        self.tweet.create_tweet(direction + ' Closed in ' + symbol + ' at TP!!' + chart_link)
-        self.discord.create_msg(direction + ' Closed in ' + symbol + ' at TP!!' + chart_link)
+      self.chart.change_symbol(symbol)
+      self.chart.change_tframe(tframe)
+      self.chart.change_indicator_settings(_type, direction, entry_price, tp, sl)
+      chart_link = self.chart.save_chart_img()
+        
+      if not symbol.isdigit() and self.browser.is_signal_indicator_loaded():
+        self.tweet.create_tweet(content.format(chart_link))
+        self.discord.create_msg(content.format(chart_link))
+      else:
+        print('signal indicator did not successfully load OR the symbol was a number')
 
   def close_alert(self):
     ok_button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, ".button-D4RPB3ZC.size-small-D4RPB3ZC.color-brand-D4RPB3ZC.variant-primary-D4RPB3ZC")))
@@ -99,36 +98,3 @@ class Alerts:
 
     # sleep to give it some time to delete the alert log
     sleep(1)
-
-
-
-
-
-def create_database():
-  with conn:
-    cur.execute('''CREATE TABLE IF NOT EXISTS alerts 
-                (trade_counter INTEGER PRIMARY KEY,
-                type TEXT,
-                direction TEXT, 
-                symbol TEXT, 
-                tframe INTEGER, 
-                entry REAL, 
-                tp REAL, 
-                sl REAL,
-                chart_link TEXT, 
-                date TEXT)''')
-
-def fill_database(_type, direction, symbol, tframe, entry, tp, sl, chart_link, date):
-  with conn:
-    trade_counter += 1
-    # _type = Entry/Exit, direction = Buy/Sell, symbol = EURUSD, tframe = 5, entry = 1.20, tp = 1.20, sl = 1.20, chart_link = link of the chart snapshot, date = date of the time this entry/exit happened
-    cur.execute('''INSERT INTO alerts VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)''', (trade_counter, _type, direction, symbol, tframe, entry, tp, sl, chart_link, date))
-
-def get_last_row():
-  with conn:
-    # Execute the query and fetch the last row
-    cur.execute("SELECT * FROM alerts")
-    last_rows = cur.fetchall()
-    print('\nlatest rows: ', last_rows[-1])
-
-  return last_rows[-1]

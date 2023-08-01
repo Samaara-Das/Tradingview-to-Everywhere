@@ -55,6 +55,9 @@ class Browser:
     # delete all alerts
     self.delete_alerts()
 
+    # make the screener visible
+    self.screener_visibility(True)
+
     #give it some time to delete all those alerts
     sleep(2) 
 
@@ -66,8 +69,8 @@ class Browser:
     '''
     param alerts must be less than/equal to the number of tuples in symbols_settings.py 
     '''
-    symbols_list = [forex_symbols, stock_symbols, forex_symbols2, stock_symbols2, forex_symbols3, stock_symbols3, 
-                    crypto_symbols, crypto_symbols2, crypto_symbols3, crypto_symbols4] 
+    symbols_list = [forex_symbols, crypto_symbols, stock_symbols, forex_symbols2, stock_symbols2, forex_symbols3, 
+                    stock_symbols3, crypto_symbols2, crypto_symbols3, crypto_symbols4] 
 
     for tab in range(self.tabs):
       # switch tab
@@ -79,6 +82,7 @@ class Browser:
       # setup alert for this particular symbol
       self.set_alerts(tab)
 
+
     
   def change_settings(self, symbol, symbols_list):
     '''
@@ -89,7 +93,7 @@ class Browser:
     OpenChart(self.driver).change_symbol(symbol)
     
     # inside the tab, click on the settings of the 2nd indicator
-    indicator = self.driver.find_elements(By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')[1]
+    indicator = WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')))[1]
 
     ActionChains(self.driver).move_to_element(indicator).perform()
     ActionChains(self.driver).double_click(indicator).perform()
@@ -120,7 +124,7 @@ class Browser:
     self.is_eye_loaded()
 
     # hide the screener indicator by clicking the eye
-    self.hide_indicator()
+    self.screener_visibility(False)
 
     while True:
       try:
@@ -172,13 +176,35 @@ class Browser:
       except Exception as e:
         continue
 
-  def hide_indicator(self):
-    # click on the screener indicator to make it visible
+  def screener_visibility(self, make_visible: bool):
+    # click on the screener indicator to show the eye symbol
     indicator = self.driver.find_elements(By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')[1]
     indicator.click()
+    class_attr = indicator.get_attribute('class')
+    eye = self.driver.find_element(By.XPATH, '/html/body/div[2]/div[5]/div[2]/div[1]/div/table/tr[1]/td[2]/div/div[2]/div[2]/div[2]/div[3]/div[1]/div[2]/div/div[1]')
 
-    # click on the eye
-    self.driver.find_element(By.XPATH, '/html/body/div[2]/div[5]/div[2]/div[1]/div/table/tr[1]/td[2]/div/div[2]/div[2]/div[2]/div[3]/div[1]/div[2]/div/div[1]').click()
+    # if we want to make it invisible
+    if make_visible == False:
+      # check if it is visible to make it invisible. if it is not visible, then no need to click on the eye
+      if 'disabled' not in class_attr:
+        eye.click()
+    
+    # if we want to make it visible
+    else:
+      # check if it is invisible to make it visible. if it is not invisible, then no need to click on the eye 
+      if 'disabled' in class_attr:
+        eye.click()
+
+  def is_signal_indicator_loaded(self):
+    # get the 1st indicator i.e. the signal indicator
+    indicator = WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')))[0]
+    
+    # if there is no element which resembles an error
+    if indicator.find_elements(By.CSS_SELECTOR, '.statusItem-Lgtz1OtS.small-Lgtz1OtS.dataProblemLow-Lgtz1OtS') == []:
+      return True
+    
+    return False
+    
 
 
   def delete_alerts(self):
