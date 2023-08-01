@@ -22,13 +22,12 @@ class OpenChart:
     # get the 1st indicator on the top of the chart
     indicators = self.driver.find_elements(By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')
 
-    # double click on the indicator so that the settings can open 
-    ActionChains(self.driver).move_to_element(indicators[0]).perform()
-    ActionChains(self.driver).double_click(indicators[0]).perform()
-
     # change the settings
     while True:
       try:
+        # double click on the indicator so that the settings can open 
+        ActionChains(self.driver).move_to_element(indicators[0]).perform()
+        ActionChains(self.driver).double_click(indicators[0]).perform()
         settings = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.content-tBgV1m0B')))
         break
       except Exception as e:

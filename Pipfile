@@ -6,9 +6,8 @@ name = "pypi"
 [packages]
 selenium = "*"
 tweepy = "*"
-discord = "*"
 discord-webhook = "*"
-requests = "*"
+pymongo = "*"
 
 [dev-packages]
 
