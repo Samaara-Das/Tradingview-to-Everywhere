@@ -21,7 +21,6 @@ class Alerts:
 
   def __init__(self, driver, browser) -> None:
     self.driver = driver
-    create_database()
     self.chart = open_entry_chart.OpenChart(self.driver)
     self.tweet = send_tweet.TwitterClient()
     self.discord = send_to_discord.Discord()
