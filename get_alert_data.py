@@ -7,6 +7,7 @@ by getting text from alerts
 import open_entry_chart
 import send_tweet
 import send_to_discord
+import database
 from time import sleep
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -21,6 +22,7 @@ class Alerts:
 
   def __init__(self, driver, browser) -> None:
     self.driver = driver
+    self.db = database.Database()
     self.chart = open_entry_chart.OpenChart(self.driver)
     self.tweet = send_tweet.TwitterClient()
     self.discord = send_to_discord.Discord()
@@ -52,6 +54,8 @@ class Alerts:
       self.chart.change_tframe(tframe)
       self.chart.change_indicator_settings(_type, direction, entry_price, tp, sl)
       chart_link = self.chart.save_chart_img()
+      trade_counter += 1
+      self.db.add_doc(trade_counter, _type, direction, symbol, tframe, entry_price, tp, sl, chart_link, time_of_entry)
         
       if not symbol.isdigit() and self.browser.is_signal_indicator_loaded():
         self.tweet.create_tweet(content.format(chart_link))

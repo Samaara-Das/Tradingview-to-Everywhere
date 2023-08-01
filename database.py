@@ -3,7 +3,7 @@ from pymongo import MongoClient
 
 PWD = '1304sammy#'
 
-class MongoDb:
+class Database:
     def __init__(self):
         self.pwd = PWD
         self.cluster = MongoClient(f"mongodb+srv://samaara:{self.pwd}@cluster1.565lfln.mongodb.net/?retryWrites=true&w=majority")
@@ -13,7 +13,8 @@ class MongoDb:
     def add_doc(self, *args):
         '''
         args must have these arguments in this order:
-        ```trade_counter
+        ```
+        trade_counter
         type
         direction
         symbol
@@ -40,6 +41,9 @@ class MongoDb:
         }
         self.collection.insert_one(doc)
 
-    def get_doc(self, *args):
-        doc = self.collection.find_one({"name": args[0]})
-        return doc
+    def get_latest_docs(self):
+        docs = self.collection.find_one(sort=[("_id", pymongo.DESCENDING)])
+        return docs
+    
+    def delete_all(self):
+        self.collection.delete_many({}) 
