@@ -6,7 +6,7 @@ import open_tv
 import get_alert_data
 
 # how many tabs do we want to set up
-TABS = 9
+TABS = 3
 
 # initiate Browser
 browser = open_tv.Browser(open_tv.DRIVER_PATH, True, TABS)
@@ -23,5 +23,5 @@ browser.close_tabs()
 # wait for alerts and get data from them abt a new entry/exit
 # and then go that new entry's/exit's chart & timeframe
 # take a snapshot and send to twitter
-alerts = get_alert_data.Alerts(browser.driver)
+alerts = get_alert_data.Alerts(browser.driver, browser)
 alerts.send_to_twitter()
