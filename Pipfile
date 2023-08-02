@@ -8,6 +8,8 @@ selenium = "*"
 tweepy = "*"
 discord-webhook = "*"
 pymongo = "*"
+requests = "*"
+webdriver-manager = "*"
 
 [dev-packages]
 

@@ -63,9 +63,6 @@ class Alerts:
       else:
         print('signal indicator did not successfully load OR the symbol was a number')
 
-  def close_alert(self):
-    ok_button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, ".button-D4RPB3ZC.size-small-D4RPB3ZC.color-brand-D4RPB3ZC.variant-primary-D4RPB3ZC")))
-    ok_button.click()
 
   def send_to_twitter(self):
     message = ''

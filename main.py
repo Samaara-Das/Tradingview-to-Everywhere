@@ -9,7 +9,7 @@ import get_alert_data
 TABS = 3
 
 # initiate Browser
-browser = open_tv.Browser(open_tv.DRIVER_PATH, True, TABS)
+browser = open_tv.Browser(True, TABS)
 
 # open tradingview charts for X amount of tabs
 browser.open_tv()
