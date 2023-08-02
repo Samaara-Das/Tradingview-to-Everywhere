@@ -7,37 +7,33 @@ from time import sleep
 from open_entry_chart import OpenChart
 from symbol_settings import *
 from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.service import Service as ChromeService
+from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import Select
+
 
 
 # some constants
 CHROME_PROFILE_PATH = 'C:\\Users\\Puja\\AppData\\Local\\Google\\Chrome\\User Data'
-DRIVER_PATH = 'C:\\Users\\Puja\\chromedriver'
 # CHROME_PROFILE_PATH = 'C:\\Users\\pripuja\\AppData\\Local\\Google\\Chrome\\User Data'
-# DRIVER_PATH = "C:\\Users\\pripuja\\Desktop\\Python\\chromedriver"
 
-EMAIL = 'dassamaara@gmail.com'
-PWD = '1304sammy#'
 
 # class
 class Browser:
 
-  def __init__(self, driver: str, keep_open: bool, tabs: int) -> None:
-    self.service = Service(driver)
+  def __init__(self, keep_open: bool, tabs: int) -> None:
     chrome_options = Options()
     chrome_options.add_experimental_option("detach", keep_open)
 
     # make sure that any other chrome browser is closed otherwise it wont work
     chrome_options.add_argument('--profile-directory=Profile 2')
     chrome_options.add_argument(f"--user-data-dir={CHROME_PROFILE_PATH}")
-    self.driver = webdriver.Chrome(service=self.service, options=chrome_options)
+    self.driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()), options=chrome_options)
     self.tabs = tabs
 
   def open_page(self, url: str):
