@@ -18,7 +18,6 @@ class Discord:
         try:
             webhook = DiscordWebhook(url=self.webhook_url, content=content)
             response = webhook.execute()
-            print(response.reason)
         except Exception as e:
             print(e)
 
