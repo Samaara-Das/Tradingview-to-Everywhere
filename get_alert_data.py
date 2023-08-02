@@ -36,23 +36,26 @@ class Alerts:
       tframe = None
       tp = None
       sl = None
-      time_of_entry = None
+      date_time = None
       content = ' '
       _type = 'Entry' if 'TP' not in line and 'SL' not in line else 'Exit'
 
       if _type == 'Exit':
-        symbol, entry_price, direction, tframe, tp, sl, time_of_entry = (parts[5], parts[2], parts[0], parts[6], parts[3], parts[4], parts[7])
+        symbol, entry_price, direction, tframe, tp, sl, date_time = (parts[5], parts[2], parts[0], parts[6], parts[3], parts[4], parts[7])
         content = f"{direction} closed in {symbol} at TP!! {{}}"
       else:
-        symbol, entry_price, direction, tframe, tp, sl, time_of_entry = (parts[4], parts[1], parts[0], parts[5], parts[2], parts[3], parts[6])
+        symbol, entry_price, direction, tframe, tp, sl, date_time = (parts[4], parts[1], parts[0], parts[5], parts[2], parts[3], parts[6])
         content = f"{direction} in {symbol} at {entry_price} {{}}"
 
       self.chart.change_symbol(symbol)
       self.chart.change_tframe(tframe)
       self.chart.change_indicator_settings(_type, direction, entry_price, tp, sl)
       chart_link = self.chart.save_chart_img()
-      self.db.add_doc(_type, direction, symbol, tframe, entry_price, tp, sl, chart_link, time_of_entry)
-      self.send_post(symbol, content.format(chart_link))
+      content = content.format(chart_link)
+      self.db.add_doc(_type, direction, symbol, tframe, entry_price, tp, sl, chart_link,content, date_time)
+      self.send_post(symbol, content)
+      print(parts)
+      print('time of event: ', date_time)
 
 
   def send_post(self, symbol, content):
