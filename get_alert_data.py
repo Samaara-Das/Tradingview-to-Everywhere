@@ -14,9 +14,6 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 
 
-# database setup
-trade_counter = 0 #to track and access the trades
-
 # class
 class Alerts:
 
@@ -47,22 +44,23 @@ class Alerts:
         symbol, entry_price, direction, tframe, tp, sl, time_of_entry = (parts[5], parts[2], parts[0], parts[6], parts[3], parts[4], parts[7])
         content = f"{direction} closed in {symbol} at TP!! {{}}"
       else:
-        symbol, entry_price, direction, tframe, tp, sl = (parts[4], parts[1], parts[0], parts[5], parts[2], parts[3])
+        symbol, entry_price, direction, tframe, tp, sl, time_of_entry = (parts[4], parts[1], parts[0], parts[5], parts[2], parts[3], parts[6])
         content = f"{direction} in {symbol} at {entry_price} {{}}"
 
       self.chart.change_symbol(symbol)
       self.chart.change_tframe(tframe)
       self.chart.change_indicator_settings(_type, direction, entry_price, tp, sl)
       chart_link = self.chart.save_chart_img()
-      trade_counter += 1
-      self.db.add_doc(trade_counter, _type, direction, symbol, tframe, entry_price, tp, sl, chart_link, time_of_entry)
-        
-      if not symbol.isdigit() and self.browser.is_signal_indicator_loaded():
-        self.tweet.create_tweet(content.format(chart_link))
-        self.discord.create_msg(content.format(chart_link))
-      else:
-        print('signal indicator did not successfully load OR the symbol was a number')
+      self.db.add_doc(_type, direction, symbol, tframe, entry_price, tp, sl, chart_link, time_of_entry)
+      self.send_post(symbol, content.format(chart_link))
 
+
+  def send_post(self, symbol, content):
+    if not symbol.isdigit() and self.browser.is_signal_indicator_loaded():
+      self.tweet.create_tweet(content)
+      self.discord.create_msg(content)
+    else:
+      print('Could not send post. Signal indicator did not successfully load OR the symbol was a number')
 
   def send_to_twitter(self):
     message = ''
