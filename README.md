@@ -11,10 +11,9 @@ Things to keep in mind:
 - when using our **desktop**, use this to open the chrome profile:
     ```
     CHROME_PROFILE_PATH = 'C:\\Users\\Puja\\AppData\\Local\\Google\\Chrome\\User Data'
-    DRIVER_PATH = 'C:\\Users\\Puja\\chromedriver'
 
     # put this in the __init__ method
-    # if google asks to sign in, just sign in manually (it's a 1 time thing)
+    # if google asks to sign in, just sign in manually (it's just a 1 time thing)
     chrome_options.add_argument('--profile-directory=Profile 2')
     chrome_options.add_argument(f"--user-data-dir={CHROME_PROFILE_PATH}")
     ```
@@ -22,9 +21,9 @@ Things to keep in mind:
 - when using our **home laptop**, use this to open the chrome profile:
     ```
     CHROME_PROFILE_PATH = 'C:\\Users\\pripuja\\AppData\\Local\\Google\\Chrome\\User Data'
-    DRIVER_PATH = "C:\\Users\\pripuja\\Desktop\\Python\\chromedriver"
 
     # put this in the __init__ method
+    # if google asks to sign in, just sign in manually (it's just a 1 time thing)
     chrome_options.add_argument('--profile-directory=Profile 1')
     chrome_options.add_argument(f"--user-data-dir={CHROME_PROFILE_PATH}")
     ```
