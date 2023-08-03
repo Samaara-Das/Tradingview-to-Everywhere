@@ -209,6 +209,14 @@ class Browser:
 
   def delete_alerts(self):
     while True:
+      # wait for the alert tab to load
+      while True:
+        try:
+          alert_tab = self.driver.find_element(By.CSS_SELECTOR, '.body-i8Od6xAB') or self.driver.find_element(By.CSS_SELECTOR, '.wrapper-G90Hl2iS')
+          break
+        except Exception as e:
+          continue
+
       # click the 3 dots
       while True:
         try:
