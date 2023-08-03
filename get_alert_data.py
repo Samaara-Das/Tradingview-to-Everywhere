@@ -59,11 +59,13 @@ class Alerts:
 
 
   def send_post(self, symbol, content):
-    if not symbol.isdigit() and self.browser.is_signal_indicator_loaded():
+    is_symbol = not symbol.isdigit()
+    is_ind_loaded = self.browser.is_signal_indicator_loaded()
+    if is_symbol and is_ind_loaded:
       self.tweet.create_tweet(content)
       self.discord.create_msg(content)
     else:
-      print('Could not send post. Signal indicator did not successfully load OR the symbol was a number')
+      print('Could not send post. Signal indicator did not successfully load OR the symbol was a number.\nSymbol: ',symbol,' Indicator loaded: ',is_ind_loaded)
 
   def send_to_twitter(self):
     message = ''
@@ -99,3 +101,4 @@ class Alerts:
 
     # sleep to give it some time to delete the alert log
     sleep(1)
+

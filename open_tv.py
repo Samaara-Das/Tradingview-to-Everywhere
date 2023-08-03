@@ -192,6 +192,10 @@ class Browser:
         eye.click()
 
   def is_signal_indicator_loaded(self):
+    '''
+    this checks if the indicator has successfully loaded without an error
+    '''
+
     # get the 1st indicator i.e. the signal indicator
     indicator = WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')))[0]
     
