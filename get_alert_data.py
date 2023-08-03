@@ -27,6 +27,7 @@ class Alerts:
     
   def read_alert(self, msg):
     lines = msg.split('\n')
+    lines.pop(0)
 
     for line in lines:
       parts = line.split('|')
@@ -37,25 +38,27 @@ class Alerts:
       tp = None
       sl = None
       date_time = None
+      entry_time = None
       content = ' '
       _type = 'Entry' if 'TP' not in line and 'SL' not in line else 'Exit'
 
       if _type == 'Exit':
-        symbol, entry_price, direction, tframe, tp, sl, date_time = (parts[5], parts[2], parts[0], parts[6], parts[3], parts[4], parts[7])
+        symbol, entry_price, direction, tframe, tp, sl, entry_time, date_time = (parts[5], parts[2], parts[0], parts[6], parts[3], parts[4], parts[7], parts[8])
         content = f"{direction} closed in {symbol} at TP!! {{}}"
       else:
-        symbol, entry_price, direction, tframe, tp, sl, date_time = (parts[4], parts[1], parts[0], parts[5], parts[2], parts[3], parts[6])
+        symbol, entry_price, direction, tframe, tp, sl, entry_time = (parts[4], parts[1], parts[0], parts[5], parts[2], parts[3], parts[6])
+        date_time = entry_time
         content = f"{direction} in {symbol} at {entry_price} {{}}"
 
       self.chart.change_symbol(symbol)
       self.chart.change_tframe(tframe)
-      self.chart.change_indicator_settings(_type, direction, entry_price, tp, sl)
+      self.chart.change_indicator_settings(_type, direction, entry_price, tp, sl, entry_time)
       chart_link = self.chart.save_chart_img()
       content = content.format(chart_link)
       self.db.add_doc(_type, direction, symbol, tframe, entry_price, tp, sl, chart_link,content, date_time)
       self.send_post(symbol, content)
-      print(parts)
-      print('time of event: ', date_time)
+      print('parts: ', parts)
+      print('line: ', line)
 
 
   def send_post(self, symbol, content):
@@ -63,7 +66,7 @@ class Alerts:
     is_ind_loaded = self.browser.is_signal_indicator_loaded()
     if is_symbol and is_ind_loaded:
       self.tweet.create_tweet(content)
-      self.discord.create_msg(content)
+      self.discord.create_msg(content)  
     else:
       print('Could not send post. Signal indicator did not successfully load OR the symbol was a number.\nSymbol: ',symbol,' Indicator loaded: ',is_ind_loaded)
 
@@ -74,8 +77,10 @@ class Alerts:
         alert_boxes = WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[class="message-PQUvhamm"]')))
         alert_boxes = alert_boxes[::-1] #to make the oldest alerts come first in the list to post about the oldest alerts first
 
-        for alert_box in alert_boxes:
-          text = '\n'.join(alert_box.text.split(' '))
+        for i, alert_box in enumerate(alert_boxes):
+          _list = alert_box.text.split(' ')
+          _list[0] = '\n' + _list[0]
+          text = '\n'.join(_list)
           message += text
 
         if len(alert_boxes) > 0:
