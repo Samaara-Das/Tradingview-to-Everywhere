@@ -24,4 +24,4 @@ browser.close_tabs()
 # and then go that new entry's/exit's chart & timeframe
 # take a snapshot and send to twitter
 alerts = get_alert_data.Alerts(browser.driver, browser)
-alerts.send_to_twitter()
+alerts.read_and_parse()
