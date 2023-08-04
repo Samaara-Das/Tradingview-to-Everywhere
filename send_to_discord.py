@@ -8,6 +8,7 @@ then paste the webhook url in ``self.webhook_url``
 '''
 
 from discord_webhook import DiscordWebhook
+from traceback import format_exc
 
 
 class Discord:
@@ -19,5 +20,5 @@ class Discord:
             webhook = DiscordWebhook(url=self.webhook_url, content=content)
             response = webhook.execute()
         except Exception as e:
-            print(f'error in {__file__}: \n', e)
+            print(f'error in {__file__}: \n{e} \nTraceback: {format_exc()}')
 
