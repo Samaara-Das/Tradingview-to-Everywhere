@@ -27,7 +27,7 @@ class Alerts:
     
   def read_alert(self, msg):
     lines = msg.split('\n')
-    lines.pop(0)
+    lines.pop(0) #remove the 0th index because it's just a blank line
 
     for line in lines:
       parts = line.split('|')
@@ -40,12 +40,18 @@ class Alerts:
       date_time = None
       entry_time = None
       content = ' '
-      _type = 'Entry' if 'TP' not in line and 'SL' not in line else 'Exit'
+      _type = ' '
+      if 'TP' not in line and 'SL' not in line:
+        _type = 'Entry'
+      elif 'TP' in line:
+        _type = 'Exit'
+      else: #if SL is in the line, just continue to the next line
+        continue
 
       if _type == 'Exit':
         symbol, entry_price, direction, tframe, tp, sl, entry_time, date_time = (parts[5], parts[2], parts[0], parts[6], parts[3], parts[4], parts[7], parts[8])
         content = f"{direction} closed in {symbol} at TP!! {{}}"
-      else:
+      elif _type == 'Entry':
         symbol, entry_price, direction, tframe, tp, sl, entry_time = (parts[4], parts[1], parts[0], parts[5], parts[2], parts[3], parts[6])
         date_time = entry_time
         content = f"{direction} in {symbol} at {entry_price} {{}}"
@@ -57,8 +63,6 @@ class Alerts:
       content = content.format(chart_link)
       self.db.add_doc(_type, direction, symbol, tframe, entry_price, tp, sl, chart_link,content, date_time)
       self.send_post(symbol, content)
-      print('parts: ', parts)
-      print('line: ', line)
 
 
   def send_post(self, symbol, content):
