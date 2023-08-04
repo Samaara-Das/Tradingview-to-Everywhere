@@ -6,7 +6,7 @@ import open_tv
 import get_alert_data
 
 # how many tabs do we want to set up
-TABS = 3
+TABS = 2
 
 # initiate Browser
 browser = open_tv.Browser(True, TABS)
