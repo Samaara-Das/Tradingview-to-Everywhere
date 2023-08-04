@@ -78,8 +78,6 @@ class Browser:
       # setup alert for this particular symbol
       self.set_alerts(tab)
 
-
-    
   def change_settings(self, symbol, symbols_list):
     '''
     param symbol is the symbol you want the chart to change to
@@ -99,6 +97,7 @@ class Browser:
         settings = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.content-tBgV1m0B')))
         break
       except Exception as e:
+        print(f'error in {__file__}: \n', e)
         continue
     inputs = settings.find_elements(By.CSS_SELECTOR, '.inlineRow-D8g11qqA div[data-name="edit-button"]')
     
@@ -128,6 +127,7 @@ class Browser:
         plus_button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-name="set-alert-button"]')))
         break
       except Exception as e:
+        print(f'error in {__file__}: \n', e)
         continue
 
 
@@ -139,13 +139,14 @@ class Browser:
         set_alerts_popup = WebDriverWait(self.driver, 10).until(EC.visibility_of_element_located((By.CSS_SELECTOR, 'div[data-name="alerts-create-edit-dialog"]')))
         break
       except Exception as e:
+        print(f'error in {__file__}: \n', e)
         continue
     
     # click the dropdown and choose the screener
     try:
       set_alerts_popup.find_element(By.CSS_SELECTOR, 'span[data-name="main-series-select"]').click()
     except Exception as e:
-      print('couldn\'t find screener dropdown when making alert')
+      print(f'from {__file__}: \ncouldn\'t find screener dropdown when making alert \n', e)
 
     for el in self.driver.find_elements(By.CSS_SELECTOR, 'div[data-name="menu-inner"] div[role="option"]'):
       if 'Screener' in el.text:
@@ -170,6 +171,7 @@ class Browser:
         if 'loading' not in indicator.get_attribute('class'):
           break   
       except Exception as e:
+        print(f'error in {__file__}: \n', e)
         continue
 
   def screener_visibility(self, make_visible: bool):
@@ -205,8 +207,6 @@ class Browser:
     
     return False
     
-
-
   def delete_alerts(self):
     while True:
       # wait for the alert tab to load
@@ -215,6 +215,7 @@ class Browser:
           alert_tab = self.driver.find_element(By.CSS_SELECTOR, '.body-i8Od6xAB') or self.driver.find_element(By.CSS_SELECTOR, '.wrapper-G90Hl2iS')
           break
         except Exception as e:
+          print(f'error in {__file__}: \n', e)
           continue
 
       # click the 3 dots
@@ -224,6 +225,7 @@ class Browser:
           settings.click()
           break
         except Exception as e:
+          print(f'error in {__file__}: \n', e)
           continue
 
       try:
@@ -234,13 +236,12 @@ class Browser:
         WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[name="yes"]'))).click()
       except Exception as e:
         # the error will happen when there are no alerts and the remove all option is not there
-        print(f'can\'t delete alerts. error in {__file__}', e)
+        print(f'from {__file__}: \ncan\'t delete alerts.', e)
 
       # if there are no alerts visible, break
       sleep(1)
       if len(self.driver.find_elements(By.CSS_SELECTOR, 'div.list-G90Hl2iS div.itemBody-ucBqatk5')) == 0:
         break
-
 
   def close_tabs(self):
     current_window_handle = self.driver.current_window_handle
