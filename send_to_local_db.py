@@ -25,19 +25,7 @@ class Database:
         if delete:
             self.delete_all()
 
-    def add_doc(self, _type, direction, symbol, tframe, entry, tp, sl, chart_link, content, date):
-        doc = {
-            "type": _type,
-            "direction": direction,
-            "symbol": symbol,
-            "tframe": tframe,
-            "entry": entry,
-            "tp": tp,
-            "sl": sl,
-            "chart_link": chart_link,
-            "content": content,
-            "date": date
-        }
+    def add_doc(self, doc):
         return self.collection.insert_one(doc)
 
     def get_latest_doc(self):
@@ -48,3 +36,5 @@ class Database:
         self.collection.delete_many({}) 
 
 db = Database(True)
+
+
