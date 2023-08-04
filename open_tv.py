@@ -3,6 +3,7 @@ This module opens tradingview, signs in and goes to the chart
 '''
 
 # import modules
+from traceback import format_exc
 from time import sleep
 from open_entry_chart import OpenChart
 from symbol_settings import *
@@ -97,7 +98,7 @@ class Browser:
         settings = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.content-tBgV1m0B')))
         break
       except Exception as e:
-        print(f'error in {__file__}: \n', e)
+        print(f'error in {__file__}: \n{e} \nTraceback: {format_exc()}')
         continue
     inputs = settings.find_elements(By.CSS_SELECTOR, '.inlineRow-D8g11qqA div[data-name="edit-button"]')
     
@@ -127,7 +128,7 @@ class Browser:
         plus_button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-name="set-alert-button"]')))
         break
       except Exception as e:
-        print(f'error in {__file__}: \n', e)
+        print(f'error in {__file__}: \n{e} \nTraceback: {format_exc()}')
         continue
 
 
@@ -139,14 +140,14 @@ class Browser:
         set_alerts_popup = WebDriverWait(self.driver, 10).until(EC.visibility_of_element_located((By.CSS_SELECTOR, 'div[data-name="alerts-create-edit-dialog"]')))
         break
       except Exception as e:
-        print(f'error in {__file__}: \n', e)
+        print(f'error in {__file__}: \n{e} \nTraceback: {format_exc()}')
         continue
     
     # click the dropdown and choose the screener
     try:
       set_alerts_popup.find_element(By.CSS_SELECTOR, 'span[data-name="main-series-select"]').click()
     except Exception as e:
-      print(f'from {__file__}: \ncouldn\'t find screener dropdown when making alert \n', e)
+      print(f'from {__file__}: \ncouldn\'t find screener dropdown when making alert \n{e} \nTraceback: {format_exc()}')
 
     for el in self.driver.find_elements(By.CSS_SELECTOR, 'div[data-name="menu-inner"] div[role="option"]'):
       if 'Screener' in el.text:
@@ -171,7 +172,7 @@ class Browser:
         if 'loading' not in indicator.get_attribute('class'):
           break   
       except Exception as e:
-        print(f'error in {__file__}: \n', e)
+        print(f'error in {__file__}: \n{e} \nTraceback: {format_exc()}')
         continue
 
   def screener_visibility(self, make_visible: bool):
@@ -215,7 +216,7 @@ class Browser:
           alert_tab = self.driver.find_element(By.CSS_SELECTOR, '.body-i8Od6xAB') or self.driver.find_element(By.CSS_SELECTOR, '.wrapper-G90Hl2iS')
           break
         except Exception as e:
-          print(f'error in {__file__}: \n', e)
+          print(f'error in {__file__}: \n{e} \nTraceback: {format_exc()}')
           continue
 
       # click the 3 dots
@@ -225,7 +226,7 @@ class Browser:
           settings.click()
           break
         except Exception as e:
-          print(f'error in {__file__}: \n', e)
+          print(f'error in {__file__}: \n{e} \nTraceback: {format_exc()}')
           continue
 
       try:
@@ -236,7 +237,7 @@ class Browser:
         WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[name="yes"]'))).click()
       except Exception as e:
         # the error will happen when there are no alerts and the remove all option is not there
-        print(f'from {__file__}: \ncan\'t delete alerts.', e)
+        print(f'from {__file__}: \ncan\'t delete alerts. \n{e} \nTraceback: {format_exc()}')
 
       # if there are no alerts visible, break
       sleep(1)
@@ -257,7 +258,7 @@ class Browser:
             self.driver.close()
             break
           except Exception as e:
-            print(f'error in {__file__}... can\'t close tab', e)
+            print(f'error in {__file__}... can\'t close tab \n{e} \nTraceback: {format_exc()}')
 
 
     # switch back to the first tab
