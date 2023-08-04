@@ -7,7 +7,8 @@ by getting text from alerts
 import open_entry_chart
 import send_tweet
 import send_to_discord
-import database
+import send_to_nk_db
+import send_to_local_db
 from time import sleep
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -19,7 +20,8 @@ class Alerts:
 
   def __init__(self, driver, browser) -> None:
     self.driver = driver
-    self.db = database.Database()
+    self.local_db = send_to_local_db.Database()
+    self.nk_db = send_to_nk_db.Post()
     self.chart = open_entry_chart.OpenChart(self.driver)
     self.tweet = send_tweet.TwitterClient()
     self.discord = send_to_discord.Discord()
@@ -60,12 +62,13 @@ class Alerts:
       self.chart.change_tframe(tframe)
       self.chart.change_indicator_settings(_type, direction, entry_price, tp, sl, entry_time)
       chart_link = self.chart.save_chart_img()
+
       content = content.format(chart_link)
-      self.db.add_doc(_type, direction, symbol, tframe, entry_price, tp, sl, chart_link,content, date_time)
-      self.send_post(symbol, content)
+      self.send_post_to_socials(symbol, content)
+      self.send_to_db(_type, direction, symbol, tframe, entry_price, tp, sl, chart_link, content, date_time)
 
 
-  def send_post(self, symbol, content):
+  def send_post_to_socials(self, symbol, content):
     is_symbol = not symbol.isdigit()
     is_ind_loaded = self.browser.is_signal_indicator_loaded()
     if is_symbol and is_ind_loaded:
@@ -73,6 +76,23 @@ class Alerts:
       self.discord.create_msg(content)  
     else:
       print('Could not send post. Signal indicator did not successfully load OR the symbol was a number.\nSymbol: ',symbol,' Indicator loaded: ',is_ind_loaded)
+
+  def send_to_db(self, _type, direction, symbol, tframe, entry_price, tp, sl, chart_link, content, date_time):
+    data = {
+      "type": _type,
+      "direction": direction,
+      "symbol": symbol,
+      "tframe": tframe,
+      "entry": entry_price,
+      "tp": tp,
+      "sl": sl,
+      "chart_link": chart_link,
+      "content": content,
+      "date": date_time
+    }
+
+    self.local_db.add_doc(data)
+    # self.nk_db.post_to_url(data)
 
   def send_to_twitter(self):
     message = ''
@@ -110,4 +130,6 @@ class Alerts:
 
     # sleep to give it some time to delete the alert log
     sleep(1)
+
+
 
