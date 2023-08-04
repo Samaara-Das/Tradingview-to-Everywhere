@@ -15,9 +15,9 @@ class Database:
         # Send a ping to confirm a successful connection
         try:
             self.client.admin.command('ping')
-            print("Pinged your deployment. You successfully connected to MongoDB!")
+            print(f"from {__file__}: \nPinged your deployment. You successfully connected to MongoDB!")
         except Exception as e:
-            print(e)
+            print(f'from {__file__}: ', e)
         
         self.db = self.client["test"]
         self.collection = self.db["Entries & Exits"]

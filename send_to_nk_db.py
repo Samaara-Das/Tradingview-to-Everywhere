@@ -17,7 +17,7 @@ class Post:
     try:
       response = self.session.post(self.url, data=payload)
     except ConnectionError as ce:
-      print('error in sending post request to Nishant uncle\'s webhook:', ce)
+      print(f'from {__file__}: \nerror in sending post request to Nishant uncle\'s webhook:', ce)
     else:
       return response
     

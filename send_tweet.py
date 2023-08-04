@@ -17,6 +17,6 @@ class TwitterClient:
         try:
             self.client.create_tweet(text=text)
         except Exception as e:
-            print(e)
+            print(f'from {__file__}: \n', e)
 
 
