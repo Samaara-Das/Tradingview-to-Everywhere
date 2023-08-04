@@ -5,7 +5,7 @@ by getting text from alerts
 
 # import modules
 import open_entry_chart
-import send_tweet
+import send_to_twitter
 import send_to_discord
 import send_to_nk_db
 import send_to_local_db
@@ -23,7 +23,7 @@ class Alerts:
     self.local_db = send_to_local_db.Database()
     self.nk_db = send_to_nk_db.Post()
     self.chart = open_entry_chart.OpenChart(self.driver)
-    self.tweet = send_tweet.TwitterClient()
+    self.tweet = send_to_twitter.TwitterClient()
     self.discord = send_to_discord.Discord()
     self.browser = browser
     
@@ -75,7 +75,7 @@ class Alerts:
       self.tweet.create_tweet(content)
       self.discord.create_msg(content)  
     else:
-      print('Could not send post. Signal indicator did not successfully load OR the symbol was a number.\nSymbol: ',symbol,' Indicator loaded: ',is_ind_loaded)
+      print(f'from {__file__}: \nCould not send post. Signal indicator did not successfully load OR the symbol was a number.\nSymbol: ',symbol,' Indicator loaded: ',is_ind_loaded)
 
   def send_to_db(self, _type, direction, symbol, tframe, entry_price, tp, sl, chart_link, content, date_time):
     data = {
@@ -94,7 +94,7 @@ class Alerts:
     self.local_db.add_doc(data)
     # self.nk_db.post_to_url(data)
 
-  def send_to_twitter(self):
+  def read_and_parse(self):
     message = ''
     while True:
       try:
@@ -114,6 +114,7 @@ class Alerts:
         message = '' 
         alert_box = None
       except Exception as e:
+        print(f'error in {__file__}: \n', e)
         continue
       
   def clear_log(self):
