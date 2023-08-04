@@ -1,5 +1,6 @@
 import pymongo
 from pymongo.mongo_client import MongoClient
+from traceback import format_exc
 
 PWD = '5gsCKHt4Dg4aSa8E'
 
@@ -17,7 +18,7 @@ class Database:
             self.client.admin.command('ping')
             print(f"from {__file__}: \nPinged your deployment. You successfully connected to MongoDB!")
         except Exception as e:
-            print(f'from {__file__}: ', e)
+            print(f'from {__file__}: \n{e} \nTraceback: {format_exc()}')
         
         self.db = self.client["test"]
         self.collection = self.db["Entries & Exits"]

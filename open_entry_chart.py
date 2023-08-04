@@ -4,6 +4,7 @@ this opens up a new tab in the browser and sets it up for taking snapshots of th
 
 
 # import modules
+from traceback import format_exc
 from time import sleep
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -31,7 +32,7 @@ class OpenChart:
         settings = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.content-tBgV1m0B')))
         break
       except Exception as e:
-        print(f'error in {__file__}: \n', e)
+        print(f'error in {__file__}: \n{e} \nTraceback: {format_exc()}')
         continue
     inputs = settings.find_elements(By.CSS_SELECTOR, '.cell-tBgV1m0B input')
 

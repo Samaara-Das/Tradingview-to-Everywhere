@@ -5,6 +5,7 @@ this is how we send post requests to Nishant uncle's database
 from requests import Session
 from requests.adapters import HTTPAdapter
 from requests.exceptions import ConnectionError
+from traceback import format_exc
 
 class Post:
   def __init__(self, max_retries=3):
@@ -16,8 +17,8 @@ class Post:
   def post_to_url(self, payload: dict):
     try:
       response = self.session.post(self.url, data=payload)
-    except ConnectionError as ce:
-      print(f'from {__file__}: \nerror in sending post request to Nishant uncle\'s webhook:', ce)
+    except ConnectionError as e:
+      print(f'from {__file__}: \nerror in sending post request to Nishant uncle\'s webhook: \n{e} \nTraceback: {format_exc()}')
     else:
       return response
     
