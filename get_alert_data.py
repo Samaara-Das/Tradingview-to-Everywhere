@@ -4,11 +4,12 @@ by getting text from alerts
 '''
 
 # import modules
+from traceback import format_exc
 import open_entry_chart
 import send_to_twitter
 import send_to_discord
-import send_to_nk_db
-import send_to_local_db
+import nk_db
+import local_db
 from time import sleep
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -20,8 +21,8 @@ class Alerts:
 
   def __init__(self, driver, browser) -> None:
     self.driver = driver
-    self.local_db = send_to_local_db.Database()
-    self.nk_db = send_to_nk_db.Post()
+    self.local_db = local_db.Database()
+    self.nk_db = nk_db.Post()
     self.chart = open_entry_chart.OpenChart(self.driver)
     self.tweet = send_to_twitter.TwitterClient()
     self.discord = send_to_discord.Discord()
@@ -114,7 +115,7 @@ class Alerts:
         message = '' 
         alert_box = None
       except Exception as e:
-        print(f'error in {__file__}: \n', e)
+        print(f'error in {__file__}: \n{e} \nTraceback: {format_exc()}')
         continue
       
   def clear_log(self):
