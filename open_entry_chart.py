@@ -31,6 +31,7 @@ class OpenChart:
         settings = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.content-tBgV1m0B')))
         break
       except Exception as e:
+        print(f'error in {__file__}: \n', e)
         continue
     inputs = settings.find_elements(By.CSS_SELECTOR, '.cell-tBgV1m0B input')
 
