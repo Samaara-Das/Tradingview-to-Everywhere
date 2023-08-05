@@ -43,17 +43,20 @@ class Alerts:
       date_time = None
       entry_time = None
       content = ' '
+      exit_type = ' '
       _type = ' '
       if 'TP' not in line and 'SL' not in line:
         _type = 'Entry'
       elif 'TP' in line:
-        _type = 'Exit'
-      else: #if SL is in the line, just continue to the next line
-        continue
+        _type = 'TP Exit'
+        exit_type = 'TP!!'
+      elif 'SL' in line: 
+        _type = 'SL Exit'
+        exit_type = 'SL'
 
-      if _type == 'Exit':
+      if _type == 'TP Exit':
         symbol, entry_price, direction, tframe, tp, sl, entry_time, date_time = (parts[5], parts[2], parts[0], parts[6], parts[3], parts[4], parts[7], parts[8])
-        content = f"{direction} closed in {symbol} at TP!! {{}}"
+        content = f"{direction} closed in {symbol} at {exit_type} {{}}"
       elif _type == 'Entry':
         symbol, entry_price, direction, tframe, tp, sl, entry_time = (parts[4], parts[1], parts[0], parts[5], parts[2], parts[3], parts[6])
         date_time = entry_time
@@ -65,7 +68,8 @@ class Alerts:
       chart_link = self.chart.save_chart_img()
 
       content = content.format(chart_link)
-      self.send_post_to_socials(symbol, content)
+      if _type == 'TP Exit' or _type == 'Entry':
+        self.send_post_to_socials(symbol, content)
       self.send_to_db(_type, direction, symbol, tframe, entry_price, tp, sl, chart_link, content, date_time)
 
 
