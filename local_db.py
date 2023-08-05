@@ -33,6 +33,13 @@ class Database:
         docs = self.collection.find_one(sort=[("_id", pymongo.DESCENDING)])
         return docs
     
+    def get_entry_of(self, symbol):
+        '''
+        this finds the most recent entry of the passed symbol in the db
+        '''
+
+        
+    
     def delete_all(self):
         self.collection.delete_many({}) 
 
