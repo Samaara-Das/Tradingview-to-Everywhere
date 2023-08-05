@@ -37,9 +37,9 @@ class Database:
         '''
         this finds the most recent entry of the passed symbol in the db
         '''
+        docs = self.collection.find({"symbol": symbol, 'type': 'Entry'}).sort([('_id', pymongo.DESCENDING)])
+        return docs
 
-        
-    
     def delete_all(self):
         self.collection.delete_many({}) 
 
