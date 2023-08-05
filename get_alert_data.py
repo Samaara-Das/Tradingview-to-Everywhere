@@ -35,6 +35,7 @@ class Alerts:
     for line in lines:
       parts = line.split('|')
       symbol = None
+      is_tp_hit = None
       entry_price = None
       direction = None
       tframe = None
@@ -48,15 +49,19 @@ class Alerts:
       if 'TP' not in line and 'SL' not in line:
         _type = 'Entry'
       elif 'TP' in line:
-        _type = 'TP Exit'
+        _type = 'Exit'
         exit_type = 'TP!!'
+        is_tp_hit = True
       elif 'SL' in line: 
-        _type = 'SL Exit'
+        _type = 'Exit'
         exit_type = 'SL'
+        is_tp_hit = False
 
-      if _type == 'TP Exit':
+      if _type == 'Exit':
         symbol, entry_price, direction, tframe, tp, sl, entry_time, date_time = (parts[5], parts[2], parts[0], parts[6], parts[3], parts[4], parts[7], parts[8])
         content = f"{direction} closed in {symbol} at {exit_type} {{}}"
+        print(f'\n{self.local_db.get_entry_of(symbol)} is the entry of this exit')
+
       elif _type == 'Entry':
         symbol, entry_price, direction, tframe, tp, sl, entry_time = (parts[4], parts[1], parts[0], parts[5], parts[2], parts[3], parts[6])
         date_time = entry_time
@@ -64,11 +69,11 @@ class Alerts:
 
       self.chart.change_symbol(symbol)
       self.chart.change_tframe(tframe)
-      self.chart.change_indicator_settings(_type, direction, entry_price, tp, sl, entry_time)
+      self.chart.change_indicator_settings(is_tp_hit, _type, direction, entry_price, tp, sl, entry_time)
       chart_link = self.chart.save_chart_img()
 
       content = content.format(chart_link)
-      if _type == 'TP Exit' or _type == 'Entry':
+      if exit_type == 'TP!!' or exit_type == ' ': #if tp was hit or entry happened
         self.send_post_to_socials(symbol, content)
       self.send_to_db(_type, direction, symbol, tframe, entry_price, tp, sl, chart_link, content, date_time)
 
