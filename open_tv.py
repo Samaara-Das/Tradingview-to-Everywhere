@@ -66,8 +66,8 @@ class Browser:
     '''
     param alerts must be less than/equal to the number of tuples in symbols_settings.py 
     '''
-    symbols_list = [forex_symbols, crypto_symbols, stock_symbols, forex_symbols2, stock_symbols2, forex_symbols3, 
-                    stock_symbols3, crypto_symbols2, crypto_symbols3, crypto_symbols4] 
+    symbols_list = [crypto_symbols2, crypto_symbols3, crypto_symbols4, stock_symbols, forex_symbols2, stock_symbols2, forex_symbols3, 
+                    stock_symbols3, forex_symbols, crypto_symbols] 
 
     for tab in range(self.tabs):
       # switch tab
