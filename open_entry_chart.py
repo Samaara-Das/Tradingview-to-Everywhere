@@ -4,7 +4,6 @@ this opens up a new tab in the browser and sets it up for taking snapshots of th
 
 
 # import modules
-from traceback import format_exc
 from time import sleep
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -19,9 +18,9 @@ class OpenChart:
     self.driver = driver
     self.camera = WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.XPATH, "//button[@aria-label='Take a snapshot']/div[@id='header-toolbar-screenshot']")))
 
-  def change_indicator_settings(self, _type, direction, entry, tp, sl, time_of_entry=1):
+  def change_indicator_settings(self, is_tp_hit, _type, direction, entry, tp, sl, time_of_entry=1):
     # get the 1st indicator on the top of the chart
-    indicators = self.driver.find_elements(By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')
+    indicators = WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')))
 
     # change the settings
     while True:
@@ -32,10 +31,11 @@ class OpenChart:
         settings = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.content-tBgV1m0B')))
         break
       except Exception as e:
-        print(f'error in {__file__}: \n{e} \nTraceback: {format_exc()}')
+        print(f'fi error in {__file__}: \n{e}')
         continue
     inputs = settings.find_elements(By.CSS_SELECTOR, '.cell-tBgV1m0B input')
 
+    # fill up the settings
     for i in range(len(inputs)):
       val = 30
       if i == 0:
@@ -50,10 +50,15 @@ class OpenChart:
         val = direction
       elif i == 6 and _type == 'Exit':
         val = time_of_entry
+      elif i == 7 and _type == 'Exit' and is_tp_hit:
+        val = 'yes'
+      elif i == 7 and _type == 'Exit' and not is_tp_hit:
+        val = 'no'
 
       ActionChains(self.driver).key_down(Keys.CONTROL, inputs[i]).send_keys('a').perform()
       inputs[i].send_keys(Keys.DELETE)
       inputs[i].send_keys(val)
+
 
     # click on submit
     self.driver.find_element(By.CSS_SELECTOR, 'button[name="submit"]').click()
