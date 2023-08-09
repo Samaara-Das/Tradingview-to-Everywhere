@@ -3,8 +3,7 @@ this file is for sending snapshots from tradingview to twitter
 '''
 
 import tweepy
-from keys import get_tokens_of_account
-from traceback import format_exc
+from resources.keys import get_tokens_of_account
 
 
 class TwitterClient:
@@ -18,6 +17,6 @@ class TwitterClient:
         try:
             self.client.create_tweet(text=text)
         except Exception as e:
-            print(f'from {__file__}: \n{e} \nTraceback: {format_exc()}')
+            print(f'from {__file__}: \n{e}')
 
 

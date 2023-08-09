@@ -1,6 +1,6 @@
 import pymongo
 from pymongo.mongo_client import MongoClient
-from traceback import format_exc
+
 
 PWD = '5gsCKHt4Dg4aSa8E'
 
@@ -18,9 +18,9 @@ class Database:
             self.client.admin.command('ping')
             print(f"from {__file__}: \nPinged your deployment. You successfully connected to MongoDB!")
         except Exception as e:
-            print(f'from {__file__}: \n{e} \nTraceback: {format_exc()}')
+            print(f'from {__file__}: \n{e}')
         
-        self.db = self.client["test"]
+        self.db = self.client["tradingview-to-everywhere"]
         self.collection = self.db["Entries & Exits"]
 
         if delete:
@@ -31,13 +31,6 @@ class Database:
 
     def get_latest_doc(self):
         docs = self.collection.find_one(sort=[("_id", pymongo.DESCENDING)])
-        return docs
-    
-    def get_entry_of(self, symbol):
-        '''
-        this finds the most recent entry of the passed symbol in the db
-        '''
-        docs = self.collection.find({"symbol": symbol, 'type': 'Entry'}).sort([('_id', pymongo.DESCENDING)])
         return docs
 
     def delete_all(self):
