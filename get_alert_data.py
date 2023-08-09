@@ -117,6 +117,7 @@ class Alerts:
   def read_and_parse(self):
     message = ''
     while True:
+
       try:
         alert_boxes = WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[class="message-PQUvhamm"]')))
         alert_boxes = alert_boxes[::-1] #to make the oldest alerts come first in the list to post about the oldest alerts first
