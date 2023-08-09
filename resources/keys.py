@@ -1,3 +1,8 @@
+'''
+this has api keys & tokens for the twitter api. this has keys & tokens for 2 accounts: dassamaara & nili.thp.work.
+this has a function which retrieves all the leys & tokens for the chosen account
+'''
+
 
 # these are for my own account
 api_key = 'DsWRxt7H9H950Svfm8SCqr5GY'
@@ -18,10 +23,6 @@ bearer_token2 = r'AAAAAAAAAAAAAAAAAAAAAELSowEAAAAAChjeG0wtdBUIhbLkrCPgsk3q9l0%3D
 
 access_token2 = '1682766611533672452-4OMVioLYlQMXIfr5p3uYC69SClnWeh'
 access_token_secret2 = 'VkHrdU9FC6JheBo0LVDfKz4YiwbC1MgYVtQKiFSUVqmGe'
-
-# OAuth 2.0 Client ID and Client Secret
-client_id2 = 'UFBIV2RxSmhDQnhRaldRaXdmdWo6MTpjaQ'
-client_secret2 = 'WvF2NSIR_YtUmKUlD79OlZx8tVG2MPxfETRua0ZPturRrI95YC'
 
 
 def get_tokens_of_account(user: int):
