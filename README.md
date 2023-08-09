@@ -34,7 +34,7 @@ Things to keep in mind:
 - please use the dassamaara gmail id to login to tradingview as the chart on that account has been set up in a specific way & it is a pro account (this app needs to be run on a pro account so that it can let tradingview run on multiple tabs)
     - the background has the symbol & timeframe watermark
     - the bars are a medium sized and are a 100 bars from the right
-    - the indicators on the chart: Signal on the top and Screener below it
+    - the indicators on the chart: Signal on the top and Screener below it. Screener has to be of version 320
     - the alerts sidebar is open
     - the alert log tag is not minimized
     - there are currently no active alerts

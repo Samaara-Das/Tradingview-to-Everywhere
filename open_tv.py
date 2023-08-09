@@ -6,7 +6,7 @@ This module opens tradingview, signs in and goes to the chart
 from traceback import format_exc
 from time import sleep
 from open_entry_chart import OpenChart
-from symbol_settings import *
+from resources.symbol_settings import *
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromeService
 from webdriver_manager.chrome import ChromeDriverManager
@@ -62,30 +62,42 @@ class Browser:
     for i in range(tabs):
       self.driver.execute_script("window.open('https://www.tradingview.com/chart','_blank')")
 
+
   def set_alerts_and_settings(self):
     '''
-    param alerts must be less than/equal to the number of tuples in symbols_settings.py 
+    all the symbols together from symbols_settings.py must cover each tab's need for 8 symbols.
+    the value of (total symbols / total tabs) must be equal to/more than 8
     '''
-    symbols_list = [crypto_symbols2, crypto_symbols3, crypto_symbols4, stock_symbols, forex_symbols2, stock_symbols2, forex_symbols3, 
-                    stock_symbols3, forex_symbols, crypto_symbols] 
+    all_symbols = []
+    for symbols in main_symbols:
+      _list = list(symbols['symbols'])
+      all_symbols.extend(_list)
 
     for tab in range(self.tabs):
       # switch tab
       self.driver.switch_to.window(self.driver.window_handles[tab])
 
       # change settings this particular symbol
-      self.change_settings(symbols_list[tab][0], symbols_list[tab])
+      self.change_settings(all_symbols)
+
+      # remove the first 8 symbols
+      if len(all_symbols) > 8:
+        all_symbols = all_symbols[8:]
 
       # setup alert for this particular symbol
       self.set_alerts(tab)
 
-  def change_settings(self, symbol, symbols_list):
+  def change_settings(self, symbols_list):
     '''
     param symbol is the symbol you want the chart to change to
     '''
 
+    if not len(symbols_list) >= 8:
+      print('there are not enough symbols to cover all the inputs. exiting method')
+      return
+
     # change the symbol of the current chart
-    OpenChart(self.driver).change_symbol(symbol)
+    OpenChart(self.driver).change_symbol(symbols_list[0])
     
     # inside the tab, click on the settings of the 2nd indicator
     indicator = WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')))[1]
@@ -98,7 +110,7 @@ class Browser:
         settings = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.content-tBgV1m0B')))
         break
       except Exception as e:
-        print(f'error in {__file__}: \n{e} \nTraceback: {format_exc()}')
+        print(f'error in {__file__}: \n{e}')
         continue
     inputs = settings.find_elements(By.CSS_SELECTOR, '.inlineRow-D8g11qqA div[data-name="edit-button"]')
     
@@ -116,8 +128,16 @@ class Browser:
   def set_alerts(self, tab):
     tab_no = tab + 1
 
-    # wait for the indicator to fully load
+    # make the screener indicator visible
+    self.screener_visibility(True)
+
+    # wait for the screener indicator to fully load
     self.is_eye_loaded()
+
+    # check if the screener indicator has no error
+    if not self.is_signal_indicator_loaded(check_signal_ind=False):
+      print('screener indicator had an error. Could not set an alert for this tab. exiting method')
+      return
 
     # hide the screener indicator by clicking the eye
     self.screener_visibility(False)
@@ -128,7 +148,7 @@ class Browser:
         plus_button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-name="set-alert-button"]')))
         break
       except Exception as e:
-        print(f'error in {__file__}: \n{e} \nTraceback: {format_exc()}')
+        print(f'error in {__file__}: \n{e}')
         continue
 
 
@@ -140,14 +160,14 @@ class Browser:
         set_alerts_popup = WebDriverWait(self.driver, 10).until(EC.visibility_of_element_located((By.CSS_SELECTOR, 'div[data-name="alerts-create-edit-dialog"]')))
         break
       except Exception as e:
-        print(f'error in {__file__}: \n{e} \nTraceback: {format_exc()}')
+        print(f'error in {__file__}: \n{e}')
         continue
     
     # click the dropdown and choose the screener
     try:
       set_alerts_popup.find_element(By.CSS_SELECTOR, 'span[data-name="main-series-select"]').click()
     except Exception as e:
-      print(f'from {__file__}: \ncouldn\'t find screener dropdown when making alert \n{e} \nTraceback: {format_exc()}')
+      print(f'from {__file__}: \ncouldn\'t find screener dropdown when making alert \n{e}')
 
     for el in self.driver.find_elements(By.CSS_SELECTOR, 'div[data-name="menu-inner"] div[role="option"]'):
       if 'Screener' in el.text:
@@ -172,7 +192,7 @@ class Browser:
         if 'loading' not in indicator.get_attribute('class'):
           break   
       except Exception as e:
-        print(f'error in {__file__}: \n{e} \nTraceback: {format_exc()}')
+        print(f'error in {__file__}: \n{e}')
         continue
 
   def screener_visibility(self, make_visible: bool):
@@ -194,14 +214,21 @@ class Browser:
       if 'disabled' in class_attr:
         eye.click()
 
-  def is_signal_indicator_loaded(self):
+  def is_signal_indicator_loaded(self, check_signal_ind=True):
     '''
     this checks if the indicator has successfully loaded without an error
     '''
 
-    # get the 1st indicator i.e. the signal indicator
-    indicator = WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')))[0]
-    
+    indicators =  WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')))
+    indicator = None
+
+    if check_signal_ind:
+      # get the 1st indicator i.e. the signal indicator
+      indicator = indicators[0]
+    else:
+      # get the 2nd indicator i.e. the screener indicator
+      indicator = indicators[1]
+
     # if there is no element which resembles an error
     if indicator.find_elements(By.CSS_SELECTOR, '.statusItem-Lgtz1OtS.small-Lgtz1OtS.dataProblemLow-Lgtz1OtS') == []:
       return True
@@ -216,7 +243,7 @@ class Browser:
           alert_tab = self.driver.find_element(By.CSS_SELECTOR, '.body-i8Od6xAB') or self.driver.find_element(By.CSS_SELECTOR, '.wrapper-G90Hl2iS')
           break
         except Exception as e:
-          print(f'error in {__file__}: \n{e} \nTraceback: {format_exc()}')
+          print(f'error in {__file__}: \n{e}')
           continue
 
       # click the 3 dots
@@ -226,7 +253,7 @@ class Browser:
           settings.click()
           break
         except Exception as e:
-          print(f'error in {__file__}: \n{e} \nTraceback: {format_exc()}')
+          print(f'error in {__file__}: \n{e}')
           continue
 
       try:
@@ -237,7 +264,7 @@ class Browser:
         WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[name="yes"]'))).click()
       except Exception as e:
         # the error will happen when there are no alerts and the remove all option is not there
-        print(f'from {__file__}: \ncan\'t delete alerts. \n{e} \nTraceback: {format_exc()}')
+        print(f'from {__file__}: \ncan\'t delete alerts. \n{e}')
 
       # if there are no alerts visible, break
       sleep(1)
@@ -258,9 +285,11 @@ class Browser:
             self.driver.close()
             break
           except Exception as e:
-            print(f'error in {__file__}... can\'t close tab \n{e} \nTraceback: {format_exc()}')
+            print(f'error in {__file__}... can\'t close tab \n{e}')
 
 
     # switch back to the first tab
     self.driver.switch_to.window(self.driver.window_handles[0])
+
+
 
