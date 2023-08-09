@@ -1,6 +1,11 @@
 '''
-This module gets the entry signals from the premium screener on tradingview 
-by getting text from alerts
+This module does the following:
+1. clears the alert log
+2. gets all the alerts from the alert log
+3. reads the alert messages and does certain actions after reading them
+4. sends content to the socials 
+5. sends data to local db & nk uncle's webhook
+
 '''
 
 # import modules
@@ -83,7 +88,7 @@ class Alerts:
 
   def send_post_to_socials(self, symbol, content):
     is_symbol = not symbol.isdigit()
-    is_ind_loaded = self.browser.is_signal_indicator_loaded(check_signal_ind=True)
+    is_ind_loaded = self.browser.is_indicator_loaded(check_signal_ind=True)
     if is_symbol and is_ind_loaded:
       self.tweet.create_tweet(content)
       self.discord.create_msg(content)  
