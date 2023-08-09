@@ -8,7 +8,6 @@ then paste the webhook url in ``self.webhook_url``
 '''
 
 from discord_webhook import DiscordWebhook
-from traceback import format_exc
 
 
 class Discord:

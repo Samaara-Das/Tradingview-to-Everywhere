@@ -1,3 +1,9 @@
+'''
+this connects to either a remote/local database (depending on what is chosen).
+this can add documents to the collection's database and delete all of them.
+this also retrieves the latest document from the collection
+'''
+
 import pymongo
 from pymongo.mongo_client import MongoClient
 
@@ -36,6 +42,5 @@ class Database:
     def delete_all(self):
         self.collection.delete_many({}) 
 
-db = Database(True)
 
 

@@ -1,9 +1,11 @@
 
 '''
-this has 1 maoin tuple. it holds different dictionaries
+this has 1 main tuple. it holds different dictionaries
 
 each dictionary has a ```type``` and ```symbols``` key.
 ```type``` is a string and ```symbols``` is a tuple of symbols
+
+this has a function which returns the category of the passed in symbol
 '''
 
 main_symbols = (
@@ -30,7 +32,7 @@ main_symbols = (
 
 def symbol_category(symbol):
     '''
-    this function returns the symbol category. this returns the type of the symbol (whther it is a US stock, forex, crypto etc)
+    this function returns the symbol category. this returns the category of ```symbol``` (whther it is a US stock, forex, crypto etc)
     '''
 
     for symbols in main_symbols:

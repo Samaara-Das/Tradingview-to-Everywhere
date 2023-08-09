@@ -1,5 +1,10 @@
 '''
-this opens up a new tab in the browser and sets it up for taking snapshots of the entries/exits
+this sets up the tradingview tab for taking snapshots of the entries/exits.
+this:
+1. changes the settings of the signal indicator
+2. change the symbol of the chart
+3. change the timeframe of the chart
+4. opens the image of the chart in a new tab, copies the url and closes the tab
 '''
 
 

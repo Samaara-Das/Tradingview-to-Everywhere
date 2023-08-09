@@ -1,5 +1,5 @@
 '''
-this file is for sending snapshots from tradingview to twitter
+this file is for sending snapshots from tradingview to twitter using the twitter api
 '''
 
 import tweepy

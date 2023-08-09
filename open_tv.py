@@ -1,5 +1,5 @@
 '''
-This module opens tradingview, signs in and goes to the chart
+This sets up tradingview, the alerts and does a few things for the indicators
 '''
 
 # import modules
@@ -60,7 +60,6 @@ class Browser:
     tabs = self.tabs-1
     for i in range(tabs):
       self.driver.execute_script("window.open('https://www.tradingview.com/chart','_blank')")
-
 
   def set_alerts_and_settings(self):
     '''
@@ -134,7 +133,7 @@ class Browser:
     self.is_eye_loaded()
 
     # check if the screener indicator has no error
-    if not self.is_signal_indicator_loaded(check_signal_ind=False):
+    if not self.is_indicator_loaded(check_signal_ind=False):
       print('screener indicator had an error. Could not set an alert for this tab. exiting method')
       return
 
@@ -213,7 +212,7 @@ class Browser:
       if 'disabled' in class_attr:
         eye.click()
 
-  def is_signal_indicator_loaded(self, check_signal_ind=True):
+  def is_indicator_loaded(self, check_signal_ind=True):
     '''
     this checks if the indicator has successfully loaded without an error
     '''

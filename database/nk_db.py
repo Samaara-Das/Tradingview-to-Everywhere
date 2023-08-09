@@ -1,11 +1,10 @@
 '''
-this is how we send post requests to Nishant uncle's database
+this is how we send post requests to Nishant uncle's database through his webhook
 '''
 
 from requests import Session
 from requests.adapters import HTTPAdapter
 from requests.exceptions import ConnectionError
-from traceback import format_exc
 
 class Post:
   def __init__(self, max_retries=3):
