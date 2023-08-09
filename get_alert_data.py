@@ -4,10 +4,10 @@ by getting text from alerts
 '''
 
 # import modules
-from traceback import format_exc
 import open_entry_chart
-import send_to_twitter
-import send_to_discord
+import send_to_socials.send_to_twitter as send_to_twitter
+from resources.symbol_settings import symbol_category
+import send_to_socials.send_to_discord as send_to_discord
 import nk_db
 import local_db
 from time import sleep
@@ -45,22 +45,25 @@ class Alerts:
       entry_time = None
       content = ' '
       exit_type = ' '
+      exit_msg = ' '
       _type = ' '
       if 'TP' not in line and 'SL' not in line:
         _type = 'Entry'
+        is_tp_hit = False
       elif 'TP' in line:
         _type = 'Exit'
         exit_type = 'TP!!'
         is_tp_hit = True
+        exit_msg = 'Win'
       elif 'SL' in line: 
         _type = 'Exit'
         exit_type = 'SL'
         is_tp_hit = False
+        exit_msg = 'Loss'
 
       if _type == 'Exit':
         symbol, entry_price, direction, tframe, tp, sl, entry_time, date_time = (parts[5], parts[2], parts[0], parts[6], parts[3], parts[4], parts[7], parts[8])
         content = f"{direction} closed in {symbol} at {exit_type} {{}}"
-        print(f'\n{self.local_db.get_entry_of(symbol)} is the entry of this exit')
 
       elif _type == 'Entry':
         symbol, entry_price, direction, tframe, tp, sl, entry_time = (parts[4], parts[1], parts[0], parts[5], parts[2], parts[3], parts[6])
@@ -70,24 +73,23 @@ class Alerts:
       self.chart.change_symbol(symbol)
       self.chart.change_tframe(tframe)
       self.chart.change_indicator_settings(is_tp_hit, _type, direction, entry_price, tp, sl, entry_time)
-      chart_link = self.chart.save_chart_img()
+      chart_link = self.chart.save_chart_img() 
 
       content = content.format(chart_link)
-      if exit_type == 'TP!!' or exit_type == ' ': #if tp was hit or entry happened
-        self.send_post_to_socials(symbol, content)
-      self.send_to_db(_type, direction, symbol, tframe, entry_price, tp, sl, chart_link, content, date_time)
+      self.send_post_to_socials(symbol, content)
+      self.send_to_db(_type, direction, symbol, tframe, entry_price, tp, sl, chart_link, content, date_time, symbol_category(symbol), exit_msg)
 
 
   def send_post_to_socials(self, symbol, content):
     is_symbol = not symbol.isdigit()
-    is_ind_loaded = self.browser.is_signal_indicator_loaded()
+    is_ind_loaded = self.browser.is_signal_indicator_loaded(check_signal_ind=True)
     if is_symbol and is_ind_loaded:
       self.tweet.create_tweet(content)
       self.discord.create_msg(content)  
     else:
       print(f'from {__file__}: \nCould not send post. Signal indicator did not successfully load OR the symbol was a number.\nSymbol: ',symbol,' Indicator loaded: ',is_ind_loaded)
 
-  def send_to_db(self, _type, direction, symbol, tframe, entry_price, tp, sl, chart_link, content, date_time):
+  def send_to_db(self, _type, direction, symbol, tframe, entry_price, tp, sl, chart_link, content, date_time, symbol_type, exit_msg):
     data = {
       "type": _type,
       "direction": direction,
@@ -98,11 +100,13 @@ class Alerts:
       "sl": sl,
       "chart_link": chart_link,
       "content": content,
-      "date": date_time
+      "date": date_time,
+      "symbol_type": symbol_type,
+      "exit_msg": exit_msg
     }
 
     self.local_db.add_doc(data)
-    # self.nk_db.post_to_url(data)
+    self.nk_db.post_to_url(data)
 
   def read_and_parse(self):
     message = ''
@@ -124,7 +128,7 @@ class Alerts:
         message = '' 
         alert_box = None
       except Exception as e:
-        print(f'error in {__file__}: \n{e} \nTraceback: {format_exc()}')
+        print(f'error in {__file__}: \n{e}')
         continue
       
   def clear_log(self):
