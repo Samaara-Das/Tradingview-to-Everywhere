@@ -87,6 +87,7 @@ class OpenChart:
       search_input.send_keys(symbol)
       search_input.send_keys(Keys.ENTER)
 
+
   def change_tframe(self, timeframe):
     # click on the dropdown and choose from the dropdown options and click on the one which matches the timeframe
     tf_dropdown = WebDriverWait(self.driver, 15).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="header-toolbar-intervals"]/button')))
