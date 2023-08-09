@@ -8,8 +8,8 @@ import open_entry_chart
 import send_to_socials.send_to_twitter as send_to_twitter
 from resources.symbol_settings import symbol_category
 import send_to_socials.send_to_discord as send_to_discord
-import nk_db
-import local_db
+import database.nk_db as nk_db
+import database.local_db as local_db
 from time import sleep
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -47,6 +47,7 @@ class Alerts:
       exit_type = ' '
       exit_msg = ' '
       _type = ' '
+
       if 'TP' not in line and 'SL' not in line:
         _type = 'Entry'
         is_tp_hit = False

@@ -31,7 +31,6 @@ class Browser:
     chrome_options = Options()
     chrome_options.add_experimental_option("detach", keep_open)
 
-    # make sure that any other chrome browser is closed otherwise it wont work
     chrome_options.add_argument('--profile-directory=Profile 2')
     chrome_options.add_argument(f"--user-data-dir={CHROME_PROFILE_PATH}")
     self.driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()), options=chrome_options)
