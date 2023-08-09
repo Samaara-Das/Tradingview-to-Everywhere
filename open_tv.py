@@ -20,6 +20,8 @@ from selenium.webdriver.common.by import By
 
 
 # some constants
+SYMBOL_INPUTS = 15
+
 CHROME_PROFILE_PATH = 'C:\\Users\\Puja\\AppData\\Local\\Google\\Chrome\\User Data'
 # CHROME_PROFILE_PATH = 'C:\\Users\\pripuja\\AppData\\Local\\Google\\Chrome\\User Data'
 
@@ -56,8 +58,9 @@ class Browser:
 
     #give it some time to delete all those alerts
     sleep(2) 
-
+    
     tabs = self.tabs-1
+
     for i in range(tabs):
       self.driver.execute_script("window.open('https://www.tradingview.com/chart','_blank')")
 
@@ -90,12 +93,14 @@ class Browser:
     param symbol is the symbol you want the chart to change to
     '''
 
-    if not len(symbols_list) >= 8:
+    if not len(symbols_list) >= SYMBOL_INPUTS:
       print('there are not enough symbols to cover all the inputs. exiting method')
       return
 
     # change the symbol of the current chart
     OpenChart(self.driver).change_symbol(symbols_list[0])
+
+
     
     # inside the tab, click on the settings of the 2nd indicator
     indicator = WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')))[1]
