@@ -6,7 +6,7 @@ import open_tv
 import get_alert_data
 
 # how many tabs do we want to set up
-TABS = 3
+TABS = 4
 
 # initiate Browser
 browser = open_tv.Browser(True, TABS)
@@ -25,3 +25,4 @@ browser.close_tabs()
 # take a snapshot and send to twitter
 alerts = get_alert_data.Alerts(browser.driver, browser)
 alerts.read_and_parse()
+

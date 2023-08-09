@@ -20,5 +20,5 @@ class Discord:
             webhook = DiscordWebhook(url=self.webhook_url, content=content)
             response = webhook.execute()
         except Exception as e:
-            print(f'error in {__file__}: \n{e} \nTraceback: {format_exc()}')
+            print(f'error in {__file__}: \n{e}')
 
