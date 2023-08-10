@@ -3,7 +3,6 @@ This sets up tradingview, the alerts and does a few things for the indicators
 '''
 
 # import modules
-from traceback import format_exc
 from time import sleep
 from open_entry_chart import OpenChart
 from resources.symbol_settings import *
@@ -20,7 +19,7 @@ from selenium.webdriver.common.by import By
 
 
 # some constants
-SYMBOL_INPUTS = 15
+SYMBOL_INPUTS = 16
 
 CHROME_PROFILE_PATH = 'C:\\Users\\Puja\\AppData\\Local\\Google\\Chrome\\User Data'
 # CHROME_PROFILE_PATH = 'C:\\Users\\pripuja\\AppData\\Local\\Google\\Chrome\\User Data'
@@ -30,13 +29,14 @@ CHROME_PROFILE_PATH = 'C:\\Users\\Puja\\AppData\\Local\\Google\\Chrome\\User Dat
 class Browser:
 
   def __init__(self, keep_open: bool, tabs: int) -> None:
-    chrome_options = Options()
+    chrome_options = Options() 
     chrome_options.add_experimental_option("detach", keep_open)
 
     chrome_options.add_argument('--profile-directory=Profile 2')
     chrome_options.add_argument(f"--user-data-dir={CHROME_PROFILE_PATH}")
     self.driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()), options=chrome_options)
     self.tabs = tabs
+    self.open_chart = OpenChart(self.driver)
 
   def open_page(self, url: str):
     self.driver.get(url)
@@ -52,6 +52,9 @@ class Browser:
 
     # delete all alerts
     self.delete_alerts()
+
+    # set the timeframe to 1min so that when the alert for the screener is set up, an error won't happen
+    self.open_chart.change_tframe('1')
 
     # make the screener visible
     self.screener_visibility(True)
@@ -69,6 +72,7 @@ class Browser:
     all the symbols together from symbols_settings.py must cover each tab's need for 8 symbols.
     the value of (total symbols / total tabs) must be equal to/more than 8
     '''
+
     all_symbols = []
     for symbols in main_symbols:
       _list = list(symbols['symbols'])
@@ -78,12 +82,15 @@ class Browser:
       # switch tab
       self.driver.switch_to.window(self.driver.window_handles[tab])
 
+      # set the timeframe to 1min so that when the alert for the screener is set up, an error won't happen
+      self.open_chart.change_tframe('1')
+
       # change settings this particular symbol
       self.change_settings(all_symbols)
 
       # remove the first 8 symbols
-      if len(all_symbols) > 8:
-        all_symbols = all_symbols[8:]
+      if len(all_symbols) > SYMBOL_INPUTS:
+        all_symbols = all_symbols[SYMBOL_INPUTS:]
 
       # setup alert for this particular symbol
       self.set_alerts(tab)
@@ -98,10 +105,8 @@ class Browser:
       return
 
     # change the symbol of the current chart
-    OpenChart(self.driver).change_symbol(symbols_list[0])
+    self.open_chart.change_symbol(symbols_list[0])
 
-
-    
     # inside the tab, click on the settings of the 2nd indicator
     indicator = WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')))[1]
 
