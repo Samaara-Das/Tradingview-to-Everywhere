@@ -21,8 +21,7 @@ class OpenChart:
 
   def __init__(self, driver) -> None:
     self.driver = driver
-    self.camera = WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.XPATH, "//button[@aria-label='Take a snapshot']/div[@id='header-toolbar-screenshot']")))
-
+    
   def change_indicator_settings(self, is_tp_hit, _type, direction, entry, tp, sl, time_of_entry=1):
     # get the 1st indicator on the top of the chart
     indicators = WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')))
@@ -101,8 +100,10 @@ class OpenChart:
         break
                                                
   def save_chart_img(self):
+    camera = WebDriverWait(self.driver, 20).until(EC.element_to_be_clickable((By.XPATH, "//button[@aria-label='Take a snapshot']/div[@id='header-toolbar-screenshot']")))
+
     # copy the link of the chart
-    self.camera.click()
+    camera.click()
     open_in_new_tab = self.driver.find_element(By.XPATH, '//*[@id="overlap-manager-root"]/div/span/div[1]/div/div/div[5]')
     open_in_new_tab.click()
 
