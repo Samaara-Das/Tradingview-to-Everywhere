@@ -50,6 +50,9 @@ class Browser:
     # open tradingview
     self.open_page('https://www.tradingview.com/chart')
 
+    # change to the screener layout
+    self.change_layout()
+
     # delete all alerts
     self.delete_alerts()
 
@@ -94,6 +97,18 @@ class Browser:
 
       # setup alert for this particular symbol
       self.set_alerts(tab)
+
+  def change_layout(self):
+    # click on the dropdown arrow
+    WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.XPATH, '/html/body/div[2]/div[3]/div/div/div[3]/div[1]/div/div/div/div/div[14]/div/div/button[2]'))).click()
+    
+    # choose the screener layout
+    layouts = WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.XPATH, '//*[@id="overlap-manager-root"]/div/span/div[1]/div/div/a')))
+
+    for layout in layouts:
+      if layout.find_element(By.CSS_SELECTOR, '.layoutTitle-yyMUOAN9').text == 'Screener':
+        layout.click()
+        break
 
   def change_settings(self, symbols_list):
     '''

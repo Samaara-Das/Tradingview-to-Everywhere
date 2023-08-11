@@ -36,6 +36,7 @@ Then it sends that snapshot to Nishant uncle's webhook and my local database. It
 - make sure that any other chrome browser is closed otherwise it won't work
 - make sure that when the selenium controlled browser is opened, no other tab is manually opened
 - please use the dassamaara gmail id to login to tradingview as the chart on that account has been set up in a specific way & it is a pro account (this app needs to be run on a pro account so that it can let tradingview run on multiple tabs):
+    - there must be a saved layout named "Screener" which has the following setup
     - the background has the symbol & timeframe watermark
     - the bars are a medium sized and are a 100 bars from the right
     - the indicators on the chart: Signal on the top and Screener below it. Screener has to be of the latest version
