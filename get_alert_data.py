@@ -82,6 +82,7 @@ class Alerts:
       chart_link = self.chart.save_chart_img() 
 
       content = content.format(chart_link)
+      date_time = date_time.replace('_', ' ')
       self.send_post_to_socials(symbol, content)
       self.send_to_db(_type, direction, symbol, tframe, entry_price, tp, sl, chart_link, content, date_time, symbol_category(symbol), exit_msg)
 
