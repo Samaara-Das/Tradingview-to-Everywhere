@@ -50,7 +50,7 @@ class Browser:
     # open tradingview
     self.open_page('https://www.tradingview.com/chart')
 
-    # change to the screener layout
+    # change to the screener layout (if we are on any other layout)
     self.change_layout()
 
     # delete all alerts
@@ -99,6 +99,11 @@ class Browser:
       self.set_alerts(tab)
 
   def change_layout(self):
+    # switch the layout if we are on some other layout. if we are on the screener layout, we don't need to do anything
+    curr_layout = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.XPATH, '//*[@id="header-toolbar-save-load"]')))
+    if curr_layout.find_element(By.CSS_SELECTOR, '.text-yyMUOAN9').text == 'Screener':
+      return
+
     # click on the dropdown arrow
     WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.XPATH, '/html/body/div[2]/div[3]/div/div/div[3]/div[1]/div/div/div/div/div[14]/div/div/button[2]'))).click()
     
