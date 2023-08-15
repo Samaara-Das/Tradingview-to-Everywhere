@@ -26,7 +26,7 @@ main_symbols = (
     },
 
     { 'type': 'Indices', 
-    'symbols': ('DXY', 'SPX', 'VIX', 'US100', 'DXY', 'US30', 'DJI', 'NDQ', 'US500', 'NDX', 'VIX', 'SPX', 'DJI', 'TICK', 'ADD', 'IXIC')
+    'symbols': ('DXY', 'SPX', 'VIX', 'US100', 'US30', 'DJI', 'NDQ', 'US500', 'NDX', 'IXIC')
     }
 )
 
