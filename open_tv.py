@@ -130,11 +130,10 @@ class Browser:
     # inside the tab, click on the settings of the 2nd indicator
     indicator = WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')))[1]
 
-    ActionChains(self.driver).move_to_element(indicator).perform()
-    ActionChains(self.driver).double_click(indicator).perform()
-
     while True:
       try:
+        ActionChains(self.driver).move_to_element(indicator).perform()
+        ActionChains(self.driver).double_click(indicator).perform()
         settings = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.content-tBgV1m0B')))
         break
       except Exception as e:
