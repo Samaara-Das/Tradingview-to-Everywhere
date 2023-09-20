@@ -4,6 +4,8 @@
 ## What this does
 Opens tradingview, opens a couple tabs and sets alerts on each of them. These alerts will be for the screener and will notify us about a new entry, exit which happened in the screener. 
 
+Entries happen on the 1hr timeframe. This timeframe is set in Pinescript
+
 Then all the tabs are closed and 1 remains open. It will be reading the alerts which come on that tab. When the alerts come, it reads the entry/exit and other info like the symbol, timeframe, tp, sl etc...
 
 It goes to that particular entry's/exit's symbol and timeframe and takes a snapshot of it.
