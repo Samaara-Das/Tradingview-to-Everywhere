@@ -56,7 +56,8 @@ class Browser:
     # delete all alerts
     self.delete_alerts()
 
-    # set the timeframe to 1min so that when the alert for the screener is set up, an error won't happen
+    # set the timeframe to 1m so that when the alert for the screener is set up, an error won't happen
+    # 1min is not the timeframe that entries are happening on. that timeframe is on pinescript
     self.open_chart.change_tframe('1')
 
     # make the screener visible
@@ -139,7 +140,7 @@ class Browser:
       except Exception as e:
         print(f'error in {__file__}: \n{e}')
         continue
-    inputs = settings.find_elements(By.CSS_SELECTOR, '.inlineRow-D8g11qqA div[data-name="edit-button"]')
+    inputs = settings.find_elements(By.CSS_SELECTOR, '.inlineRow-tBgV1m0B div[data-name="edit-button"]')
     
     # fill up the settings
     for i, _symbol in enumerate(inputs):
@@ -225,9 +226,16 @@ class Browser:
   def screener_visibility(self, make_visible: bool):
     # click on the screener indicator to show the eye symbol
     indicator = self.driver.find_elements(By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')[1]
-    indicator.click()
+    while True:
+      try:
+        indicator.click()
+        break
+      except Exception as e:
+        print(f'error in {__file__}: \n{e}')
+        continue
+    
     class_attr = indicator.get_attribute('class')
-    eye = self.driver.find_element(By.XPATH, '/html/body/div[2]/div[5]/div[2]/div[1]/div/table/tr[1]/td[2]/div/div[2]/div[2]/div[2]/div[3]/div[1]/div[2]/div/div[1]')
+    eye = indicator.find_element(By.CSS_SELECTOR, 'div[data-name="legend-show-hide-action"]')
 
     # if we want to make it invisible
     if make_visible == False:
