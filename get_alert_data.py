@@ -123,7 +123,8 @@ class Alerts:
         alert_boxes = WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[class="message-PQUvhamm"]')))
         alert_boxes = alert_boxes[::-1] #to make the oldest alerts come first in the list to post about the oldest alerts first
 
-        for i, alert_box in enumerate(alert_boxes):
+        for i in reversed(range(len(alert_boxes))):  # Use a reversed range
+          alert_box = alert_boxes[i]  
           _list = alert_box.text.split(' ')
           _list[0] = '\n' + _list[0]
           text = '\n'.join(_list)
