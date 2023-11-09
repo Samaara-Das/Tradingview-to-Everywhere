@@ -19,7 +19,8 @@ from selenium.webdriver.common.by import By
 
 
 # some constants
-SYMBOL_INPUTS = 16
+TRADE_DRAWER = 'Trade' # short title of indicator which draws the trades
+SETUP = 'Setup' # short title of indicator which finds setups
 
 CHROME_PROFILE_PATH = 'C:\\Users\\Puja\\AppData\\Local\\Google\\Chrome\\User Data'
 # CHROME_PROFILE_PATH = 'C:\\Users\\pripuja\\AppData\\Local\\Google\\Chrome\\User Data'
@@ -28,15 +29,14 @@ CHROME_PROFILE_PATH = 'C:\\Users\\Puja\\AppData\\Local\\Google\\Chrome\\User Dat
 # class
 class Browser:
 
-  def __init__(self, keep_open: bool, tabs: int) -> None:
+  def __init__(self, keep_open: bool) -> None:
     chrome_options = Options() 
     chrome_options.add_experimental_option("detach", keep_open)
 
     chrome_options.add_argument('--profile-directory=Profile 2')
     chrome_options.add_argument(f"--user-data-dir={CHROME_PROFILE_PATH}")
     self.driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()), options=chrome_options)
-    self.tabs = tabs
-    self.open_chart = OpenChart(self.driver)
+    self.chart = OpenChart(self.driver)
 
   def open_page(self, url: str):
     self.driver.get(url)
@@ -46,58 +46,34 @@ class Browser:
     print("shutting down tab 💤")
     self.driver.close()
 
-  def open_tv(self):
+  def setup_tv(self):
     # open tradingview
     self.open_page('https://www.tradingview.com/chart')
 
     # change to the screener layout (if we are on any other layout)
     self.change_layout()
 
+    # open the alerts sidebar
+    self.open_alerts_sidebar()
+
     # delete all alerts
     self.delete_alerts()
 
     # set the timeframe to 1m so that when the alert for the screener is set up, an error won't happen
     # 1min is not the timeframe that entries are happening on. that timeframe is on pinescript
-    self.open_chart.change_tframe('1')
+    self.chart.change_tframe('1')
 
-    # make the screener visible
-    self.screener_visibility(True)
+    # make the Ichimoku, LC, Kernel indicator invisible
+    self.indicator_visibility(False, SETUP)
 
-    #give it some time to delete all those alerts
-    sleep(2) 
-    
-    tabs = self.tabs-1
+    # make the Trade Drawer indicator visible
+    self.indicator_visibility(True, TRADE_DRAWER)
 
-    for i in range(tabs):
-      self.driver.execute_script("window.open('https://www.tradingview.com/chart','_blank')")
-
-  def set_alerts_and_settings(self):
-    '''
-    all the symbols together from symbols_settings.py must cover each tab's need for 8 symbols.
-    the value of (total symbols / total tabs) must be equal to/more than 8
-    '''
-
-    all_symbols = []
-    for symbols in main_symbols:
-      _list = list(symbols['symbols'])
-      all_symbols.extend(_list)
-
-    for tab in range(self.tabs):
-      # switch tab
-      self.driver.switch_to.window(self.driver.window_handles[tab])
-
-      # set the timeframe to 1min so that when the alert for the screener is set up, an error won't happen
-      self.open_chart.change_tframe('1')
-
-      # change settings this particular symbol
-      self.change_settings(all_symbols)
-
-      # remove the first 8 symbols
-      if len(all_symbols) > SYMBOL_INPUTS:
-        all_symbols = all_symbols[SYMBOL_INPUTS:]
-
-      # setup alert for this particular symbol
-      self.set_alerts(tab)
+  def open_alerts_sidebar(self):
+    '''opens the alerts sidebar if it is closed. If it is already open, it does nothing'''
+    alert_button = self.driver.find_element(By.CSS_SELECTOR, 'div[data-name="right-toolbar"] button[aria-label="Alerts"]')
+    if alert_button.get_attribute('aria-pressed') == 'false':
+      alert_button.click()
 
   def change_layout(self):
     # switch the layout if we are on some other layout. if we are on the screener layout, we don't need to do anything
@@ -126,7 +102,7 @@ class Browser:
       return
 
     # change the symbol of the current chart
-    self.open_chart.change_symbol(symbols_list[0])
+    self.chart.change_symbol(symbols_list[0])
 
     # inside the tab, click on the settings of the 2nd indicator
     indicator = WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')))[1]
@@ -153,64 +129,26 @@ class Browser:
     # click on submit
     self.driver.find_element(By.CSS_SELECTOR, 'button[name="submit"]').click()
 
-  def set_alerts(self, tab):
-    tab_no = tab + 1
-
-    # make the screener indicator visible
-    self.screener_visibility(True)
-
-    # wait for the screener indicator to fully load
-    self.is_eye_loaded()
-
-    # check if the screener indicator has no error
-    if not self.is_indicator_loaded(check_signal_ind=False):
-      print('screener indicator had an error. Could not set an alert for this tab. exiting method')
-      return
-
-    # hide the screener indicator by clicking the eye
-    self.screener_visibility(False)
-
-    while True:
-      try:
-        # wait for the + button to be clickable
-        plus_button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-name="set-alert-button"]')))
-        break
-      except Exception as e:
-        print(f'error in {__file__}: \n{e}')
-        continue
-
-
-    # wait for the set alerts popup box
-    while True:
-      try:
-        # click on the + button
-        plus_button.click()
-        set_alerts_popup = WebDriverWait(self.driver, 10).until(EC.visibility_of_element_located((By.CSS_SELECTOR, 'div[data-name="alerts-create-edit-dialog"]')))
-        break
-      except Exception as e:
-        print(f'error in {__file__}: \n{e}')
-        continue
+  def set_alerts(self):
+    # click on the + button
+    plus_button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-name="set-alert-button"]')))
+    plus_button.click()
+      
+    # wait for the alert popup and click the dropdown 
+    set_alerts_popup = WebDriverWait(self.driver, 10).until(EC.visibility_of_element_located((By.CSS_SELECTOR, 'div[data-name="alerts-create-edit-dialog"]')))
+    set_alerts_popup.find_element(By.CSS_SELECTOR, 'span[data-name="main-series-select"]').click() # this will cause an error if the element will not exist. It might not exist because the Setup indicator has an error
     
-    # click the dropdown and choose the screener
-    try:
-      set_alerts_popup.find_element(By.CSS_SELECTOR, 'span[data-name="main-series-select"]').click()
-    except Exception as e:
-      print(f'from {__file__}: \ncouldn\'t find screener dropdown when making alert \n{e}')
-
+    # choose the setup indicator
     for el in self.driver.find_elements(By.CSS_SELECTOR, 'div[data-name="menu-inner"] div[role="option"]'):
-      if 'Screener' in el.text:
+      if SETUP in el.text:
         el.click()
         break    
 
-    # click on submit
+    # click on create
     self.driver.find_element(By.CSS_SELECTOR, 'button[data-name="submit"]').click()
 
-    # wait untill this new alert has come up in the alerts tab (if the number of alerts are equal to the number of tabs we hv set )
-    while True:
-      if len(self.driver.find_elements(By.CSS_SELECTOR, 'div.list-G90Hl2iS div.itemBody-ucBqatk5')) == tab_no:
-        break
-      else:
-        continue
+    # wait for the alert to load
+    WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alert-item-name"]')))
 
   def is_eye_loaded(self):
     sleep(1)
@@ -223,31 +161,30 @@ class Browser:
         print(f'error in {__file__}: \n{e}')
         continue
 
-  def screener_visibility(self, make_visible: bool):
-    # click on the screener indicator to show the eye symbol
-    indicator = self.driver.find_elements(By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')[1]
-    while True:
-      try:
-        indicator.click()
+  def indicator_visibility(self, make_visible: bool, name: str):
+    # click on the indicator
+    indicator_path = 'div[data-name="legend-source-item"]'
+    indicator = None
+    indicators = self.driver.find_elements(By.CSS_SELECTOR, indicator_path)
+    for ind in indicators:
+      if ind.find_element(By.CSS_SELECTOR, 'div[class="title-l31H9iuA"]').text == name:
+        indicator = ind
         break
-      except Exception as e:
-        print(f'error in {__file__}: \n{e}')
-        continue
-    
-    class_attr = indicator.get_attribute('class')
-    eye = indicator.find_element(By.CSS_SELECTOR, 'div[data-name="legend-show-hide-action"]')
 
-    # if we want to make it invisible
-    if make_visible == False:
-      # check if it is visible to make it invisible. if it is not visible, then no need to click on the eye
-      if 'disabled' not in class_attr:
-        eye.click()
-    
-    # if we want to make it visible
-    else:
-      # check if it is invisible to make it visible. if it is not invisible, then no need to click on the eye 
-      if 'disabled' in class_attr:
-        eye.click()
+    if indicator != None: # that means that we've found our indicator
+      eye = indicator.find_element(By.CSS_SELECTOR, 'div[data-name="legend-show-hide-action"]')
+      status = eye.get_attribute('title')
+      
+      if make_visible == False: # if we want to make it invisible
+        if status == 'Hide': # if status == 'Show', that means that it's already invisible
+          WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, indicator_path)))
+          indicator.click()
+          eye.click()
+      else: # if we want to make it visible 
+        if status == 'Show': # if status == 'Hide', that means that it's already visible
+          WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, indicator_path)))
+          indicator.click()
+          eye.click()
 
   def is_indicator_loaded(self, check_signal_ind=True):
     '''
@@ -305,26 +242,4 @@ class Browser:
       sleep(1)
       if len(self.driver.find_elements(By.CSS_SELECTOR, 'div.list-G90Hl2iS div.itemBody-ucBqatk5')) == 0:
         break
-
-  def close_tabs(self):
-    current_window_handle = self.driver.current_window_handle
-    window_handles = self.driver.window_handles
-
-    # Close the remaining tabs
-    for handle in window_handles:
-      if handle != current_window_handle:
-        self.driver.switch_to.window(handle)
-        # try 3 times to close the tab
-        for _ in range(3):
-          try:
-            self.driver.close()
-            break
-          except Exception as e:
-            print(f'error in {__file__}... can\'t close tab \n{e}')
-
-
-    # switch back to the first tab
-    self.driver.switch_to.window(self.driver.window_handles[0])
-
-
 
