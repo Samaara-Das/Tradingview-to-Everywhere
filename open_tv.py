@@ -46,7 +46,7 @@ class Browser:
     print("shutting down tab 💤")
     self.driver.close()
 
-  def setup_tv(self):
+  def setup_tv(self, tf):
     # open tradingview
     self.open_page('https://www.tradingview.com/chart')
 
@@ -59,9 +59,8 @@ class Browser:
     # delete all alerts
     self.delete_alerts()
 
-    # set the timeframe to 1m so that when the alert for the screener is set up, an error won't happen
-    # 1min is not the timeframe that entries are happening on. that timeframe is on pinescript
-    self.chart.change_tframe('1')
+    # set the timeframe
+    self.chart.change_tframe(tf)
 
     # make the Ichimoku, LC, Kernel indicator invisible
     self.indicator_visibility(False, SETUP)
