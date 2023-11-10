@@ -14,7 +14,10 @@ Then it sends that snapshot to a database and to Poolsifi.
 
 ## Things to do for programmers:
 - In `open_tv.py` and `main.py`, specify the indicators' short-titles. They are currently: "Trade" and "Setup". These names will be used to find the indicators
-- The timeframe is set in Python. To change it, change the `TIMEFRAME` variable in `main.py`. The value of the variable should be the same value of the timeframe.period variable in pinescript. 
+- The timeframe is set in Python. To change it, change the `TIMEFRAME` variable in `main.py`. The value of the variable should be the value of the data-value attribute for the element which displays the timeframe on tradingview:![Alt text](attr.png)![Alt text](timeframe.png)
+
+## Some error which might happen
+- "Modify_study_limit_exceeding" error can happen on a pinescript script whose inputs are getting changed frequently. 
 
 ## Things to keep in mind:
 - Do not move/click anything on the selenium controlled browser
