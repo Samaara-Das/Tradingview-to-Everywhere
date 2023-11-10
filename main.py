@@ -16,7 +16,7 @@ TIMEFRAME = '15'
 tv = open_tv.Browser(True)
 
 # open tradingview chart
-tv.setup_tv()
+tv.setup_tv(TIMEFRAME)
 
 # object for doing things for displaying the entries 
 trade_drawer = open_entry_chart.OpenChart(tv.driver)
@@ -24,7 +24,8 @@ trade_drawer = open_entry_chart.OpenChart(tv.driver)
 # instantiating alert data
 alert = get_alert_data.Alerts(tv.driver, tv)
 
-for symbol, category in list(symbol_categories.items())[:5]:
+# symbols to loop over -> for symbol, category in symbol_categories.items()
+for symbol in ['EURUSD', 'GBPUSD', 'USDJPY']:
     # go through every symbol 
     tv.chart.change_symbol(symbol)
 
@@ -43,7 +44,7 @@ for symbol, category in list(symbol_categories.items())[:5]:
     entry_time = data['entryTime']
     entry_price = data['entryPrice']
     sl_price = data['slPrice']
-    tp_price = data['tpPrice']
+    tp_price = data['tp1Price']
 
     # get the info of the alert and put that into trade drawer
     trade_drawer.change_indicator_settings(TRADE_DRAWER, entry_time, entry_price, sl_price, tp_price, data['tp2Price'], data['tp3Price'])
