@@ -1,62 +1,25 @@
 '''
-this is where the main stuff happens
+this is the main module where we use all the other modules to perform tasks
 '''
 
 import open_tv
 import get_alert_data
-import open_entry_chart
-from resources.symbol_settings import *
 
-# some constants
-TRADE_DRAWER = 'Trade' # short title of indicator which draws the trades
-SETUP = 'Setup' # short title of indicator which finds setups
-TIMEFRAME = '15'
+SETUPS_INDICATOR = 'Screener' # short title of the screener
+DRAWER_INDICATOR = 'Trade' # short title of the indicator which plots the entries/exits
+SCREENER_NAME = 'Premium Screener' # name of the screener
+TIMEFRAME = '1m' # timeframe of the chart which the alerts should be set on
 
 # initiate Browser
-tv = open_tv.Browser(True)
+browser = open_tv.Browser(True, SETUPS_INDICATOR, SCREENER_NAME, DRAWER_INDICATOR)
+# open tradingview charts for X amount of tabs
+browser.setup_tv()
 
-# open tradingview chart
-tv.setup_tv(TIMEFRAME)
+# change the symbol settings of the indicators in differnt symbols and setup alerts for those symbol
+browser.set_bulk_alerts(10)
 
-# object for doing things for displaying the entries 
-trade_drawer = open_entry_chart.OpenChart(tv.driver)
-
-# instantiating alert data
-alert = get_alert_data.Alerts(tv.driver, tv)
-
-# symbols to loop over -> for symbol, category in symbol_categories.items()
-for symbol in ['EURUSD', 'GBPUSD', 'USDJPY']:
-    # go through every symbol 
-    tv.chart.change_symbol(symbol)
-
-    # give it some time to load
-    open_tv.sleep(2)
-
-    # set up an alert after the ILK indicator has loaded
-    tv.set_alerts()
-
-    # wait for an alert to come and get its content
-    data = alert.read_and_parse()
-    if data == '':
-        continue # if it is empty, skip to the next symbol
-
-    direction = data['direction']
-    entry_time = data['entryTime']
-    entry_price = data['entryPrice']
-    sl_price = data['slPrice']
-    tp_price = data['tp1Price']
-
-    # get the info of the alert and put that into trade drawer
-    trade_drawer.change_indicator_settings(TRADE_DRAWER, entry_time, entry_price, sl_price, tp_price, data['tp2Price'], data['tp3Price'])
-    
-    # after it has loaded, open in new tab and get link of the tab
-    img_url = trade_drawer.save_chart_img()
-
-    # send that to Poolsifi and discord
-    category = symbol_category(symbol)
-    content = f"{direction} in {symbol} at {entry_price}, Takeprofit: {tp_price}, Stoploss: {sl_price} {{}}".format(img_url)
-    alert.send_to_db(data['type'], data['direction'], symbol, data['timeframe'], entry_price, tp_price, sl_price, img_url, content, entry_time, category, '')
-
-    # delete the alert after reading it
-    tv.delete_alerts()
-
+# wait for alerts and get data from them abt a new entry/exit
+# and then go that new entry's/exit's chart & timeframe
+# take a snapshot and send to twitter
+alerts = get_alert_data.Alerts(browser.driver, browser)
+alerts.read_and_parse()
