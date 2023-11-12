@@ -13,13 +13,16 @@ It goes to that particular entry's/exit's symbol and timeframe and takes a snaps
 Then it sends that snapshot to a database and to Poolsifi. 
 
 ## Things to do for programmers:
-- In `open_tv.py` and `main.py`, specify the indicators' short-titles. They are currently: "Trade" and "Setup". These names will be used to find the indicators
-- The timeframe is set in Python. To change it, change the `TIMEFRAME` variable in `main.py`. The value of the variable should be the value of the data-value attribute for the element which displays the timeframe on tradingview:![Alt text](attr.png)![Alt text](timeframe.png)
+- In `main.py`, specify the indicators' short-titles. They are currently: "Trade" and "Screener". These names will be used to find the indicators
+- In `main.py`, specify the screener indicator's script name. It is currently "Premium Screener"
 
 ## Some error which might happen
 - "Modify_study_limit_exceeding" error can happen on a pinescript script whose inputs are getting changed frequently. 
+- "Calculation timed out" error happens when the script was calculating for a long time.
 
 ## Things to keep in mind:
+
+### Browser
 - Do not move/click anything on the selenium controlled browser
 
 - Make sure you are fine with it deleting all the alerts and creating new ones
@@ -28,11 +31,13 @@ Then it sends that snapshot to a database and to Poolsifi.
 
 - Make sure that when the selenium controlled browser is opened, no other tab is manually opened
 
+### Tradingview
 - Please use the dassamaara gmail id to login to Tradingview as the chart on that account has been set up in a specific way
 
 - There must be a saved layout named "Screener" which has the following setup:
     - The background has the symbol & timeframe watermark
     - The bars are medium sized and the chart is a 100 bars from the right 
     - In the alert settings, "On site Pop up" is unticked
-    - Ichimoku, LC, Kernel Regression indicator and Trade Drawer indicator should be on the chart
+    - Premium Screener indicator and Trade Drawer indicator should be on the chart
+    - Premium Screener should have 15 inputs for the symbols
     - No popups or clicks should happen manually
