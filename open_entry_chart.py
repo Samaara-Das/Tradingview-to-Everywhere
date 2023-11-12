@@ -22,50 +22,55 @@ class OpenChart:
   def __init__(self, driver) -> None:
     self.driver = driver
     
-  def change_indicator_settings(self, indicator_name, entry_time, entry_price, sl_price, tp1_price, tp2_price, tp3_price):
-    indicator_path = 'div[data-name="legend-source-item"]'
-    indicator = None
-    indicators = self.driver.find_elements(By.CSS_SELECTOR, indicator_path)
-    for ind in indicators:
-      if ind.find_element(By.CSS_SELECTOR, 'div[class="title-l31H9iuA"]').text == indicator_name:
-        indicator = ind
-        break
+  def change_indicator_settings(self, is_tp_hit, _type, direction, entry, tp, sl, time_of_entry=1):
+    # get the 1st indicator on the top of the chart
+    indicators = WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')))
 
-    
-    # double click on the indicator so that the settings can open 
-    ActionChains(self.driver).move_to_element(indicator).perform()
-    ActionChains(self.driver).double_click(indicator).perform()
-    settings = WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.content-tBgV1m0B')))
+    # change the settings
+    while True:
+      try:
+        # double click on the indicator so that the settings can open 
+        ActionChains(self.driver).move_to_element(indicators[0]).perform()
+        ActionChains(self.driver).double_click(indicators[0]).perform()
+        settings = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.content-tBgV1m0B')))
+        break
+      except Exception as e:
+        print(f'error in {__file__}: \n{e}')
+        continue
     inputs = settings.find_elements(By.CSS_SELECTOR, '.cell-tBgV1m0B input')
 
     # fill up the settings
     for i in range(len(inputs)):
-      val = 0
+      val = 30
       if i == 0:
-        val = entry_time
-      elif i == 1:
-        val = entry_price
+        val = _type
+      if i == 1:
+        val = entry
       elif i == 2:
-        val = sl_price
+        val = tp
       elif i == 3:
-        val = tp1_price
+        val = sl
       elif i == 4:
-        val = tp2_price
-      elif i == 5:
-        val = tp3_price
+        val = direction
+      elif i == 6 and _type == 'Exit':
+        val = time_of_entry
+      elif i == 7 and _type == 'Exit' and is_tp_hit:
+        val = 'yes'
+      elif i == 7 and _type == 'Exit' and not is_tp_hit:
+        val = 'no'
 
       ActionChains(self.driver).key_down(Keys.CONTROL, inputs[i]).send_keys('a').perform()
       inputs[i].send_keys(Keys.DELETE)
       inputs[i].send_keys(val)
 
+
     # click on submit
     self.driver.find_element(By.CSS_SELECTOR, 'button[name="submit"]').click()
 
     # wait for the indicator to fully load so that it can take a snapshot of the new entry, sl & tp
-    sleep(1) 
     while True:
-      class_attr = indicator.get_attribute('class')
-      if 'Loading' not in class_attr:
+      class_attr = indicators[0].get_attribute('class')
+      if 'loading' not in class_attr:
         break
       else:
         continue
@@ -80,6 +85,7 @@ class OpenChart:
       search_input = self.driver.find_element(By.XPATH, '//*[@id="overlap-manager-root"]/div/div/div[2]/div/div[2]/div[1]/input')
       search_input.send_keys(symbol)
       search_input.send_keys(Keys.ENTER)
+
 
   def change_tframe(self, timeframe):
     # click on the dropdown and choose from the dropdown options and click on the one which matches the timeframe
@@ -96,7 +102,7 @@ class OpenChart:
   def save_chart_img(self):
     camera = WebDriverWait(self.driver, 20).until(EC.element_to_be_clickable((By.XPATH, "//button[@aria-label='Take a snapshot']/div[@id='header-toolbar-screenshot']")))
 
-    # open the image in a new tab
+    # copy the link of the chart
     camera.click()
     open_in_new_tab = self.driver.find_element(By.XPATH, '//*[@id="overlap-manager-root"]/div/span/div[1]/div/div/div[5]')
     open_in_new_tab.click()
@@ -113,5 +119,3 @@ class OpenChart:
     self.driver.switch_to.window(self.driver.window_handles[0])
 
     return url
-  
-  
