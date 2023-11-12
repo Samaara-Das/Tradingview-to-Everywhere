@@ -18,7 +18,6 @@ from time import sleep
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
-from json import loads
 
 
 # class
@@ -29,6 +28,7 @@ class Alerts:
     self.local_db = local_db.Database()
     self.nk_db = nk_db.Post()
     self.chart = open_entry_chart.OpenChart(self.driver)
+    self.tweet = send_to_twitter.TwitterClient()
     self.discord = send_to_discord.Discord()
     self.browser = browser
     
@@ -73,7 +73,7 @@ class Alerts:
       elif _type == 'Entry':
         symbol, entry_price, direction, tframe, tp, sl, entry_time = (parts[4], parts[1], parts[0], parts[5], parts[2], parts[3], parts[6])
         date_time = entry_time
-        content = f"{direction} in {symbol} at {entry_price}, Takeprofit: {tp}, Stoploss: {sl} {{}}"
+        content = f"{direction} in {symbol} at {entry_price} {{}}"
 
       self.chart.change_symbol(symbol)
       self.chart.change_tframe(tframe)
@@ -81,16 +81,17 @@ class Alerts:
       chart_link = self.chart.save_chart_img() 
 
       content = content.format(chart_link)
-      category = symbol_category(symbol)
       date_time = date_time.replace('_', ' ')
-      self.send_post_to_socials(symbol, category, content)
-      self.send_to_db(_type, direction, symbol, tframe, entry_price, tp, sl, chart_link, content, date_time, category, exit_msg)
+      self.send_post_to_socials(symbol, content)
+      self.send_to_db(_type, direction, symbol, tframe, entry_price, tp, sl, chart_link, content, date_time, symbol_category(symbol), exit_msg)
 
-  def send_post_to_socials(self, symbol, category, content):
+
+  def send_post_to_socials(self, symbol, content):
     is_symbol = not symbol.isdigit()
     is_ind_loaded = self.browser.is_indicator_loaded(check_signal_ind=True)
     if is_symbol and is_ind_loaded:
-      self.discord.create_msg(category, content)  
+      self.tweet.create_tweet(content)
+      self.discord.create_msg(content)  
     else:
       print(f'from {__file__}: \nCould not send post. Signal indicator did not successfully load OR the symbol was a number.\nSymbol: ',symbol,' Indicator loaded: ',is_ind_loaded)
 
@@ -110,12 +111,32 @@ class Alerts:
       "exit_msg": exit_msg
     }
 
+    self.local_db.add_doc(data)
     self.nk_db.post_to_url(data)
 
   def read_and_parse(self):
-    alert_box = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alert-log-item"]')))
-    json_text = alert_box.find_element(By.CSS_SELECTOR, 'div[class="message-PQUvhamm"]').text
-    return loads(json_text)
+    message = ''
+    while True:
+
+      try:
+        alert_boxes = WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[class="message-PQUvhamm"]')))
+        alert_boxes_copy = alert_boxes[::-1] #to make the oldest alerts come first in the list to post about the oldest alerts first
+
+        for i, alert_box in enumerate(alert_boxes_copy):  # Use a reversed range
+          _list = alert_box.text.split(' ')
+          _list[0] = '\n' + _list[0]
+          text = '\n'.join(_list)
+          message += text
+
+        if len(alert_boxes) > 0:
+          self.clear_log()    
+
+        self.read_alert(message) 
+        message = '' 
+        alert_box = None
+      except Exception as e:
+        print(f'error in {__file__}: \n{e}')
+        continue
       
   def clear_log(self):
     # click the settings
@@ -131,6 +152,5 @@ class Alerts:
 
     # sleep to give it some time to delete the alert log
     sleep(1)
-
 
 

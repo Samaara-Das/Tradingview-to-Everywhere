@@ -3,7 +3,7 @@ This sets up tradingview, the alerts and does a few things for the indicators
 '''
 
 # import modules
-from time import sleep
+from time import sleep, time
 from open_entry_chart import OpenChart
 from resources.symbol_settings import *
 from selenium import webdriver
@@ -19,8 +19,7 @@ from selenium.webdriver.common.by import By
 
 
 # some constants
-TRADE_DRAWER = 'Trade' # short title of indicator which draws the trades
-SETUP = 'Setup' # short title of indicator which finds setups
+SYMBOL_INPUTS = 15 #number of symbol inputs in the screener
 
 CHROME_PROFILE_PATH = 'C:\\Users\\Puja\\AppData\\Local\\Google\\Chrome\\User Data'
 # CHROME_PROFILE_PATH = 'C:\\Users\\pripuja\\AppData\\Local\\Google\\Chrome\\User Data'
@@ -29,14 +28,15 @@ CHROME_PROFILE_PATH = 'C:\\Users\\Puja\\AppData\\Local\\Google\\Chrome\\User Dat
 # class
 class Browser:
 
-  def __init__(self, keep_open: bool) -> None:
+  def __init__(self, keep_open: bool, screener_shorttitle: str, screener_name: str, drawer_shorttitle: str) -> None:
     chrome_options = Options() 
     chrome_options.add_experimental_option("detach", keep_open)
-
     chrome_options.add_argument('--profile-directory=Profile 2')
     chrome_options.add_argument(f"--user-data-dir={CHROME_PROFILE_PATH}")
     self.driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()), options=chrome_options)
-    self.chart = OpenChart(self.driver)
+    self.open_chart = OpenChart(self.driver)
+    self.screener_shorttitle = screener_shorttitle
+    self.drawer_shorttitle = drawer_shorttitle
 
   def open_page(self, url: str):
     self.driver.get(url)
@@ -46,7 +46,8 @@ class Browser:
     print("shutting down tab 💤")
     self.driver.close()
 
-  def setup_tv(self, tf):
+  def setup_tv(self):
+    '''Open Tradingview, change to Screener layout, delete alerts, change timeframe and make the screener visible'''
     # open tradingview
     self.open_page('https://www.tradingview.com/chart')
 
@@ -59,20 +60,47 @@ class Browser:
     # delete all alerts
     self.delete_alerts()
 
-    # set the timeframe
-    self.chart.change_tframe(tf)
+    # set the timeframe to 1m so that when the alert for the screener is set up, an error won't happen.
+    # 1min is not the timeframe that entries are happening on. The timeframe for the entry is in the screener.
+    self.open_chart.change_tframe('1')
 
-    # make the Ichimoku, LC, Kernel indicator invisible
-    self.indicator_visibility(False, SETUP)
+    # make the screener visible
+    self.indicator_visibility(True, self.screener_shorttitle)
 
     # make the Trade Drawer indicator visible
-    self.indicator_visibility(True, TRADE_DRAWER)
+    self.indicator_visibility(True, self.drawer_shorttitle)
 
-  def open_alerts_sidebar(self):
-    '''opens the alerts sidebar if it is closed. If it is already open, it does nothing'''
-    alert_button = self.driver.find_element(By.CSS_SELECTOR, 'div[data-name="right-toolbar"] button[aria-label="Alerts"]')
-    if alert_button.get_attribute('aria-pressed') == 'false':
-      alert_button.click()
+    # make the screener and the trade drawer indicator into attributes of this object
+    indicators = self.driver.find_elements(By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')
+    for ind in indicators: 
+      indicator = ind.find_element(By.CSS_SELECTOR, 'div[class="title-l31H9iuA"]').text
+      if indicator == self.screener_shorttitle: # finding the screener indicator
+        self.screener_indicator = ind
+      if indicator == self.drawer_shorttitle: # finding the trade drawer indicator
+        self.drawer_indicator = ind
+
+    #give it some time 
+    sleep(2) 
+
+  def set_bulk_alerts(self, alert_number: int):
+    '''
+    this makes `number` alerts (if there aren't already). The symbols given must cover all the alerts. 
+    '''
+    all_symbols = list(symbol_categories.keys()) # get all the symbols
+    main_list = [all_symbols[i:i + SYMBOL_INPUTS] for i in range(0, len(all_symbols), SYMBOL_INPUTS)] # list of lists. each sublist is a set of symbols
+
+    for _ in range(alert_number):
+      if not main_list:
+        print('Loop has been broken')
+        break  # No more sublists left
+
+      symbols = main_list.pop(0)  # Get the first sublist
+      if len(symbols) == SYMBOL_INPUTS:
+          self.open_chart.change_symbol(symbols[0])  # change chart's symbol
+          self.change_settings(symbols)  # input the symbols in the screener's inputs
+          self.is_loaded(self.screener_shorttitle)  # wait for the screener indicator to fully load
+          if self.set_alerts():  # if an alert has been made, wait for it to be loaded
+              self.is_alert_loaded(symbols[0], 10)
 
   def change_layout(self):
     # switch the layout if we are on some other layout. if we are on the screener layout, we don't need to do anything
@@ -92,31 +120,18 @@ class Browser:
         break
 
   def change_settings(self, symbols_list):
-    '''
-    param symbol is the symbol you want the chart to change to
-    '''
-
-    if not len(symbols_list) >= SYMBOL_INPUTS:
-      print('there are not enough symbols to cover all the inputs. exiting method')
-      return
-
-    # change the symbol of the current chart
-    self.chart.change_symbol(symbols_list[0])
-
-    # inside the tab, click on the settings of the 2nd indicator
-    indicator = WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')))[1]
-
+    # find the settings
     while True:
       try:
-        ActionChains(self.driver).move_to_element(indicator).perform()
-        ActionChains(self.driver).double_click(indicator).perform()
-        settings = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.content-tBgV1m0B')))
+        ActionChains(self.driver).move_to_element(self.screener_indicator).perform()
+        ActionChains(self.driver).double_click(self.screener_indicator).perform()
+        settings = WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.content-tBgV1m0B')))
         break
-      except Exception as e:
-        print(f'error in {__file__}: \n{e}')
+      except:
         continue
-    inputs = settings.find_elements(By.CSS_SELECTOR, '.inlineRow-tBgV1m0B div[data-name="edit-button"]')
     
+    inputs = settings.find_elements(By.CSS_SELECTOR, '.inlineRow-tBgV1m0B div[data-name="edit-button"]')
+
     # fill up the settings
     for i, _symbol in enumerate(inputs):
       to_be_symbol = symbols_list[i]
@@ -128,33 +143,61 @@ class Browser:
     # click on submit
     self.driver.find_element(By.CSS_SELECTOR, 'button[name="submit"]').click()
 
+  def open_alerts_sidebar(self):
+    '''opens the alerts sidebar if it is closed. If it is already open, it does nothing'''
+    alert_button = self.driver.find_element(By.CSS_SELECTOR, 'div[data-name="right-toolbar"] button[aria-label="Alerts"]')
+    if alert_button.get_attribute('aria-pressed') == 'false':
+      alert_button.click()
+
   def set_alerts(self):
+    # check if the screener indicator has no error
+    if not self.is_no_error(self.screener_shorttitle):
+      print('screener indicator had an error. Could not set an alert for this tab. exiting method')
+      self.reupload_indicator(self.screener_name)
+      return False
+
     # click on the + button
     plus_button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-name="set-alert-button"]')))
     plus_button.click()
-      
-    # wait for the alert popup and click the dropdown 
+       
+    # wait for the popup to show, click the dropdown and choose the screener
     set_alerts_popup = WebDriverWait(self.driver, 10).until(EC.visibility_of_element_located((By.CSS_SELECTOR, 'div[data-name="alerts-create-edit-dialog"]')))
-    set_alerts_popup.find_element(By.CSS_SELECTOR, 'span[data-name="main-series-select"]').click() # this will cause an error if the element will not exist. It might not exist because the Setup indicator has an error
-    
-    # choose the setup indicator
+    set_alerts_popup.find_element(By.CSS_SELECTOR, 'span[data-name="main-series-select"]').click()
+  
     for el in self.driver.find_elements(By.CSS_SELECTOR, 'div[data-name="menu-inner"] div[role="option"]'):
-      if SETUP in el.text:
+      if self.screener_shorttitle in el.text:
         el.click()
         break    
 
-    # click on create
+    # click on submit
     self.driver.find_element(By.CSS_SELECTOR, 'button[data-name="submit"]').click()
 
-    # wait for the alert to load
-    WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alert-item-name"]')))
+    return True
 
-  def is_eye_loaded(self):
+  def is_alert_loaded(self, chart_symbol, secs):
+    '''this checks for `secs` seconds if a new alert has been loaded in Alerts sidebar'''
+    end_time = time() + secs
+    while time() < end_time:
+      elements_list = self.driver.find_elements(By.CSS_SELECTOR, '.list-G90Hl2iS div[data-name="alert-item-ticker"]')
+      alert_symbols = [el.text for el in elements_list]
+      if chart_symbol in alert_symbols:
+        return True
+    
+    return False
+
+  def is_loaded(self, ind_name):
     sleep(1)
+    # find the indicator
+    indicator = None
+    if ind_name == self.screener_shorttitle:
+      indicator = self.screener_indicator
+    elif ind_name == self.drawer_shorttitle:
+      indicator = self.drawer_indicator
+
+    # check if the indicator is not loading anymore
     while True:
       try:
-        indicator = self.driver.find_elements(By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')[1]
-        if 'loading' not in indicator.get_attribute('class'):
+        if 'loading' != indicator.get_attribute('data-status'): 
           break   
       except Exception as e:
         print(f'error in {__file__}: \n{e}')
@@ -162,43 +205,32 @@ class Browser:
 
   def indicator_visibility(self, make_visible: bool, name: str):
     # click on the indicator
-    indicator_path = 'div[data-name="legend-source-item"]'
     indicator = None
-    indicators = self.driver.find_elements(By.CSS_SELECTOR, indicator_path)
-    for ind in indicators:
-      if ind.find_element(By.CSS_SELECTOR, 'div[class="title-l31H9iuA"]').text == name:
-        indicator = ind
-        break
+    indicator_path = 'div[data-name="legend-source-item"]'
+    if name == self.screener_shorttitle:
+      indicator = self.screener_indicator
+    elif name == self.drawer_shorttitle:
+      indicator = self.drawer_indicator
 
     if indicator != None: # that means that we've found our indicator
       eye = indicator.find_element(By.CSS_SELECTOR, 'div[data-name="legend-show-hide-action"]')
       status = eye.get_attribute('title')
       
-      if make_visible == False: # if we want to make it invisible
-        if status == 'Hide': # if status == 'Show', that means that it's already invisible
-          WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, indicator_path)))
-          indicator.click()
-          eye.click()
-      else: # if we want to make it visible 
-        if status == 'Show': # if status == 'Hide', that means that it's already visible
-          WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, indicator_path)))
-          indicator.click()
-          eye.click()
+      if (make_visible == False and status == 'Hide') or (make_visible == True and status == 'Show'): 
+        WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, indicator_path)))
+        indicator.click()
+        eye.click()
 
-  def is_indicator_loaded(self, check_signal_ind=True):
+  def is_no_error(self, ind_name:str):
     '''
     this checks if the indicator has successfully loaded without an error
     '''
-
-    indicators =  WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')))
+    # find the indicator
     indicator = None
-
-    if check_signal_ind:
-      # get the 1st indicator i.e. the signal indicator
-      indicator = indicators[0]
-    else:
-      # get the 2nd indicator i.e. the screener indicator
-      indicator = indicators[1]
+    if ind_name == self.screener_shorttitle:
+      indicator = self.screener_indicator
+    elif ind_name == self.drawer_shorttitle:
+      indicator = self.drawer_indicator
 
     # if there is no element which resembles an error
     if indicator.find_elements(By.CSS_SELECTOR, '.statusItem-Lgtz1OtS.small-Lgtz1OtS.dataProblemLow-Lgtz1OtS') == []:
@@ -242,3 +274,41 @@ class Browser:
       if len(self.driver.find_elements(By.CSS_SELECTOR, 'div.list-G90Hl2iS div.itemBody-ucBqatk5')) == 0:
         break
 
+  def close_tabs(self):
+    current_window_handle = self.driver.current_window_handle
+    window_handles = self.driver.window_handles
+
+    # Close the remaining tabs
+    for handle in window_handles:
+      if handle != current_window_handle:
+        self.driver.switch_to.window(handle)
+        # try 3 times to close the tab
+        for _ in range(3):
+          try:
+            self.driver.close()
+            break
+          except Exception as e:
+            print(f'error in {__file__}... can\'t close tab \n{e}')
+
+
+    # switch back to the first tab
+    self.driver.switch_to.window(self.driver.window_handles[0])
+
+  def reupload_indicator(self, ind_name: str):
+    # click on screener indicator
+    self.screener_indicator.click()
+
+    # click on data-name="legend-delete-action" (a sub element under screener indicator)
+    self.screener_indicator.find_element(By.CSS_SELECTOR, 'div[data-name="legend-delete-action"]').click()
+
+    # click on indicators (data-tooltip="Indicators, Metrics & Strategies")
+    self.driver.find_element(By.CSS_SELECTOR, 'div[data-tooltip="Indicators, Metrics & Strategies"]').click()
+
+    # enter ind_name into search. 
+    self.driver.find_element(By.CSS_SELECTOR, 'input[data-role="search"]').send_keys(ind_name)
+
+    # find div[data-title] which is equal to ind_name and click on it (to upload the indicator)
+    for element in self.driver.find_elements(By.CSS_SELECTOR, 'div[data-title]'):
+      if element.get_attribute('data-title') == ind_name:
+        element.click()
+        break
