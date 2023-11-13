@@ -18,82 +18,40 @@ from time import sleep
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
+from json import loads
+
 
 
 # class
 class Alerts:
 
-  def __init__(self, driver, browser) -> None:
+  def __init__(self, drawer_indicator, driver, browser) -> None:
     self.driver = driver
     self.local_db = local_db.Database()
     self.nk_db = nk_db.Post()
     self.chart = open_entry_chart.OpenChart(self.driver)
-    self.tweet = send_to_twitter.TwitterClient()
     self.discord = send_to_discord.Discord()
     self.browser = browser
+    self.drawer_indicator = drawer_indicator
     
-  def read_alert(self, msg):
-    lines = msg.split('\n')
-    lines.pop(0) #remove the 0th index because it's just a blank line
+  def read_alert(self, msgs):
+    for msg in msgs: # for every alert message
+      for key, value in msg.items(): # go over every json field in this specific alert message
+        timeframe = value['timeframe']
+        entry_time = value['entryTime']
+        entry_price = value['entryPrice']
+        sl_price = value['slPrice']
+        tp1_price = value['tp1Price']
+        direction = value['direction']
+        self.chart.change_symbol(key)
+        self.chart.change_tframe(timeframe)
+        self.chart.change_indicator_settings(self.drawer_indicator, entry_time, entry_price, sl_price, tp1_price, value['tp2Price'], value['tp3Price'])
 
-    for line in lines:
-      parts = line.split('|')
-      symbol = None
-      is_tp_hit = None
-      entry_price = None
-      direction = None
-      tframe = None
-      tp = None
-      sl = None
-      date_time = None
-      entry_time = None
-      content = ' '
-      exit_type = ' '
-      exit_msg = ' '
-      _type = ' '
-
-      if 'TP' not in line and 'SL' not in line:
-        _type = 'Entry'
-        is_tp_hit = False
-      elif 'TP' in line:
-        _type = 'Exit'
-        exit_type = 'TP!!'
-        is_tp_hit = True
-        exit_msg = 'Win'
-      elif 'SL' in line: 
-        _type = 'Exit'
-        exit_type = 'SL'
-        is_tp_hit = False
-        exit_msg = 'Loss'
-
-      if _type == 'Exit':
-        symbol, entry_price, direction, tframe, tp, sl, entry_time, date_time = (parts[5], parts[2], parts[0], parts[6], parts[3], parts[4], parts[7], parts[8])
-        content = f"{direction} closed in {symbol} at {exit_type} {{}}"
-
-      elif _type == 'Entry':
-        symbol, entry_price, direction, tframe, tp, sl, entry_time = (parts[4], parts[1], parts[0], parts[5], parts[2], parts[3], parts[6])
-        date_time = entry_time
-        content = f"{direction} in {symbol} at {entry_price} {{}}"
-
-      self.chart.change_symbol(symbol)
-      self.chart.change_tframe(tframe)
-      self.chart.change_indicator_settings(is_tp_hit, _type, direction, entry_price, tp, sl, entry_time)
-      chart_link = self.chart.save_chart_img() 
-
-      content = content.format(chart_link)
-      date_time = date_time.replace('_', ' ')
-      self.send_post_to_socials(symbol, content)
-      self.send_to_db(_type, direction, symbol, tframe, entry_price, tp, sl, chart_link, content, date_time, symbol_category(symbol), exit_msg)
-
-
-  def send_post_to_socials(self, symbol, content):
-    is_symbol = not symbol.isdigit()
-    is_ind_loaded = self.browser.is_indicator_loaded(check_signal_ind=True)
-    if is_symbol and is_ind_loaded:
-      self.tweet.create_tweet(content)
-      self.discord.create_msg(content)  
-    else:
-      print(f'from {__file__}: \nCould not send post. Signal indicator did not successfully load OR the symbol was a number.\nSymbol: ',symbol,' Indicator loaded: ',is_ind_loaded)
+        chart_link = self.chart.save_chart_img() 
+        category = symbol_category(key)
+        content = f"{direction} in {key} at {entry_price}. Takeprofit: {tp1_price} Stoploss: {sl_price} {chart_link}"
+        self.discord.create_msg(category, content) 
+        self.send_to_db(value['type'], direction, key, timeframe, entry_price, tp1_price, sl_price, chart_link, content, entry_time, category, '')
 
   def send_to_db(self, _type, direction, symbol, tframe, entry_price, tp, sl, chart_link, content, date_time, symbol_type, exit_msg):
     data = {
@@ -115,25 +73,19 @@ class Alerts:
     self.nk_db.post_to_url(data)
 
   def read_and_parse(self):
-    message = ''
     while True:
-
       try:
         alert_boxes = WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[class="message-PQUvhamm"]')))
-        alert_boxes_copy = alert_boxes[::-1] #to make the oldest alerts come first in the list to post about the oldest alerts first
 
-        for i, alert_box in enumerate(alert_boxes_copy):  # Use a reversed range
-          _list = alert_box.text.split(' ')
-          _list[0] = '\n' + _list[0]
-          text = '\n'.join(_list)
-          message += text
+        alert_messages = [] # a list of each alert's message jsonified
+        for alert_box in alert_boxes:  
+          json_msg = loads(alert_box.text)
+          alert_messages.append(json_msg)
 
         if len(alert_boxes) > 0:
           self.clear_log()    
 
-        self.read_alert(message) 
-        message = '' 
-        alert_box = None
+        self.read_alert(alert_messages) 
       except Exception as e:
         print(f'error in {__file__}: \n{e}')
         continue
