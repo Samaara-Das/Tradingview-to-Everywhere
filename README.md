@@ -14,13 +14,12 @@ Then it sends that snapshot to a database and to Poolsifi.
 
 ## Things to do for programmers:
 - In `main.py`, specify the indicators' short-titles. They are currently: "Trade" and "Screener". These names will be used to find the indicators
-- In `main.py`, specify the screener indicator's script name. It is currently "Premium Screener"
+- In `main.py`, specify the screener indicator's & trade drawer indicator's script names. It is currently "Premium Screener"
+- `SYMBOL_INPUTS` in `open_tv.py` should be the same as the number of symbol inputs in the screener
 
-## Some error which might happen
+## Some errors which might happen
 - "Modify_study_limit_exceeding" error can happen on a pinescript script whose inputs are getting changed frequently. 
 - "Calculation timed out" error happens when the script was calculating for a long time.
-
-## Things to keep in mind:
 
 ### Browser
 - Do not move/click anything on the selenium controlled browser
