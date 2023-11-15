@@ -15,6 +15,7 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
+from selenium.common.exceptions import WebDriverException
 
 # some constants
 SYMBOL_INPUTS = 15 #number of symbol inputs in the screener
@@ -60,17 +61,9 @@ class Browser:
     # delete all alerts
     self.delete_alerts()
 
-    # load the screener and the trade drawer indicator
-    self.load_indicators([self.screener_name, self.drawer_name])
-
     # make the screener and the trade drawer indicator into attributes of this object
-    indicators = self.driver.find_elements(By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')
-    for ind in indicators: 
-      indicator = ind.find_element(By.CSS_SELECTOR, 'div[class="title-l31H9iuA"]').text
-      if indicator == self.screener_shorttitle: # finding the screener indicator
-        self.screener_indicator = ind
-      if indicator == self.drawer_shorttitle: # finding the trade drawer indicator
-        self.drawer_indicator = ind
+    self.get_indicator(self.screener_shorttitle)
+    self.get_indicator(self.drawer_shorttitle)
 
     # set the timeframe to 1m so that when the alert for the screener is set up, an error won't happen.
     # 1min is not the timeframe that entries are happening on. The timeframe for the entry is in the screener.
@@ -102,7 +95,7 @@ class Browser:
         self.open_chart.change_symbol(symbols[0])  # change chart's symbol
         self.change_settings(symbols)  # input the symbols in the screener's inputs
         self.is_loaded(self.screener_shorttitle)  # wait for the screener indicator to fully load
-        if self.set_alerts():  # if an alert has been made, wait for it to be loaded
+        if self.set_alerts(symbols):  # if an alert has been made, wait for it to be loaded
           self.is_alert_loaded(symbols[0], 10)
 
   def change_layout(self):
@@ -126,12 +119,14 @@ class Browser:
     # find the settings
     while True:
       try:
-        ActionChains(self.driver).move_to_element(self.screener_indicator).perform()
-        ActionChains(self.driver).double_click(self.screener_indicator).perform()
-        settings = WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.content-tBgV1m0B')))
+        screener = self.get_indicator(self.screener_shorttitle)
+        screener.click()
+        WebDriverWait(screener, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-name="legend-settings-action"]'))).click()
+        settings = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.content-tBgV1m0B')))
         break
-      except:
-        continue
+      except WebDriverException as e:
+        if self.driver.find_elements(By.CSS_SELECTOR, 'button[data-name="close"]'): # if this element exists (that means that the settings popup has opened up)
+          self.driver.find_element(By.CSS_SELECTOR, 'button[data-name="close"]').click() # close the settings popup
     
     inputs = settings.find_elements(By.CSS_SELECTOR, '.inlineRow-tBgV1m0B div[data-name="edit-button"]')
 
@@ -152,13 +147,15 @@ class Browser:
     if alert_button.get_attribute('aria-pressed') == 'false':
       alert_button.click()
 
-  def set_alerts(self):
+  def set_alerts(self, symbols):
     # check if the screener indicator has an error
     if not self.is_no_error(self.screener_shorttitle):
       print('screener indicator had an error. Could not set an alert for this tab. Trying to reupload indicator')
       self.reupload_indicator(self.screener_name)
+      self.change_settings(symbols)
       self.is_loaded(self.screener_shorttitle) # wait for the screener indicator to fully load
       if not self.is_no_error(self.screener_shorttitle): # if an error is still there
+        print('error is still there... Exiting function')
         return False
 
     # click on the + button
@@ -167,7 +164,7 @@ class Browser:
        
     # wait for the popup to show, click the dropdown and choose the screener
     set_alerts_popup = WebDriverWait(self.driver, 10).until(EC.visibility_of_element_located((By.CSS_SELECTOR, 'div[data-name="alerts-create-edit-dialog"]')))
-    set_alerts_popup.find_element(By.CSS_SELECTOR, 'span[data-name="main-series-select"]').click()
+    WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'span[data-name="main-series-select"]'))).click()
   
     for el in self.driver.find_elements(By.CSS_SELECTOR, 'div[data-name="menu-inner"] div[role="option"]'):
       if self.screener_shorttitle in el.text:
@@ -186,7 +183,7 @@ class Browser:
       elements_list = self.driver.find_elements(By.CSS_SELECTOR, '.list-G90Hl2iS div[data-name="alert-item-ticker"]')
       alert_symbols = [el.text for el in elements_list]
       if chart_symbol in alert_symbols:
-        return True
+        break
     
     return False
 
@@ -208,14 +205,10 @@ class Browser:
         print(f'error in {__file__}: \n{e}')
         continue
 
-  def indicator_visibility(self, make_visible: bool, name: str):
+  def indicator_visibility(self, make_visible: bool, shorttitle: str):
     # click on the indicator
-    indicator = None
+    indicator = self.get_indicator(shorttitle)
     indicator_path = 'div[data-name="legend-source-item"]'
-    if name == self.screener_shorttitle:
-      indicator = self.screener_indicator
-    elif name == self.drawer_shorttitle:
-      indicator = self.drawer_indicator
 
     if indicator != None: # that means that we've found our indicator
       eye = indicator.find_element(By.CSS_SELECTOR, 'div[data-name="legend-show-hide-action"]')
@@ -300,49 +293,56 @@ class Browser:
     self.driver.switch_to.window(self.driver.window_handles[0])
 
   def reupload_indicator(self, ind_name: str):
+    '''removes screener and reuploads `ind_name` indicator to the chart. It then waits for the screener to show up on the chart. Don't remove the print statements. It seems like the code will only run with the print statements.'''
     try:
       # click on screener indicator
       self.screener_indicator.click()
 
       # click on data-name="legend-delete-action" (a sub element under screener indicator)
-      delete_action = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-name="legend-delete-action"]')))
+      delete_action = WebDriverWait(self.screener_indicator, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-name="legend-delete-action"]')))
+      print('remove button: ', delete_action)
       delete_action.click()
 
       # click on indicators
       indicators_button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[id="header-toolbar-indicators"] button[data-name="open-indicators-dialog"]')))
+      print('indicators button: ', indicators_button)
       indicators_button.click()
 
       # enter ind_name into search.
       search_input = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[data-role="search"]')))
+      print('search input: ', search_input)
       search_input.send_keys(ind_name)
 
       # find div[data-title] which is equal to ind_name and click on it (to upload the indicator)
       for element in WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[data-title]'))):
         if element.get_attribute('data-title') == ind_name:
-            element.click()
-            close_button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[data-name="close"]')))
-            close_button.click()
+          print('script name: ', element.get_attribute('data-title'))
+          print('going to click on it...')
+          element.click()
+          close_button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[data-name="close"]')))
+          close_button.click()
+          break
+
+      # Wait for the indicator to show up on the chart
+      while True:
+        indicators = self.driver.find_elements(By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')
+        for ind in indicators:
+          if ind.find_element(By.CSS_SELECTOR, 'div[class="title-l31H9iuA"]').text == self.screener_shorttitle:
             break
+          
     except Exception as e:
       print(f"An error occurred: {e}")
 
-  def load_indicators(self, ind_names):
-    indicators = self.driver.find_elements(By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')
-    for ind in indicators: # remove all the indicators on the chart
-      ind.click()
-      ind.find_element(By.CSS_SELECTOR, 'div[data-name="legend-delete-action"]').click()
+  def get_indicator(self, ind_shorttitle: str):
+    wait = WebDriverWait(self.driver, 10)
+    indicators = wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')))
+    for ind in indicators: 
+      indicator_name = ind.find_element(By.CSS_SELECTOR, 'div[class="title-l31H9iuA"]').text
+      if indicator_name == ind_shorttitle: # finding the screener indicator
+        self.screener_indicator = ind
+        return ind
+      if indicator_name == ind_shorttitle: # finding the trade drawer indicator
+        self.drawer_indicator = ind
+        return ind
 
-    self.driver.find_element(By.CSS_SELECTOR, 'div[id="header-toolbar-indicators"] button[data-name="open-indicators-dialog"]').click()
-
-    # load the indicators
-    for i in range(2):
-      # enter ind_name into search. 
-      search_input = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'input[data-role="search"]')))
-      search_input.send_keys(ind_names[i])
-
-      # find div[data-title] which is ind_names[i] to ind_name and click on it (to upload the indicator)
-      for element in self.driver.find_elements(By.CSS_SELECTOR, 'div[data-title]'):
-        if element.get_attribute('data-title') == ind_names[i]:
-          element.click()
-          self.driver.find_element(By.CSS_SELECTOR, 'button[data-name="close"]').click()
-          break
+    
