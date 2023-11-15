@@ -1,4 +1,7 @@
 
+# What is this branch for?
+This is another branch. I was working on this before I moved on to the single-alert branch. This branch has the code which creates multiple alerts.
+
 # Tradingview to Everywhere
 
 ## What this does
