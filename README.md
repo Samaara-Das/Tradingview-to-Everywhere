@@ -1,6 +1,6 @@
 
 # What is this branch for?
-This is the mai branch. All the finalised changes come here.
+This is the main branch. All the finalised changes come here.
 
 # Tradingview to Everywhere
 
