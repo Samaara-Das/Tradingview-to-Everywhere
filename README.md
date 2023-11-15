@@ -1,4 +1,7 @@
 
+# What is this branch for?
+I'm currently working on this branch. This branch is for making this architechture: Load symbols into the screener. Set up an alert for it. wait for an alert to come. If the alert has entries, take snapshots of them and post to discord and poolsifi. Repeat this 14 times. Do this every hour (because that’s when a new hourly bar comes)
+
 # Tradingview to Everywhere
 
 ## What this does
