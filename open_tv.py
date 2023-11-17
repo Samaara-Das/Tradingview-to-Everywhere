@@ -307,8 +307,8 @@ class Browser:
     # switch back to the first tab
     self.driver.switch_to.window(self.driver.window_handles[0])
 
-  def reupload_indicator(self, ind_name: str):
-    '''removes screener and reuploads `ind_name` indicator to the chart. It then waits for the screener to show up on the chart and returns `True` if it does otherwise `False`.
+  def reupload_indicator(self):
+    '''removes screener and reuploads it again to the chart. It then waits for the screener to show up on the chart and returns `True` if it does otherwise `False`.
 
     Don't remove the print statements. It seems like the code will only run with the print statements.'''
     val = False
@@ -322,36 +322,27 @@ class Browser:
       print('remove button: ', delete_action)
       delete_action.click()
 
-      # click on indicators
-      indicators_button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[id="header-toolbar-indicators"] button[data-name="open-indicators-dialog"]')))
-      print('indicators button: ', indicators_button)
-      indicators_button.click()
+      # click on "Favorites" dropdowm
+      WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[id="header-toolbar-indicators"] button[data-name="show-favorite-indicators"]'))).click()
+      print('favorites dropdown clicked')
 
-      # enter ind_name into search
-      search_input = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[data-role="search"]')))
-      print('search input: ', search_input)
-      search_input.send_keys(ind_name[:6])  # enter half the name to avoid the error below
-      sleep(1)
-      # if there is an error in finding the indicator, try 1 more time
-      if len(self.driver.find_elements(By.CLASS_NAME, "description-QcG0kDOU")) > 0:
-        if 'No indicators matched your criteria' in self.driver.find_element(By.CLASS_NAME, "description-QcG0kDOU").text:
-          search_input.clear()
-          search_input.send_keys(ind_name)
+      # Wait for the dropdown menu to appear
+      menu = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="menu-inner"]')))
+      print('menu appeared')
 
-      # find div[data-title] which is equal to ind_name and click on it (to upload the indicator)
-      scripts = WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[data-title]')))
-      for element in scripts:
-        if element.get_attribute('data-title') == ind_name:
-          print('script name: ', element.get_attribute('data-title'))
-          print('going to click on it...')
-          element.click()
-          close_button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[data-name="close"]')))
-          close_button.click()
+      # find Premium Screener in the dropdown menu and click on it
+      dropdown_indicators = WebDriverWait(menu, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[data-role="menuitem"]')))
+      for el in dropdown_indicators:
+        print('current indicator: ',el)
+        text = el.find_element(By.CSS_SELECTOR, 'span[class="label-l0nf43ai apply-overflow-tooltip"]').text
+        if self.screener_name == text:
+          print('Found Premium Screener')
+          el.click()
           break
-
+      
       # Wait for the indicator to show up on the chart
       start_time = time()
-      timeout = 10 # 10 seconds
+      timeout = 15 # 15 seconds
       while time() - start_time <= timeout:
         indicators = self.driver.find_elements(By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')
         for ind in indicators:
