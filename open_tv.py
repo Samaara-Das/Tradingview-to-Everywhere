@@ -159,7 +159,7 @@ class Browser:
     # check if the screener indicator has an error
     if not self.is_no_error(self.screener_shorttitle):
       print('screener indicator had an error. Could not set an alert for this tab. Trying to reupload indicator')
-      self.reupload_indicator(self.screener_name)
+      self.reupload_indicator()
       self.change_settings(symbols)
       self.is_loaded(self.screener_shorttitle) # wait for the screener indicator to fully load
       if not self.is_no_error(self.screener_shorttitle): # if an error is still there
@@ -337,8 +337,15 @@ class Browser:
         text = el.find_element(By.CSS_SELECTOR, 'span[class="label-l0nf43ai apply-overflow-tooltip"]').text
         if self.screener_name == text:
           print('Found Premium Screener')
-          el.click()
-          break
+          if el.is_displayed():
+            el.click()
+            break
+          else:
+            # Scroll the element into view
+            actions = ActionChains(menu).move_to_element(el)
+            actions.perform()
+            el.click()
+            break
       
       # Wait for the indicator to show up on the chart
       start_time = time()

@@ -87,5 +87,5 @@ class Alerts:
           break
         continue
 
-    return loads(alert_box.text) if alert_box != None else '{}'# the alert message is jsonified
+    return loads(alert_box.text) if alert_box != None else loads('{}')# the alert message is jsonified
 
