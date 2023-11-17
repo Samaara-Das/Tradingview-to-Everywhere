@@ -19,6 +19,7 @@ Then it sends that snapshot to a database and to Poolsifi.
 - In `main.py`, specify the indicators' short-titles. They are currently: "Trade" and "Screener". These names will be used to find the indicators
 - In `main.py`, specify the screener indicator's & trade drawer indicator's script names. It is currently "Premium Screener"
 - `SYMBOL_INPUTS` in `open_tv.py` should be the same as the number of symbol inputs in the screener
+- The Premium Screener indicator on Tradingview has to be starred (so that it can appear in the Favorites dropdown)
 
 ## Some errors which might happen
 - "Modify_study_limit_exceeding" error can happen on a pinescript script whose inputs are getting changed frequently. 

@@ -3,7 +3,7 @@ this is the main module where we use all the other modules to perform tasks
 '''
 
 import open_tv
-import get_alert_data
+from selenium.webdriver.common.by import By
 
 SCREENER_SHORT = 'Screener' # short title of the screener
 DRAWER_SHORT = 'Trade' # short title of the trade drawer indicator 
@@ -12,11 +12,14 @@ DRAWER_NAME = 'Trade Drawer' # name of the trade drawer
 
 # initiate Browser
 browser = open_tv.Browser(True, SCREENER_SHORT, SCREENER_NAME, DRAWER_SHORT, DRAWER_NAME)
+
 # setup the indicators, alerts etc.
 browser.setup_tv()
-# change the symbol settings of the indicators in differnt symbols and setup alerts for those symbol
-browser.set_bulk_alerts(15)
 
-# wait for alerts and get data about new entries/exits
-alerts = get_alert_data.Alerts(browser.drawer_indicator, browser.driver, browser)
-alerts.read_and_parse()
+# testing to see if the indicator gets re uploaded
+browser.reupload_indicator(browser.screener_name)
+browser.screener_indicator = browser.get_indicator(browser.screener_shorttitle)
+print('Screener indicator: ', browser.screener_indicator.find_element(By.CSS_SELECTOR, 'div[class="title-l31H9iuA"]').text)
+
+# This method takes care of filling in the symbols, setting an alert and taking snaphots of the entries in those alerts and sending those to poolsifi and discord
+# browser.post_everywhere()

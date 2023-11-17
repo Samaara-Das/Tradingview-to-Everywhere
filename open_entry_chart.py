@@ -73,6 +73,7 @@ class OpenChart:
       search_input.send_keys(Keys.ENTER)
 
   def change_tframe(self, timeframe):
+    '''`timeframe` is supposed to be the value of the data-value attribute of the timeframe dropdown options in Tradingview.'''
     # click on the dropdown and choose from the dropdown options and click on the one which matches the timeframe
     tf_dropdown = WebDriverWait(self.driver, 15).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="header-toolbar-intervals"]/button')))
     tf_dropdown.click()

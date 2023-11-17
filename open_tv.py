@@ -3,6 +3,7 @@ This sets up tradingview, the alerts and does a few things for the indicators
 '''
 
 # import modules
+import get_alert_data
 from time import sleep, time
 from open_entry_chart import OpenChart
 from resources.symbol_settings import *
@@ -19,6 +20,8 @@ from selenium.common.exceptions import WebDriverException
 
 # some constants
 SYMBOL_INPUTS = 15 #number of symbol inputs in the screener
+REPETITION = 14 # this multiplied by SYMBOL_INPUTS must be less than or rqual to the total number of symbols in symbol_settings.py
+TIMEFRAME = '60' # the timeframe of the entries 
 
 CHROME_PROFILE_PATH = 'C:\\Users\\Puja\\AppData\\Local\\Google\\Chrome\\User Data'
 # CHROME_PROFILE_PATH = 'C:\\Users\\pripuja\\AppData\\Local\\Google\\Chrome\\User Data'
@@ -42,13 +45,9 @@ class Browser:
   def open_page(self, url: str):
     self.driver.get(url)
     self.driver.maximize_window()
-  
-  def close_page(self):
-    print("shutting down tab 💤")
-    self.driver.close()
 
   def setup_tv(self):
-    '''Open Tradingview, change to Screener layout, delete alerts, change timeframe and make the screener visible'''
+    '''Open Tradingview, change to Screener layout, open the Alerts sidebar, delete all alerts, change timeframe to 1m and make both indicators visible'''
     # open tradingview
     self.open_page('https://www.tradingview.com/chart')
 
@@ -62,12 +61,13 @@ class Browser:
     self.delete_alerts()
 
     # make the screener and the trade drawer indicator into attributes of this object
-    self.get_indicator(self.screener_shorttitle)
-    self.get_indicator(self.drawer_shorttitle)
+    self.screener_indicator = self.get_indicator(self.screener_shorttitle)
+    self.drawer_indicator = self.get_indicator(self.drawer_shorttitle)
 
-    # set the timeframe to 1m so that when the alert for the screener is set up, an error won't happen.
-    # 1min is not the timeframe that entries are happening on. The timeframe for the entry is in the screener.
-    self.open_chart.change_tframe('1')
+    self.alerts = get_alert_data.Alerts(self.drawer_indicator, self.driver)
+
+    # set the timeframe to 1H (so that the alert can come once every hour)
+    self.open_chart.change_tframe(TIMEFRAME)
 
     # make the screener visible
     self.indicator_visibility(True, self.screener_shorttitle)
@@ -75,17 +75,17 @@ class Browser:
     # make the Trade Drawer indicator visible
     self.indicator_visibility(True, self.drawer_shorttitle)
 
-    #give it some time 
+    #give it some time to rest
     sleep(2) 
 
-  def set_bulk_alerts(self, alert_number: int):
+  def post_everywhere(self):
     '''
-    this makes `number` alerts (if there aren't already). The symbols given must cover all the alerts. 
+    This method takes care of filling in the symbols, setting an alert and taking snaphots of the entries in those alerts and sending those to poolsifi and discord
     '''
     all_symbols = list(symbol_categories.keys()) # get all the symbols
     main_list = [all_symbols[i:i + SYMBOL_INPUTS] for i in range(0, len(all_symbols), SYMBOL_INPUTS)] # list of lists. each sublist is a set of symbols
 
-    for _ in range(alert_number):
+    for _ in range(REPETITION):
       if not main_list:
         print('Loop has been broken')
         break  # No more sublists left
@@ -96,7 +96,10 @@ class Browser:
         self.change_settings(symbols)  # input the symbols in the screener's inputs
         self.is_loaded(self.screener_shorttitle)  # wait for the screener indicator to fully load
         if self.set_alerts(symbols):  # if an alert has been made, wait for it to be loaded
-          self.is_alert_loaded(symbols[0], 10)
+          if self.is_alert_loaded(symbols[0]): # if the alert has showed up
+            alert_msg = self.alerts.read_and_parse()
+            self.alerts.post(alert_msg)
+            self.delete_alerts()
 
   def change_layout(self):
     # switch the layout if we are on some other layout. if we are on the screener layout, we don't need to do anything
@@ -120,10 +123,15 @@ class Browser:
     while True:
       try:
         screener = self.get_indicator(self.screener_shorttitle)
-        screener.click()
-        WebDriverWait(screener, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-name="legend-settings-action"]'))).click()
-        settings = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.content-tBgV1m0B')))
-        break
+        if screener:
+          self.screener_indicator = screener
+          self.screener_indicator.click()
+          WebDriverWait(self.screener_indicator, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-name="legend-settings-action"]'))).click()
+          settings = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.content-tBgV1m0B')))
+          break
+        else:
+          print('Could not find screener indicator: ', screener)
+          return
       except WebDriverException as e:
         if self.driver.find_elements(By.CSS_SELECTOR, 'button[data-name="close"]'): # if this element exists (that means that the settings popup has opened up)
           self.driver.find_element(By.CSS_SELECTOR, 'button[data-name="close"]').click() # close the settings popup
@@ -176,24 +184,26 @@ class Browser:
 
     return True
 
-  def is_alert_loaded(self, chart_symbol, secs):
+  def is_alert_loaded(self, chart_symbol, secs=15):
     '''this waits for `secs` seconds to see if a new alert has been loaded in the ALerts sidebar'''
     end_time = time() + secs
+    val = False
     while time() < end_time:
-      elements_list = self.driver.find_elements(By.CSS_SELECTOR, '.list-G90Hl2iS div[data-name="alert-item-ticker"]')
+      elements_list = self.driver.find_elements(By.CSS_SELECTOR, '.list-G90Hl2iS span[data-name="alert-item-ticker"]')
       alert_symbols = [el.text for el in elements_list]
-      if chart_symbol in alert_symbols:
+      if any(chart_symbol in symbol for symbol in alert_symbols):
+        val = True
         break
     
-    return False
+    return val
 
-  def is_loaded(self, ind_name):
+  def is_loaded(self, shorttitle):
     sleep(1)
     # find the indicator
     indicator = None
-    if ind_name == self.screener_shorttitle:
+    if shorttitle == self.screener_shorttitle:
       indicator = self.screener_indicator
-    elif ind_name == self.drawer_shorttitle:
+    elif shorttitle == self.drawer_shorttitle:
       indicator = self.drawer_indicator
 
     # check if the indicator is not loading anymore
@@ -207,7 +217,12 @@ class Browser:
 
   def indicator_visibility(self, make_visible: bool, shorttitle: str):
     # click on the indicator
-    indicator = self.get_indicator(shorttitle)
+    indicator = None
+    if shorttitle == self.screener_shorttitle:
+      indicator = self.screener_indicator
+    elif shorttitle == self.drawer_shorttitle:
+      indicator = self.drawer_indicator
+
     indicator_path = 'div[data-name="legend-source-item"]'
 
     if indicator != None: # that means that we've found our indicator
@@ -219,15 +234,15 @@ class Browser:
         indicator.click()
         eye.click()
 
-  def is_no_error(self, ind_name:str):
+  def is_no_error(self, shorttitle:str):
     '''
     this checks if the indicator has successfully loaded without an error
     '''
     # find the indicator
     indicator = None
-    if ind_name == self.screener_shorttitle:
+    if shorttitle == self.screener_shorttitle:
       indicator = self.screener_indicator
-    elif ind_name == self.drawer_shorttitle:
+    elif shorttitle == self.drawer_shorttitle:
       indicator = self.drawer_indicator
 
     # if there is no error
@@ -293,7 +308,11 @@ class Browser:
     self.driver.switch_to.window(self.driver.window_handles[0])
 
   def reupload_indicator(self, ind_name: str):
-    '''removes screener and reuploads `ind_name` indicator to the chart. It then waits for the screener to show up on the chart. Don't remove the print statements. It seems like the code will only run with the print statements.'''
+    '''removes screener and reuploads `ind_name` indicator to the chart. It then waits for the screener to show up on the chart and returns `True` if it does otherwise `False`.
+
+    Don't remove the print statements. It seems like the code will only run with the print statements.'''
+    val = False
+
     try:
       # click on screener indicator
       self.screener_indicator.click()
@@ -308,13 +327,20 @@ class Browser:
       print('indicators button: ', indicators_button)
       indicators_button.click()
 
-      # enter ind_name into search.
+      # enter ind_name into search
       search_input = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[data-role="search"]')))
       print('search input: ', search_input)
-      search_input.send_keys(ind_name)
+      search_input.send_keys(ind_name[:6])  # enter half the name to avoid the error below
+      sleep(1)
+      # if there is an error in finding the indicator, try 1 more time
+      if len(self.driver.find_elements(By.CLASS_NAME, "description-QcG0kDOU")) > 0:
+        if 'No indicators matched your criteria' in self.driver.find_element(By.CLASS_NAME, "description-QcG0kDOU").text:
+          search_input.clear()
+          search_input.send_keys(ind_name)
 
       # find div[data-title] which is equal to ind_name and click on it (to upload the indicator)
-      for element in WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[data-title]'))):
+      scripts = WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[data-title]')))
+      for element in scripts:
         if element.get_attribute('data-title') == ind_name:
           print('script name: ', element.get_attribute('data-title'))
           print('going to click on it...')
@@ -324,25 +350,35 @@ class Browser:
           break
 
       # Wait for the indicator to show up on the chart
-      while True:
+      start_time = time()
+      timeout = 10 # 10 seconds
+      while time() - start_time <= timeout:
         indicators = self.driver.find_elements(By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')
         for ind in indicators:
           if ind.find_element(By.CSS_SELECTOR, 'div[class="title-l31H9iuA"]').text == self.screener_shorttitle:
+            val = True
             break
-          
+        if val: # if the indicator is found on the chart, break the while loop
+          break
     except Exception as e:
-      print(f"An error occurred: {e}")
+      print(f"error: {e}")
+
+    return val
 
   def get_indicator(self, ind_shorttitle: str):
-    wait = WebDriverWait(self.driver, 10)
+    '''Returns the indicator which has the given short title'''
+    indicator = None
+    wait = WebDriverWait(self.driver, 15)
     indicators = wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')))
+    
     for ind in indicators: 
       indicator_name = ind.find_element(By.CSS_SELECTOR, 'div[class="title-l31H9iuA"]').text
       if indicator_name == ind_shorttitle: # finding the screener indicator
-        self.screener_indicator = ind
-        return ind
+        indicator = ind
+        break
       if indicator_name == ind_shorttitle: # finding the trade drawer indicator
-        self.drawer_indicator = ind
-        return ind
+        indicator = ind
+        break
 
+    return indicator
     
