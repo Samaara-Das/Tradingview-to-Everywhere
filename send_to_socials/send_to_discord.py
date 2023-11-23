@@ -4,7 +4,7 @@ this file is for sending messages to discord
 if you have to change the webhook url, do this:
 go to a discord channel -> edit channel -> integrations -> create a webhook
 '''
-
+from traceback import print_exc
 from discord_webhook import DiscordWebhook
 from resources.categories import *
 
@@ -23,5 +23,5 @@ class Discord:
             webhook = DiscordWebhook(url=self.webhook_urls[category], content=content)
             response = webhook.execute()
         except Exception as e:
-            print(f'error in {__file__}: \n{e}')
+            print_exc()
 

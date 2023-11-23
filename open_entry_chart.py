@@ -10,6 +10,7 @@ this:
 
 # import modules
 from time import sleep
+from traceback import print_exc
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
@@ -24,9 +25,17 @@ class OpenChart:
     
   def change_indicator_settings(self, drawer_indicator, entry_time, entry_price, sl_price, tp1_price, tp2_price, tp3_price):
     # double click on the indicator so that the settings can open 
-    ActionChains(self.driver).move_to_element(drawer_indicator).perform()
-    ActionChains(self.driver).double_click(drawer_indicator).perform()
-    settings = WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.content-tBgV1m0B')))
+    i = 1
+    while i <= 3:
+      try:
+        ActionChains(self.driver).move_to_element(drawer_indicator).perform()
+        ActionChains(self.driver).double_click(drawer_indicator).perform()
+        settings = WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.content-tBgV1m0B')))
+        break
+      except Exception as e:
+        print_exc()
+        i += 1
+      
     inputs = settings.find_elements(By.CSS_SELECTOR, '.cell-tBgV1m0B input')
 
     # fill up the settings
@@ -53,7 +62,7 @@ class OpenChart:
     self.driver.find_element(By.CSS_SELECTOR, 'button[name="submit"]').click()
 
     # wait for the indicator to fully load so that it can take a snapshot of the new entry, sl & tp
-    sleep(1) 
+    sleep(2) 
     while True:
       class_attr = drawer_indicator.get_attribute('class')
       if 'Loading' not in class_attr:
@@ -73,17 +82,20 @@ class OpenChart:
       search_input.send_keys(Keys.ENTER)
 
   def change_tframe(self, timeframe):
-    '''`timeframe` is supposed to be the value of the data-value attribute of the timeframe dropdown options in Tradingview.'''
-    # click on the dropdown and choose from the dropdown options and click on the one which matches the timeframe
-    tf_dropdown = WebDriverWait(self.driver, 15).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="header-toolbar-intervals"]/button')))
-    tf_dropdown.click()
-    options = WebDriverWait(self.driver, 15).until(EC.presence_of_element_located((By.XPATH, '//*[@id="overlap-manager-root"]/div/span/div[1]/div/div/div')))
-    options = options.find_elements(By.CSS_SELECTOR, 'div > div')
+    '''Changes the timeframe of the chart'''
 
-    for option in options:
-      if option.get_attribute('data-value') == timeframe:
-        option.click()
-        break
+    # click on the dropdown and choose from the dropdown options and click on the one which matches the timeframe
+    tf_button = WebDriverWait(self.driver, 15).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="header-toolbar-intervals"]/button')))
+
+    if tf_button.get_attribute('aria-label') != timeframe: # if the chart's timeframe is different, change it to the desired timeframe
+      tf_button.click()
+      options = WebDriverWait(self.driver, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[class="dropdown-S_1OCXUK"]')))
+      options = options.find_elements(By.CSS_SELECTOR, 'div[class="accessible-NQERJsv9 menuItem-RmqZNwwp item-jFqVJoPk"]')
+
+      for option in options:
+        if option.find_element(By.CSS_SELECTOR, 'span[class="label-jFqVJoPk"]').text == timeframe:
+          option.click()
+          break
                                                
   def save_chart_img(self):
     camera = WebDriverWait(self.driver, 20).until(EC.element_to_be_clickable((By.XPATH, "//button[@aria-label='Take a snapshot']/div[@id='header-toolbar-screenshot']")))
