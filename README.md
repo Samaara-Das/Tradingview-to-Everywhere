@@ -16,20 +16,34 @@ It goes to that particular entry's/exit's symbol and timeframe and takes a snaps
 Then it sends that snapshot to a database and to Poolsifi. 
 
 ## Things to do for programmers:
+- In `categories.py`, make the values of the constants equal to the names of the discord webhooks where the snapshots are supposed to go. Examples: The `CURRENCIES` constant has the value of "currencies" because that is the name of the webhook for the channel underneath the "CURRENCIES" group.  The `INDIAN_STOCKS` constant has the value of "indian-stocks" because that is the name of the webhook for the channel underneath the "INDIAN STOCKS" group.
+
+- In the Trade Drawer indicator, in Pinescrirpt, the first 6 inputs have to arranged in this order: dateTime, entry, sl, tp1, tp2, tp3
+
+- In `categories.py`, also put the webhook link for each channel. Each constant that ends with `_WEBHOOK_LINK` should have a link which is associated with that specific constant i.e. channel.
+
 - In `main.py`, specify the indicators' short-titles. They are currently: "Trade" and "Screener". 
+
 - In `main.py`, specify the screener indicator's & trade drawer indicator's script names. They are currently "Premium Screener" & "Trade Drawer"
+
 - Premium Screener can have only 1 input which is opens a dropdown. That is the Timeframe input. It has to be this way so that the Timeframe input can be found in `change_screener_timeframe` in `open_tv.py`
+
+- If the symbols in `symbol_settings.py` are rare and have prices like -5.0000000034782 or 0.00000389, go to the screener and fix the code in the alertMsg function to make it convert those prices into their correct string versions. Their string versions should be the exact same as the prices and should not be rounded off and the decimal places should not be cut off.
+
 - In `symbol_settings.py`, in `main_symbols`, each list should have atleast 15 symbols and each category should have symbols that are of the same timezone (trading session) so that if 1 symbol is closed, that would mean that the other symbols of the category are closed. That would also mean that if 1 symbol is open, that would mean that the other symbols of the category are open. 1 symbol should speak for the rest. This is done to prevent looking for signals on a closed market. If the symbols in a category are of the same timezone, that would mean that one of the symbols would speak for the rest of the symbols' timezone. 
+
 - In `open_tv.py`, make sure the `LAYOUT_NAME` constant is set to the name of the layout which is meant for the screener.
-- In `open_tv.py`, make sure the `SCREENER_MSG_TIMEOUT` constant is set to the number of seconds that Python will wait for the screener's alert to come up in the Alerts log. the default is 75 (1min 15secs)
+
+- In `open_tv.py`, make sure the `SCREENER_MSG_TIMEOUT` constant is set to the number of seconds that Python will wait for the screener's alert to come up in the Alerts log. the default is 77 (1min 17secs)
+
 - In `open_tv.py`, make sure the `USED_SYMBOLS_INPUT` constant is equal to the name of the Used Symbols input in the screener
+
 - In `open_tv.py`, specify the timeframe of the chart and of the screener. 
-
 The timeframe of the chart is the timeframe which the indicators run on. It is in the `CHART_TIMEFRAME` constant. The value of the constant should be a string and one of these options (The spelling must be correct):![Alt text](image.png) 
-
 The timeframe of the screener is the Timeframe input in the screener which controls the timeframe of the entries. It is in the `SCREENER_TIMEFRAME` constant. It should be a string and one of these options (The spelling must be correct): ![Alt text](image-1.png)
 
 - `SYMBOL_INPUTS` in `open_tv.py` should be the same as the number of symbol inputs in the screener
+
 - The Premium Screener indicator on Tradingview has to be starred (so that it can appear in the Favorites dropdown)
 
 ## Some errors which might happen

@@ -30,15 +30,17 @@ class OpenChart:
       try:
         ActionChains(self.driver).move_to_element(drawer_indicator).perform()
         ActionChains(self.driver).double_click(drawer_indicator).perform()
-        settings = WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.content-tBgV1m0B')))
+        settings = WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="indicator-properties-dialog"]')))
         break
       except Exception as e:
         print_exc()
         i += 1
       
-    inputs = settings.find_elements(By.CSS_SELECTOR, '.cell-tBgV1m0B input')
+    # when the settings come up, click on the Inputs tab (just in case we’re on some other tab)
+    settings.find_element(By.CSS_SELECTOR, 'div[class="tabs-vwgPOHG8"] button[id="inputs"]').click()
 
     # fill up the settings
+    inputs = settings.find_elements(By.CSS_SELECTOR, '.cell-tBgV1m0B input')
     for i in range(len(inputs)):
       val = 0
       if i == 0:
@@ -66,6 +68,7 @@ class OpenChart:
     while True:
       class_attr = drawer_indicator.get_attribute('class')
       if 'Loading' not in class_attr:
+        print('Trade indicator fully loaded... About to click snapshot')
         break
       else:
         continue

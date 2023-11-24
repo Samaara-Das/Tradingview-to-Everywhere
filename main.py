@@ -26,6 +26,7 @@ while True:
             browser.delete_alerts() # delete the hour tracker alert so that no alerts come from it and the code doesn't read its alert and tries to jsonify it
             browser.post_everywhere() # This method takes care of filling in the symbols, setting an alert and taking snaphots of the entries in those alerts and sending those to poolsifi and discord
 
+        browser.delete_alerts() # delete any alerts which might've formed so that their alert messages don't come in the Alerts log
         browser.open_chart.change_symbol('BTCUSD') # change the symbol to a crypto one so that the hour tracker alert can come within a minute (Other symbols might be closed)
         sleep(3) # wait for the new symbol to load
     except Exception as e:

@@ -7,24 +7,24 @@ from .categories import *
 
 # this is where all the symbols are stored
 main_symbols = {
-    CURRENCIES: ['GBPAUD', 'AUDJPY', 'EURCAD', 'EURGBP', 'USDCHF', 'AUDNZD', 'XAUUSD', 'WTIUSD', 'EURNZD', 'USDJPY', 'NZDJPY', 'GBPUSD', 'AUDCAD', 'EURJPY', 'GBPNZD', 'AUDCHF', 'GBPJPY', 'EURUSD', 'EURCHF', 'GBPCAD', 'AUDUSD', 'XAGUSD', 'NZDUSD', 'EURAUD', 'CADCHF', 'CHFJPY', 'GBPCHF', 'NZDCHF', 'CADJPY', 'USDCAD', 'NZDCAD'],
+    CURRENCIES_WEBHOOK_NAME: ['GBPAUD', 'AUDJPY', 'EURCAD', 'EURGBP', 'USDCHF', 'AUDNZD', 'XAUUSD', 'WTIUSD', 'EURNZD', 'USDJPY', 'NZDJPY', 'GBPUSD', 'AUDCAD', 'EURJPY', 'GBPNZD', 'AUDCHF', 'GBPJPY', 'EURUSD', 'EURCHF', 'GBPCAD', 'AUDUSD', 'XAGUSD', 'NZDUSD', 'EURAUD', 'CADCHF', 'CHFJPY', 'GBPCHF', 'NZDCHF', 'CADJPY', 'USDCAD', 'NZDCAD'],
 
-    US_STOCKS: ['AMGN', 'UNH', 'ACN', 'JNJ', 'CVS', 'BA', 'GE', 'GOOGL', 'FDX', 'COST', 'EXC', 'HD', 'BKNG', 'JPM', 'BK', 'PG', 'AMT', 'GD', 'AAPL', 'HON', 'MSFT', 'GOOG', 'MCD', 'BLK', 'INTC', 'CVX', 'GILD', 'VZ', 'ABBV', 'TRV', 'MRK', 'CMCSA', 'BMY', 'CRM', 'CHTR', 'F', 'CL', 'DOW', 'IBM', 'WMT', 'DUK', 'AVGO', 'COP', 'COF', 'V', 'DE', 'BRK.B', 'AMD', 'NKE', 'KO', 'ABT', 'GS', 'DHR', 'EMR', 'CAT', 'WBA', 'C', 'CSCO', 'ADBE', 'AXP', 'BAC', 'AIG', 'AMZN', 'GM', 'MMM', 'DIS'],
+    US_STOCKS_WEBHOOK_NAME: ['AMGN', 'UNH', 'ACN', 'JNJ', 'CVS', 'BA', 'GE', 'GOOGL', 'FDX', 'COST', 'EXC', 'HD', 'BKNG', 'JPM', 'BK', 'PG', 'AMT', 'GD', 'AAPL', 'HON', 'MSFT', 'GOOG', 'MCD', 'BLK', 'INTC', 'CVX', 'GILD', 'VZ', 'ABBV', 'TRV', 'MRK', 'CMCSA', 'BMY', 'CRM', 'CHTR', 'F', 'CL', 'DOW', 'IBM', 'WMT', 'DUK', 'AVGO', 'COP', 'COF', 'V', 'DE', 'BRK.B', 'AMD', 'NKE', 'KO', 'ABT', 'GS', 'DHR', 'EMR', 'CAT', 'WBA', 'C', 'CSCO', 'ADBE', 'AXP', 'BAC', 'AIG', 'AMZN', 'GM', 'MMM', 'DIS'],
 
-    INDIAN_STOCKS: ['SUNPHARMA', 'ADANIENT', 'POWERGRID', 'SBIN', 'BPCL', 'EICHERMOT', 'HDFC', 'CIPLA', 'ULTRACEMCO', 'COALINDIA', 'TCS', 'LT', 'BAJAJFINSV', 'WIPRO', 'APOLLOHOSP', 'HDFCBANK', 'BRITANNIA', 'INDUSINDBK', 'KOTAKBANK', 'NESTLEIND', 'BHARTIARTL', 'TITAN', 'DIVISLAB', 'TECHM', 'INFY', 'ASIANPAINT', 'ITC', 'M_M', 'RELIANCE', 'TATASTEEL', 'GRASIM', 'NTPC', 'ADANIPORTS', 'ICICIBANK', 'HEROMOTOCO', 'HINDALCO', 'HCLTECH', 'DRREDDY', 'BAJAJ_AUTO', 'MARUTI', 'HINDUNILVR', 'HDFCLIFE', 'BAJFINANCE', 'AXISBANK'],
+    INDIAN_STOCKS_WEBHOOK_NAME: ['SUNPHARMA', 'ADANIENT', 'POWERGRID', 'SBIN', 'BPCL', 'EICHERMOT', 'HDFC', 'CIPLA', 'ULTRACEMCO', 'COALINDIA', 'TCS', 'LT', 'BAJAJFINSV', 'WIPRO', 'APOLLOHOSP', 'HDFCBANK', 'BRITANNIA', 'INDUSINDBK', 'KOTAKBANK', 'NESTLEIND', 'BHARTIARTL', 'TITAN', 'DIVISLAB', 'TECHM', 'INFY', 'ASIANPAINT', 'ITC', 'M_M', 'RELIANCE', 'TATASTEEL', 'GRASIM', 'NTPC', 'ADANIPORTS', 'ICICIBANK', 'HEROMOTOCO', 'HINDALCO', 'HCLTECH', 'DRREDDY', 'BAJAJ_AUTO', 'MARUTI', 'HINDUNILVR', 'HDFCLIFE', 'BAJFINANCE', 'AXISBANK'],
 
-    CRYPTO: ['BTCUSDT', 'BCHBTC', 'DOGEUSDT', 'TRXBTC', 'UNIUSDT', 'LTCUSDT', 'LTCBTC', 'BCHUSDT', 'ETHUSDT', 'XRPUSDT', 'LINKBTC', 'XRPBTC', 'TRXUSDT', 'XLMUSDT', 'ETHBTC', 'NEOUSDT', 'EOSUSDT', 'EOSBTC', 'LINKUSDT'],
+    CRYPTO_WEBHOOK_NAME: ['BTCUSDT', 'BCHBTC', 'DOGEUSDT', 'TRXBTC', 'UNIUSDT', 'LTCUSDT', 'LTCBTC', 'BCHUSDT', 'ETHUSDT', 'XRPUSDT', 'LINKBTC', 'XRPBTC', 'TRXUSDT', 'XLMUSDT', 'ETHBTC', 'NEOUSDT', 'EOSUSDT', 'EOSBTC', 'LINKUSDT'],
 
-    INDICES: ['RUT', 'SNSX50', 'GDAXI', 'SENSEX', 'VIX', 'NIFTY', 'SMLCAP', 'MIDCAP', 'DJI', 'FCHI', 'SMLSEL', 'FTSE', 'BANKNIFTY', 'CNXMIDCAP', 'SPX', 'MIDSEL', 'IXIC', 'LRGCAP']
+    INDICES_WEBHOOK_NAME: ['RUT', 'SNSX50', 'GDAXI', 'SENSEX', 'VIX', 'NIFTY', 'SMLCAP', 'MIDCAP', 'DJI', 'FCHI', 'SMLSEL', 'FTSE', 'BANKNIFTY', 'CNXMIDCAP', 'SPX', 'MIDSEL', 'IXIC', 'LRGCAP']
 }
 
 # this is the same as main_symbols except that each list will have sublists of 15 symbols. The remaining symbols will be in the last sublist
 symbol_set = {
-    CURRENCIES: [], 
-    US_STOCKS: [], 
-    INDIAN_STOCKS: [], 
-    CRYPTO: [], 
-    INDICES: []
+    CURRENCIES_WEBHOOK_NAME: [], 
+    US_STOCKS_WEBHOOK_NAME: [], 
+    INDIAN_STOCKS_WEBHOOK_NAME: [], 
+    CRYPTO_WEBHOOK_NAME: [], 
+    INDICES_WEBHOOK_NAME: []
 }
 
 # this is a dictionary whose keys are the symbols and their values are the categories
@@ -47,3 +47,4 @@ def symbol_category(symbol):
     '''
     return symbol_categories.get(symbol, None)
 
+# print out the total number of symbols in main_symbols

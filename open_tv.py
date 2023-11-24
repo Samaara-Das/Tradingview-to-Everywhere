@@ -25,7 +25,8 @@ CHART_TIMEFRAME = '1 hour' # the timeframe that the indicators will run on (not 
 SCREENER_TIMEFRAME = '1 hour' # the timeframe that the screener will run on (the timeframe of the trades)
 USED_SYMBOLS_INPUT = "Used Symbols" # Name of the Used Symbols input in the Screener
 LAYOUT_NAME = 'Screener' # Name of the layout for the screener
-SCREENER_MSG_TIMEOUT = 75 # seconds to wait for the screener message to appear in the Alerts log
+SCREENER_MSG_TIMEOUT = 77 # seconds to wait for the screener message to appear in the Alerts log
+SYMBOL_DELAY = 3 # seconds to wait for the new symbol to load (this is used in is_market_open())
 
 CHROME_PROFILE_PATH = 'C:\\Users\\Puja\\AppData\\Local\\Google\\Chrome\\User Data'
 # CHROME_PROFILE_PATH = 'C:\\Users\\pripuja\\AppData\\Local\\Google\\Chrome\\User Data'
@@ -60,6 +61,9 @@ class Browser:
 
     # change to the screener layout (if we are on any other layout)
     self.change_layout()
+
+    # change the symbol to a crypto one so that the hour tracker alert can come within a minute (Other symbols might be closed)
+    self.open_chart.change_symbol('BTCUSD') 
 
     # set the timeframe to 1H (so that the alert can come once every hour)
     self.open_chart.change_tframe(CHART_TIMEFRAME)
@@ -106,7 +110,7 @@ class Browser:
               self.indicator_visibility(True, self.screener_shorttitle) # making the screener visible if it has been hidden
               self.delete_alerts()
         else:
-          print('Market is closed...Skipping to next category')
+          print('Market is closed or in its pre market hours...Skipping to next category')
           break # break this current loop and start with the next category (eg: if a us stock is closed, that means that other us stocks are also closed... So, skip to the next category)
 
   def change_layout(self):
@@ -239,6 +243,7 @@ class Browser:
       alert_symbols = [el.text for el in elements_list]
       if any(chart_symbol in symbol for symbol in alert_symbols):
         val = True
+        print('Alert has successfully loaded in the Alerts sidebar')
         sleep(1)
         break
     
@@ -468,19 +473,18 @@ class Browser:
 
   def is_market_open(self):
     '''This waits for `symbol` to be loaded on the chart and waits for a few seconds (to give the chart time to load). Then, it checks if the market is open'''
-    sleep(4) # wait for the chart to load and then check if the market is open
+    sleep(SYMBOL_DELAY) # wait for the chart to load and then check if the market is open
   
     # The elements below are here just in case we need them
     # market_open_status = WebDriverWait(self.driver, 3).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[class="statusItem-Lgtz1OtS small-Lgtz1OtS marketStatusOpen-Lgtz1OtS"]')))
-  
     # market_post_status = WebDriverWait(self.driver, 3).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[class="statusItem-Lgtz1OtS small-Lgtz1OtS marketStatusPost-Lgtz1OtS"]')))
     
-    # market_pre_status = WebDriverWait(self.driver, 3).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[class="statusItem-Lgtz1OtS small-Lgtz1OtS marketStatusPre-Lgtz1OtS"]')))
-
     # if there is no market close/market holiday button, that means that the market is open
     market_close = self.driver.find_elements(By.CSS_SELECTOR, 'div[class="statusItem-Lgtz1OtS small-Lgtz1OtS marketStatusClose-Lgtz1OtS"]')
     market_holiday = self.driver.find_elements(By.CSS_SELECTOR, 'div[class="statusItem-Lgtz1OtS small-Lgtz1OtS marketStatusHoliday-Lgtz1OtS"]')
-    if not market_close and not market_holiday: # if there is no market close button and no market holiday button, then the market is open
+    market_pre_hours = self.driver.find_elements(By.CSS_SELECTOR, 'div[class="statusItem-Lgtz1OtS small-Lgtz1OtS marketStatusPre-Lgtz1OtS"]')
+    if not market_close and not market_holiday and not market_pre_hours: # if there is no market close/market holiday/pre hours button, then the market is open
       return True
     else:
       return False
+    

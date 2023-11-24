@@ -141,7 +141,7 @@ class Alerts:
     Returns `True` if there's an error'''
     val = False
     alert = self.driver.find_element(By.CSS_SELECTOR, '.list-G90Hl2iS div.itemBody-ucBqatk5')
-    if 'Stopped - Calculation error' in alert.find_element(By.CSS_SELECTOR, 'span[data-name="alert-item-status"]').text:
+    if alert.find_element(By.CSS_SELECTOR, 'span[data-name="alert-item-status"]').text == 'Stopped — Calculation error':
       # click on restart
       val = True
       ActionChains(self.driver).move_to_element(alert).perform()
