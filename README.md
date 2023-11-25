@@ -16,6 +16,8 @@ It goes to that particular entry's/exit's symbol and timeframe and takes a snaps
 Then it sends that snapshot to a database and to Poolsifi. 
 
 ## Things to do for programmers:
+- In `open_tv.py`, the constant `SCREENER_REUPLOAD_TIMEOUT` has to have a value for the number of seconds it should wait for the screener to be re-uploaded on the chart. The default is 15 seconds.
+
 - In `categories.py`, make the values of the constants equal to the names of the discord webhooks where the snapshots are supposed to go. Examples: The `CURRENCIES` constant has the value of "currencies" because that is the name of the webhook for the channel underneath the "CURRENCIES" group.  The `INDIAN_STOCKS` constant has the value of "indian-stocks" because that is the name of the webhook for the channel underneath the "INDIAN STOCKS" group.
 
 - In the Trade Drawer indicator, in Pinescrirpt, the first 6 inputs have to arranged in this order: dateTime, entry, sl, tp1, tp2, tp3
@@ -37,6 +39,10 @@ Then it sends that snapshot to a database and to Poolsifi.
 - In `open_tv.py`, make sure the `SCREENER_MSG_TIMEOUT` constant is set to the number of seconds that Python will wait for the screener's alert to come up in the Alerts log. the default is 77 (1min 17secs)
 
 - In `open_tv.py`, make sure the `USED_SYMBOLS_INPUT` constant is equal to the name of the Used Symbols input in the screener
+
+- In `open_tv.py`, change the `SYMBOL_DELAY` constant to the number of seconds to wait for a new symbol to load on the chart
+
+- In `open_tv.py`, change the `DEFAULT_SYMBOL` constant to a symbol that the hour tracker alert will be set up on. The default value is BTCUSD because crypto symbols are always open. Since they're always open, new price ticks will form and new bars will form and that will cause the alert to run. The default symbol should run 24/7.
 
 - In `open_tv.py`, specify the timeframe of the chart and of the screener. 
 The timeframe of the chart is the timeframe which the indicators run on. It is in the `CHART_TIMEFRAME` constant. The value of the constant should be a string and one of these options (The spelling must be correct):![Alt text](image.png) 

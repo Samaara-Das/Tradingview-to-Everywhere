@@ -47,4 +47,3 @@ def symbol_category(symbol):
     '''
     return symbol_categories.get(symbol, None)
 
-# print out the total number of symbols in main_symbols

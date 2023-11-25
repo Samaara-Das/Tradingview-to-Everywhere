@@ -20,6 +20,7 @@ from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.common.exceptions import TimeoutException
 from json import loads
 
 
@@ -41,29 +42,37 @@ class Alerts:
     
   def post(self, msg, screener_visibility):
     '''This goes through every entry in `msg` and takes a snapshot of it and posts it to Nk uncle's database and Poolsifi.'''
-    try:
-      screener_visibility(False, self.screener_shortitle) # hide the screener indicator with the passed in function
-      
-      for key, value in msg.items(): # go over every json field in this specific alert message
+    screener_visibility(False, self.screener_shortitle) # hide the screener indicator with the passed in function
+    
+    for key, value in msg.items(): # go over every json field in this specific alert message
+      try:
         timeframe = value['timeframe']
         entry_time = value['entryTime']
         entry_price = value['entryPrice']
         sl_price = value['slPrice']
         tp1_price = value['tp1Price']
         direction = value['direction']
-        self.chart.change_symbol(key)
-        self.chart.change_tframe(timeframe)
-        self.chart.change_indicator_settings(self.drawer_indicator, entry_time, entry_price, sl_price, tp1_price, value['tp2Price'], value['tp3Price'])
+        if not self.chart.change_symbol(key):
+          print(f'🔴 Error in changing the symbol to {key}. Going to next symbol.')
+          continue
+        if not self.chart.change_tframe(timeframe):
+          print(f'🔴 Error in changing the timeframe to {timeframe}. Going to next symbol.')
+          continue
+        if not self.chart.change_indicator_settings(self.drawer_indicator, entry_time, entry_price, sl_price, tp1_price, value['tp2Price'], value['tp3Price']):
+          print(f'🔴 Error in changing the Trade Drawer indicator\'s settings. Going to next symbol.')
+          continue
 
         chart_link = self.chart.save_chart_img() 
         category = symbol_category(key)
-        content = f"{direction} in {key} at {entry_price}. Takeprofit: {tp1_price} Stoploss: {sl_price} {chart_link}"
+        content = f"{direction} in {key} at {entry_price}. Takeprofit: {tp1_price} Stoploss: {sl_price} {chart_link if chart_link != False else ''}"
         self.discord.create_msg(category, content) 
         self.send_to_db(value['type'], direction, key, timeframe, entry_price, tp1_price, sl_price, chart_link, content, entry_time, category, '')
-        
-      self.chart.change_tframe(self.chart_timeframe) # change back to the original timeframe which was set in open_tv.py
-    except Exception as e:
-      print_exc()
+      except Exception as e:
+        print('🔴 Error in posting an entry. Continuing to next entry. Error:')
+        print_exc()
+        continue
+      
+    self.chart.change_tframe(self.chart_timeframe) # change back to the original timeframe which was set in open_tv.py
 
   def send_to_db(self, _type, direction, symbol, tframe, entry_price, tp, sl, chart_link, content, date_time, symbol_type, exit_msg):
     data = {
@@ -93,15 +102,16 @@ class Alerts:
       try:
         alert_box = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[class="message-PQUvhamm"]')))
         break
-      except Exception as e:
-        print_exc()
+      except TimeoutException as e:
+        print('Timeout exception caught as there was no alert message within 10 secs.')
         if count == 0: # fix an error (if there is one) and wait for 1 minute. 
           if self.fix_error():
+            print('Fixed an error on the alert by restarting it. Waiting for 1 minute for an alert message to come.')
             start_time = time()
             count += 1
 
         if time() - start_time >= self.timeout:
-          print("Timeout reached. Can't wait any longer for alert message.")
+          print("Timeout reached. Can't wait any longer for the screener's alert message.")
           break
         continue
 
@@ -123,28 +133,42 @@ class Alerts:
             break
         if loop_brk:
           break
-      except Exception as e:
-        print_exc()
+      except TimeoutException as e:
+        print('Timeout exception caught when looking for an Hour Tracker alert message.')
         continue
+      except Exception as e:
+        print('🔴 Error in getting the Hour Tracker alert message. Error:')
+        print_exc()
+        return False
 
     return val
   
   def delete_hour_tracker_notif(self, alert):
     '''this removes the alert (which came from the hour tracker indicator) from the alerts log'''
-    if alert != None:
-      ActionChains(self.driver).move_to_element(alert).perform()
-      alert.find_element(By.CSS_SELECTOR, 'div[title="Remove"]').click()
-      sleep(1) # wait for the alert to be removed from the alerts log
+    try:
+      if alert != None:
+        ActionChains(self.driver).move_to_element(alert).perform()
+        alert.find_element(By.CSS_SELECTOR, 'div[title="Remove"]').click()
+        sleep(1) # wait for the alert to be removed from the alerts log
+    except Exception as e:
+      print('🔴 Error in deleting hour tracker alert. Error:')
+      print_exc()
+      return False
       
   def fix_error(self):
     '''checks if the alert has a Stopped - Calculation error. If it has an error, it clicks the restart button.
     Returns `True` if there's an error'''
     val = False
-    alert = self.driver.find_element(By.CSS_SELECTOR, '.list-G90Hl2iS div.itemBody-ucBqatk5')
-    if alert.find_element(By.CSS_SELECTOR, 'span[data-name="alert-item-status"]').text == 'Stopped — Calculation error':
-      # click on restart
-      val = True
-      ActionChains(self.driver).move_to_element(alert).perform()
-      alert.find_element(By.CSS_SELECTOR, 'div[data-name="alert-restart-button"]').click()
+    try:
+      alert = self.driver.find_element(By.CSS_SELECTOR, '.list-G90Hl2iS div.itemBody-ucBqatk5')
+      if alert.find_element(By.CSS_SELECTOR, 'span[data-name="alert-item-status"]').text == 'Stopped — Calculation error':
+        # click on restart
+        val = True
+        ActionChains(self.driver).move_to_element(alert).perform()
+        alert.find_element(By.CSS_SELECTOR, 'div[data-name="alert-restart-button"]').click()
+    except Exception as e:
+      print('🔴 Error ocurred while fixing an error in the alert. Error:')
+      print_exc()
+      return False
     
     return val

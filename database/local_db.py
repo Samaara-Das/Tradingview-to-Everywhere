@@ -5,6 +5,7 @@ this also retrieves the latest document from the collection
 '''
 
 import pymongo
+from traceback import print_exc
 from pymongo.mongo_client import MongoClient
 
 
@@ -19,12 +20,13 @@ class Database:
         # for a connection to remote database:
         # self.client = MongoClient(f"mongodb+srv://samaara:{self.cluster_pwd}@cluster1.565lfln.mongodb.net/?retryWrites=true&w=majority")
         
-        # Send a ping to confirm a successful connection
         try:
             self.client.admin.command('ping')
-            print(f"from {__file__}: \nPinged your deployment. You successfully connected to MongoDB!")
+            print(f"Pinged your deployment. You successfully connected to MongoDB!") # Send a ping to confirm a successful connection
         except Exception as e:
-            print(f'from {__file__}: \n{e}')
+            print(f'🔴 Failed to connect to MongoDB database. Going to return back to calling function. Error:')
+            print_exc()
+            return
         
         self.db = self.client["tradingview-to-everywhere"]
         self.collection = self.db["Entries & Exits"]
