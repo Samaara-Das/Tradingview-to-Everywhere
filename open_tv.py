@@ -21,8 +21,8 @@ from selenium.common.exceptions import WebDriverException
 
 # some constants
 SYMBOL_INPUTS = 15 #number of symbol inputs in the screener
-CHART_TIMEFRAME = '1 minute' # the timeframe that the indicators will run on (not the timeframe that the entries will be on)
-SCREENER_TIMEFRAME = '1 minute' # the timeframe that the screener will run on (the timeframe of the trades)
+CHART_TIMEFRAME = '1 hour' # the timeframe that the indicators will run on (not the timeframe that the entries will be on)
+SCREENER_TIMEFRAME = '1 hour' # the timeframe that the screener will run on (the timeframe of the trades)
 USED_SYMBOLS_INPUT = "Used Symbols" # Name of the Used Symbols input in the Screener
 LAYOUT_NAME = 'Screener' # Name of the layout for the screener
 SCREENER_MSG_TIMEOUT = 77 # seconds to wait for the screener message to appear in the Alerts log
