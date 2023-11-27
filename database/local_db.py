@@ -35,7 +35,13 @@ class Database:
             self.delete_all()
 
     def add_doc(self, doc):
-        return self.collection.insert_one(doc)
+        try:
+            self.collection.insert_one(doc)
+            return True
+        except Exception as e:
+            print(f'🔴 Failed to add document to our local database\'s collection. Error:')
+            print_exc()
+            return False
 
     def get_latest_doc(self):
         docs = self.collection.find_one(sort=[("_id", pymongo.DESCENDING)])

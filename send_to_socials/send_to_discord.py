@@ -23,6 +23,6 @@ class Discord:
             webhook = DiscordWebhook(url=self.webhook_urls[category], content=content)
             response = webhook.execute()
         except Exception as e:
-            print(f'🔴 Error sending {content} to {category} webhook. Error:')
+            print(f'🔴 Error sending {content} to {category} webhook. Response: {response} Error:')
             print_exc()
 

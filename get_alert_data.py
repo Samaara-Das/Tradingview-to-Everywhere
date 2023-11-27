@@ -28,7 +28,7 @@ from json import loads
 # class
 class Alerts:
 
-  def __init__(self, drawer_indicator, screener_shortitle, driver, hour_tracker_name, chart_timeframe, timeout) -> None:
+  def __init__(self, drawer_indicator, screener_shortitle, driver, hour_tracker_name, chart_timeframe, screener_timeframe, timeout) -> None:
     self.driver = driver
     self.local_db = local_db.Database()
     self.nk_db = nk_db.Post()
@@ -38,11 +38,13 @@ class Alerts:
     self.screener_shortitle = screener_shortitle
     self.hour_tracker_name = hour_tracker_name
     self.chart_timeframe = chart_timeframe
+    self.screener_timeframe = screener_timeframe
     self.timeout = timeout
     
   def post(self, msg, screener_visibility):
     '''This goes through every entry in `msg` and takes a snapshot of it and posts it to Nk uncle's database and Poolsifi.'''
-    screener_visibility(False, self.screener_shortitle) # hide the screener indicator with the passed in function
+    if not screener_visibility(False, self.screener_shortitle): # hide the screener indicator with the passed in function
+      print('🔴 Failed to hide the screener indicator but still continuing to post about entries')
     
     for key, value in msg.items(): # go over every json field in this specific alert message
       try:
@@ -55,7 +57,7 @@ class Alerts:
         if not self.chart.change_symbol(key):
           print(f'🔴 Error in changing the symbol to {key}. Going to next symbol.')
           continue
-        if not self.chart.change_tframe(timeframe):
+        if not self.chart.change_tframe(self.screener_timeframe):
           print(f'🔴 Error in changing the timeframe to {timeframe}. Going to next symbol.')
           continue
         if not self.chart.change_indicator_settings(self.drawer_indicator, entry_time, entry_price, sl_price, tp1_price, value['tp2Price'], value['tp3Price']):
@@ -72,7 +74,8 @@ class Alerts:
         print_exc()
         continue
       
-    self.chart.change_tframe(self.chart_timeframe) # change back to the original timeframe which was set in open_tv.py
+    if not self.chart.change_tframe(self.chart_timeframe): # change back to the original timeframe which was set in open_tv.py
+      print(f'🔴 Failed to change the timeframe back to the original timeframe.')
 
   def send_to_db(self, _type, direction, symbol, tframe, entry_price, tp, sl, chart_link, content, date_time, symbol_type, exit_msg):
     data = {
@@ -94,14 +97,16 @@ class Alerts:
     self.nk_db.post_to_url(data)
 
   def read_and_parse(self):
-    '''Reads the alert from the Alert log and turns the alert's message into JSON and is returned'''
+    '''Reads the alert (from the screener) from the Alert log and turns the alert's message into JSON and is returned'''
     start_time = time()
-    count = 0 # the toal no. of times an error has come
-    alert_box = None
+    count = 0 # the total no. of times an error has come
+    alert_msg = None
     while True:
       try:
-        alert_box = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[class="message-PQUvhamm"]')))
-        break
+        alert_box = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alert-log-item"]')))
+        if self.screener_shortitle in alert_box.find_element(By.CSS_SELECTOR, 'div[class="name-PQUvhamm"]').text:
+          alert_msg = alert_box.find_element(By.CSS_SELECTOR, 'div[class="message-PQUvhamm"]')
+          break 
       except TimeoutException as e:
         print('Timeout exception caught as there was no alert message within 10 secs.')
         if count == 0: # fix an error (if there is one) and wait for 1 minute. 
@@ -115,7 +120,7 @@ class Alerts:
           break
         continue
 
-    return loads(alert_box.text) if alert_box != None else loads('{}')# the alert message is jsonified
+    return loads(alert_msg.text) if alert_msg != None else loads('{}')# the alert message is jsonified
 
   def read_hour_tracker_alert(self):
     '''checks if an alert from the Hour tracker indicator has come in the Alerts log. If it has it removes it from the alert log and returns it as a web element '''
@@ -150,8 +155,12 @@ class Alerts:
         ActionChains(self.driver).move_to_element(alert).perform()
         alert.find_element(By.CSS_SELECTOR, 'div[title="Remove"]').click()
         sleep(1) # wait for the alert to be removed from the alerts log
+        return True
+      else:
+        print('🔴 Error in deleting hour tracker alert message. Alert is None.')
+        return False
     except Exception as e:
-      print('🔴 Error in deleting hour tracker alert. Error:')
+      print('🔴 Error in deleting hour tracker alert message. Error:')
       print_exc()
       return False
       
@@ -163,9 +172,10 @@ class Alerts:
       alert = self.driver.find_element(By.CSS_SELECTOR, '.list-G90Hl2iS div.itemBody-ucBqatk5')
       if alert.find_element(By.CSS_SELECTOR, 'span[data-name="alert-item-status"]').text == 'Stopped — Calculation error':
         # click on restart
-        val = True
         ActionChains(self.driver).move_to_element(alert).perform()
-        alert.find_element(By.CSS_SELECTOR, 'div[data-name="alert-restart-button"]').click()
+        WebDriverWait(alert, 5).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-name="alert-restart-button"]'))).click()
+        val = True
+        print('Fixed "Stopped - Calculation" error in alert!')
     except Exception as e:
       print('🔴 Error ocurred while fixing an error in the alert. Error:')
       print_exc()

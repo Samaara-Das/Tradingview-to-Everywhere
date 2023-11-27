@@ -17,7 +17,8 @@ class Post:
     try:
       response = self.session.post(self.url, data=payload)
     except ConnectionError as e:
-      print(f'🔴 Error in sending post request to Nishant uncle\'s webhook: ')
+      print(f'🔴 ConnectionError occurred while sending post request to Nishant uncle\'s webhook: ')
+      return False
     else:
       return response
     

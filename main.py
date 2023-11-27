@@ -3,7 +3,6 @@ this is the main module where we use all the other modules to perform tasks
 '''
 
 import open_tv
-from selenium.webdriver.common.by import By
 from open_tv import sleep, SYMBOL_DELAY, DEFAULT_SYMBOL
 
 SCREENER_SHORT = 'Screener' # short title of the screener
@@ -18,6 +17,11 @@ browser = open_tv.Browser(True, SCREENER_SHORT, SCREENER_NAME, DRAWER_SHORT, DRA
 # setup the indicators, alerts etc.
 setup_check = browser.setup_tv()
 
+# Exit if the setup happened incorrectly
+if not setup_check:
+    print('Setup failed. Closing browser and shutting down Chromedriver executable.')
+    browser.driver.quit()
+
 while setup_check:
     try:
         browser.set_hour_tracker_alert() # set up alert for Hour tracker
@@ -29,6 +33,7 @@ while setup_check:
         browser.delete_all_alerts() # delete any alerts which might've formed so that their alert messages don't come in the Alerts log
         browser.open_chart.change_symbol(DEFAULT_SYMBOL) # change the symbol to a crypto one so that the hour tracker alert can come within a minute (Other symbols might be closed)
         sleep(SYMBOL_DELAY) # wait for the new symbol to load
+        print('Starting process all over again...')
     except Exception as e:
         from traceback import print_exc
         print('Error in main loop:')

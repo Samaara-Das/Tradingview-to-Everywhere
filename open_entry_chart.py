@@ -38,7 +38,7 @@ class OpenChart:
           print_exc()
           i += 1
           if i == 4:
-            print('Trade Drawer indicator\'s settings failed to open. Could not change the settings. Exiting function.')
+            print('🔴 Trade Drawer indicator\'s settings failed to open. Could not change the settings. Exiting function.')
             return False
         
       # when the settings come up, click on the Inputs tab (just in case we’re on some other tab)
@@ -78,11 +78,12 @@ class OpenChart:
         if 'Loading' not in class_attr:
           check = True
           print('Trade indicator fully loaded!')
-          break
+          return True
         else:
           continue
       if check == False:
         print('Trade indicator did not fully load.')
+        return False
     except Exception as e:
       print('🔴 Failed to change the Trade Drawer\'s settings. Error:')
       print_exc()
@@ -107,7 +108,7 @@ class OpenChart:
       return False
 
   def change_tframe(self, timeframe):
-    '''Changes the timeframe of the chart'''
+    '''Changes the timeframe of the chart to `timeframe`'''
     try:
       # click on the timeframe dropdown and choose from the dropdown options and click on the one which matches the timeframe
       tf_button = WebDriverWait(self.driver, 15).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="header-toolbar-intervals"]/button')))
@@ -122,12 +123,16 @@ class OpenChart:
             option.click()
             print(f'Successfully changed the timeframe to {timeframe}!')
             return True
+      elif tf_button.get_attribute('aria-label') == timeframe: # if the chart's timeframe is already the desired timeframe
+        print('No need to change the timeframe as the current chart is already on that timeframe!')
+        return True
     except Exception as e:
       print(f'🔴 Failed to change the timeframe of the chart to {timeframe}. Error:')
       print_exc()
       return False
                                                
   def save_chart_img(self):
+    '''Clicks on the camera icon to take a snapshot of the chart and opens it in a new tab. Then it gets the link of the tab and closes it. The link gets returned. If an error happens, an empty string is returned.'''
     url = ''
     try:
       camera = WebDriverWait(self.driver, 20).until(EC.element_to_be_clickable((By.XPATH, "//button[@aria-label='Take a snapshot']/div[@id='header-toolbar-screenshot']")))
@@ -150,6 +155,6 @@ class OpenChart:
     except Exception as e:
       print('🔴 Failed to save the chart image. Error:')
       print_exc()
-      return False
+      return ''
     
     return url

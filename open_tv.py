@@ -50,44 +50,59 @@ class Browser:
     self.drawer_shorttitle = drawer_shorttitle
     self.hour_tracker_name = hour_tracker_name
     # Call the function to fill up symbol_set in symbol_settings.py
-    fill_symbol_set()
+    fill_symbol_set(SYMBOL_INPUTS)
 
   def open_page(self, url: str):
-    self.driver.get(url)
-    self.driver.maximize_window()
+    try:
+      self.driver.get(url)
+      self.driver.maximize_window()
+      return True
+    except WebDriverException:
+      print(f'🔴 Cannot open this url: {url}. Error: ')
+      print_exc()
+      return False 
 
   def setup_tv(self):
     '''Open Tradingview, change to Screener layout, open the Alerts sidebar, delete all alerts, change timeframe to 1m and make both indicators visible'''
     # open tradingview
-    self.open_page('https://www.tradingview.com/chart')
+    if not self.open_page('https://www.tradingview.com/chart'):
+      if not self.open_page('https://www.tradingview.com/chart'): # try once more
+        print(f'🔴 Failed to open tradingview. Exiting function')
+        return False
 
     # change to the screener layout (if we are on any other layout)
     if not self.change_layout():
-      print('Cannot change the layout. Exiting function')
-      return False # if we cannot go to the screener layout, return
+      self.change_layout() # try once more
+      if self.current_layout() != LAYOUT_NAME:
+        print(f'🔴 Cannot change the layout to {LAYOUT_NAME}. Exiting function')
+        return False
 
     # change the symbol to a crypto one so that the hour tracker alert can come within a minute (Other symbols might be closed)
     if not self.open_chart.change_symbol(DEFAULT_SYMBOL):
       self.open_chart.change_symbol(DEFAULT_SYMBOL) # try once more
       if not self.current_symbol() == DEFAULT_SYMBOL:
+        print(f'🔴 Cannot change the symbol to {DEFAULT_SYMBOL}. Exiting function')
         return False
 
     # set the timeframe to 1H (so that the alert can come once every hour)
     if not self.open_chart.change_tframe(CHART_TIMEFRAME):
       self.open_chart.change_tframe(CHART_TIMEFRAME) # try once more
       if not self.current_chart_tframe() == CHART_TIMEFRAME:
+        print(f'🔴 Cannot change the timeframe to {CHART_TIMEFRAME}. Exiting function')
         return False
 
     # open the alerts sidebar
     if not self.open_alerts_sidebar():
       self.open_alerts_sidebar() # try once more
       if not self.alerts_sidebar_open():
+        print(f'🔴 Cannot open the alerts sidebar. Exiting function')
         return False
 
     # delete all alerts
     if not self.delete_all_alerts():
       self.delete_all_alerts() # try once more
       if not self.no_alerts():
+        print(f'🔴 Cannot delete all alerts. Exiting function')
         return False
 
     # make the screener and the trade drawer indicator into attributes of this object
@@ -95,15 +110,43 @@ class Browser:
     self.drawer_indicator = self.get_indicator(self.drawer_shorttitle)
     self.hour_tracker_indicator = self.get_indicator(self.hour_tracker_name)
 
-    self.alerts = get_alert_data.Alerts(self.drawer_indicator, self.screener_shorttitle, self.driver, self.hour_tracker_name, CHART_TIMEFRAME, SCREENER_MSG_TIMEOUT)
+    if self.screener_indicator is None: # try once more to find the screener
+      self.screener_indicator = self.get_indicator(self.screener_shorttitle)
+
+    if self.drawer_indicator is None: # try once more to find the trade drawer
+      self.drawer_indicator = self.get_indicator(self.drawer_shorttitle)
+
+    if self.hour_tracker_indicator is None: # try once more to find the hour tracker
+      self.hour_tracker_indicator = self.get_indicator(self.hour_tracker_name)
+
+    if self.screener_indicator is None or self.drawer_indicator is None or self.hour_tracker_indicator is None:
+      print(f'🔴 One of the indicators is not found. Exiting function. Screener: {self.screener_indicator}, Trade Drawer: {self.drawer_indicator}, Hour Tracker: {self.hour_tracker_indicator}')
+      return False
+
+    self.alerts = get_alert_data.Alerts(self.drawer_indicator, self.screener_shorttitle, self.driver, self.hour_tracker_name, CHART_TIMEFRAME, SCREENER_TIMEFRAME, SCREENER_MSG_TIMEOUT)
 
     # make the screener visible, Trade Drawer indicator visible and Hour tracker invisible
-    self.indicator_visibility(True, self.screener_shorttitle)
-    self.indicator_visibility(True, self.drawer_shorttitle)
-    self.indicator_visibility(False, self.hour_tracker_name)
+    if not self.indicator_visibility(True, self.screener_shorttitle):
+      self.indicator_visibility(True, self.screener_shorttitle)
+      if self.is_visible(self.screener_shorttitle) == False:
+        print('Failed to make the screener indicator visible. The function will still continue on without exiting as this is not crucial.')
+
+    if not self.indicator_visibility(True, self.drawer_shorttitle):
+      self.indicator_visibility(True, self.drawer_shorttitle)
+      if self.is_visible(self.drawer_shorttitle) == False:
+        print('Failed to make the Trade Drawer indicator visible. The function will still continue on without exiting as this is not crucial.')
+
+    if not self.indicator_visibility(False, self.hour_tracker_name):
+      self.indicator_visibility(False, self.hour_tracker_name)
+      if self.is_visible(self.hour_tracker_name) == True:
+        print('Failed to make the Hour tracker indicator invisible. The function will still continue on without exiting as this is not crucial.')
 
     # change the Timeframe input in the screener
-    self.change_screener_timeframe(SCREENER_TIMEFRAME)
+    if not self.change_screener_timeframe(SCREENER_TIMEFRAME):
+      self.change_screener_timeframe(SCREENER_TIMEFRAME)
+      if not self.check_screener_timeframe(SCREENER_TIMEFRAME):
+        print('🔴 Failed to change the Timeframe input in the screener. Exiting function.')
+        return False
 
     #give it some time to rest
     sleep(2) 
@@ -114,27 +157,36 @@ class Browser:
     '''
     This method takes care of filling in the symbols, setting an alert and taking snaphots of the entries in those alerts and sending those to poolsifi and discord
     '''
-    for category, symbols in symbol_set.items(): # This will go through each category's symbols
-      for symbol_sublist in symbols: # this will go through each set of the current symbols
-        self.open_chart.change_symbol(symbol_sublist[0]) # change chart's symbol
-        if not self.is_market_open():
-          print('Market is closed, on holiday or in its pre market hours. Skipping to next category.')
-          break # if a us stock is closed, that means that other us stocks are also closed... So, skip to the next category
-        if not self.change_settings(symbol_sublist): # input the symbols in the screener's inputs
-          print('Failed to change screener\'s symbol settings. Going to try with the next set of symbols for this category (if there are sets left)')
-          continue
-        sleep(5) # wait for the screener indicator to fully load (we are avoiding to wait for the indicator to load as it will take too long)
-        if not self.set_alerts(symbol_sublist): # wait for the screener to load and set an alert for it
-          print('Failed to set alert for screener. Going to try with the next set of symbols for this category (if there are sets left)')
-          continue
-        if not self.is_alert_loaded(symbol_sublist[0], 15): # if the alert has showed up
-          print('Alert did not load. Going to try with the next set of symbols for this category (if there are sets left)')
-          continue
+    try:
+      for category, symbols in symbol_set.items(): # This will go through each category's symbols
+        for symbol_sublist in symbols: # this will go through each set of the current symbols
+          chart_symbol = symbol_sublist[0] # the chart's symbol is the first symbol in the set
+          if not self.open_chart.change_symbol(chart_symbol): # change chart's symbol
+            print(f'Failed to change the chart\'s symbol to {chart_symbol}. Going to try with the next set of symbols for this category (if there are sets left)')
+            continue
+          if not self.is_market_open():
+            print('Market is closed, on holiday or in its pre market hours. Skipping to next category.')
+            break # if a us stock is closed, that means that other us stocks are also closed... So, skip to the next category
+          if not self.change_settings(symbol_sublist): # input the symbols in the screener's inputs
+            print('Failed to change screener\'s symbol settings. Going to try with the next set of symbols for this category (if there are sets left)')
+            continue
+          sleep(5) # wait for the screener indicator to fully load (we are avoiding to wait for the indicator to load as it will take too long)
+          if not self.set_alerts(symbol_sublist): # wait for the screener to load and set an alert for it
+            print('Failed to set alert for screener. Going to try with the next set of symbols for this category (if there are sets left)')
+            continue
+          if not self.is_alert_loaded(chart_symbol, 15): # if the alert has showed up
+            print('Alert did not load. Going to try with the next set of symbols for this category (if there are sets left)')
+            continue
 
-        alert_msg = self.alerts.read_and_parse()
-        self.alerts.post(alert_msg, self.indicator_visibility)
-        self.indicator_visibility(True, self.screener_shorttitle) # making the screener visible if it has been hidden
-        self.delete_all_alerts() # delete the alert for the screener so that we can start afresh
+          alert_msg = self.alerts.read_and_parse()
+          self.alerts.post(alert_msg, self.indicator_visibility)
+          self.indicator_visibility(True, self.screener_shorttitle) # making the screener visible if it has been hidden
+          self.delete_all_alerts() # delete the alert for the screener so that we can start afresh
+    except Exception as e:
+      print('🔴 An error happened in post_everywhere. Error:')
+      self.delete_all_alerts() # delete all alerts just in case this disn't happen before
+      print_exc()
+      return 
         
   def change_layout(self):
     try:
@@ -157,6 +209,15 @@ class Browser:
       print('🔴 An error happened when changing the layout. Error:')
       print_exc()
       return False
+    
+  def current_layout(self):
+    try:
+      curr_layout = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.XPATH, '//*[@id="header-toolbar-save-load"]')))
+      return curr_layout.find_element(By.CSS_SELECTOR, '.text-yyMUOAN9').text
+    except Exception as e:
+      print('🔴 An error happened when getting the current layout. Error:')
+      print_exc()
+      return ''
 
   def change_settings(self, symbols_list):
     try:
@@ -176,10 +237,9 @@ class Browser:
           settings = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.content-tBgV1m0B')))
           break
         except WebDriverException as e:
-          print('An exception happened when waiting for the settings to show up or for the settings button to be clickable.')
+          print('An exception happened when waiting for the settings to show up or for the ⚙️ button to be clickable.')
           if self.driver.find_elements(By.CSS_SELECTOR, 'button[data-name="close"]'): # if the settings popup has opened up
-            print('Screener\'s settings opened up. Clicking on close button.')
-            self.driver.find_element(By.CSS_SELECTOR, 'button[data-name="close"]').click() # close the settings popup
+            break
       
       symbol_inputs = settings.find_elements(By.CSS_SELECTOR, '.inlineRow-tBgV1m0B div[data-name="edit-button"]') # symbol inputs
 
@@ -205,7 +265,6 @@ class Browser:
 
       # click on submit
       self.driver.find_element(By.CSS_SELECTOR, 'button[name="submit"]').click()
-
       return True
     except Exception as e:
       print('🔴 Error ocurred when filling in the inputs of the screener. Error:')
@@ -258,12 +317,11 @@ class Browser:
 
       # click on submit
       self.driver.find_element(By.CSS_SELECTOR, 'button[data-name="submit"]').click()
+      return True
     except Exception as e:
       print('🔴 Error happened somewhere when clicking on +, waiting for the create alert popup and clicking on submit. Cannot set alert. Exiting function. Error:')
       print_exc()
       return False
-
-    return True
   
   def set_hour_tracker_alert(self):
     try:
@@ -272,7 +330,7 @@ class Browser:
       plus_button.click()
           
       # wait for the popup to show, click the dropdown and choose Hour tracker
-      set_alerts_popup = WebDriverWait(self.driver, 10).until(EC.visibility_of_element_located((By.CSS_SELECTOR, 'div[data-name="alerts-create-edit-dialog"]')))
+      WebDriverWait(self.driver, 10).until(EC.visibility_of_element_located((By.CSS_SELECTOR, 'div[data-name="alerts-create-edit-dialog"]')))
       WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'span[data-name="main-series-select"]'))).click()
 
       for el in self.driver.find_elements(By.CSS_SELECTOR, 'div[data-name="menu-inner"] div[role="option"]'):
@@ -282,8 +340,11 @@ class Browser:
 
       # click on submit
       self.driver.find_element(By.CSS_SELECTOR, 'button[data-name="submit"]').click()
+      return True
     except Exception as e:
+      print('🔴 Error occurred when setting the hour tracker alert. Error:')
       print_exc()
+      return False
 
   def is_alert_loaded(self, chart_symbol, secs):
     '''this waits for `secs` seconds to see if a new alert has been loaded in the Alerts sidebar'''
@@ -319,7 +380,9 @@ class Browser:
         continue
 
   def indicator_visibility(self, make_visible: bool, shorttitle: str):
-    # click on the indicator
+    '''Makes `shorttitle` indicator visible or hidden'''
+
+    # get the indicator
     indicator = None
     if shorttitle == self.screener_shorttitle:
       indicator = self.screener_indicator
@@ -331,7 +394,7 @@ class Browser:
     try:
       if indicator != None: # that means that we've found our indicator
         eye = indicator.find_element(By.CSS_SELECTOR, 'div[data-name="legend-show-hide-action"]')
-        status =  'Hidden' if 'disabled' in indicator.get_attribute('class') else 'Shown'
+        status = 'Hidden' if 'disabled' in indicator.get_attribute('class') else 'Shown'
         
         if make_visible == False: 
           if status == 'Shown': # if status is "Hidden", that means that it is already hidden
@@ -348,6 +411,31 @@ class Browser:
       print(f'🔴 Error ocurred when changing the visibility of {shorttitle} to make it {"visible" if make_visible else "invisible"}. Error:')
       print_exc()
       return False
+    
+    return False
+
+  def is_visible(self, shorttitle: str):
+    '''This returns `True` if the visibility of `shorttitle` indicator is shown. Otherwise, this returns `False` if its visibility is hidden.'''
+    # get the indicator
+    indicator = None
+    if shorttitle == self.screener_shorttitle:
+      indicator = self.screener_indicator
+    elif shorttitle == self.drawer_shorttitle:
+      indicator = self.drawer_indicator
+    elif shorttitle == self.hour_tracker_name:
+      indicator = self.hour_tracker_indicator
+      
+    # check its visibility
+    try:
+      if indicator != None: # that means that we've found our indicator
+        status = 'Hidden' if 'disabled' in indicator.get_attribute('class') else 'Shown'
+        return status == 'Shown'
+    except Exception as e:
+      print(f'🔴 Error ocurred when checking the visibility of {shorttitle} indicator. Error:')
+      print_exc()
+      return False
+    
+    return False
 
   def is_no_error(self, shorttitle:str):
     '''
@@ -374,29 +462,34 @@ class Browser:
       return False
     
   def delete_all_alerts(self):
+    '''Waits for the alert sidebar to open up and deletes all the alerts if there are any.'''
     try:
       # wait for the alert sidebar to show up
       alert_sidebar1 = WebDriverWait(self.driver, 5).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, '.body-i8Od6xAB')))
-      alert_sidebar2 = WebDriverWait(self.driver, 5).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, '.wrapper-G90Hl2iS')))
-      if not alert_sidebar1 and not alert_sidebar2:
-        print('Alert sidebar not found. Cannot delete all alerts. Exiting function.')
+      if not alert_sidebar1:
+        print('🔴 Alert sidebar not found. Cannot delete all alerts.')
         return False
+
+      # Check if there already are no alerts
+      if self.driver.find_elements(By.CSS_SELECTOR, 'div.list-G90Hl2iS div[class="itemBody-ucBqatk5 active-Bj96_lIl"]') == []:
+        print('There are no active alerts. No need to delete any alerts!')
+        return True
 
       # click the 3 dots
       settings = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alerts-settings-button"]')))
       WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-name="alerts-settings-button"]'))).click()
          
-      # (an error might happen when there are no alerts and the remove all option is not there)
+      # delete all alerts
       WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[class="item-jFqVJoPk item-xZRtm41u withIcon-jFqVJoPk withIcon-xZRtm41u"]')))[-1].click() # in the dropdown which it opens, choose the "Remove all" option
-      
       WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[name="yes"]'))).click() # click OK when the confirm dialog pops up
 
       sleep(1)
       if len(self.driver.find_elements(By.CSS_SELECTOR, 'div.list-G90Hl2iS div.itemBody-ucBqatk5')) == 0: # if there are no alerts visible (that means that the alerts have been deleted)
+        print('All alerts have been sucessfully deleted!')
         return True
     except Exception as e:
+      print('🔴 Error happened somewhere when deleting all alerts. Failed to delete all alerts. Error:')
       print_exc()
-      print('🔴 Error happened somewhere when deleting all alerts. Failed to delete all alerts. Exiting function.')
       return False
     
     return False
@@ -463,7 +556,7 @@ class Browser:
       
       # Wait for the indicator to show up on the chart
       start_time = time()
-      timeout = SCREENER_REUPLOAD_TIMEOUT  # 15 seconds
+      timeout = SCREENER_REUPLOAD_TIMEOUT  # max seconds to wait
       while time() - start_time <= timeout:
         indicators = self.driver.find_elements(By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')
         for ind in indicators:
@@ -471,60 +564,81 @@ class Browser:
             val = True
             break
         if val: # if the indicator is found on the chart, break the while loop
-          print('The screener is on the chart after re-uploading it! Exiting function.')
+          print('The screener is on the chart after re-uploading it!')
           break
     except Exception as e:
+      print('🔴 An error ocurred when re-uploading the screener. Could not reupload screener. Error: ')
       print_exc()
-      print('An error ocurred when re-uploading the screener. Could not reupload screener. Exiting function.')
+      return False
 
     return val
 
   def get_indicator(self, ind_shorttitle: str):
     '''Returns the indicator which has the given short title'''
-    indicator = None
-    wait = WebDriverWait(self.driver, 15)
-    indicators = wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')))
-    
-    for ind in indicators: 
-      indicator_name = ind.find_element(By.CSS_SELECTOR, 'div[class="title-l31H9iuA"]').text
-      if indicator_name == ind_shorttitle: # finding the indicator
-        indicator = ind
-        break
+    try:
+      indicator = None
+      wait = WebDriverWait(self.driver, 15)
+      indicators = wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')))
+      
+      for ind in indicators: 
+        indicator_name = ind.find_element(By.CSS_SELECTOR, 'div[class="title-l31H9iuA"]').text
+        if indicator_name == ind_shorttitle: # finding the indicator
+          print(f'Found indicator {ind_shorttitle}!')
+          indicator = ind
+          break
+    except Exception as e:
+      print(f'🔴 Failed to find indicator {ind_shorttitle}. Error: ')
+      print_exc()
+      return None
 
     return indicator
     
   def change_screener_timeframe(self, tf: str):
     '''Changes the Timeframe input of the Screener indicator'''
-    while True: # find the settings
-      try:
-        screener = self.get_indicator(self.screener_shorttitle)
-        if screener:
-          self.screener_indicator = screener
-          self.screener_indicator.click()
-          WebDriverWait(self.screener_indicator, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-name="legend-settings-action"]'))).click()
-          indicator_popup = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-dialog-name="Screener"]')))
-          settings = indicator_popup.find_element(By.CSS_SELECTOR, '.content-tBgV1m0B')
-          break
-        else:
-          print('Could not find screener indicator: ', screener)
-          return
-      except WebDriverException as e:
-        print_exc()
+    try:
+      # open the settings of the screener
+      self.screener_indicator.click()
+      WebDriverWait(self.screener_indicator, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-name="legend-settings-action"]'))).click()
+      indicator_popup = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-dialog-name="Screener"]')))
+      settings = indicator_popup.find_element(By.CSS_SELECTOR, '.content-tBgV1m0B')
        
-    # click on the Timeframe input
-    tf_input = settings.find_element(By.CSS_SELECTOR, 'div[class="cell-tBgV1m0B"] span[data-role="listbox"]')
-    tf_input.click()
+      # click on the Timeframe input
+      tf_input = settings.find_element(By.CSS_SELECTOR, 'div[class="cell-tBgV1m0B"] span[data-role="listbox"]')
+      tf_input.click()
 
-    # select the desired timeframe from the dropdown
-    dropdown = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="menu-inner"]')))
-    timeframes = dropdown.find_elements(By.CSS_SELECTOR, 'div[role="option"]')
-    for timeframe in timeframes:
-      if timeframe.find_element(By.CSS_SELECTOR, 'span[class="label-jFqVJoPk"]').text == tf:
-        timeframe.click()
-        break
+      # select the desired timeframe from the dropdown
+      dropdown = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="menu-inner"]')))
+      timeframes = dropdown.find_elements(By.CSS_SELECTOR, 'div[role="option"]')
+      for timeframe in timeframes:
+        if timeframe.find_element(By.CSS_SELECTOR, 'span[class="label-jFqVJoPk"]').text == tf:
+          timeframe.click()
+          break
 
-    # click the Ok button
-    indicator_popup.find_element(By.CSS_SELECTOR, 'button[data-name="submit-button"]').click()
+      # click the Ok button
+      indicator_popup.find_element(By.CSS_SELECTOR, 'button[data-name="submit-button"]').click()
+      print(f'Timeframe of the screener successfully changed to {tf}!')
+      return True
+    except Exception as e:
+      print(f'🔴 Failed to change Timeframe of the screener to {tf}. Error: ')
+      print_exc()
+      return False
+    
+  def check_screener_timeframe(self, tf: str):
+    '''Checks if the Timeframe input of the Screener indicator is the same as `tf`. Returns `True` if it is the same, `False` otherwise.'''
+    try:
+      # open the settings of the screener
+      self.screener_indicator.click()
+      WebDriverWait(self.screener_indicator, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-name="legend-settings-action"]'))).click()
+      indicator_popup = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-dialog-name="Screener"]')))
+      settings = indicator_popup.find_element(By.CSS_SELECTOR, '.content-tBgV1m0B')
+       
+      # Get the current value of the Timeframe input
+      tf_val = settings.find_element(By.CSS_SELECTOR, 'div[class="cell-tBgV1m0B"] span[data-role="listbox"] span[class="button-children-tFul0OhX"] span').text
+      return tf_val == tf
+    except Exception as e:
+      print(f'🔴 Failed to check the timeframe of the screener. Error: ')
+      print_exc()
+      return False
 
   def is_market_open(self):
     '''This waits for `symbol` to be loaded on the chart and waits for a few seconds (to give the chart time to load). Then, it checks if the market is open'''
@@ -541,7 +655,7 @@ class Browser:
       market_holiday = self.driver.find_elements(By.CSS_SELECTOR, 'div[class="statusItem-Lgtz1OtS small-Lgtz1OtS marketStatusHoliday-Lgtz1OtS"]')
       market_pre_hours = self.driver.find_elements(By.CSS_SELECTOR, 'div[class="statusItem-Lgtz1OtS small-Lgtz1OtS marketStatusPre-Lgtz1OtS"]')
       if not market_close and not market_holiday and not market_pre_hours: # if there is no market close/market holiday/pre hours button, then the market is open
-        print('The market is open.')
+        print('The market is open!')
         return True
       else:
         print('The market is not open.')
