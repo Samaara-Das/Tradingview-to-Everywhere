@@ -227,7 +227,7 @@ class Browser:
           # get the screener
           screener = self.get_indicator(self.screener_shorttitle)
           if not screener:
-            print(f'Could not find screener indicator: {screener}. Exiting function.')
+            print(f'🔴 Could not find screener indicator: {screener}. Exiting function.')
             return False
           
           # Open its settings
@@ -237,8 +237,8 @@ class Browser:
           settings = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.content-tBgV1m0B')))
           break
         except WebDriverException as e:
-          print('An exception happened when waiting for the settings to show up or for the ⚙️ button to be clickable.')
-          if self.driver.find_elements(By.CSS_SELECTOR, 'button[data-name="close"]'): # if the settings popup has opened up
+          print('🔴 An exception happened when waiting for the settings to show up or for the ⚙️ button to be clickable.')
+          if self.driver.find_elements(By.CSS_SELECTOR, 'div[data-name="legend-settings-action"]'): # if the settings popup has opened up
             break
       
       symbol_inputs = settings.find_elements(By.CSS_SELECTOR, '.inlineRow-tBgV1m0B div[data-name="edit-button"]') # symbol inputs
@@ -265,6 +265,7 @@ class Browser:
 
       # click on submit
       self.driver.find_element(By.CSS_SELECTOR, 'button[name="submit"]').click()
+      print('Successfully changed the inputs of the screener!')
       return True
     except Exception as e:
       print('🔴 Error ocurred when filling in the inputs of the screener. Error:')
@@ -288,16 +289,16 @@ class Browser:
   def set_alerts(self, symbols):
     # check if the screener indicator has an error
     if not self.is_no_error(self.screener_shorttitle):
-      print('Screener indicator had an error. Could not set an alert for this tab. Trying to reupload indicator')
+      print('🔴 Screener indicator had an error. Could not set an alert for this tab. Trying to reupload indicator')
       if not self.reupload_indicator():
-        print('Could not re-upload screener. Cannot set an alert for the screener. Exiting function.')
+        print('🔴 Could not re-upload screener. Cannot set an alert for the screener. Exiting function.')
         return False
       if not self.change_settings(symbols):
-        print('Could not input the symbols into the screener. Cannot set an alert for the screener. Exiting function.')
+        print('🔴 Could not input the symbols into the screener. Cannot set an alert for the screener. Exiting function.')
         return False
       sleep(5) # wait for the screener indicator to fully load (we are avoiding to wait for the indicator to load because it will take too long)
       if not self.is_no_error(self.screener_shorttitle): # if an error is still there
-        print('Error is still there in the screener. Cannot set an alert for the screener. Exiting function.')
+        print('🔴 Error is still there in the screener. Cannot set an alert for the screener. Exiting function.')
         return False
    
     # If no errors are there, try to set the alert for the screener
@@ -306,20 +307,28 @@ class Browser:
       plus_button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-name="set-alert-button"]')))
       plus_button.click()
         
-      # wait for the create alert popup to show, click the dropdown and choose the screener
-      WebDriverWait(self.driver, 10).until(EC.visibility_of_element_located((By.CSS_SELECTOR, 'div[data-name="alerts-create-edit-dialog"]')))
+      # wait for the create alert popup to show and click the dropdown 
+      popup = WebDriverWait(self.driver, 10).until(EC.visibility_of_element_located((By.CSS_SELECTOR, 'div[data-name="alerts-create-edit-dialog"]')))
       WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'span[data-name="main-series-select"]'))).click()
     
+      # choose the screener
+      screener_found = False
       for el in self.driver.find_elements(By.CSS_SELECTOR, 'div[data-name="menu-inner"] div[role="option"]'):
         if self.screener_shorttitle in el.text:
+          screener_found = True
           el.click()
           break    
 
+      if not screener_found: # if the screener is not found, close the "Create Alert" popup and exit
+        print('🔴 Failed to create alert. Screener is unavailable in the dropdown. Closing "Create Alert" popup. Exiting function.')
+        popup.find_element(By.CSS_SELECTOR, 'button[data-name="close"]').click()
+        return False
+      
       # click on submit
       self.driver.find_element(By.CSS_SELECTOR, 'button[data-name="submit"]').click()
       return True
     except Exception as e:
-      print('🔴 Error happened somewhere when clicking on +, waiting for the create alert popup and clicking on submit. Cannot set alert. Exiting function. Error:')
+      print('🔴 Error occurred when setting up alert. Exiting function. Error:')
       print_exc()
       return False
   
@@ -350,15 +359,20 @@ class Browser:
     '''this waits for `secs` seconds to see if a new alert has been loaded in the Alerts sidebar'''
     end_time = time() + secs
     val = False
-    while time() < end_time:
-      elements_list = self.driver.find_elements(By.CSS_SELECTOR, '.list-G90Hl2iS span[data-name="alert-item-ticker"]')
-      alert_symbols = [el.text for el in elements_list]
-      if any(chart_symbol in symbol for symbol in alert_symbols):
-        val = True
-        print('Alert for the screener has successfully loaded in the Alerts sidebar.')
-        sleep(1)
-        break
-    
+    try:
+      while time() < end_time:
+        elements_list = self.driver.find_elements(By.CSS_SELECTOR, '.list-G90Hl2iS span[data-name="alert-item-ticker"]')
+        alert_symbols = [el.text for el in elements_list]
+      
+        if any(chart_symbol in symbol for symbol in alert_symbols):
+            val = True
+            print('Alert for the screener has successfully loaded in the Alerts sidebar!')
+            sleep(1)
+            break
+    except Exception as e:
+      print('🔴 Error occurred when checking if the alert for the screener has loaded. Error:')
+      print_exc()
+
     return val
 
   def is_indicator_loaded(self, shorttitle):
@@ -625,7 +639,7 @@ class Browser:
     
   def check_screener_timeframe(self, tf: str):
     '''Checks if the Timeframe input of the Screener indicator is the same as `tf`. Returns `True` if it is the same, `False` otherwise.'''
-    try:
+   try:
       # open the settings of the screener
       self.screener_indicator.click()
       WebDriverWait(self.screener_indicator, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-name="legend-settings-action"]'))).click()
