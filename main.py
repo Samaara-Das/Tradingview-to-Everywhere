@@ -1,22 +1,56 @@
 '''
-this is the main module where we use all the other modules to perform tasks
+this is the main module which starts everything.
 '''
 
+import logger_setup
 import open_tv
-import get_alert_data
+from time import time
+
+# Set up logger for this file
+main_logger = logger_setup.setup_logger(__name__, logger_setup.logging.DEBUG)
 
 SCREENER_SHORT = 'Screener' # short title of the screener
 DRAWER_SHORT = 'Trade' # short title of the trade drawer indicator 
 SCREENER_NAME = 'Premium Screener' # name of the screener
 DRAWER_NAME = 'Trade Drawer' # name of the trade drawer
+HOUR_TRACKER_NAME = 'Hour tracker' # name of the hour tracker indicator
+REMOVE_LOG = True # remove the content of the log file (to clean it up)
+INTERVAL_MINUTES = 10 # number of mins to wait until inactive alerts get reactivated
 
-# initiate Browser
-browser = open_tv.Browser(True, SCREENER_SHORT, SCREENER_NAME, DRAWER_SHORT, DRAWER_NAME)
-# setup the indicators, alerts etc.
-browser.setup_tv()
-# change the symbol settings of the indicators in differnt symbols and setup alerts for those symbol
-browser.set_bulk_alerts(15)
+# Convert the interval to seconds
+interval_seconds = INTERVAL_MINUTES * 60
 
-# wait for alerts and get data about new entries/exits
-alerts = get_alert_data.Alerts(browser.drawer_indicator, browser.driver, browser)
-alerts.read_and_parse()
+# Clean up the log
+if REMOVE_LOG:
+    with open('app_log.log', 'w') as file:
+        pass
+
+# Run main code
+if __name__ == '__main__':
+    try:
+        # Just a seperator to make the log look readable
+        main_logger.info('***********************************************************************************')
+
+        # initiate Browser
+        browser = open_tv.Browser(True, SCREENER_SHORT, SCREENER_NAME, DRAWER_SHORT, DRAWER_NAME, HOUR_TRACKER_NAME, INTERVAL_MINUTES)
+
+        # setup the indicators, alerts etc.
+        setup_check = browser.setup_tv()
+
+        # set up alerts for all the symbols
+        browser.set_bulk_alerts()
+
+        if setup_check and browser.init_succeeded:
+            last_run = time()
+            while True:
+                # restart all the inactive alerts every INTERVAL_MINUTES minutes (this is also done in get_alert_data.py in the method get_alert_box_and_msg())
+                if time() - last_run > interval_seconds:
+                    browser.alerts.restart_inactive_alerts()
+                    last_run = time()
+
+                # get entries from the alerts which come and post them
+                alert = browser.alerts.get_alert()
+                browser.alerts.post(alert, browser.indicator_visibility)
+    except Exception as e:
+        main_logger.exception(f'Error in main.py:')
+ 
