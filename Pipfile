@@ -5,11 +5,11 @@ name = "pypi"
 
 [packages]
 selenium = "*"
-tweepy = "*"
 discord-webhook = "*"
 pymongo = "*"
 requests = "*"
 webdriver-manager = "*"
+tuna = "*"
 
 [dev-packages]
 
