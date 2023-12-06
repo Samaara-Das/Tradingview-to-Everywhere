@@ -1,21 +1,24 @@
 '''
-this file is for sending messages to discord
+Sends messages to discord webhooks.
 
-if you have to change the webhook url, do this:
-go to a discord channel -> edit channel -> integrations -> create a webhook
+if you have to create a webhook url, do this:
+go to a discord channel -> Edit channel -> Integrations -> Webhooks -> New Webhook
 '''
-
+import logger_setup 
 from discord_webhook import DiscordWebhook
 from resources.categories import *
+
+# Set up logger for this file
+discord_logger = logger_setup.setup_logger(__name__, logger_setup.logging.DEBUG)
 
 class Discord:
     def __init__(self):
         self.webhook_urls = {
-            CURRENCIES: 'https://DISCORD_WEBHOOK_REVOKED',
-            US_STOCKS: 'https://DISCORD_WEBHOOK_REVOKED',
-            INDIAN_STOCKS: 'https://DISCORD_WEBHOOK_REVOKED',
-            CRYPTO: 'https://DISCORD_WEBHOOK_REVOKED',
-            INDICES: 'https://DISCORD_WEBHOOK_REVOKED',
+            CURRENCIES_WEBHOOK_NAME: CURRENCIES_WEBHOOK_LINK,
+            US_STOCKS_WEBHOOK_NAME: US_STOCKS_WEBHOOK_LINK,
+            INDIAN_STOCKS_WEBHOOK_NAME: INDIAN_STOCKS_WEBHOOK_LINK,
+            CRYPTO_WEBHOOK_NAME: CRYPTO_WEBHOOK_LINK,
+            INDICES_WEBHOOK_NAME: INDICES_WEBHOOK_LINK
         }
 
     def create_msg(self, category, content):
@@ -23,5 +26,4 @@ class Discord:
             webhook = DiscordWebhook(url=self.webhook_urls[category], content=content)
             response = webhook.execute()
         except Exception as e:
-            print(f'error in {__file__}: \n{e}')
-
+            discord_logger.exception(f'Error sending "{content}" to {category} webhook. Response: {response} Error:')

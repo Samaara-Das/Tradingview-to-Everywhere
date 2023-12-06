@@ -5,35 +5,44 @@ this also retrieves the latest document from the collection
 '''
 
 import pymongo
+import logger_setup
 from pymongo.mongo_client import MongoClient
 
+# Set up logger for this file
+local_db_logger = logger_setup.setup_logger(__name__, logger_setup.logging.DEBUG)
 
-PWD = '5gsCKHt4Dg4aSa8E'
+PWD = 'kdgzKyjYr8WA6Vkm'
 
 class Database:
     def __init__(self, delete=False):
-        self.cluster_pwd = PWD
         # for a connection to local database (the connection string was from the mongo shell when i typed "mongosh"):
-        self.client = MongoClient("mongodb://127.0.0.1:27017/?directConnection=true&serverSelectionTimeoutMS=2000&appName=mongosh+1.10.3")
+        # self.client = MongoClient("mongodb://127.0.0.1:27017/?directConnection=true&serverSelectionTimeoutMS=2000&appName=mongosh+1.10.3")
 
         # for a connection to remote database:
-        # self.client = MongoClient(f"mongodb+srv://samaara:{self.cluster_pwd}@cluster1.565lfln.mongodb.net/?retryWrites=true&w=majority")
+        self.client = MongoClient(f"mongodb+srv://sammy:{PWD}@cluster1.565lfln.mongodb.net/?retryWrites=true&w=majority")
         
-        # Send a ping to confirm a successful connection
         try:
             self.client.admin.command('ping')
-            print(f"from {__file__}: \nPinged your deployment. You successfully connected to MongoDB!")
+            local_db_logger.info("You successfully connected to MongoDB!") # Send a ping to confirm a successful connection
         except Exception as e:
-            print(f'from {__file__}: \n{e}')
+            local_db_logger.exception(f'Failed to connect to MongoDB database. Error:')
+            return
         
         self.db = self.client["tradingview-to-everywhere"]
-        self.collection = self.db["Entries & Exits"]
+        self.collection = self.db["entries"]
 
         if delete:
             self.delete_all()
+            local_db_logger.info("Successfully deleted all documents")
 
-    def add_doc(self, doc):
-        return self.collection.insert_one(doc)
+    def add_doc(self, doc: dict):
+        try:
+            self.collection.insert_one(doc)
+            local_db_logger.info(f"Successfully sent a doc to MongoDb!")
+            return True
+        except Exception as e:
+            local_db_logger.exception(f'Failed to add document to our local database\'s collection. Error:')
+            return False
 
     def get_latest_doc(self):
         docs = self.collection.find_one(sort=[("_id", pymongo.DESCENDING)])
@@ -41,6 +50,4 @@ class Database:
 
     def delete_all(self):
         self.collection.delete_many({}) 
-
-
 
