@@ -2,65 +2,57 @@
 # Tradingview to Everywhere
 
 ## Branch description
-This branch is for using a single alert and the screener to give only entry signals. This system will not be used for Poolsifi. The development of this branch is complete.
+This is the multi-alert system. The development of this branch is complete. This will be used for Poolsifi.
 
-## What this does 
-This opens Tradingview, sets it up and sets an alert for the Hour tracker indicator. The indicator gives an alert everytime a new bar is formed. Since the timeframe will be 1 hour, a new bar will form every hour. So, an alert will also come every hour.
+## What this does (high level overview)
+This opens Tradingview and sets it up. Then python gets a set of roughly 10 symbols from a category (the categories are Us Stocks, Indian Stocks, Crypto etc.) It changes the symbol of the chart to the 1st symbol of that set (so that an alert can get created for that symbol). Then Python goes to the screener and fills it up with all those symbols in the set. The maximum number of symbols it can fill into the screener are 10. After that, an alert gets set for the screener. This process continues until Python covers all the symbols of every category.
 
-Once an alert comes, the alert for the Hour tracker is deleted and the process of checking for entries begins.
+After alerts have been created for all the symbols, Python checks the "Alert log" for messages from the alerts it created. Every message comes from a specific alert. So, every message will have the entries which came from the screener which that specific alert was set to. There can be a single entry or multiple entries in a message.
 
-Python has a set of categories (Us Stocks, Crypto, Indices) and their own symbols (Us Stocks - AAPL & TESLA, Crypto - BTCUSD & ETHUSDT etc.).
-Now, it will put each of those category's symbols into the screener. Since the screener only accepts 15 at the most and all of the symbols won't load all at once into the screener, the symbols will be loaded into the screener set by set. 
+Python then goes through each message which came. It reads each entry in that message. Python then goes to that entry's symbol and timeframe. Then it fills up the entry time, entry price, TP and SL of that entry in an indicator. That other indicator then draws the entry based on the info it has been filled up with. The drawing will look like this: ![Alt text](media/entry-drawing.png) 
 
-After the symbols of a category are loaded, an alert is set for the screener. The alerts give us info about any entries which might've come in the symbols of the screener. If there are no entries, a blank alert will come.
+Then, Python takes a snapshot of that and send it to Discord, Poolsifi and a database.
 
-After an alert comes, Python reads it and gets the info of all the enries (if there were any). It then goes to each entry's symbol and puts its TP, SL & entry time inside the Trade Drawer indicator. That indicator, which now has the SL, TP & entry time of the entry, draws the entry on the chart. It looks like this:![Alt text](media/entry-drawing.png)
-
----
-
-Then, Python takes a snapshot of the entry and sends it to Poolsifi, Discord and a local database. It does all this for each entry which the alert gave.
-
-After this process finishes, the alert for the screener gets deleted. Python goes to the next category and loads its symbols into the screener and sets an alert for that. Then it waits for entries to come in the alert and takes snapshots of the entries and sends them to Poolsifi, Discord and a local database.
-
-This gets repeated for all the categories and their symbols. 
-
-After Python has been through all the categories and their symbols, the process starts from the beginning. An alert for the Hour tracker is made and Python waits for an alert to come. Once it comes, the process of checking for entries begins.
+This whole process is repeated for all the messages until there are no more left. Once there are no more messages left, Python waits for them to come.
 
 ## Things to do for programmers:
 
 ### For open_tv.py
-1. In `open_tv.py`, the constant `SCREENER_REUPLOAD_TIMEOUT` has to have a value for the number of seconds it should wait for the screener to be re-uploaded on the chart. The default is 15 seconds.
+1. `SYMBOL_INPUTS` in `open_tv.py` should be the number of inputs in the screener which will be filled with symbols by Python. There are currently a total of 20 symbol inputs in the screener. Only a couple of them will get filled (currently, 10 of them will get filled). So, don't give this constant a value of the total symbol inputs. To change how many symbols can get filled, go to the screener's code.
 
-2. In `open_tv.py`, make sure the `LAYOUT_NAME` constant is set to the name of the layout which is meant for the screener.
+2. In `open_tv.py`, specify the timeframe of the chart. This is the timeframe which the chart runs on. It is in the `CHART_TIMEFRAME` constant. The value of the constant should be a string and one of these options (The spelling must be correct):![Alt text](media/chart-tf.png) 
 
-3. In `open_tv.py`, make sure the `SCREENER_MSG_TIMEOUT` constant is set to the number of seconds that Python will wait for the screener's alert to come up in the Alerts log. the default is 77 (1min 17secs)
+3. In `open_tv.py`, specify the timeframe of the screener. The timeframe of the screener is the "Timeframe" input in the screener which controls the timeframe of the entries. It is in the `SCREENER_TIMEFRAME` constant. It should be a string and one of these options (The spelling must be correct): ![Alt text](media/screener-tf.png)
 
-4. In `open_tv.py`, make sure the `USED_SYMBOLS_INPUT` constant is equal to the name of the Used Symbols input in the screener
+4. In `open_tv.py`, make sure the `USED_SYMBOLS_INPUT` constant is the name of the "Used Symbols" input in the screener
 
-5. In `open_tv.py`, change the `SYMBOL_DELAY` constant to the number of seconds to wait for a new symbol to load on the chart
+5. In `open_tv.py`, make sure the `LAYOUT_NAME` constant is set to the name of the layout on Tradingview which is meant for the screener.
 
-6. In `open_tv.py`, change the `DEFAULT_SYMBOL` constant to a symbol that the hour tracker alert will be set up on. The default value is BTCUSD because crypto symbols are always open. Since they're always open, new price ticks will form and new bars will form and that will cause the alert to run. The default symbol should run 24/7.
+6. In `open_tv.py`, the constant `SCREENER_REUPLOAD_TIMEOUT` has to have a value for the number of seconds it should wait for the screener to be re-uploaded on the chart. 
 
-7. In `open_tv.py`, specify the timeframe of the chart and of the screener. The timeframe of the chart is the timeframe which the indicators run on. It is in the `CHART_TIMEFRAME` constant. The value of the constant should be a string and one of these options (The spelling must be correct):![Alt text](media/chart-tf.png) 
-The timeframe of the screener is the Timeframe input in the screener which controls the timeframe of the entries. It is in the `SCREENER_TIMEFRAME` constant. It should be a string and one of these options (The spelling must be correct): ![Alt text](media/screener-tf.png)
+### For resources/categories.py
+1. `CURRENCIES_WEBHOOK_NAME` should be the name of the webhook which is for the channel where forex snapshots are supposed to go. `CURRENCIES_WEBHOOK_LINK` should be the link of that webhook.
 
-8. `SYMBOL_INPUTS` in `open_tv.py` should be the same as the number of symbol inputs in the screener
+2. `US_STOCKS_WEBHOOK_NAME` should be the name of the webhook which is for the channel where Us Stocks snapshots are supposed to go. `US_STOCKS_WEBHOOK_LINK` should be the link of that webhook.
 
-9. `INTERVAL_MINUTES` has to be set to the number of minutes Python should wait until it restarts all the inactive alerts
+3. `INDIAN_STOCKS_WEBHOOK_NAME` should be the name of the webhook which is for the channel where Indian Stocks snapshots are supposed to go. `INDIAN_STOCKS_WEBHOOK_LINK` should be the link of that webhook.
 
-### For categories.py
-1. In `categories.py`, make the values of the constants equal to the names of the discord webhooks where the snapshots are supposed to go. Examples: The `CURRENCIES` constant has the value of "currencies" because that is the name of the webhook for the channel underneath the "CURRENCIES" discord group. This is the webhook for the channel: ![Alt text](media/currencies-webhook.png)  
-The `INDIAN_STOCKS` constant has the value of "indian-stocks" because that is the name of the webhook for the channel underneath the "INDIAN STOCKS" discord group. This is the webhook for the channel: ![Alt text](media/in-stocks-webhook.png)
+4. `CRYPTO_WEBHOOK_NAME` should be the name of the webhook which is for the channel where Crypto snapshots are supposed to go. `CRYPTO_WEBHOOK_LINK` should be the link of that webhook.
 
-2. In `categories.py`, also put the webhook link for each discord channel. Each constant that ends with `_WEBHOOK_LINK` should have a link which is associated with that specific constant (that specific channel).
+5. `INDICES_WEBHOOK_NAME` should be the name of the webhook which is for the channel where Indices snapshots are supposed to go. `INDICES_WEBHOOK_LINK` should be the link of that webhook.
+
+### For database/local_db.py
+1. `PWD` is supposed to be the password of our remote database. To edit that password, sign in to MongoDb and go to Data/base Access on the left. Click on the user (i.e. sammy) and edit the password.
 
 ### For main.py
-1. In `main.py`, specify the indicators' short-titles. They are currently: "Trade" and "Screener". 
-
-2. In `main.py`, specify the screener indicator's & trade drawer indicator's script names. They are currently "Premium Screener" & "Trade Drawer"
+1. `SCREENER_SHORT` is supposed to be the shorttitle of the screener.
+2. `DRAWER_SHORT` is supposed to be the shorttitle of the Trade Drawer indicator.
+3. `SCREENER_NAME` is supposed to be the name of the screener (the name of the script).
+4. `DRAWER_NAME` is supposed to be the name of the Trade Drawer indicator (the name of the script).
+5. `INTERVAL_MINUTES` has to be set to the number of minutes Python should wait until it restarts all the inactive alerts
 
 ### For Pinescript
-1. Premium Screener can have only 1 input which is opens a dropdown. That is the Timeframe input. It has to be this way so that the Timeframe input can be found in `change_screener_timeframe` in `open_tv.py`
+1. Premium Screener can have only 1 input which opens a dropdown. That is the Timeframe input. It has to be this way so that the Timeframe input can be found in `change_screener_timeframe` in `open_tv.py`
 
 2. In the Trade Drawer indicator, in Pinescript, the first 6 inputs have to be arranged in this order: dateTime, entry, sl, tp1, tp2, tp3
 
@@ -68,10 +60,7 @@ The `INDIAN_STOCKS` constant has the value of "indian-stocks" because that is th
 
 4. The Premium Screener indicator on Tradingview has to be starred (so that it can appear in the Favorites dropdown)
 
-### For symbol_settings.py
-1. In `symbol_settings.py`, in `main_symbols`, each category should have symbols that are of the same timezone (trading session) so that if 1 symbol is closed, that would mean that the other symbols of the category are closed. That would also mean that if 1 symbol is open, the other symbols of the category are open. 1 symbol should speak for the rest. This is done to prevent looking for signals on a closed market. If the symbols in a category are of the same timezone, that would mean that one of the symbols would speak for the rest of the symbols' timezone. 
-
-## Some errors which might happen
+## Some errors which might happen on Tradingview
 1. "Modify_study_limit_exceeding" error can happen on a script whose inputs are getting changed frequently. 
 2. "Calculation timed out" error happens when the script exceeds the time limit for calculation
 3. "Stopped - Calculation error" can happen in the alert
@@ -86,10 +75,9 @@ The `INDIAN_STOCKS` constant has the value of "indian-stocks" because that is th
 1. Please use the dassamaara gmail id to login to Tradingview as the chart on that account has been set up in a specific way
 2. No popups or clicks should happen manually
 3. In the alert settings, "On site Pop up" is unticked
-4. the "Alerts log" must be maximized and not minimized. 
+4. the "Alerts log" must be maximized (although it doesn't have to be FULLY maximized) and not minimized. 
 5. There must be a saved layout named "Screener" which has the following setup:
-    - The background has the symbol & timeframe watermark
     - The bars are medium sized and the chart is a 100 bars from the right 
-    - Premium Screener indicator, Hour tracker indicator and Trade Drawer indicator should be on the chart
-    - Premium Screener should have 15 inputs for the symbols
+    - Premium Screener indicator & Trade Drawer indicator should be on the chart
+    - Premium Screener should have 15-20 inputs (So that Python can click on it)
     
