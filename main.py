@@ -13,7 +13,6 @@ SCREENER_SHORT = 'Screener' # short title of the screener
 DRAWER_SHORT = 'Trade' # short title of the trade drawer indicator 
 SCREENER_NAME = 'Premium Screener' # name of the screener
 DRAWER_NAME = 'Trade Drawer' # name of the trade drawer
-HOUR_TRACKER_NAME = 'Hour tracker' # name of the hour tracker indicator
 REMOVE_LOG = True # remove the content of the log file (to clean it up)
 INTERVAL_MINUTES = 10 # number of mins to wait until inactive alerts get reactivated
 
@@ -32,7 +31,7 @@ if __name__ == '__main__':
         main_logger.info('***********************************************************************************')
 
         # initiate Browser
-        browser = open_tv.Browser(True, SCREENER_SHORT, SCREENER_NAME, DRAWER_SHORT, DRAWER_NAME, HOUR_TRACKER_NAME, INTERVAL_MINUTES)
+        browser = open_tv.Browser(True, SCREENER_SHORT, SCREENER_NAME, DRAWER_SHORT, DRAWER_NAME, INTERVAL_MINUTES)
 
         # setup the indicators, alerts etc.
         setup_check = browser.setup_tv()

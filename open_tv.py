@@ -28,14 +28,11 @@ open_tv_logger = logger_setup.setup_logger(__name__, logger_setup.logging.DEBUG)
 
 # some constants
 SYMBOL_INPUTS = 10 #number of symbol inputs in the screener
-CHART_TIMEFRAME = '1 hour' # the timeframe that the chart will be on (not the timeframe that the entries will be on)
+CHART_TIMEFRAME = '1 minute' # the timeframe that the chart will be on (not the timeframe that the entries will be on)
 SCREENER_TIMEFRAME = '1 hour' # the timeframe that the screener will run on (the timeframe of the entries)
 USED_SYMBOLS_INPUT = "Used Symbols" # Name of the Used Symbols input in the Screener
 LAYOUT_NAME = 'Screener' # Name of the layout for the screener
-SCREENER_MSG_TIMEOUT = 77 # seconds to wait for the screener message to appear in the Alerts log
-SYMBOL_DELAY = 3 # seconds to wait for a new symbol to load 
 SCREENER_REUPLOAD_TIMEOUT = 15 # seconds to wait for the screener to show up on the chart after re-uploading it
-DEFAULT_SYMBOL = 'BTCUSD' # symbol which the chart will have (for the hour tracker alert to come within a minute..Other symbols might be closed)
 
 CHROME_PROFILE_PATH = 'C:\\Users\\Puja\\AppData\\Local\\Google\\Chrome\\User Data'
 # CHROME_PROFILE_PATH = 'C:\\Users\\pripuja\\AppData\\Local\\Google\\Chrome\\User Data'
@@ -57,7 +54,7 @@ def symbol_sublist_gen():
 # class
 class Browser:
 
-  def __init__(self, keep_open: bool, screener_shorttitle: str, screener_name: str, drawer_shorttitle: str, drawer_name: str, hour_tracker_name: str, interval_minutes: int) -> None:
+  def __init__(self, keep_open: bool, screener_shorttitle: str, screener_name: str, drawer_shorttitle: str, drawer_name: str, interval_minutes: int) -> None:
     chrome_options = Options() 
     chrome_options.add_experimental_option("detach", keep_open)
     chrome_options.add_argument('--profile-directory=Profile 2')
@@ -68,7 +65,6 @@ class Browser:
     self.screener_shorttitle = screener_shorttitle
     self.drawer_name = drawer_name
     self.drawer_shorttitle = drawer_shorttitle
-    self.hour_tracker_name = hour_tracker_name
     self.interval_seconds = interval_minutes * 60 # Convert the interval to seconds
     self.init_succeeded = True
     # Call the function to fill up symbol_set in symbol_settings.py
@@ -136,7 +132,7 @@ class Browser:
       open_tv_logger.error(f'One of the indicators is not found. Exiting function. Screener: {self.screener_indicator}, Trade Drawer: {self.drawer_indicator}')
       return False
 
-    self.alerts = get_alert_data.Alerts(self.drawer_indicator, self.screener_shorttitle, self.driver, self.hour_tracker_name, CHART_TIMEFRAME, SCREENER_TIMEFRAME, SCREENER_MSG_TIMEOUT, self.interval_seconds)
+    self.alerts = get_alert_data.Alerts(self.drawer_indicator, self.screener_shorttitle, self.driver, CHART_TIMEFRAME, SCREENER_TIMEFRAME, self.interval_seconds)
 
     # make the screener visible and Trade Drawer indicator visible
     if not self.indicator_visibility(True, self.screener_shorttitle):
@@ -355,8 +351,6 @@ class Browser:
       indicator = self.screener_indicator
     elif shorttitle == self.drawer_shorttitle:
       indicator = self.drawer_indicator
-    elif shorttitle == self.hour_tracker_name:
-      indicator = self.hour_tracker_indicator
 
     try:
       if indicator != None: # that means that we've found our indicator
@@ -396,8 +390,6 @@ class Browser:
       indicator = self.screener_indicator
     elif shorttitle == self.drawer_shorttitle:
       indicator = self.drawer_indicator
-    elif shorttitle == self.hour_tracker_name:
-      indicator = self.hour_tracker_indicator
       
     # check its visibility
     try:

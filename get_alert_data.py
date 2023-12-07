@@ -24,7 +24,7 @@ alert_data_logger = logger_setup.setup_logger(__name__, logger_setup.logging.DEB
 # class
 class Alerts:
 
-  def __init__(self, drawer_indicator, screener_shortitle, driver, hour_tracker_name, chart_timeframe, screener_timeframe, timeout, interval_seconds) -> None:
+  def __init__(self, drawer_indicator, screener_shortitle, driver, chart_timeframe, screener_timeframe, interval_seconds) -> None:
     self.driver = driver
     self.local_db = local_db.Database()
     self.nk_db = nk_db.Post()
@@ -32,16 +32,14 @@ class Alerts:
     self.discord = send_to_discord.Discord()
     self.drawer_indicator = drawer_indicator
     self.screener_shortitle = screener_shortitle
-    self.hour_tracker_name = hour_tracker_name
     self.chart_timeframe = chart_timeframe
     self.screener_timeframe = screener_timeframe
     self.interval_seconds = interval_seconds
-    self.timeout = timeout
     self.last_run = time()
     self.get_alert_log()
     
   def post(self, msg, screener_visibility):
-    '''This goes through every entry in `msg` and takes a snapshot of those entries and posts them to Nk uncle's database, a local database & Discord'''
+    '''This goes through every entry in `msg` and takes a snapshot of those entries and posts them to Nk uncle's database, our remote database & Discord'''
     try:
       if not screener_visibility(False, self.screener_shortitle): # hide the screener indicator with the passed in function
         alert_data_logger.warning('Failed to hide the screener indicator but still continuing to post about entries')
