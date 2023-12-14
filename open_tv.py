@@ -28,7 +28,7 @@ open_tv_logger = logger_setup.setup_logger(__name__, logger_setup.logging.DEBUG)
 
 # some constants
 SYMBOL_INPUTS = 10 #number of symbol inputs in the screener
-CHART_TIMEFRAME = '1 minute' # the timeframe that the chart will be on (not the timeframe that the entries will be on)
+CHART_TIMEFRAME = '1 minute' # the timeframe that the chart will be on (not the timeframe that the entries will be on). It is 1 min so that all 216 alerts can load. 
 SCREENER_TIMEFRAME = '1 hour' # the timeframe that the screener will run on (the timeframe of the entries)
 USED_SYMBOLS_INPUT = "Used Symbols" # Name of the Used Symbols input in the Screener
 LAYOUT_NAME = 'Screener' # Name of the layout for the screener

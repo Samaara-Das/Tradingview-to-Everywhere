@@ -20,7 +20,7 @@ This whole process is repeated for all the messages until there are no more left
 ### For open_tv.py
 1. `SYMBOL_INPUTS` in `open_tv.py` should be the number of inputs in the screener which will be filled with symbols by Python. There are currently a total of 20 symbol inputs in the screener. Only a couple of them will get filled (currently, 10 of them will get filled). So, don't give this constant a value of the total symbol inputs. To change how many symbols can get filled, go to the screener's code.
 
-2. In `open_tv.py`, specify the timeframe of the chart. This is the timeframe which the chart runs on. It is in the `CHART_TIMEFRAME` constant. The value of the constant should be a string and one of these options (The spelling must be correct):![Alt text](media/chart-tf.png) 
+2. In `open_tv.py`, specify the timeframe of the chart. It is in the `CHART_TIMEFRAME` constant. This is the timeframe which the chart runs on. Keep it to "1 minute" so that all 216 alerts can load. If the chart timeframe is on a higher timeframe, a couple of alerts would fail to get created. The value of the constant should be a string and one of these options (The spelling must be correct):![Alt text](media/chart-tf.png) 
 
 3. In `open_tv.py`, specify the timeframe of the screener. The timeframe of the screener is the "Timeframe" input in the screener which controls the timeframe of the entries. It is in the `SCREENER_TIMEFRAME` constant. It should be a string and one of these options (The spelling must be correct): ![Alt text](media/screener-tf.png)
 
