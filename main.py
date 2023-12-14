@@ -14,7 +14,7 @@ DRAWER_SHORT = 'Trade' # short title of the trade drawer indicator
 SCREENER_NAME = 'Premium Screener' # name of the screener
 DRAWER_NAME = 'Trade Drawer' # name of the trade drawer
 REMOVE_LOG = True # remove the content of the log file (to clean it up)
-INTERVAL_MINUTES = 10 # number of mins to wait until inactive alerts get reactivated
+INTERVAL_MINUTES = 2 # number of mins to wait until inactive alerts get reactivated
 
 # Convert the interval to seconds
 interval_seconds = INTERVAL_MINUTES * 60
