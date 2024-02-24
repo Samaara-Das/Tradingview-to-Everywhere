@@ -98,7 +98,7 @@ class OpenChart:
         search_input.send_keys(symbol)
         search_input.send_keys(Keys.ENTER)
         entry_chart_logger.info(f'Entered symbol {symbol}') 
-        WebDriverWait(self.driver, 5).until(EC.text_to_be_present_in_element((By.CSS_SELECTOR, 'button[id="header-toolbar-symbol-search"] div'), symbol))
+        WebDriverWait(self.driver, 5).until(EC.text_to_be_present_in_element((By.CSS_SELECTOR, 'button[id="header-toolbar-symbol-search"] div'), symbol.split(':')[-1]))
         sleep(1.5) # wait for the chart to load
         return True
       else:

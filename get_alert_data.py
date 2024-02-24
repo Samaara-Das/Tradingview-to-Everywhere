@@ -24,7 +24,7 @@ alert_data_logger = logger_setup.setup_logger(__name__, logger_setup.logging.DEB
 # class
 class Alerts:
 
-  def __init__(self, drawer_indicator, screener_shortitle, driver, chart_timeframe, screener_timeframe, interval_seconds) -> None:
+  def __init__(self, drawer_indicator, screener_shortitle, driver, chart_timeframe, interval_seconds) -> None:
     self.driver = driver
     self.local_db = local_db.Database()
     self.nk_db = nk_db.Post()
@@ -33,7 +33,6 @@ class Alerts:
     self.drawer_indicator = drawer_indicator
     self.screener_shortitle = screener_shortitle
     self.chart_timeframe = chart_timeframe
-    self.screener_timeframe = screener_timeframe
     self.interval_seconds = interval_seconds
     self.last_run = time()
     self.get_alert_log()
@@ -60,7 +59,7 @@ class Alerts:
           if not self.chart.change_symbol(key):
             alert_data_logger.error(f'Error in changing the symbol to {key}. Going to next symbol.')
             continue
-          if not self.chart.change_tframe(self.screener_timeframe):
+          if not self.chart.change_tframe(self.chart_timeframe):
             alert_data_logger.error(f'Error in changing the timeframe to {timeframe}. Going to next symbol.')
             continue
           if not self.chart.change_indicator_settings(self.drawer_indicator, entry_time, entry_price, sl_price, tp1_price, tp2_price, tp3_price):
@@ -102,12 +101,14 @@ class Alerts:
         alert_data_logger.info('Selected the "All" option')
 
       # then click on "Restart all inactive"
-      dropdown.find_element(By.CSS_SELECTOR, 'div[class="item-jFqVJoPk item-xZRtm41u withIcon-jFqVJoPk withIcon-xZRtm41u"]').click()
+      dropdown_button = dropdown.find_element(By.CSS_SELECTOR, 'div[class="item-jFqVJoPk item-xZRtm41u withIcon-jFqVJoPk withIcon-xZRtm41u"]')
 
-      # click Yes when the popup comes
-      popup = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[class="dialog-qyCw0PaN popupDialog-B02UUUN3 dialog-aRAWUDhF rounded-aRAWUDhF shadowed-aRAWUDhF"]')))
-      popup.find_element(By.CSS_SELECTOR, 'button[name="yes"]').click()
-      alert_data_logger.info('Restarting all inactive alerts!')
+      if dropdown_button.text == 'Restart all inactive':
+        # click Yes when the popup comes
+        popup = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[class="dialog-qyCw0PaN popupDialog-B02UUUN3 dialog-aRAWUDhF rounded-aRAWUDhF shadowed-aRAWUDhF"]')))
+        popup.find_element(By.CSS_SELECTOR, 'button[name="yes"]').click()
+        alert_data_logger.info('Restarting all inactive alerts!')
+        
       sleep(1)
       return True
     except Exception as e:
