@@ -26,4 +26,4 @@ class Discord:
             webhook = DiscordWebhook(url=self.webhook_urls[category], content=content)
             response = webhook.execute()
         except Exception as e:
-            discord_logger.exception(f'Error sending "{content}" to {category} webhook. Response: {response} Error:')
+            discord_logger.exception(f'Error sending "{content}" to {category} webhook. Error:')
