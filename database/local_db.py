@@ -51,3 +51,11 @@ class Database:
     def delete_all(self):
         self.collection.delete_many({}) 
 
+    def delete_some(self, count: int):
+        '''This will keep the latest `count` documents and deletes the rest of them. It will also log how many docs got deleted'''
+        
+        latest_100_ids = [x['_id'] for x in self.collection.find().sort('_id', pymongo.DESCENDING).limit(count)] # Get the IDs of the latest 100 documents
+        result = self.collection.delete_many({'_id': {'$nin': latest_100_ids}}) # Delete all documents that are not in the latest 100
+        local_db_logger.info(f"Deleted {result.deleted_count} documents.")
+
+

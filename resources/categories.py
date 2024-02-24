@@ -1,10 +1,10 @@
 '''All the names of the Discord webhooks we're using and their links'''
 
-CURRENCIES_WEBHOOK_NAME = 'currencies'
-US_STOCKS_WEBHOOK_NAME = 'us-stocks'
-INDIAN_STOCKS_WEBHOOK_NAME = 'indian-stocks'
-CRYPTO_WEBHOOK_NAME = 'crypto'
-INDICES_WEBHOOK_NAME = 'indices'
+CURRENCIES_WEBHOOK_NAME = 'Currencies'
+US_STOCKS_WEBHOOK_NAME = 'US Stocks'
+INDIAN_STOCKS_WEBHOOK_NAME = 'Indian Stocks'
+CRYPTO_WEBHOOK_NAME = 'Crypto'
+INDICES_WEBHOOK_NAME = 'Indices'
 
 CURRENCIES_WEBHOOK_LINK = 'https://DISCORD_WEBHOOK_REVOKED'
 US_STOCKS_WEBHOOK_LINK = 'https://DISCORD_WEBHOOK_REVOKED'

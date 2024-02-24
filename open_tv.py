@@ -21,15 +21,14 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
-from selenium.common.exceptions import WebDriverException
+from selenium.common.exceptions import WebDriverException, TimeoutException
 
 # Set up logger for this file
 open_tv_logger = logger_setup.setup_logger(__name__, logger_setup.logging.DEBUG)
 
 # some constants
-SYMBOL_INPUTS = 10 #number of symbol inputs in the screener
-CHART_TIMEFRAME = '1 minute' # the timeframe that the chart will be on (not the timeframe that the entries will be on). It is 1 min so that all 216 alerts can load. 
-SCREENER_TIMEFRAME = '1 hour' # the timeframe that the screener will run on (the timeframe of the entries)
+SYMBOL_INPUTS = 5 #number of symbol inputs in the screener
+CHART_TIMEFRAME = '1 hour' # the timeframe that the entries are from
 USED_SYMBOLS_INPUT = "Used Symbols" # Name of the Used Symbols input in the Screener
 LAYOUT_NAME = 'Screener' # Name of the layout for the screener
 SCREENER_REUPLOAD_TIMEOUT = 15 # seconds to wait for the screener to show up on the chart after re-uploading it
@@ -132,7 +131,7 @@ class Browser:
       open_tv_logger.error(f'One of the indicators is not found. Exiting function. Screener: {self.screener_indicator}, Trade Drawer: {self.drawer_indicator}')
       return False
 
-    self.alerts = get_alert_data.Alerts(self.drawer_indicator, self.screener_shorttitle, self.driver, CHART_TIMEFRAME, SCREENER_TIMEFRAME, self.interval_seconds)
+    self.alerts = get_alert_data.Alerts(self.drawer_indicator, self.screener_shorttitle, self.driver, CHART_TIMEFRAME, self.interval_seconds)
 
     # make the screener visible and Trade Drawer indicator visible
     if not self.indicator_visibility(True, self.screener_shorttitle):
@@ -144,14 +143,7 @@ class Browser:
       self.indicator_visibility(True, self.drawer_shorttitle)
       if self.is_visible(self.drawer_shorttitle) == False:
         open_tv_logger.warning('Failed to make the Trade Drawer indicator visible. The function will still continue on without exiting as this is not crucial.')
-
-    # change the Timeframe input in the screener
-    if not self.change_screener_timeframe(SCREENER_TIMEFRAME):
-      self.change_screener_timeframe(SCREENER_TIMEFRAME)
-      if not self.check_screener_timeframe(SCREENER_TIMEFRAME):
-        open_tv_logger.error('Failed to change the Timeframe input in the screener. Exiting function.')
-        return False
-
+    
     #give it some time to rest
     sleep(2) 
 
@@ -312,7 +304,15 @@ class Browser:
         
       # wait for the create alert popup to show and click the dropdown 
       popup = None
-      popup = WebDriverWait(self.driver, 10).until(EC.visibility_of_element_located((By.CSS_SELECTOR, 'div[data-name="alerts-create-edit-dialog"]')))
+      try:
+        popup = WebDriverWait(self.driver, 5).until(EC.visibility_of_element_located((By.CSS_SELECTOR, 'div[data-name="alerts-create-edit-dialog"]')))
+      except TimeoutException:
+        self.driver.get(self.driver.current_url) # If the popup doesn't show up within 5 seconds, refresh the page and try again. I can't use self.driver.refresh() because that might trigger a Google popup asking you if you want to refresh the page. I don't think PYthon can click control Google popups
+        sleep(3) # wait for the page to load after refreshing
+        open_tv_logger.error('Popup did not show up within 5 seconds. Page refreshed. Trying to create alert again.')
+        plus_button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-name="set-alert-button"]')))
+        plus_button.click()
+      
       WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'span[data-name="main-series-select"]'))).click()
     
       # choose the screener
@@ -331,10 +331,23 @@ class Browser:
       # click on submit if the screener was available in the dropdown and was selected
       if screener_found:
         self.driver.find_element(By.CSS_SELECTOR, 'button[data-name="submit"]').click()
-        open_tv_logger.info('Created an alert for the screener!')
-        return True
+        open_tv_logger.info('Clicked on "Create"!')
+
+        # wait for the alert to be created
+        try:
+          WebDriverWait(self.driver, 2.5).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alerts-create-edit-dialog"] div[data-name="error-hint"]')))
+        except:
+          open_tv_logger.info('No error occured while saving alert!')
+          return True
+        else:
+          open_tv_logger.error('Alert failed to get saved. Clicking on "Cancel".')
+          self.driver.find_element(By.CSS_SELECTOR, 'div[data-name="alerts-create-edit-dialog"] button[data-name="cancel"]').click()
+          return False
+        
     except Exception as e:
-      if popup: # close the "Create Alert" popup
+      # close the "Create Alert" popup if an alert fails to get created
+      popup = WebDriverWait(self.driver, 3).until(EC.visibility_of_element_located((By.CSS_SELECTOR, 'div[data-name="alerts-create-edit-dialog"]')))
+      if popup: 
         if popup.find_elements(By.CSS_SELECTOR, 'button[data-name="close"]'):
           popup.find_element(By.CSS_SELECTOR, 'button[data-name="close"]').click()
       open_tv_logger.exception('Error occurred when setting up alert. Exiting function. Error:')
@@ -536,38 +549,6 @@ class Browser:
 
     return indicator
     
-  def change_screener_timeframe(self, tf: str):
-    '''Changes the Timeframe input of the Screener indicator to `tf`'''
-    try:
-      # open the settings of the screener
-      self.screener_indicator.click()
-      WebDriverWait(self.screener_indicator, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-name="legend-settings-action"]'))).click()
-      indicator_popup = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-dialog-name="Screener"]')))
-      settings = indicator_popup.find_element(By.CSS_SELECTOR, '.content-tBgV1m0B')
-       
-      # click on the Timeframe input
-      tf_input = settings.find_element(By.CSS_SELECTOR, 'div[class="cell-tBgV1m0B"] span[data-role="listbox"]')
-      tf_input.click()
-
-      # select the desired timeframe from the dropdown
-      dropdown = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="menu-inner"]')))
-      timeframes = dropdown.find_elements(By.CSS_SELECTOR, 'div[role="option"]')
-      check = False
-      for timeframe in timeframes:
-        if timeframe.find_element(By.CSS_SELECTOR, 'span[class="label-jFqVJoPk"]').text == tf:
-          timeframe.click()
-          check = True
-          open_tv_logger.info(f'Timeframe of the screener changed to {tf}!')
-          break
-
-      # click the Ok button
-      indicator_popup.find_element(By.CSS_SELECTOR, 'button[data-name="submit-button"]').click()
-      return check
-    except Exception as e:
-      open_tv_logger.exception(f'Failed to change Timeframe of the screener to {tf}. Error: ')
-      return False
-    
-  def check_screener_timeframe(self, tf: str):
     '''Checks if the Timeframe input of the Screener indicator is the same as `tf`. Returns `True` if it is the same, `False` otherwise.'''
     try:
       # open the settings of the screener
