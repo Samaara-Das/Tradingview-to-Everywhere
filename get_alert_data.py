@@ -5,6 +5,7 @@ This handles getting the alert and the alert message, removing it from the log, 
 # import modules
 import logger_setup
 import open_entry_chart
+from datetime import datetime
 from traceback import print_exc
 from resources.symbol_settings import symbol_category
 import send_to_socials.send_to_discord as send_to_discord
@@ -26,7 +27,7 @@ class Alerts:
 
   def __init__(self, drawer_indicator, screener_shortitle, driver, chart_timeframe, interval_seconds) -> None:
     self.driver = driver
-    self.local_db = local_db.Database()
+    self.local_db = local_db.Database('')
     self.nk_db = nk_db.Post()
     self.chart = open_entry_chart.OpenChart(self.driver)
     self.discord = send_to_discord.Discord()
@@ -47,8 +48,9 @@ class Alerts:
         try:
           # get all the data from the message
           timeframe = value['timeframe']
-          entry_time = value['entryTime']
+          entry_time = int(value['entryTime'].replace(',', ''))
           entry_price = value['entryPrice']
+          formatted_time = datetime.fromtimestamp(float(entry_time)/1000).strftime('%Y-%m-%d %H:%M') # divide entry_time by 1000 because the function accepts only seconds not milliseconds
           sl_price = value['slPrice']
           tp1_price = value['tp1Price']
           tp2_price = value['tp2Price']
@@ -69,9 +71,17 @@ class Alerts:
           # take a snapshot of the entry's chart, create a discord message and send it to Discord. Then, send all the entry's info to my database and Nishant uncle's database
           chart_link = self.chart.save_chart_img() 
           category = symbol_category(key)
+
+          # Discord
           content = f"{direction} in {key} at {entry_price}. TP1: {tp1_price} TP2: {tp2_price} TP3: {tp3_price} SL: {sl_price} Link: {chart_link if chart_link != False else ''}"
           self.discord.create_msg(category, content) 
-          self.send_to_db(value['type'], direction, key, timeframe, entry_price, tp1_price, tp2_price, tp3_price, sl_price, chart_link, content, entry_time, category, '')
+
+          # My database
+          self.local_db.add_doc({"type": value['type'], "direction": direction, "symbol": key, "tframe": timeframe, "entry": entry_price, "tp1": tp1_price, "tp2": tp2_price, "tp3": tp3_price, "sl": sl_price, "chart_link": chart_link, "content": content, "date": entry_time, "symbol_type": category, "exit_msg": ''}, category)
+          
+          # Nk uncle's server
+          self.nk_db.post_to_url({"type": value['type'], "direction": direction, "symbol": key, "tframe": timeframe, "entry": entry_price, "tp1": tp1_price, "tp2": tp2_price, "tp3": tp3_price, "sl": sl_price, "chart_link": chart_link, "content": content, "date": formatted_time, "symbol_type": category, "exit_msg": ''})
+
         except Exception as e:
           alert_data_logger.exception(f'Error in posting an entry. Continuing to next entry. Error:')
           continue
@@ -102,8 +112,10 @@ class Alerts:
 
       # then click on "Restart all inactive"
       dropdown_button = dropdown.find_element(By.CSS_SELECTOR, 'div[class="item-jFqVJoPk item-xZRtm41u withIcon-jFqVJoPk withIcon-xZRtm41u"]')
-
       if dropdown_button.text == 'Restart all inactive':
+        dropdown_button.click()
+        alert_data_logger.info('Clicked on "Restart all inactive"')
+        
         # click Yes when the popup comes
         popup = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[class="dialog-qyCw0PaN popupDialog-B02UUUN3 dialog-aRAWUDhF rounded-aRAWUDhF shadowed-aRAWUDhF"]')))
         popup.find_element(By.CSS_SELECTOR, 'button[name="yes"]').click()
@@ -114,28 +126,6 @@ class Alerts:
     except Exception as e:
       alert_data_logger.exception('Error occurred when restarting the inactive alerts. Error:')
       return False
-    
-  def send_to_db(self, _type, direction, symbol, tframe, entry_price, tp1, tp2, tp3, sl, chart_link, content, date_time, symbol_type, exit_msg):
-    '''This converts all arguments into a dictionary and sends that to Nk uncle's database and a local database'''
-    data = {
-      "type": _type,
-      "direction": direction,
-      "symbol": symbol,
-      "tframe": tframe,
-      "entry": entry_price,
-      "tp1": tp1,
-      "tp2": tp2,
-      "tp3": tp3,
-      "sl": sl,
-      "chart_link": chart_link,
-      "content": content,
-      "date": date_time,
-      "symbol_type": symbol_type,
-      "exit_msg": exit_msg
-    }
-
-    self.local_db.add_doc(data)
-    self.nk_db.post_to_url(data)
 
   def get_alert(self):
     '''As soon as an alert comes in the Alert log or whenever it sees an alert, the alert gets deleted from the log and its message gets returned'''
