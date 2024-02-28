@@ -147,7 +147,7 @@ class OpenChart:
 
       # get the url of the newly opened tab after it has fully loaded
       self.driver.switch_to.window(self.driver.window_handles[-1])
-      WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'img[class="tv-snapshot-image"]')))
+      WebDriverWait(self.driver, 12).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'img[class="tv-snapshot-image"]')))
       url = self.driver.current_url
       entry_chart_logger.info(f'Got url of the snapshot: {url}')
 
@@ -156,8 +156,19 @@ class OpenChart:
 
       # switch back to the original tab
       self.driver.switch_to.window(self.driver.window_handles[0])
+
     except Exception as e:
-      entry_chart_logger.exception('Failed to save the chart image. Error:')
+      entry_chart_logger.exception('Failed to save the chart image. Attempting to close new tab if open. Error:')
+      # Close the tab that was opened for a snapshot
+      if len(self.driver.window_handles) == 2:
+        for handle in self.driver.window_handles:
+          self.driver.switch_to.window(handle)
+          if 'Image' in self.driver.title:
+            entry_chart_logger.info(f'Closing the snapshot tab')
+            self.driver.close()
+            break
+
+      self.driver.switch_to.window(self.driver.window_handles[0])
       return ''
     
     return url
