@@ -43,7 +43,8 @@ symbol_set = {
 # this is a dictionary whose keys are the symbols and their values are the categories
 symbol_categories = {}
 for category, symbols in main_symbols.items():
-    symbol_categories.update({symbol: category for symbol in symbols})  # Map each symbol to its category in symbol_categories
+    # Map each symbol to its category in symbol_categories. symbol has to be split so that the key can be just the symbol and not it's exchange eg: just EURUSD without the OANDA part
+    symbol_categories.update({symbol.split(':')[-1]: category for symbol in symbols})  
 
 
 def fill_symbol_set(symbol_inputs: int):
