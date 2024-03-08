@@ -21,12 +21,13 @@ class OpenChart:
   def __init__(self, driver) -> None:
     self.driver = driver
     
-  def change_indicator_settings(self, drawer_indicator, entry_time, entry_price, sl_price, tp1_price, tp2_price, tp3_price):
+  def change_indicator_settings(self, drawer_shorttitle, entry_time, entry_price, sl_price, tp1_price, tp2_price, tp3_price):
     try:
       # double click on the indicator so that the settings can open 
       i = 1
       while i <= 3:
         try:
+          drawer_indicator = self.get_indicator(drawer_shorttitle)
           ActionChains(self.driver).move_to_element(drawer_indicator).perform()
           ActionChains(self.driver).double_click(drawer_indicator).perform()
           settings = WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="indicator-properties-dialog"]')))
@@ -87,22 +88,77 @@ class OpenChart:
       entry_chart_logger.exception('Failed to change the Trade Drawer\'s settings. Error:')
       return False
 
+  def change_get_exit_settings(self, get_exits_shorttitle, entry_time, entry_price, entry_type, sl_price, tp1_price, tp2_price, tp3_price):
+    '''This double clicks on the Get Exits indicator to open its settings and changes its inputs'''
+    try:
+      # double click on the indicator so that the settings can open 
+      i = 1
+      while i <= 3:
+        try:
+          get_exits_indicator = self.get_indicator(get_exits_shorttitle)
+          ActionChains(self.driver).move_to_element(get_exits_indicator).perform()
+          ActionChains(self.driver).double_click(get_exits_indicator).perform()
+          settings = WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="indicator-properties-dialog"]')))
+          break
+        except Exception as e:
+          entry_chart_logger.exception('Failed to open the Trade Drawer\'s settings. Error:')
+          i += 1
+          if i == 4:
+            entry_chart_logger.error('Trade Drawer indicator\'s settings failed to open. Could not change the settings. Exiting function.')
+            return False
+        
+      # when the settings come up, click on the Inputs tab (just in case we’re on some other tab)
+      settings.find_element(By.CSS_SELECTOR, 'div[class="tabs-vwgPOHG8"] button[id="inputs"]').click()
+
+      # fill up the settings
+      inputs = settings.find_elements(By.CSS_SELECTOR, '.cell-tBgV1m0B input')
+      for i in range(len(inputs)):
+        val = 0
+        if i == 0:
+          val = entry_time
+        elif i == 1:
+          val = entry_price
+        elif i == 2:
+          val = entry_type
+        elif i == 3:
+          val = sl_price
+        elif i == 4:
+          val = tp1_price
+        elif i == 5:
+          val = tp2_price
+        elif i == 6:
+          val = tp3_price
+
+        ActionChains(self.driver).key_down(Keys.CONTROL, inputs[i]).send_keys('a').perform()
+        inputs[i].send_keys(Keys.DELETE)
+        inputs[i].send_keys(val)
+
+      entry_chart_logger.info(f'Get Exits\'s settings changed. Inputs: entry_time - {entry_time}, entry_price - {entry_price}, entry_type - {entry_type}, sl_price - {sl_price}, tp1_price - {tp1_price}, tp2_price - {tp2_price}, tp3_price - {tp3_price}')
+
+      # click on submit
+      self.driver.find_element(By.CSS_SELECTOR, 'button[name="submit"]').click()
+      return True
+    except Exception as e:
+      entry_chart_logger.exception('Failed to change the Get Exits\'s settings. Error:')
+      return False
+
   def change_symbol(self, symbol):
     '''This changes the chart's symbol to `symbol` if it is any other symbol. Then it waits for 1.5 secs for the chart to load'''
     try:
+      no_exchange_symbol = symbol.split(':')[-1] if ':' in symbol else symbol # get the symbol without the exchange name (if there is an exchange name)
       symbol_search = WebDriverWait(self.driver, 15).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[id="header-toolbar-symbol-search"]')))
-      if not symbol_search.find_element(By.CSS_SELECTOR, 'div').text == symbol: # only search for a specific symbol if the current symbol is different from that symbol
+      if not symbol_search.find_element(By.CSS_SELECTOR, 'div').text == no_exchange_symbol: # only search for a specific symbol if the current symbol is different from that symbol
         # click on Symbol Search and search for a specific symbol and hit ENTER
         symbol_search.click()
         search_input = self.driver.find_element(By.XPATH, '//*[@id="overlap-manager-root"]/div/div/div[2]/div/div[2]/div[1]/input')
         search_input.send_keys(symbol)
         search_input.send_keys(Keys.ENTER)
         entry_chart_logger.info(f'Entered symbol {symbol}') 
-        WebDriverWait(self.driver, 5).until(EC.text_to_be_present_in_element((By.CSS_SELECTOR, 'button[id="header-toolbar-symbol-search"] div'), symbol.split(':')[-1]))
+        WebDriverWait(self.driver, 5).until(EC.text_to_be_present_in_element((By.CSS_SELECTOR, 'button[id="header-toolbar-symbol-search"] div'), no_exchange_symbol))
         sleep(1.5) # wait for the chart to load
         return True
       else:
-        entry_chart_logger.info(f'The current symbol is the same as {symbol}. There is no need to change the symbol!')
+        entry_chart_logger.info(f'The current symbol is the same as {no_exchange_symbol}. There is no need to change the symbol!')
         return True
     except Exception as e:
       entry_chart_logger.exception(f'Failed to change the symbol of the chart. Error: ')
@@ -172,3 +228,22 @@ class OpenChart:
       return ''
     
     return url
+  
+  def get_indicator(self, ind_shorttitle: str):
+    '''Returns the indicator which has the same shorttitle as `ind_shorttitle`. If an indicator with the same shorttitle can't be found or an error occurrs, `None` will be returned'''
+    try:
+      indicator = None
+      wait = WebDriverWait(self.driver, 15)
+      indicators = wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')))
+      
+      for ind in indicators: 
+        indicator_name = ind.find_element(By.CSS_SELECTOR, 'div[class="title-l31H9iuA"]').text
+        if indicator_name == ind_shorttitle: # finding the indicator
+          entry_chart_logger.info(f'Found indicator {ind_shorttitle}!')
+          indicator = ind
+          break
+    except Exception as e:
+      entry_chart_logger.exception(f'Failed to find indicator {ind_shorttitle}. Error:')
+      return None
+
+    return indicator

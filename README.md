@@ -48,6 +48,10 @@ This whole process is repeated for all the messages until there are no more left
 3. `SCREENER_NAME` is supposed to be the name of the screener (the name of the script).
 4. `DRAWER_NAME` is supposed to be the name of the Trade Drawer indicator (the name of the script).
 5. `INTERVAL_MINUTES` has to be set to the number of minutes Python should wait until it restarts all the inactive alerts
+6. `START_FRESH` is like an on/off switch for starting fresh, deleting all alerts and setting up new alerts OR just opening TradingView, keeping the pre-existing alerts and waiting for alerts to come. If it's `True`, the application will open TradingView, delete all the alerts and start setting up all 260 alerts again. If it's `False`, the application will open TradingView, NOT delete the alerts but instead keep all the alerts that were made when the application was previously run. This variable was created so that I could do 2 things:
+    - When I leave the application running, come back in the morning to find it frozen and find alerts in the Alerts log that are unread by the application, I would like to re-start the application and keep the alerts that were made when it ran previously without deleting all the alerts and therefore, keeping the alerts in the Alerts log. So, when I run the application with `START_FRESH` set to `False`, the application won't delete all the alerts, read the unread alerts that came when it was previously running and wait for new alerts.
+    - Sometimes, when I think I need to start fresh, delete all the alerts and make new ones, I can set `START_FRESH` set to `True`.
+7. `LINES_TO_KEEP` is the number of latest lines to keep in the log file. It keeps deleting the oldest logs and keeps the latest `LINES_TO_KEEP` lines. This was done to prevent the log file from slowing down the application.
 
 ### For Pinescript
 1. In the Trade Drawer indicator, in Pinescript, the first 6 inputs have to be arranged in this order: dateTime, entry, sl, tp1, tp2, tp3
@@ -55,6 +59,8 @@ This whole process is repeated for all the messages until there are no more left
 2. If the symbols in `symbol_settings.py` are rare and have prices like -5.0000000034782 or 0.00000389, go to the screener and fix the code in the alertMsg function to make it convert those prices into their correct string versions. Their string versions should be the exact same as the prices and should not be rounded off and the decimal places should not be cut off.
 
 3. The Premium Screener indicator on Tradingview has to be starred (so that it can appear in the Favorites dropdown)
+
+4. Make sure that in the `timeframeToString` function, the timeframe of the entries is mentioned under the `switch` statement. Eg: If the timeframe of the entries is 1 hour, this statement should be there: `'60' => '1 hour'`
 
 ## Some errors which might happen on Tradingview
 1. "Modify_study_limit_exceeding" error can happen on a script whose inputs are getting changed frequently. 

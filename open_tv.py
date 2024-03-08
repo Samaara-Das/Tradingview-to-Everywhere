@@ -53,7 +53,7 @@ def symbol_sublist_gen():
 # class
 class Browser:
 
-  def __init__(self, keep_open: bool, screener_shorttitle: str, screener_name: str, drawer_shorttitle: str, drawer_name: str, interval_minutes: int) -> None:
+  def __init__(self, keep_open: bool, screener_shorttitle: str, screener_name: str, drawer_shorttitle: str, drawer_name: str, interval_minutes: int, start_fresh: bool) -> None:
     chrome_options = Options() 
     chrome_options.add_experimental_option("detach", keep_open)
     chrome_options.add_argument('--profile-directory=Profile 2')
@@ -65,11 +65,12 @@ class Browser:
     self.drawer_name = drawer_name
     self.drawer_shorttitle = drawer_shorttitle
     self.interval_seconds = interval_minutes * 60 # Convert the interval to seconds
+    self.start_fresh = start_fresh
     self.init_succeeded = True
-    # Call the function to fill up symbol_set in symbol_settings.py
-    if not fill_symbol_set(SYMBOL_INPUTS):
-      open_tv_logger.error(f'Cannot fill up the symbol set. Exiting function')
-      self.init_succeeded = False
+    if start_fresh: 
+      if not fill_symbol_set(SYMBOL_INPUTS): # Call the function to fill up symbol_set in symbol_settings.py
+        open_tv_logger.error(f'Cannot fill up the symbol set. Exiting function')
+        self.init_succeeded = False
 
   def open_page(self, url: str):
     '''This opens `url` and maximizes the window'''
@@ -81,7 +82,7 @@ class Browser:
       open_tv_logger.exception(f'Cannot open this url: {url}. Error: ')
       return False 
 
-  def setup_tv(self):
+  def setup_tv(self, trim_file, log_file, LINES_TO_KEEP):
     '''This opens tradigview, changes the layout of the chart, opens the alert sidebar, deletes all alerts, gets access to the screener & trade drawer indicators, makes them both visible and changes the timeframe of the screener'''
     # open tradingview
     if not self.open_page('https://www.tradingview.com/chart'):
@@ -90,8 +91,8 @@ class Browser:
         return False
 
     # change to the screener layout (if we are on any other layout)
-    if not self.change_layout():
-      self.change_layout() # try once more
+    if not self.change_layout(LAYOUT_NAME):
+      self.change_layout(LAYOUT_NAME) # try once more
       if self.current_layout() != LAYOUT_NAME:
         open_tv_logger.error(f'Cannot change the layout to {LAYOUT_NAME}. Exiting function')
         return False
@@ -111,11 +112,12 @@ class Browser:
         return False
 
     # delete all alerts
-    if not self.delete_all_alerts():
-      self.delete_all_alerts() # try once more
-      if not self.no_alerts():
-        open_tv_logger.error(f'Cannot delete all alerts. Exiting function')
-        return False
+    if self.start_fresh:
+      if not self.delete_all_alerts():
+        self.delete_all_alerts() # try once more
+        if not self.no_alerts():
+          open_tv_logger.error(f'Cannot delete all alerts. Exiting function')
+          return False
 
     # make the screener and the trade drawer indicator into attributes of this object
     self.screener_indicator = self.get_indicator(self.screener_shorttitle)
@@ -131,7 +133,7 @@ class Browser:
       open_tv_logger.error(f'One of the indicators is not found. Exiting function. Screener: {self.screener_indicator}, Trade Drawer: {self.drawer_indicator}')
       return False
 
-    self.alerts = get_alert_data.Alerts(self.drawer_indicator, self.screener_shorttitle, self.driver, CHART_TIMEFRAME, self.interval_seconds)
+    self.alerts = get_alert_data.Alerts(self.drawer_shorttitle, self.screener_shorttitle, self.driver, CHART_TIMEFRAME, self.interval_seconds, trim_file, log_file, LINES_TO_KEEP)
 
     # make the screener visible and Trade Drawer indicator visible
     if not self.indicator_visibility(True, self.screener_shorttitle):
@@ -173,12 +175,12 @@ class Browser:
         open_tv_logger.exception(f'An error happened in set_bulk_alerts. Will continue with the next alerts. Error: ')
         continue 
         
-  def change_layout(self):
-    '''This changes the layout of the chart to `LAYOUT_NAME` if we are a different one. If we are on the same layout, it does nothing.'''
+  def change_layout(self, layout_name):
+    '''This changes the layout of the chart to `layout_name` if we are a different one. If we are on the same layout, it does nothing.'''
     try:
       # switch the layout if we are on some other layout. if we are on the screener layout, we don't need to do anything
       curr_layout = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.XPATH, '//*[@id="header-toolbar-save-load"]')))
-      if curr_layout.find_element(By.CSS_SELECTOR, '.text-yyMUOAN9').text == LAYOUT_NAME:
+      if curr_layout.find_element(By.CSS_SELECTOR, '.text-yyMUOAN9').text == layout_name:
         return True
 
       # click on the dropdown arrow
@@ -188,7 +190,7 @@ class Browser:
       layouts = WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.XPATH, '//*[@id="overlap-manager-root"]/div/span/div[1]/div/div/a')))
 
       for layout in layouts:
-        if layout.find_element(By.CSS_SELECTOR, '.layoutTitle-yyMUOAN9').text == LAYOUT_NAME:
+        if layout.find_element(By.CSS_SELECTOR, '.layoutTitle-yyMUOAN9').text == layout_name:
           layout.click()
           return True
     except Exception as e:
@@ -295,8 +297,39 @@ class Browser:
     
     return False
   
-  def click_create_alert(self):
-    '''This clicks the + button to create an alert for the screener and clicks on Create. This returns `True` if the alert was created otherwise `False`. If something goes wrong, the "Create Alert" popup will be closed (if it was open) and `False` will be returned.'''
+  def set_get_exit_alert(self, alert_name, entry_time, entry_price, entry_type, sl_price, tp1_price, tp2_price, tp3_price):
+    '''This first checks if the Get Exit indicator has an error. If it does, it re-uploads it and fills in the inputs again. If an error is still there, `False` is returned. If there was no error in the first place, an alert gets created. If there was an error in creating the alert, it tries again.'''
+
+    # check if the indicator indicator has an error
+    if not self.is_no_error(self.get_exits_shorttitle):
+      open_tv_logger.error('indicator had an error. Could not set an alert for this tab. Trying to reupload indicator')
+      if not self.reupload_indicator():
+        open_tv_logger.error('Could not re-upload indicator. Cannot set an alert for the indicator. Exiting function.')
+        return False
+      if not self.change_settings(entry_time, entry_price, entry_type, sl_price, tp1_price, tp2_price, tp3_price):
+        open_tv_logger.error('Could not input the settings. Cannot set an alert for the indicator. Exiting function.')
+        return False
+      sleep(5) # wait for the indicator to fully load (we are avoiding to wait for the indicator to load because it will take too long)
+      if not self.is_no_error(self.get_exits_shorttitle): # if an error is still there
+        open_tv_logger.error('Error is still there in the indicator. Cannot set an alert for the indicator. Exiting function.')
+        return False
+   
+    # set the alert for the indicator
+    try:
+      if not self.click_create_alert(alert_name):
+        if self.reupload_indicator(): # Reuploading the indicator
+          if self.change_settings(entry_time, entry_price, entry_type, sl_price, tp1_price, tp2_price, tp3_price):
+            return self.click_create_alert(alert_name)
+      else:
+        return True
+    except Exception as e:
+      open_tv_logger.exception('Error occurred when setting up alert. Exiting function. Error:')
+      return False
+    
+    return False
+
+  def click_create_alert(self, alert_name=''):
+    '''This clicks the + button to create an alert for the screener, names the alert to `alert_name` if it's not an empty string otherwise no name will be given and the default alert name will be used. Then, "Create" gets clicked. This returns `True` if the alert was created otherwise `False`. If something goes wrong, the "Create Alert" popup will be closed (if it was open) and `False` will be returned.'''
     try:
       # click on the + button
       plus_button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-name="set-alert-button"]')))
@@ -327,6 +360,12 @@ class Browser:
         open_tv_logger.error('Failed to create alert. Screener is unavailable in the dropdown. Closing popup and exiting.')
         popup.find_element(By.CSS_SELECTOR, 'button[data-name="close"]').click()
         return False
+      
+      if alert_name != '': # if an alert name is given, set it
+        alert_name_input = popup.find_element(By.CSS_SELECTOR, 'input[id="alert-name"]')
+        alert_name_input.clear()
+        alert_name_input.send_keys(alert_name)
+        open_tv_logger.info(f'Saved alert name to "{alert_name}"!')
       
       # click on submit if the screener was available in the dropdown and was selected
       if screener_found:
@@ -548,22 +587,6 @@ class Browser:
       return None
 
     return indicator
-    
-    '''Checks if the Timeframe input of the Screener indicator is the same as `tf`. Returns `True` if it is the same, `False` otherwise.'''
-    try:
-      # open the settings of the screener
-      self.screener_indicator.click()
-      WebDriverWait(self.screener_indicator, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-name="legend-settings-action"]'))).click()
-      indicator_popup = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-dialog-name="Screener"]')))
-      settings = indicator_popup.find_element(By.CSS_SELECTOR, '.content-tBgV1m0B')
-       
-      # Get the current value of the Timeframe input
-      tf_val = settings.find_element(By.CSS_SELECTOR, 'div[class="cell-tBgV1m0B"] span[data-role="listbox"] span[class="button-children-tFul0OhX"] span').text
-      open_tv_logger.info(f'Checked the screener\'s timeframe. Timeframe of the screener is {tf_val}.')
-      return tf_val == tf
-    except Exception as e:
-      open_tv_logger.exception(f'Failed to check the timeframe of the screener. Error: ')
-      return False
     
   def current_chart_tframe(self):
     '''Returns the current chart's timeframe'''

@@ -25,16 +25,19 @@ alert_data_logger = logger_setup.setup_logger(__name__, logger_setup.logging.DEB
 # class
 class Alerts:
 
-  def __init__(self, drawer_indicator, screener_shortitle, driver, chart_timeframe, interval_seconds) -> None:
+  def __init__(self, drawer_shorttitle, screener_shortitle, driver, chart_timeframe, interval_seconds, trim_file, log_file, lines) -> None:
     self.driver = driver
     self.local_db = local_db.Database('')
     self.nk_db = nk_db.Post()
     self.chart = open_entry_chart.OpenChart(self.driver)
     self.discord = send_to_discord.Discord()
-    self.drawer_indicator = drawer_indicator
+    self.drawer_shorttitle = drawer_shorttitle
     self.screener_shortitle = screener_shortitle
     self.chart_timeframe = chart_timeframe
     self.interval_seconds = interval_seconds
+    self.trim_file = trim_file
+    self.log_file = log_file
+    self.lines = lines
     self.last_run = time()
     self.get_alert_log()
     
@@ -64,7 +67,7 @@ class Alerts:
           if not self.chart.change_tframe(self.chart_timeframe):
             alert_data_logger.error(f'Error in changing the timeframe to {timeframe}. Going to next symbol.')
             continue
-          if not self.chart.change_indicator_settings(self.drawer_indicator, entry_time, entry_price, sl_price, tp1_price, tp2_price, tp3_price):
+          if not self.chart.change_indicator_settings(self.drawer_shorttitle, entry_time, entry_price, sl_price, tp1_price, tp2_price, tp3_price):
             alert_data_logger.error(f'Error in changing the Trade Drawer indicator\'s settings. Going to next symbol.')
             continue
 
@@ -77,7 +80,7 @@ class Alerts:
           self.discord.create_msg(category, content) 
 
           # My database
-          self.local_db.add_doc({"type": value['type'], "direction": direction, "symbol": key, "tframe": timeframe, "entry": entry_price, "tp1": tp1_price, "tp2": tp2_price, "tp3": tp3_price, "sl": sl_price, "chart_link": chart_link, "content": content, "date": entry_time, "symbol_type": category, "exit_msg": ''}, category)
+          self.local_db.add_doc({"type": value['type'], "direction": direction, "symbol": key, "tframe": timeframe, "entry": entry_price, "tp1": tp1_price, "tp2": tp2_price, "tp3": tp3_price, "sl": sl_price, "entry_snapshot": chart_link, "content": content, "date": entry_time, "symbol_type": category, "sl_hit": False, "tp1_hit": False, "tp2_hit": False, "tp3_hit": False, "exit_snapshot": ''}, category)
           
           # Nk uncle's server
           self.nk_db.post_to_url({"type": value['type'], "direction": direction, "symbol": key, "tframe": timeframe, "entry": entry_price, "tp1": tp1_price, "tp2": tp2_price, "tp3": tp3_price, "sl": sl_price, "chart_link": chart_link, "content": content, "date": formatted_time, "symbol_type": category, "exit_msg": ''})
@@ -85,6 +88,7 @@ class Alerts:
         except Exception as e:
           alert_data_logger.exception(f'Error in posting an entry. Continuing to next entry. Error:')
           continue
+    
     except Exception as e:
       alert_data_logger.exception('Error in posting an entry. Continuing to next entry. Error:')
 
@@ -115,7 +119,7 @@ class Alerts:
       if dropdown_button.text == 'Restart all inactive':
         dropdown_button.click()
         alert_data_logger.info('Clicked on "Restart all inactive"')
-        
+
         # click Yes when the popup comes
         popup = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[class="dialog-qyCw0PaN popupDialog-B02UUUN3 dialog-aRAWUDhF rounded-aRAWUDhF shadowed-aRAWUDhF"]')))
         popup.find_element(By.CSS_SELECTOR, 'button[name="yes"]').click()
@@ -132,12 +136,31 @@ class Alerts:
     while True:
       try:
         alert_box, alert_msg = self.get_alert_box_and_msg()
+        self.trim_file(self.file_path, self.lines) # only keep the latest lines in the log file
         if alert_box and alert_msg:
           if self.remove_alert(alert_box):
             return loads(alert_msg) if alert_msg != None else loads('{}')# the alert message is jsonified
       except StaleElementReferenceException:
         alert_data_logger.error('StaleElementReferenceException while reading the alert. Trying again to get alert...')
         alert_box, alert_msg = self.get_alert_box_and_msg()
+        if alert_box and alert_msg:
+          if self.remove_alert(alert_box):
+            return loads(alert_msg) if alert_msg != None else loads('{}')# the alert message is jsonified
+      except Exception as e:
+        alert_data_logger.exception('Error in reading the alert. Error:')
+
+  def get_exit_alert(self, alert_name, symbol):
+    '''As soon as an alert from the Get Exits indicator comes, it's message will be returned'''
+    while True:
+      try:
+        alert_box, alert_msg = self.get_exit_alert_box_and_msg(alert_name, symbol)
+        self.trim_file(self.file_path, self.lines) # only keep the latest lines in the log file
+        if alert_box and alert_msg:
+          if self.remove_alert(alert_box):
+            return loads(alert_msg) if alert_msg != None else loads('{}')# the alert message is jsonified
+      except StaleElementReferenceException:
+        alert_data_logger.error('StaleElementReferenceException while reading the alert. Trying again to get alert...')
+        alert_box, alert_msg = self.get_exit_alert_box_and_msg()
         if alert_box and alert_msg:
           if self.remove_alert(alert_box):
             return loads(alert_msg) if alert_msg != None else loads('{}')# the alert message is jsonified
@@ -166,6 +189,31 @@ class Alerts:
       return None, None
     except Exception as e:
       alert_data_logger.exception('Error in getting the alert box and message. Error:')
+      return None, None
+    
+  def get_exit_alert_box_and_msg(self, alert_name, symbol):
+    '''Returns the alert box and message that comes from the alert called `alert_name` and the symbol `symbol`. If there is no alert, it waits for one. Also, it restarts all the inactive alerts periodically. If something goes wrong, `None, None` gets returned'''
+    try:
+      # restart all the inactive alerts every INTERVAL_MINUTES minutes (this is also done in get_alert_data.py in the method get_alert_box_and_msg())
+      if time() - self.last_run > self.interval_seconds:
+        self.restart_inactive_alerts()
+        self.last_run = time()
+
+      alert_box = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alert-log-item"]')))
+      first_alert_name = alert_box.find_element(By.CSS_SELECTOR, 'div[class="name-PQUvhamm"]').text
+      first_alert_msg = alert_box.find_element(By.CSS_SELECTOR, 'div[class="message-PQUvhamm"]').text
+      first_alert_symbol = alert_box.find_element(By.CSS_SELECTOR, 'span[attribute-PQUvhamm ticker-PQUvhamm]').text
+      if first_alert_name == alert_name and symbol in first_alert_symbol:
+        if not alert_box.is_displayed() and not self.scroll_to_alert(alert_box):
+          alert_data_logger.error('Failed to scroll to alert')
+          return None, None
+        return alert_box, first_alert_msg
+      return None, None
+    except TimeoutException:
+      alert_data_logger.error('TimeoutException occured while waiting for an alert.')
+      return None, None
+    except Exception as e:
+      alert_data_logger.exception('Error in getting the Get Exit\'s alert box and message. Error:')
       return None, None
   
   def remove_alert(self, alert_box):
