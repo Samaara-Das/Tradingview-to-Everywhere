@@ -10,6 +10,7 @@ pymongo = "*"
 requests = "*"
 webdriver-manager = "*"
 tuna = "*"
+pytz = "*"
 
 [dev-packages]
 
