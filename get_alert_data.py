@@ -77,7 +77,7 @@ class Alerts:
 
           # Discord
           content = f"{direction} in {key} at {entry_price}. TP1: {tp1_price} TP2: {tp2_price} TP3: {tp3_price} SL: {sl_price} Link: {chart_link if chart_link != False else ''}"
-          self.discord.create_msg(category, content) 
+          self.discord.send_to_entry_channel(category, content) 
 
           # My database
           self.local_db.add_doc({"type": value['type'], "direction": direction, "symbol": key, "tframe": timeframe, "entry": entry_price, "tp1": tp1_price, "tp2": tp2_price, "tp3": tp3_price, "sl": sl_price, "entry_snapshot": chart_link, "content": content, "date": entry_time, "symbol_type": category, "sl_hit": False, "tp1_hit": False, "tp2_hit": False, "tp3_hit": False, "exit_snapshot": ''}, category)
@@ -136,7 +136,7 @@ class Alerts:
     while True:
       try:
         alert_box, alert_msg = self.get_alert_box_and_msg()
-        self.trim_file(self.file_path, self.lines) # only keep the latest lines in the log file
+        self.trim_file(self.log_file, self.lines) # only keep the latest lines in the log file
         if alert_box and alert_msg:
           if self.remove_alert(alert_box):
             return loads(alert_msg) if alert_msg != None else loads('{}')# the alert message is jsonified
@@ -150,20 +150,19 @@ class Alerts:
         alert_data_logger.exception('Error in reading the alert. Error:')
 
   def get_exit_alert(self, alert_name, symbol):
-    '''As soon as an alert from the Get Exits indicator comes, it's message will be returned'''
+    '''This waits for 15 secs for an alert from the Get Exits indicator to come and returns it's message'''
+    start_time = time()
     while True:
+      # only wait for an alert for a couple seconds
+      current_time = time()
+      if current_time - start_time > 15: 
+        return loads('{}')  
+
       try:
-        alert_box, alert_msg = self.get_exit_alert_box_and_msg(alert_name, symbol)
-        self.trim_file(self.file_path, self.lines) # only keep the latest lines in the log file
-        if alert_box and alert_msg:
-          if self.remove_alert(alert_box):
-            return loads(alert_msg) if alert_msg != None else loads('{}')# the alert message is jsonified
-      except StaleElementReferenceException:
-        alert_data_logger.error('StaleElementReferenceException while reading the alert. Trying again to get alert...')
-        alert_box, alert_msg = self.get_exit_alert_box_and_msg()
-        if alert_box and alert_msg:
-          if self.remove_alert(alert_box):
-            return loads(alert_msg) if alert_msg != None else loads('{}')# the alert message is jsonified
+        alert_msg = self.get_exit_alert_msg(alert_name, symbol)
+        self.trim_file(self.log_file, self.lines) # only keep the latest lines in the log file
+        return loads(alert_msg) if alert_msg != None else loads('{}')# the alert message is jsonified
+      
       except Exception as e:
         alert_data_logger.exception('Error in reading the alert. Error:')
 
@@ -191,8 +190,8 @@ class Alerts:
       alert_data_logger.exception('Error in getting the alert box and message. Error:')
       return None, None
     
-  def get_exit_alert_box_and_msg(self, alert_name, symbol):
-    '''Returns the alert box and message that comes from the alert called `alert_name` and the symbol `symbol`. If there is no alert, it waits for one. Also, it restarts all the inactive alerts periodically. If something goes wrong, `None, None` gets returned'''
+  def get_exit_alert_msg(self, alert_name, symbol):
+    '''Returns the alert message that comes from the alert called `alert_name` and the symbol `symbol`. If there is no alert, it waits for one. Also, it restarts all the inactive alerts periodically. If something goes wrong, `None` gets returned'''
     try:
       # restart all the inactive alerts every INTERVAL_MINUTES minutes (this is also done in get_alert_data.py in the method get_alert_box_and_msg())
       if time() - self.last_run > self.interval_seconds:
@@ -202,19 +201,16 @@ class Alerts:
       alert_box = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alert-log-item"]')))
       first_alert_name = alert_box.find_element(By.CSS_SELECTOR, 'div[class="name-PQUvhamm"]').text
       first_alert_msg = alert_box.find_element(By.CSS_SELECTOR, 'div[class="message-PQUvhamm"]').text
-      first_alert_symbol = alert_box.find_element(By.CSS_SELECTOR, 'span[attribute-PQUvhamm ticker-PQUvhamm]').text
+      first_alert_symbol = alert_box.find_element(By.CSS_SELECTOR, 'span[class="attribute-PQUvhamm ticker-PQUvhamm"]').text
       if first_alert_name == alert_name and symbol in first_alert_symbol:
-        if not alert_box.is_displayed() and not self.scroll_to_alert(alert_box):
-          alert_data_logger.error('Failed to scroll to alert')
-          return None, None
-        return alert_box, first_alert_msg
-      return None, None
+        return first_alert_msg
+      return None
     except TimeoutException:
       alert_data_logger.error('TimeoutException occured while waiting for an alert.')
-      return None, None
+      return None
     except Exception as e:
       alert_data_logger.exception('Error in getting the Get Exit\'s alert box and message. Error:')
-      return None, None
+      return None
   
   def remove_alert(self, alert_box):
     '''Removes the alert from the Alert log'''

@@ -29,15 +29,15 @@ This whole process is repeated for all the messages until there are no more left
 6. In `open_tv.py`, the constant `SCREENER_REUPLOAD_TIMEOUT` has to have a value for the number of seconds it should wait for the screener to be re-uploaded on the chart. 
 
 ### For resources/categories.py
-1. `CURRENCIES_WEBHOOK_NAME` should be the name of the webhook which is for the channel where forex snapshots are supposed to go. The name of the webhook should be "Currencies". `CURRENCIES_WEBHOOK_LINK` should be the link of that webhook.
+1. `CURRENCIES_WEBHOOK_NAME` should be "Currencies" and the webhook name for both the exits and strategy-1 channels under the "CURRENCIES" category on Discord. `CURRENCIES_ENTRY_WEBHOOK_LINK` should be the webhook link for strategy-1 where the entry snapshots are supposed to go and `CURRENCIES_EXIT_WEBHOOK_LINK` should be the webhook link for exits where the exit snapshots are supposed to go.
 
-2. `US_STOCKS_WEBHOOK_NAME` should be the name of the webhook which is for the channel where Us Stocks snapshots are supposed to go. The name of the webhook should be "US Stocks". `US_STOCKS_WEBHOOK_LINK` should be the link of that webhook.
+2. `US_STOCKS_WEBHOOK_NAME` should be "US Stocks" and the webhook name for both the exits and strategy-1 channels under the "US STOCKS" category on Discord. `US_STOCKS_ENTRY_WEBHOOK_LINK` should be the webhook link for strategy-1 where the entry snapshots are supposed to go and `US_STOCKS_EXIT_WEBHOOK_LINK` should be the webhook link for exits where the exit snapshots are supposed to go.
 
-3. `INDIAN_STOCKS_WEBHOOK_NAME` should be the name of the webhook which is for the channel where Indian Stocks snapshots are supposed to go. The name of the webhook should be "Indian Stocks". `INDIAN_STOCKS_WEBHOOK_LINK` should be the link of that webhook.
+3. `INDIAN_STOCKS_WEBHOOK_NAME` should be "Indian Stocks" and the webhook name for both the exits and strategy-1 channels under the "INDIAN STOCKS" category on Discord. `INDIAN_STOCKS_ENTRY_WEBHOOK_LINK` should be the webhook link for strategy-1 where the entry snapshots are supposed to go and `INDIAN_STOCKS_EXIT_WEBHOOK_LINK` should be the webhook link for exits where the exit snapshots are supposed to go.
 
-4. `CRYPTO_WEBHOOK_NAME` should be the name of the webhook which is for the channel where Crypto snapshots are supposed to go. The name of the webhook should be "Crypto". `CRYPTO_WEBHOOK_LINK` should be the link of that webhook.
+4. `CRYPTO_WEBHOOK_NAME` should be "Crypto" and the webhook name for both the exits and strategy-1 channels under the "CRYPTO" category on Discord. `CRYPTO_ENTRY_WEBHOOK_LINK` should be the webhook link for strategy-1 where the entry snapshots are supposed to go and `CRYPTO_EXIT_WEBHOOK_LINK` should be the webhook link for exits where the exit snapshots are supposed to go.
 
-5. `INDICES_WEBHOOK_NAME` should be the name of the webhook which is for the channel where Indices snapshots are supposed to go. The name of the webhook should be "Indices". `INDICES_WEBHOOK_LINK` should be the link of that webhook.
+5. `INDICES_WEBHOOK_NAME` should be "Indices" and the webhook name for both the exits and strategy-1 channels under the "INDICES" category on Discord. `INDICES_ENTRY_WEBHOOK_LINK` should be the webhook link for strategy-1 where the entry snapshots are supposed to go and `INDICES_EXIT_WEBHOOK_LINK` should be the webhook link for exits where the exit snapshots are supposed to go.
 
 ### For database/local_db.py
 1. `PWD` is supposed to be the password of our remote database. To edit that password, sign in to MongoDb and go to Data/base Access on the left. Click on the user (i.e. sammy) and edit the password.
@@ -56,11 +56,13 @@ This whole process is repeated for all the messages until there are no more left
 ### For Pinescript
 1. In the Trade Drawer indicator, in Pinescript, the first 6 inputs have to be arranged in this order: dateTime, entry, sl, tp1, tp2, tp3
 
-2. If the symbols in `symbol_settings.py` are rare and have prices like -5.0000000034782 or 0.00000389, go to the screener and fix the code in the alertMsg function to make it convert those prices into their correct string versions. Their string versions should be the exact same as the prices and should not be rounded off and the decimal places should not be cut off.
+2. In Pine Script, the Get Exits indicator must have its first 7 inputs in this order: `entryTime`, `entryPrice`, `entryType`, `sl`, `tp1`, `tp2`, `tp3`
 
-3. The Premium Screener indicator on Tradingview has to be starred (so that it can appear in the Favorites dropdown)
+3. If the symbols in `symbol_settings.py` are rare and have prices like -5.0000000034782 or 0.00000389, go to the screener and fix the code in the alertMsg function to make it convert those prices into their correct string versions. Their string versions should be the exact same as the prices and should not be rounded off and the decimal places should not be cut off.
 
-4. Make sure that in the `timeframeToString` function, the timeframe of the entries is mentioned under the `switch` statement. Eg: If the timeframe of the entries is 1 hour, this statement should be there: `'60' => '1 hour'`
+4. The Premium Screener and the Get Exits indicators on Tradingview must to be starred (so that they can appear in the Favorites dropdown)
+
+5. Make sure that in the `timeframeToString` function, the timeframe of the entries is mentioned under the `switch` statement. Eg: If the timeframe of the entries is 1 hour, this statement should be there: `'60' => '1 hour'`
 
 ## Some errors which might happen on Tradingview
 1. "Modify_study_limit_exceeding" error can happen on a script whose inputs are getting changed frequently. 
@@ -82,4 +84,4 @@ This whole process is repeated for all the messages until there are no more left
     - The bars are medium sized and the chart is a 100 bars from the right 
     - Premium Screener indicator & Trade Drawer indicator should be on the chart
     - Premium Screener should have 15-20 inputs (So that Python can click on it)
-    
+6. There must be a saved layout named "Exits" and the Get Exits indicator should be on it.
