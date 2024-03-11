@@ -4,6 +4,8 @@ import pytz
 import logger_setup
 from datetime import datetime, timedelta, time
 from time import sleep
+from resources.symbol_settings import symbol_category
+from send_to_socials.send_to_discord import Discord
 
 # Set up logger for this file
 exit_logger = logger_setup.setup_logger(__name__, logger_setup.logging.DEBUG)
@@ -11,7 +13,7 @@ exit_logger = logger_setup.setup_logger(__name__, logger_setup.logging.DEBUG)
 INDICATOR_SHORT = 'Get Exits' # shorttitle of the Get Exits indicator
 INDICATOR_NAME = 'Get Exits' # name of the Get Exits indicator
 GET_EXITS_LAYOUT_NAME = 'Exits' # Name of the layout on TradingView
-DAYS = 2 # all the entries within this timespan will be retrieved
+DAYS = 15 # all the entries within this timespan will be retrieved
 DAYS_TO_RUN = [0, 1, 2, 3, 4, 5, 6] # the days of the week on which this application should check for entries in each of the collections. 0 is for Monday and 6 is for Sunday
 
 class Exits:
@@ -23,7 +25,13 @@ class Exits:
         self.local_tz = pytz.timezone('Asia/Kolkata')
         self.yesterday = datetime.now(self.local_tz) - timedelta(days=1)
         self.checked_categories = {category:self.yesterday.date() for category in self.collections}
+        self.browser.save_layout() # save the current layout so that it a popup won't come and interfere with the application
         self.browser.change_layout(GET_EXITS_LAYOUT_NAME)
+        sleep(3)
+        self.browser.get_exits_shorttitle = INDICATOR_SHORT
+        self.browser.get_exits_name = INDICATOR_NAME
+        self.browser.get_exits_indicator = self.browser.get_indicator(self.browser.get_exits_shorttitle)
+        self.alert_name = self.browser.get_exits_shorttitle
 
     def check_exits(self):
         try:
@@ -75,16 +83,14 @@ class Exits:
                         sleep(1)
 
                         # open and change the indicator's settings
-                        if self.open_chart.change_get_exit_settings(INDICATOR_SHORT, int(entry['date']), float(entry['entry']), entry['direction'], float(entry['sl']), float(entry['tp1']), float(entry['tp2']), float(entry['tp3'])):
+                        if self.open_chart.change_get_exit_settings(INDICATOR_SHORT, int(entry['date']), entry['entry'], entry['direction'], entry['sl'], entry['tp1'], entry['tp2'], entry['tp3']):
                         
                             # set an alert
-                            self.browser.get_exits_shorttitle = INDICATOR_SHORT
-                            self.browser.get_exits_indicator = self.browser.get_indicator(self.browser.get_exits_shorttitle)
-                            if self.browser.set_get_exit_alert(self.browser.get_exits_shorttitle, int(entry['date']), float(entry['entry']), entry['direction'], float(entry['sl']), float(entry['tp1']), float(entry['tp2']), float(entry['tp3'])):
+                            if self.browser.set_get_exit_alert(self.alert_name, int(entry['date']), entry['entry'], entry['direction'], entry['sl'], entry['tp1'], entry['tp2'], entry['tp3']):
 
                                 # wait for an alert to come
                                 alerts = self.browser.alerts
-                                stats = alerts.get_exit_alert(self.browser.get_exits_shorttitle, entry['symbol'])
+                                stats = alerts.get_exit_alert(self.alert_name, entry['symbol'])
 
                                 if stats:
                                     # update the entry with the stats
@@ -105,27 +111,36 @@ class Exits:
                                     # take a snapshot
                                     if tp1_hit or tp2_hit or tp3_hit or sl_hit:
                                         exit_logger.info(f'An exit has been hit. Going to take a snapshot. Exits: sl-{sl_hit}, tp1-{tp1_hit}, tp2-{tp2_hit}, tp3-{tp3_hit}')
-                                        snapshot_link = alert.post()
+                                        snapshot_link = self.open_chart.get_exit_snapshot(self.browser.get_exits_shorttitle)
                                         if snapshot_link:
                                             # add the link to the document
                                             self.database.db[col].update_one({'_id': entry['_id']}, {'$set': {'exit_snapshot': snapshot_link}})
 
                                             # send the message to Discord
-                                            discord = send_to_discord.Discord()
+                                            discord = Discord()
                                             symbol = entry['symbol']
-                                            category = symbol_settings.symbol_category(symbol)
+                                            category = symbol_category(symbol)
                                             word = 'hit' if sl_hit else ('gained' if tp1_hit or tp2_hit or tp3_hit else 'none')
                                             exit_type = 'Stop Loss' if sl_hit else ('3%' if tp3_hit else '2%' if tp2_hit else '1%' if tp1_hit else 'none')
                                             content = f"{entry['direction']} trade in {symbol} {word} {exit_type}. Link: {snapshot_link}"
-                                            discord.create_msg(category, content) 
+                                            discord.send_to_exit_channel(category, content) 
 
-                                # delete the alert
-                                browser.delete_all_alerts()
+                                # delete the alert made by Get Exits
+                                if not self.browser.delete_get_exit_alert(self.alert_name):
+                                    exit_logger.error(f'Failed to delete the alert {self.alert_name}. Trying again.')
+                                    self.browser.delete_get_exit_alert(self.alert_name)
 
-                    checked_categories[col] = now.date() # update the date that this category was checked
+                self.checked_categories[col] = now # update the date that this category was checked
         
         except Exception as e:
             exit_logger.exception('Error encountered: ')
+
+    def market_not_on_holiday(self):
+        '''This returns `True` if the market is open and not on a holiday/currently in the pre-post market time'''
+        if self.browser.driver.find_elements(self.browser.By.CSS_SELECTOR, 'div[class="statusItem-Lgtz1OtS small-Lgtz1OtS marketStatusOpen-Lgtz1OtS"]'):
+            return True
+        else:
+            return False
 
     def remove_duplicate_entries(self, col):
         '''This removes the duplicate document in `col` so that each document can be unique. Entries are considered duplicates if their direction, symbol and date fields match another document.'''

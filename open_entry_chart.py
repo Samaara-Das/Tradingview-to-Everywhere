@@ -188,7 +188,34 @@ class OpenChart:
     except Exception as e:
       entry_chart_logger.exception(f'Failed to change the timeframe of the chart to {timeframe}. Error:')
       return False
-                                               
+
+  def get_exit_snapshot(self, get_exits_shorttitle):
+    '''This waits for the indicator to load, take's a snapshot of the chart, grabs its link and returns it'''
+    try:
+      # wait for the indicator to fully load so that a snapshot can be taken
+      start_time = time()
+      timeout = 15  # 15 seconds
+      check = False
+      sleep(2)
+      while time() - start_time <= timeout:
+        get_exits_indicator = self.get_indicator(get_exits_shorttitle)
+        class_attr = get_exits_indicator.get_attribute('class')
+        if 'Loading' not in class_attr:
+          check = True
+          entry_chart_logger.info('Get Exits indicator fully loaded!')
+          break
+        else:
+          continue
+      if check == False:
+        entry_chart_logger.error('Get Exits indicator did not fully load.')
+        return False
+
+      # Take a snapshot of the exit
+      chart_link = self.save_chart_img() 
+      return chart_link
+    except Exception as e:
+      entry_chart_logger.exception('Error in posting an entry. Error:')
+                                            
   def save_chart_img(self):
     '''Clicks on the camera icon to take a snapshot of the chart and opens it in a new tab. Then it gets the link of the tab and closes it. The link gets returned. If an error happens, an empty string is returned.'''
     url = ''
