@@ -4,10 +4,10 @@ This was done to avoid repetition of code.
 '''
 
 import logging
-from logging import getLogger, FileHandler, StreamHandler, Formatter
+from logging import getLogger, FileHandler, StreamHandler, Formatter, DEBUG, INFO, WARNING, ERROR, CRITICAL
 import sys
 
-def setup_logger(logger_name, logger_level, file='app_log.log'):
+def setup_logger(logger_name, logger_level=INFO, file='app_log.log'):
     '''This sets up a logger and returns it'''
     logger = getLogger(logger_name)
     logger.setLevel(logger_level)
