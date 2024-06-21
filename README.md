@@ -1,6 +1,19 @@
 
 # Tradingview to Everywhere
 
+## Note
+These are some of the changes that can be incorporated from the multi-alert branch into this branch. There are more changes that can be added as well but I haven’t been keeping track of them. 
+
+- if `__name__ == '__main__':` in main.py
+- under categories.py, add new description
+- adding success statements and error statements in functions
+- change logic in open_tv.py alerts_sidebar_open()
+- change logic in open_tv.py change_settings()
+- add ‘4. the "Alerts log" must be maximized and not minimized. ‘ in README
+- in change_tframe, add one more return False statement
+- in no_alerts and delete_all_alerts, change the selector of the alerts to this: 'div.list-G90Hl2iS div.itemBody-ucBqatk5'
+- test the single alert system again
+
 ## Branch description
 This branch is for using a single alert and the screener to give only entry signals. This system will not be used for Poolsifi. The development of this branch is complete.
 
