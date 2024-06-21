@@ -8,7 +8,7 @@
             "name": "TTE",
             "type": "debugpy",
             "request": "launch",
-            "module": "main.py",
+            "module": "main",
             "justMyCode": true
         }
     ]
