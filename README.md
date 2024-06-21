@@ -28,19 +28,50 @@ This whole process is repeated for all the messages until there are no more left
 
 6. In `open_tv.py`, the constant `SCREENER_REUPLOAD_TIMEOUT` has to have a value for the number of seconds it should wait for the screener to be re-uploaded on the chart. 
 
+### For send_to_socials/send_to_discord.py
+1. `BI_REPORT_LINK` should be the shortened link of the latest Trade Stats Power BI Report. Use Bitly to shorten it.
+
 ### For resources/categories.py
-1. `CURRENCIES_WEBHOOK_NAME` should be "Currencies" and the webhook name for both the exits and strategy-1 channels under the "CURRENCIES" category on Discord. `CURRENCIES_ENTRY_WEBHOOK_LINK` should be the webhook link for strategy-1 where the entry snapshots are supposed to go and `CURRENCIES_EXIT_WEBHOOK_LINK` should be the webhook link for exits where the exit snapshots are supposed to go.
+In Poolsifi's server, there are 5 categories: CURRENCIES, US STOCKS, INDIAN STOCKS, CRYPTO and INDICES. 
+In each category, there are 3 channels: strategy-1, exits and before-and-after.
+The instructions below will show you what you need to do for each category and its channels. 
 
-2. `US_STOCKS_WEBHOOK_NAME` should be "US Stocks" and the webhook name for both the exits and strategy-1 channels under the "US STOCKS" category on Discord. `US_STOCKS_ENTRY_WEBHOOK_LINK` should be the webhook link for strategy-1 where the entry snapshots are supposed to go and `US_STOCKS_EXIT_WEBHOOK_LINK` should be the webhook link for exits where the exit snapshots are supposed to go.
+**For the CURRENCIES category:**
+- `CURRENCIES_WEBHOOK_NAME` in categories.py should be "Currencies". 
+- `CURRENCIES_ENTRY_WEBHOOK_LINK` in categories.py should be the webhook link of the strategy-1 channel.
+- `CURRENCIES_EXIT_WEBHOOK_LINK` in categories.py should be the webhook link of the exits channel.
+- `CURRENCIES_BEFORE_AFTER_WEBHOOK_LINK` in categories.py should be the webhook link of the before-and-after channel.
 
-3. `INDIAN_STOCKS_WEBHOOK_NAME` should be "Indian Stocks" and the webhook name for both the exits and strategy-1 channels under the "INDIAN STOCKS" category on Discord. `INDIAN_STOCKS_ENTRY_WEBHOOK_LINK` should be the webhook link for strategy-1 where the entry snapshots are supposed to go and `INDIAN_STOCKS_EXIT_WEBHOOK_LINK` should be the webhook link for exits where the exit snapshots are supposed to go.
+**For the US STOCKS category:**
+- `US_STOCKS_WEBHOOK_NAME` in categories.py should be "US Stocks". 
+- `US_STOCKS_ENTRY_WEBHOOK_LINK` in categories.py should be the webhook link of the strategy-1 channel.
+- `US_STOCKS_EXIT_WEBHOOK_LINK` in categories.py should be the webhook link of the exits channel.
+- `US_STOCKS_BEFORE_AFTER_WEBHOOK_LINK` in categories.py should be the webhook link of the before-and-after channel.
 
-4. `CRYPTO_WEBHOOK_NAME` should be "Crypto" and the webhook name for both the exits and strategy-1 channels under the "CRYPTO" category on Discord. `CRYPTO_ENTRY_WEBHOOK_LINK` should be the webhook link for strategy-1 where the entry snapshots are supposed to go and `CRYPTO_EXIT_WEBHOOK_LINK` should be the webhook link for exits where the exit snapshots are supposed to go.
+**For the INDIAN STOCKS category:**
+- `INDIAN_STOCKS_WEBHOOK_NAME` in categories.py should be "Indian Stocks". 
+- `INDIAN_STOCKS_ENTRY_WEBHOOK_LINK` in categories.py should be the webhook link of the strategy-1 channel.
+- `INDIAN_STOCKS_EXIT_WEBHOOK_LINK` in categories.py should be the webhook link of the exits channel.
+- `INDIAN_STOCKS_BEFORE_AFTER_WEBHOOK_LINK` in categories.py should be the webhook link of the before-and-after channel.
 
-5. `INDICES_WEBHOOK_NAME` should be "Indices" and the webhook name for both the exits and strategy-1 channels under the "INDICES" category on Discord. `INDICES_ENTRY_WEBHOOK_LINK` should be the webhook link for strategy-1 where the entry snapshots are supposed to go and `INDICES_EXIT_WEBHOOK_LINK` should be the webhook link for exits where the exit snapshots are supposed to go.
+**For the CRYPTO category:**
+- `CRYPTO_WEBHOOK_NAME` in categories.py should be "Crypto". 
+- `CRYPTO_ENTRY_WEBHOOK_LINK` in categories.py should be the webhook link of the strategy-1 channel.
+- `CRYPTO_EXIT_WEBHOOK_LINK` in categories.py should be the webhook link of the exits channel.
+- `CRYPTO_BEFORE_AFTER_WEBHOOK_LINK` in categories.py should be the webhook link of the before-and-after channel.
+
+**For the INDICES category:**
+- `INDICES_WEBHOOK_NAME` in categories.py should be "Indices". 
+- `INDICES_ENTRY_WEBHOOK_LINK` in categories.py should be the webhook link of the strategy-1 channel.
+- `INDICES_EXIT_WEBHOOK_LINK` in categories.py should be the webhook link of the exits channel.
+- `INDICES_BEFORE_AFTER_WEBHOOK_LINK` in categories.py should be the webhook link of the before-and-after channel.
 
 ### For database/local_db.py
 1. `PWD` is supposed to be the password of our remote database. To edit that password, sign in to MongoDb and go to Data/base Access on the left. Click on the user (i.e. sammy) and edit the password.
+
+### For exits.py
+1. `self.col` is supposed to be the name of the collection where entries should be checked for exits.
+2. The keys in the `self.last_checked_dates` dictionary should be the value of the category field in MongoDB documents (i.e. Currencies, US Stocks, Crypto etc...)
 
 ### For main.py
 1. `SCREENER_SHORT` is supposed to be the shorttitle of the screener.

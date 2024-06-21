@@ -152,6 +152,61 @@ class Browser:
       if self.is_visible(self.drawer_shorttitle) == False:
         open_tv_logger.warning('Failed to make the Trade Drawer indicator visible. The function will still continue on without exiting as this is not crucial.')
     
+    # Change the candle type to a line
+    candle_type = 'Line'
+    if not self.change_candles_type(candle_type):
+      open_tv_logger.warning(f'Failed to change the candle type to {candle_type}. Application will still continue on without exiting as this is not crucial.')
+
+    #give it some time to rest
+    sleep(2) 
+
+    return True
+
+  def re_setup(self):
+    '''This resets the setup of TradingView so that the entries can get posted and `self.alerts.post_entries` can run smoothly'''
+    # change to the screener layout (if we are on any other layout)
+    if not self.change_layout(LAYOUT_NAME):
+      self.change_layout(LAYOUT_NAME) # try once more
+      if self.current_layout() != LAYOUT_NAME:
+        open_tv_logger.error(f'Cannot change the layout to {LAYOUT_NAME}. Exiting function')
+        return False
+      
+    # save the layout if it's the screener layout
+    if not self.save_layout():
+      if not self.save_layout(): # try once more
+        open_tv_logger.warning(f'Cannot save the current layout {LAYOUT_NAME}. Exiting function')
+        return False
+    
+    # make the screener and the trade drawer indicator into attributes of this object
+    self.screener_indicator = self.get_indicator(self.screener_shorttitle)
+    self.drawer_indicator = self.get_indicator(self.drawer_shorttitle)
+
+    if self.screener_indicator is None: # try once more to find the screener
+      self.screener_indicator = self.get_indicator(self.screener_shorttitle)
+
+    if self.drawer_indicator is None: # try once more to find the trade drawer
+      self.drawer_indicator = self.get_indicator(self.drawer_shorttitle)
+
+    if self.screener_indicator is None or self.drawer_indicator is None:
+      open_tv_logger.error(f'One of the indicators is not found. Exiting function. Screener: {self.screener_indicator}, Trade Drawer: {self.drawer_indicator}')
+      return False
+
+    # make the screener visible and Trade Drawer indicator visible
+    if not self.indicator_visibility(True, self.screener_shorttitle):
+      self.indicator_visibility(True, self.screener_shorttitle)
+      if self.is_visible(self.screener_shorttitle) == False:
+        open_tv_logger.warning('Failed to make the screener indicator visible. The function will still continue on without exiting as this is not crucial.')
+
+    if not self.indicator_visibility(True, self.drawer_shorttitle):
+      self.indicator_visibility(True, self.drawer_shorttitle)
+      if self.is_visible(self.drawer_shorttitle) == False:
+        open_tv_logger.warning('Failed to make the Trade Drawer indicator visible. The function will still continue on without exiting as this is not crucial.')
+        
+		# Change the candle type to a line
+    candle_type = 'Line'
+    if not self.change_candles_type(candle_type):
+      open_tv_logger.warning(f'Failed to change the candle type to {candle_type}. Application will still continue on without exiting as this is not crucial.')
+    
     #give it some time to rest
     sleep(2) 
 
@@ -213,7 +268,7 @@ class Browser:
       return ''
 
   def save_layout(self):
-    '''This saves the current layout of the chart.'''
+    '''This saves the current layout of the chart by clicking on the current layout.'''
     try:
       # check if the layout has been saved. If it hasn't, save it.
       curr_layout = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.XPATH, '//*[@id="header-toolbar-save-load"]')))
@@ -340,6 +395,48 @@ class Browser:
       open_tv_logger.exception(f'An error happened when opening the alerts sidebar. Error: ')
       return False
 
+  def change_candles_type(self, candle_type: str):
+    """
+    Changes the candle type to `candle_type` if it isn't already so. 
+      
+    Args:
+    candle_type (str): Can be either "Line" or "Candle".
+
+    Returns:
+    bool: True if the candle type was changed successfully, False otherwise.
+    """
+    try:
+        # Find the candle button
+        candle_button = WebDriverWait(self.driver, 10).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, 'div[id="header-toolbar-chart-styles"] button'))
+        )
+        
+        # If the style of the candle is not candle_type
+        if candle_type not in candle_button.get_attribute('aria-label'):
+            open_tv_logger.info(f'Changing the style of candles to {candle_type}')
+            candle_button.click()
+            
+            # Wait for the dropdown menu to appear
+            menu = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="menu-inner"]'))
+            )
+            
+            # Find the Line type and click on it
+            candle_types = WebDriverWait(menu, 10).until(
+                EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[data-role="menuitem"]'))
+            )
+            for c in candle_types:
+                if c.get_attribute('data-value') == candle_type.lower():
+                    c.click()
+                    open_tv_logger.info('Found Line candle type!')
+                    return True
+        else:
+            open_tv_logger.info(f'The candle type is already {candle_type}.')
+            return True
+    except Exception as e:
+        open_tv_logger.error(f"Error in changing candle type: {e}")
+        return False
+		
   def set_alerts(self, symbols):
     '''This first checks if the screener has an error. If it does, it re-uploads it and fills in the symbols again. If an error is still there, `False` is returned. If there was no error in the first place, an alert gets created. If there was an error in creating the alert, it tries again.'''
 

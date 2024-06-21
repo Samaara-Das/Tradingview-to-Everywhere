@@ -151,6 +151,8 @@ class OpenChart:
         # click on Symbol Search and search for a specific symbol and hit ENTER
         symbol_search.click()
         search_input = self.driver.find_element(By.XPATH, '//*[@id="overlap-manager-root"]/div/div/div[2]/div/div[2]/div[1]/input')
+        ActionChains(self.driver).key_down(Keys.CONTROL, search_input).send_keys('a').perform()
+        search_input.send_keys(Keys.DELETE)
         search_input.send_keys(symbol)
         search_input.send_keys(Keys.ENTER)
         entry_chart_logger.info(f'Entered symbol {symbol}') 
