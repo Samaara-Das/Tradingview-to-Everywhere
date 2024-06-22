@@ -8,7 +8,7 @@ import open_entry_chart
 from datetime import datetime
 from traceback import print_exc
 from resources.symbol_settings import symbol_category
-import send_to_socials.send_to_discord as send_to_discord
+import send_to_socials.discord as discord
 import database.nk_db as nk_db
 import database.local_db as local_db
 from time import sleep, time
@@ -30,7 +30,7 @@ class Alerts:
     self.local_db = local_db.Database('')
     self.nk_db = nk_db.Post()
     self.chart = open_entry_chart.OpenChart(self.driver)
-    self.discord = send_to_discord.Discord()
+    self.discord = discord.Discord()
     self.drawer_shorttitle = drawer_shorttitle
     self.screener_shortitle = screener_shortitle
     self.chart_timeframe = chart_timeframe
