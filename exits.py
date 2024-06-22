@@ -5,7 +5,7 @@ import logger_setup
 from datetime import datetime, timedelta, time
 from time import sleep
 from resources.symbol_settings import symbol_category
-from send_to_socials.send_to_discord import Discord
+from send_to_socials.discord import Discord
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
