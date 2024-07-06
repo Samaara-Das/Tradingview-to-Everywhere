@@ -8,10 +8,8 @@ import logger_setup
 from discord_webhook import DiscordWebhook
 from resources.categories import *
 
-BI_REPORT_LINK = 'https://bit.ly/trade-stats'
-
 # Set up logger for this file
-discord_logger = logger_setup.setup_logger(__name__, logger_setup.logging.DEBUG)
+discord_logger = logger_setup.setup_logger(__name__, logger_setup.INFO)
 
 class Discord:
     def __init__(self):
@@ -53,12 +51,12 @@ class Discord:
         except Exception as e:
             discord_logger.exception(f'Error sending "{content}" to {category} webhook for the exit channel. Response: {response} Error:')
 
-    def send_to_before_and_after_channel(self, entry):
+    def send_to_before_and_after_channel(self, entry, bi_content):
         try:
             category = entry['category']
-            # Changing internal quotes to double quotes for 'entry_snapshot' and 'exit_snapshot' fields
-            content = f"1st image -> entry: {entry['entrySnapshot']} \n2nd image -> exit: {entry['exitSnapshot']} \nFor more stats, go here: {BI_REPORT_LINK}"
+            content = f"1st image -> entry: {entry['entrySnapshot']} \n2nd image -> exit: {entry['exitSnapshot']}"+'\n'+bi_content
             webhook = DiscordWebhook(url=self.before_after_webhook_urls[category], content=content)
             response = webhook.execute()
         except Exception as e:
             discord_logger.exception(f"Error sending \"{content}\" to {category} webhook for the exit channel. Response: {response} Error:", exc_info=e)
+
