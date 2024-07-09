@@ -6,7 +6,7 @@ There are a few other things this does that are related to all the things mentio
 '''
 
 # import modules
-import get_alert_data
+import handle_alerts
 import logger_setup
 from traceback import print_exc
 from time import sleep, time
@@ -139,7 +139,7 @@ class Browser:
       open_tv_logger.error(f'One of the indicators is not found. Exiting function. Screener: {self.screener_indicator}, Trade Drawer: {self.drawer_indicator}')
       return False
 
-    self.alerts = get_alert_data.Alerts(self.drawer_shorttitle, self.screener_shorttitle, self.driver, CHART_TIMEFRAME, self.interval_seconds, trim_file, log_file, LINES_TO_KEEP)
+    self.alerts = handle_alerts.Alerts(self.drawer_shorttitle, self.screener_shorttitle, self.driver, CHART_TIMEFRAME, self.interval_seconds, trim_file, log_file, LINES_TO_KEEP)
 
     # make the screener visible and Trade Drawer indicator visible
     if not self.indicator_visibility(True, self.screener_shorttitle):

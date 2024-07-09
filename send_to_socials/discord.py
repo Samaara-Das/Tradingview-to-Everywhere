@@ -51,10 +51,9 @@ class Discord:
         except Exception as e:
             discord_logger.exception(f'Error sending "{content}" to {category} webhook for the exit channel. Response: {response} Error:')
 
-    def send_to_before_and_after_channel(self, entry, bi_content):
+    def send_to_before_and_after_channel(self, category, entry_img, exit_img, bi_content):
         try:
-            category = entry['category']
-            content = f"1st image -> entry: {entry['entrySnapshot']} \n2nd image -> exit: {entry['exitSnapshot']}"+'\n'+bi_content
+            content = f"1st image -> entry: {entry_img} \n2nd image -> exit: {exit_img}"+'\n'+bi_content
             webhook = DiscordWebhook(url=self.before_after_webhook_urls[category], content=content)
             response = webhook.execute()
         except Exception as e:

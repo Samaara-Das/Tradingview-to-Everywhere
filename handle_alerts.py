@@ -115,18 +115,21 @@ class Alerts:
         formatted_time = kwargs.get('formatted_time')
         value = kwargs.get('value')
 
-        chart_link = self.chart.save_chart_img() 
+        png_link, tv_link = '', ''
+        links = self.chart.save_chart_img() 
+        if links:
+          png_link, tv_link = links['png'], links['tv'] 
         category = symbol_category(key)
 
         # Discord
-        content = f"{direction} in {key} at {entry_price}. TP1: {tp1_price} TP2: {tp2_price} TP3: {tp3_price} SL: {sl_price} Link: {chart_link if chart_link != False else ''}"
+        content = f"{direction} in {key} at {entry_price}. TP1: {tp1_price} TP2: {tp2_price} TP3: {tp3_price} SL: {sl_price} Link: {tv_link}"
         self.discord.send_to_entry_channel(category, content) 
 
         # My database
-        self.local_db.add_doc({"direction": direction, "symbol": key, "timeframe": timeframe, "entryPrice": entry_price, "tp1Price": tp1_price, "tp2Price": tp2_price, "tp3Price": tp3_price, "slPrice": sl_price, "entrySnapshot": chart_link, "content": content, "unixTime": entry_time, "category": category, "isSlHit": False, "isTp1Hit": False, "isTp2Hit": False, "isTp3Hit": False, "exitSnapshot": ''}, "Entries")
+        self.local_db.add_doc({"direction": direction, "symbol": key, "timeframe": timeframe, "entryPrice": entry_price, "tp1Price": tp1_price, "tp2Price": tp2_price, "tp3Price": tp3_price, "slPrice": sl_price, "tvEntrySnapshot": tv_link, "pngEntrySnapshot": png_link, "content": content, "unixTime": entry_time, "category": category, "isSlHit": False, "isTp1Hit": False, "isTp2Hit": False, "isTp3Hit": False, "tvExitSnapshot": '', "pngExitSnapshot": ''}, "Entries")
         
         # Nk uncle's server
-        self.nk_db.post_to_url({"type": value['type'], "direction": direction, "symbol": key, "tframe": timeframe, "entry": entry_price, "tp1": tp1_price, "tp2": tp2_price, "tp3": tp3_price, "sl": sl_price, "chart_link": chart_link, "content": content, "date": formatted_time, "symbol_type": category, "exit_msg": ''})
+        self.nk_db.post_to_url({"type": value['type'], "direction": direction, "symbol": key, "tframe": timeframe, "entry": entry_price, "tp1": tp1_price, "tp2": tp2_price, "tp3": tp3_price, "sl": sl_price, "chart_link": png_link, "content": content, "date": formatted_time, "symbol_type": category, "exit_msg": ''})
         
         # Log success
         alert_data_logger.info(f"Successfully sent entry data to all platforms for symbol {key}.")
