@@ -9,8 +9,13 @@ discord-webhook = "*"
 pymongo = "*"
 requests = "*"
 webdriver-manager = "*"
-tuna = "*"
 pytz = "*"
+facebook-sdk = "*"
+beautifulsoup4 = "*"
+linkedin-api-client = "*"
+requests-oauthlib = "*"
+python-dotenv = "*"
+tweepy = "==4.9.0"
 
 [dev-packages]
 
