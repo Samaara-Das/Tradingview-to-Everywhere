@@ -122,7 +122,7 @@ class Alerts:
         category = symbol_category(key)
 
         # Discord
-        content = f"{direction} in {key} at {entry_price}. TP1: {tp1_price} TP2: {tp2_price} TP3: {tp3_price} SL: {sl_price} Link: {tv_link}"
+        content = f"{direction} in {key} at {entry_price}. TP1: {tp1_price} TP2: {tp2_price} TP3: {tp3_price} SL: {sl_price} Link: {png_link}"
         self.discord.send_to_entry_channel(category, content) 
 
         # My database
