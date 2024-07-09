@@ -4,17 +4,23 @@ this can add documents to the collection's database and delete all of them.
 this also retrieves the latest document from the collection
 '''
 
+import requests
 import pymongo
+from pymongo import UpdateOne
+from bs4 import BeautifulSoup
 import logger_setup
 import pytz
 from pymongo.mongo_client import MongoClient
 from datetime import datetime, timedelta, timezone
 from time import mktime
+from dotenv import load_dotenv
+from os import getenv
+
+load_dotenv('C:\\Users\\Puja\\Work\\Coding\\Python\\For Poolsifi\\tradingview to everywhere\\.env')
+pwd = getenv('MONGODB_PWD')
 
 # Set up logger for this file
 local_db_logger = logger_setup.setup_logger(__name__, logger_setup.logging.DEBUG)
-
-PWD = 'kdgzKyjYr8WA6Vkm'
 
 class Database:
     def __init__(self, col, delete=False):
@@ -22,7 +28,7 @@ class Database:
         # self.client = MongoClient("mongodb://127.0.0.1:27017/?directConnection=true&serverSelectionTimeoutMS=2000&appName=mongosh+1.10.3")
 
         # for a connection to remote database:
-        self.client = MongoClient(f"mongodb+srv://sammy:{PWD}@cluster1.565lfln.mongodb.net/?retryWrites=true&w=majority")
+        self.client = MongoClient(f"mongodb+srv://sammy:{pwd}@cluster1.565lfln.mongodb.net/?retryWrites=true&w=majority")
         
         try:
             self.client.admin.command('ping')
@@ -71,6 +77,56 @@ class Database:
             local_db_logger.exception(f'Failed to add document to MongoDB\'s {col} collection. Error:')
             return False
 
+    def change_tv_links(self, col: str):
+        '''This changes the `entrySnapshot` and `exitSnapshot` fields in every document to a png link. I made this because papa decided that the png link of the TradingView snapshot is better than the html link.'''
+        collection = self.db[col]
+        bulk_operations = []
+
+        # Query to find documents where exitSnapshot contains .png and entrySnapshot does not contain .png
+        query = {
+            'tvExitSnapshot': {'$regex': r'\.png', '$options': 'i'},
+            'tvEntrySnapshot': {'$not': {'$regex': r'\.png', '$options': 'i'}}
+        }
+
+        for doc in collection.find(query, {'_id': 1, 'tvEntrySnapshot': 1}):
+            entry_url = doc.get('tvEntrySnapshot')
+            new_entry_link = self.extract_img_src(entry_url, 'entry')
+
+            if new_entry_link:
+                bulk_operations.append(
+                    UpdateOne(
+                        {'_id': doc['_id']},
+                        {'$set': {'tvEntrySnapshot': new_entry_link}}
+                    )
+                )
+            else:
+                print(f"Failed to extract new links for document with _id {doc['_id']}")
+
+        if bulk_operations:
+            try:
+                result = collection.bulk_write(bulk_operations)
+                print(f"Bulk write operation completed. Matched: {result.matched_count}, Modified: {result.modified_count}")
+            except Exception as e:
+                print("Error during bulk write operation:")
+                print(e)
+
+    def extract_img_src(self, url: str, t) -> str:
+        '''Extracts the src attribute of the img tag with the tv-snapshot-image class'''
+        try:
+            response = requests.get(url)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.text, 'html.parser')
+            img_tag = soup.find('img', class_='tv-snapshot-image')
+            if img_tag and 'src' in img_tag.attrs:
+                new_link = img_tag['src']
+                return new_link
+            else:
+                print(f"No img tag with class 'tv-snapshot-image' found in {url}.")
+                return ''
+        except Exception as e:
+            print(f'Error fetching or parsing the URL {url} for {t}: {e}')
+            return ''
+
     def get_latest_doc(self, col: str):
         '''This finds the latest doc in `col` collection based on the `unixTime` field'''
         docs = self.db[col].find_one(sort=[("unixTime", pymongo.DESCENDING)])
@@ -110,3 +166,4 @@ class Database:
         timestamp_datetime_kolkata = timestamp_datetime.replace(tzinfo=pytz.utc).astimezone(timezone) # Format the datetime object into a short, readable string
         readable_format = timestamp_datetime_kolkata.strftime('%y-%m-%d %H:%M')
         return readable_format
+

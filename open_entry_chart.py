@@ -192,7 +192,7 @@ class OpenChart:
       return False
 
   def get_exit_snapshot(self, get_exits_shorttitle):
-    '''This waits for the indicator to load, take's a snapshot of the chart, grabs its link and returns it'''
+    '''This waits for the indicator to load, take's a snapshot of the chart and returns links '''
     try:
       # wait for the indicator to fully load so that a snapshot can be taken
       start_time = time()
@@ -213,14 +213,18 @@ class OpenChart:
         return False
 
       # Take a snapshot of the exit
-      chart_link = self.save_chart_img() 
-      return chart_link
+      return self.save_chart_img() 
     except Exception as e:
       entry_chart_logger.exception('Error in posting an entry. Error:')
                                             
   def save_chart_img(self):
-    '''Clicks on the camera icon to take a snapshot of the chart and opens it in a new tab. Then it gets the link of the tab and closes it. The link gets returned. If an error happens, an empty string is returned.'''
-    url = ''
+    '''Clicks on the camera icon to take a snapshot of the chart and opens it in a new tab. The link of the tab and image are returned in a dictionary. If an error occurs, an empty string is returned.
+    
+    Returns
+    - Dictionary with keys 'png' and 'tv' if successful, otherwise an empty dictionary.
+    '''
+    png_link = ''
+    tv_link = ''
     try:
       camera = WebDriverWait(self.driver, 20).until(EC.element_to_be_clickable((By.XPATH, "//button[@aria-label='Take a snapshot']/div[@id='header-toolbar-screenshot']")))
 
@@ -232,9 +236,12 @@ class OpenChart:
 
       # get the url of the newly opened tab after it has fully loaded
       self.driver.switch_to.window(self.driver.window_handles[-1])
-      WebDriverWait(self.driver, 12).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'img[class="tv-snapshot-image"]')))
-      url = self.driver.current_url
-      entry_chart_logger.info(f'Got url of the snapshot: {url}')
+      img_element = WebDriverWait(self.driver, 12).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'img.tv-snapshot-image')))
+        
+      # Get the link of the tab and src attribute value of the image
+      tv_link = self.driver.current_url
+      png_link = img_element.get_attribute('src')
+      entry_chart_logger.info(f'Got link of image and tab!')
 
       # close the new tab 
       self.driver.close()
@@ -254,9 +261,9 @@ class OpenChart:
             break
 
       self.driver.switch_to.window(self.driver.window_handles[0])
-      return ''
+      return {}
     
-    return url
+    return {'png': png_link, 'tv': tv_link}
   
   def get_indicator(self, ind_shorttitle: str):
     '''Returns the indicator which has the same shorttitle as `ind_shorttitle`. If an indicator with the same shorttitle can't be found or an error occurrs, `None` will be returned'''

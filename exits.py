@@ -6,6 +6,8 @@ from datetime import datetime, timedelta, time
 from time import sleep
 from resources.symbol_settings import symbol_category
 from send_to_socials.discord import Discord
+from send_to_socials.twitter import TwitterClient
+from send_to_socials._facebook import post_before_after as fb_post
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -15,6 +17,7 @@ from selenium.common.exceptions import WebDriverException, TimeoutException
 # Set up logger for this file
 exit_logger = logger_setup.setup_logger(__name__, logger_setup.logging.DEBUG)
 
+BI_REPORT_LINK = 'https://bit.ly/trade-stats' # link to the bi report
 INDICATOR_SHORT = 'Get Exits' # shorttitle of the Get Exits indicator
 INDICATOR_NAME = 'Get Exits' # name of the Get Exits indicator
 GET_EXITS_LAYOUT_NAME = 'Exits' # Name of the layout on TradingView
@@ -37,6 +40,8 @@ class Exits:
         self.browser.get_exits_shorttitle = INDICATOR_SHORT
         self.browser.get_exits_name = INDICATOR_NAME
         self.alert_name = self.browser.get_exits_shorttitle
+        self.discord = Discord()
+        self.twitter = TwitterClient()
 
     def set_up(self):
         '''Sets up Tradingview for checking the exits'''
@@ -152,22 +157,27 @@ class Exits:
                                 # take a snapshot
                                 if tp1_hit or tp2_hit or tp3_hit or sl_hit:
                                     exit_logger.info(f'An exit has been hit. Going to take a snapshot. Exits: sl-{sl_hit}, tp1-{tp1_hit}, tp2-{tp2_hit}, tp3-{tp3_hit}')
-                                    snapshot_link = self.open_chart.get_exit_snapshot(self.browser.get_exits_shorttitle)
-                                    if snapshot_link:
+                                    links = self.open_chart.get_exit_snapshot(self.browser.get_exits_shorttitle)
+                                    if links:
+                                        png_link, tv_link = links['png'], links['tv'] 
                                         # add the link to the document
-                                        self.database.db[self.col].update_one({'_id': entry['_id']}, {'$set': {'exitSnapshot': snapshot_link}})
+                                        self.database.db[self.col].update_one({'_id': entry['_id']}, {'$set': {'tvExitSnapshot': tv_link, 'pngExitSnapshot': png_link}})
 
                                         # send the message to the exits channel
-                                        discord = Discord()
                                         symbol = entry['symbol']
                                         category = symbol_category(symbol)
                                         word = 'hit' if sl_hit else ('gained' if tp1_hit or tp2_hit or tp3_hit else 'none')
                                         exit_type = 'Stop Loss' if sl_hit else ('3%' if tp3_hit else '2%' if tp2_hit else '1%' if tp1_hit else 'none')
-                                        content1 = f"{entry['direction']} trade in {symbol} {word} {exit_type}. Link: {snapshot_link}"
-                                        discord.send_to_exit_channel(category, content1) 
+                                        exit_content = f"{entry['direction']} trade in {symbol} {word} {exit_type}. Link: {png_link}"
+                                        bi_content = f'For more stats, go here: {BI_REPORT_LINK}'
+                                        
+                                        self.discord.send_to_exit_channel(category, exit_content) 
 
-                                        # send the message to the before-and-after channel
-                                        discord.send_to_before_and_after_channel(entry) 
+                                        self.discord.send_to_before_and_after_channel(entry['category'], entry['pngEntrySnapshot'], entry['pngExitSnapshot'], bi_content) 
+
+                                        self.twitter.before_after_tweets(entry['tvEntrySnapshot'], entry['tvExitSnapshot'], entry['content'], exit_content)
+                                        
+                                        fb_post(entry['pngEntrySnapshot'], entry['pngExitSnapshot'], entry['content']+'\n'+bi_content, exit_content+'\n'+bi_content) 
 
                             # delete the alert made by Get Exits
                             if not self.delete_all_get_exits_alerts():
@@ -193,30 +203,34 @@ class Exits:
 
     def remove_duplicate_entries(self, col):
         '''This removes the duplicate document in `col` collection so that each document can be unique. Entries are considered duplicates if their direction, symbol, category and unixTime fields match another document.'''
-        collection = self.database.db[col]
-        pipeline = [
-            {
-                '$group': {
-                    '_id': {'direction': '$direction', 'symbol': '$symbol', 'category': '$category', 'unixTime': '$unixTime'},
-                    'docs': {'$push': '$_id'},
-                    'count': {'$sum': 1}
+        try:
+            collection = self.database.db[col]
+            pipeline = [
+                {
+                    '$group': {
+                        '_id': {'direction': '$direction', 'symbol': '$symbol', 'category': '$category', 'unixTime': '$unixTime'},
+                        'docs': {'$push': '$_id'},
+                        'count': {'$sum': 1}
+                    }
+                },
+                {
+                    '$match': {'count': {'$gt': 1}}
                 }
-            },
-            {
-                '$match': {'count': {'$gt': 1}}
-            }
-        ]
+            ]
 
-        duplicate_groups = list(collection.aggregate(pipeline))
-        ids_to_delete = []
-        for group in duplicate_groups:
-            ids_to_delete.extend(group['docs'][1:]) # Skip the first id to keep one document from each group
+            duplicate_groups = list(collection.aggregate(pipeline))
+            ids_to_delete = []
+            for group in duplicate_groups:
+                ids_to_delete.extend(group['docs'][1:]) # Skip the first id to keep one document from each group
 
-        if ids_to_delete: # Delete the documents with the collected _id values
-            delete_result = collection.delete_many({'_id': {'$in': ids_to_delete}})
-            exit_logger.info(f"Deleted {delete_result.deleted_count} duplicates from the {col} collection.")
-        else:
-            exit_logger.info(f"No duplicates to delete in {col} collection.")     
+            if ids_to_delete: # Delete the documents with the collected _id values
+                delete_result = collection.delete_many({'_id': {'$in': ids_to_delete}})
+                exit_logger.info(f"Deleted {delete_result.deleted_count} duplicates from the {col} collection.")
+            else:
+                exit_logger.info(f"No duplicates to delete in {col} collection.")     
+        except Exception as e:
+            exit_logger.exception('Error encountered: ')
+            return False
 
     def is_market_open(self, col):
         '''This checks if the `col` market ic currently open. Returns `True` if it is and `False` if it isn't.'''
