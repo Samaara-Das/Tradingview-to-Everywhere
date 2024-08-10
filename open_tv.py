@@ -8,13 +8,11 @@ There are a few other things this does that are related to all the things mentio
 # import modules
 import handle_alerts
 import logger_setup
-from traceback import print_exc
 from time import sleep, time
 from open_entry_chart import OpenChart
 from resources.symbol_settings import *
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromeService
-from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
@@ -33,6 +31,7 @@ USED_SYMBOLS_INPUT = "Used Symbols" # Name of the Used Symbols input in the Scre
 LAYOUT_NAME = 'Screener' # Name of the layout for the screener
 SCREENER_REUPLOAD_TIMEOUT = 15 # seconds to wait for the screener to show up on the chart after re-uploading it
 
+CHROMEDRIVER_EXE_PATH = 'C:\\Users\\Puja\\Work\\Coding\\Python\\chromedriver.exe'
 CHROME_PROFILE_PATH = 'C:\\Users\\Puja\\AppData\\Local\\Google\\Chrome\\User Data'
 # CHROME_PROFILE_PATH = 'C:\\Users\\pripuja\\AppData\\Local\\Google\\Chrome\\User Data'
 
@@ -58,7 +57,7 @@ class Browser:
     chrome_options.add_experimental_option("detach", keep_open)
     chrome_options.add_argument('--profile-directory=Profile 2')
     chrome_options.add_argument(f"--user-data-dir={CHROME_PROFILE_PATH}")
-    self.driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()), options=chrome_options)
+    self.driver = webdriver.Chrome(service=ChromeService(executable_path=CHROMEDRIVER_EXE_PATH), options=chrome_options)
     self.open_chart = OpenChart(self.driver)
     self.screener_name = screener_name
     self.screener_shorttitle = screener_shorttitle
@@ -90,6 +89,12 @@ class Browser:
         open_tv_logger.error(f'Failed to open tradingview. Exiting function')
         return False
 
+    alert_sidebar = WebDriverWait(self.driver, 5).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, '.body-i8Od6xAB')))
+
+    if not alert_sidebar:
+        open_tv_logger.error('Alert sidebar not found. Cannot delete all alerts.')
+        return False
+
     # change to the screener layout (if we are on any other layout)
     if not self.change_layout(LAYOUT_NAME):
       self.change_layout(LAYOUT_NAME) # try once more
@@ -116,6 +121,10 @@ class Browser:
       if not self.alerts_sidebar_open():
         open_tv_logger.error(f'Cannot open the alerts sidebar. Exiting function')
         return False
+    
+    # Open the Alerts tab in the alerts sidebar
+    if not self.open_alerts_tab():
+      open_tv_logger.warning(f'Alerts tab failed to open.')
 
     # delete all alerts
     if self.start_fresh:
@@ -467,37 +476,6 @@ class Browser:
       return False
     
     return False
-  
-  def set_get_exit_alert(self, alert_name, entry_time, entry_price, entry_type, sl_price, tp1_price, tp2_price, tp3_price):
-    '''This first checks if the Get Exit indicator has an error. If it does, it re-uploads it and fills in the inputs again. If an error is still there, `False` is returned. If there was no error in the first place, an alert gets created. If there was an error in creating the alert, it tries again.'''
-
-    # check if the indicator indicator has an error
-    if not self.is_no_error(self.get_exits_shorttitle):
-      open_tv_logger.error('indicator had an error. Could not set an alert for this tab. Trying to reupload indicator')
-      if not self.reupload_indicator(self.get_exits_indicator, self.get_exits_name, self.get_exits_shorttitle):
-        open_tv_logger.error('Could not re-upload indicator. Cannot set an alert for the indicator. Exiting function.')
-        return False
-      if not self.change_get_exit_settings(entry_time, entry_price, entry_type, sl_price, tp1_price, tp2_price, tp3_price):
-        open_tv_logger.error('Could not input the settings. Cannot set an alert for the indicator. Exiting function.')
-        return False
-      sleep(5) # wait for the indicator to fully load (we are avoiding to wait for the indicator to load because it will take too long)
-      if not self.is_no_error(self.get_exits_shorttitle): # if an error is still there
-        open_tv_logger.error('Error is still there in the indicator. Cannot set an alert for the indicator. Exiting function.')
-        return False
-   
-    # set the alert for the indicator
-    try:
-      if not self.click_create_alert(self.get_exits_shorttitle, alert_name):
-        if self.reupload_indicator(self.get_exits_indicator, self.get_exits_name, self.get_exits_shorttitle): # Reuploading the indicator
-          if self.change_get_exit_settings(entry_time, entry_price, entry_type, sl_price, tp1_price, tp2_price, tp3_price):
-            return self.click_create_alert(self.get_exits_shorttitle, alert_name)
-      else:
-        return True
-    except Exception as e:
-      open_tv_logger.exception('Error occurred when setting up alert. Exiting function. Error:')
-      return False
-    
-    return False
 
   def click_create_alert(self, shorttitle, alert_name=''):
     '''This clicks the + button to create an alert for the indicator with the shorttitle of `shorttitle`, names the alert to `alert_name` if it's not an empty string otherwise no name will be given and the default alert name will be used. Then, "Create" gets clicked. This returns `True` if the alert was created otherwise `False`. If something goes wrong, the "Create Alert" popup will be closed (if it was open) and `False` will be returned.'''
@@ -660,9 +638,8 @@ class Browser:
       if not alert_sidebar:
         open_tv_logger.error('Alert sidebar not found. Cannot delete all alerts.')
         return False
-
+      
       # Check if there already are no alerts
-      sleep(3) #wait for the alert sidebar to load fully
       if self.driver.find_elements(By.CSS_SELECTOR, 'div.list-G90Hl2iS div.itemBody-ucBqatk5') == []:
         open_tv_logger.info('There are no alerts. No need to delete any alerts!')
         return True
@@ -684,6 +661,42 @@ class Browser:
       return False
     
     return False
+
+  def open_alert_tab(self):
+    '''This makes sure that the Alert tab in the alerts sidebar is open.'''
+    try:
+      # make sure the the Alerts tab is currently open
+      alert_tab_selector = 'div[class="widget-X9EuSe_t widgetbar-widget widgetbar-widget-alerts"] div[class="widgetHeader-X9EuSe_t"] div[id="id_AlertsHeaderTabs_tablist"] button[data-name="light-tab-0"]'
+
+      if self.driver.find_element(By.CSS_SELECTOR, alert_tab_selector).get_attribute('aria-selected') == 'true': # if the Alerts tab is already open
+        open_tv_logger.info('Alerts tab is already open. No need to open it!')
+      else: # if the Alerts tab is not open, open it
+        WebDriverWait(self.driver, 3).until(EC.element_to_be_clickable((By.CSS_SELECTOR, alert_tab_selector))).click() # open the Alerts tab
+      
+      sleep(2) # wait for the Alert tab to open
+      return True
+    
+    except Exception as e:
+      open_tv_logger.exception(f'Error ocurred when opening the Alert tab. Error: ')
+      return False
+
+  def open_log_tab(self):
+    '''This makes sure that the Log tab in the alerts sidebar is open.'''
+    try:
+      # make sure the the Log tab is currently open
+      alert_tab_selector = 'div[class="widget-X9EuSe_t widgetbar-widget widgetbar-widget-alerts"] div[class="widgetHeader-X9EuSe_t"] div[id="id_AlertsHeaderTabs_tablist"] button[data-name="light-tab-1"]'
+
+      if self.driver.find_element(By.CSS_SELECTOR, alert_tab_selector).get_attribute('aria-selected') == 'true': # if the Log tab is already open
+        open_tv_logger.info('Log tab is already open. No need to open it!')
+      else: # if the Log tab is not open, open it
+        WebDriverWait(self.driver, 3).until(EC.element_to_be_clickable((By.CSS_SELECTOR, alert_tab_selector))).click() # open the Log tab
+      
+      sleep(2) # wait for the Log tab to open
+      return True
+    
+    except Exception as e:
+      open_tv_logger.exception(f'Error ocurred when opening the Log tab. Error: ')
+      return False
 
   def reupload_indicator(self, indicator, indicator_name, indicator_shorttitle):
     '''removes indicator and reuploads it again to the chart by clicking on the screener in the Favorites dropdown. It then waits for the indicator to show up on the chart and returns `True` if it does otherwise `False`.
@@ -773,32 +786,6 @@ class Browser:
       open_tv_logger.exception(f'Failed to get the current chart timeframe. Error:')
       return ''
     
-  def delete_get_exit_alert(self, alert_name):
-    '''Deletes the alert which has its alert name as `alert_name` and returns `True` if the alert is deleted successfully and `False` if it is not deleted successfully.'''
-    try:
-      # wait for the alert sidebar to show up
-      alert_sidebar = WebDriverWait(self.driver, 5).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, '.body-i8Od6xAB')))
-      if not alert_sidebar:
-        open_tv_logger.error('Alert sidebar not found. Cannot delete all alerts.')
-        return False
-
-      # Find the alert with the alert name
-      xpath = f"//div[contains(@class, 'itemBody-ucBqatk5') and contains(@class, 'active-Bj96_lIl')][.//div[@data-name='alert-item-name' and text()='{alert_name}']]"
-      alert = alert_sidebar[0].find_element(By.XPATH, xpath)
-
-      # Delete it
-      ActionChains(self.driver).move_to_element(alert).perform()
-      remove_button = alert.find_element(By.CSS_SELECTOR, 'div[data-name="alert-delete-button"]')
-      remove_button.click()
-
-      # Wait for the confirmation popup to appear and click "Yes"
-      popup = WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="confirm-dialog"]')))
-      popup.find_element(By.CSS_SELECTOR, 'button[name="yes"]').click()
-    
-    except Exception as e:
-      open_tv_logger.exception(f'Failed to delete the {alert_name} alert. Error:')
-      return False
-
   def alerts_sidebar_open(self):
     '''This checks if the Alerts sidebar is open. Returns `True` if it is and returns `False` if it is not.'''
     try:
@@ -816,7 +803,7 @@ class Browser:
   def no_alerts(self):
     '''This checks if there no alerts. If there are no alerts, returns `True` and returns `False` if there are alerts'''
     try:
-      alerts = self.driver.find_elements(By.CSS_SELECTOR, 'div.list-G90Hl2iS div.itemBody-ucBqatk5')
+      alerts = WebDriverWait(self.driver, 3).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div.list-G90Hl2iS div.itemBody-ucBqatk5')))
       if not alerts: # if there are no alerts
         open_tv_logger.info('There are no alerts!')
         return True
