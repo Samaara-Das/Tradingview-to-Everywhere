@@ -5,6 +5,7 @@ import logger_setup
 from datetime import datetime, timedelta, time
 from time import sleep
 from resources.symbol_settings import symbol_category
+from resources.utils import Utils
 from send_to_socials.discord import Discord
 from send_to_socials.twitter import TwitterClient
 from send_to_socials._facebook import post_before_after as fb_post
@@ -29,6 +30,7 @@ class Exits:
         self.open_chart = open_entry_chart
         self.browser = browser
         self.database = database
+        self.utils = Utils()
         self.col = 'Entries'
         self.last_checked_dates = {
             'Currencies': None,
@@ -65,17 +67,13 @@ class Exits:
     def delete_all_get_exits_alerts(self):
         '''Deletes all the alerts that have an alert name that is `self.alert_name`. Note: the alerts that get checked are just the ones that are first visible without scrolling down.'''
         try:
-            sleep(1)
-            # wait for the alert sidebar to show up
-            alert_sidebar = WebDriverWait(self.browser.driver, 5).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, '.body-i8Od6xAB')))
-            if not alert_sidebar:
-                exit_logger.error('Alert sidebar not found. Cannot delete all alerts.')
-                return False
+            # Make sure that the Alerts tab is open
+            self.utils.open_alert_tab(self.browser.driver)
 
-            alerts = alert_sidebar[0].find_elements(By.CSS_SELECTOR, 'div[class="itemBody-ucBqatk5 active-Bj96_lIl"]')
+            alerts = self.browser.driver.find_elements(By.CSS_SELECTOR, 'div[class="widget-X9EuSe_t widgetbar-widget widgetbar-widget-alerts"] div.itemBody-ucBqatk5')
 
             for i, alert in enumerate(alerts):
-                if i > 0: # If there are many alerts, wait for some time before deleting the next alert so that the ElementNotInteractableException won't occur
+                if i > 0: # If there are many alerts, wait for some time before deleting the next alert so that ElementNotInteractableException is prevented
                     sleep(0.5)
 
                 # If the alert's name is "Get Exits"

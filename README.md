@@ -15,7 +15,7 @@ Then, Python takes a snapshot of that and send it to Discord, Poolsifi and a dat
 
 This whole process is repeated for all the messages until there are no more left. Once there are no more messages left, Python waits for them to come.
 
-## Things to do for programmers:
+## Notes for programmers:
 
 ### For open_tv.py
 1. `SYMBOL_INPUTS` in `open_tv.py` should be the number of inputs in the screener which will be filled with symbols by Python. There are currently a total of 20 symbol inputs in the screener. Only a couple of them will get filled (currently, 5 of them will get filled). So, don't give this constant a value of the total symbol inputs. To change how many symbols can get filled, go to the screener's code in Pine Script.
@@ -27,6 +27,12 @@ This whole process is repeated for all the messages until there are no more left
 5. In `open_tv.py`, make sure the `LAYOUT_NAME` constant is set to the name of the layout on Tradingview which is meant for the screener.
 
 6. In `open_tv.py`, the constant `SCREENER_REUPLOAD_TIMEOUT` has to have a value for the number of seconds it should wait for the screener to be re-uploaded on the chart. 
+
+7. If an error like this occurs "session not created: This version of ChromeDriver only supports Chrome version 114
+Current browser version is 127.0.6533.100", 
+    - Go to the ![Chromium website](https://sites.google.com/chromium.org/driver/)
+    - click here: ![Alt text](media/chromium.png)
+    - scroll down until you see a green table and download the latest chrome web driver
 
 ### For send_to_socials/send_to_discord.py
 1. `BI_REPORT_LINK` should be the shortened link of the latest Trade Stats Power BI Report. Use Bitly to shorten it.

@@ -2,15 +2,21 @@ import requests
 
 # Starting June 2022, LinkedIn Marketing APIs will be versioned and released under the base path: https://api.linkedin.com/rest/. Each version will be supported for 12 months. When making API calls make sure to specify the version you want and include the request header with key “LinkedIn-Version” and date (YYYYMM).
 
-CLIENT_ID = '86fzrened0vc97'
-CLIENT_SECRET = 'WoQpbhIl6EwFkTBU'
-ACCESS_TOKEN = 'AQWLs1DxYTaJeas5z1IkGVJsjwsqILZQir-Dlc6aNed6MC7ypV5x37hT7Te1-lKv5annWHSR0d-1CHUnUzsHGFVj6Q_s_3yXpf7w8zJjQOCWN-rKDno9yCs0A4USdleMyn85UgKFLQ3YhpLN97u87fXQ-E9VJGAqkazWnXwLsn8E1i0Vq47zOsL8fWDUosO8f4bqFJTgcqnVXtFY_rL-EoG6NJYMrDW3l5R9Z4wrKx8pZ4fX_eXrGHoeBYRobLEcQFYHYsJCeRHL5kOMWGc9zVe2W_cGXcEFiBmzvqLCUcCPJiCTvWJihnYqTJ5ogXToD5GjD28kK04gmLJNpRz-uagA7-fcjA'
-PERSON_AUTHOR_ID = 'OJ7zXgqJEl'
-ORG_AUTHOR_ID = '99288912' # the number in in the Market DaVinci LinkedIn URL
-PERSON_AUTHOR_TYPE = 'person' 
-ORG_AUTHOR_TYPE = 'organization' 
-ORGANIZATION_URN = f'urn:li:{ORG_AUTHOR_TYPE}:{ORG_AUTHOR_ID}'
-AD_ACCOUNT_ID = '695134886'
+MD_CLIENT_ID = '86fzrened0vc97'
+MD_CLIENT_SECRET = 'WoQpbhIl6EwFkTBU'
+MD_ACCESS_TOKEN = 'AQWLs1DxYTaJeas5z1IkGVJsjwsqILZQir-Dlc6aNed6MC7ypV5x37hT7Te1-lKv5annWHSR0d-1CHUnUzsHGFVj6Q_s_3yXpf7w8zJjQOCWN-rKDno9yCs0A4USdleMyn85UgKFLQ3YhpLN97u87fXQ-E9VJGAqkazWnXwLsn8E1i0Vq47zOsL8fWDUosO8f4bqFJTgcqnVXtFY_rL-EoG6NJYMrDW3l5R9Z4wrKx8pZ4fX_eXrGHoeBYRobLEcQFYHYsJCeRHL5kOMWGc9zVe2W_cGXcEFiBmzvqLCUcCPJiCTvWJihnYqTJ5ogXToD5GjD28kK04gmLJNpRz-uagA7-fcjA'
+MD_PERSON_AUTHOR_ID = 'OJ7zXgqJEl'
+MD_ORG_AUTHOR_ID = '99288912' # the number in in the Market DaVinci LinkedIn URL
+MD_PERSON_AUTHOR_TYPE = 'person' 
+MD_ORG_AUTHOR_TYPE = 'organization' 
+MD_ORGANIZATION_URN = f'urn:li:{MD_ORG_AUTHOR_TYPE}:{MD_ORG_AUTHOR_ID}'
+MD_AD_ACCOUNT_ID = '695134886'
+
+# For my LinkedIn account (Samaara Das)
+PC_CLIENT_ID = '865pvqn9t6je4s'
+PC_CLIENT_SECRET = 'xfMRGZEAFaET5PIO'
+PC_ACCESS_TOKEN = 'AQX1Cwe0RMzKGOp4Dqmdill5CHtcrvpdujks3zZgo-4kR7wTICpWeO_7cGsV4lLOZjJ-rj8IIQFt0bRu8uUMbx6jACenG8nvSxgabRhR-9-RDWXKW1FqLUVe6opgMUHO1TkoMJVdxgqQ7jQGBU4SW7wxEjDinRIk9Lkme2-eiLQFpt4pftlvMnvCGD4_81NBLUHXU46XWxg0CrNlyswvX0nfJybbMeXWtS1d9RaEUOv9QytUuGv4LNPb0PBtXoT6796XHin0eYExFxF8Jv0L3lmshNrgtff4IwwkwDO1C6jShGF8ltoQelvt3tnqWUgC8xlFXQuRe4Ik8VovJOu6NAa_LY-CJQ'
+
 
 def get_user_info(access_token):
     headers = {
@@ -52,8 +58,6 @@ def post_article():
     response = requests.post('https://api.linkedin.com/v2/ugcPosts', headers=headers, json=payload)
     post_info = response.json()
     print(post_info)
-
-
 
 def post_to_group():
     headers = {
@@ -130,5 +134,4 @@ def init_img_upload():
 
     response = requests.post(f'https://api.linkedin.com/rest/images?action=initializeUpload', headers=headers)
     return response.json()
-
 # print(init_img_upload()) # error 500

@@ -5,7 +5,6 @@ this can change the Trade Drawer's settings, change the chart's symbol and timef
 # import modules
 import logger_setup
 from time import sleep, time
-from traceback import print_exc
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
