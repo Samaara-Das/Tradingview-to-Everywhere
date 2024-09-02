@@ -3,6 +3,7 @@ This handles getting the alert and the alert message, removing it from the log, 
 '''
 
 # import modules
+from resources.utils import Utils
 import logger_setup
 import open_entry_chart
 from datetime import datetime
@@ -25,21 +26,18 @@ alert_data_logger = logger_setup.setup_logger(__name__, logger_setup.logging.DEB
 # class
 class Alerts:
 
-  def __init__(self, drawer_shorttitle, screener_shortitle, driver, chart_timeframe, interval_seconds, trim_file, log_file, lines) -> None:
+  def __init__(self, drawer_shorttitle, screener_shortitle, driver, chart_timeframe, interval_seconds) -> None:
     self.driver = driver
     self.local_db = local_db.Database('')
     self.nk_db = nk_db.Post()
     self.chart = open_entry_chart.OpenChart(self.driver)
     self.discord = discord.Discord()
     self.drawer_shorttitle = drawer_shorttitle
+    self.utils = Utils()
     self.screener_shortitle = screener_shortitle
     self.chart_timeframe = chart_timeframe
     self.interval_seconds = interval_seconds
-    self.trim_file = trim_file
-    self.log_file = log_file
-    self.lines = lines
     self.last_run = time()
-    self.get_alert_log()
     
   def post(self, msg, screener_visibility):
     '''This goes through every entry in `msg` and takes a snapshot of those entries and posts them to Nk uncle's database, our remote database & Discord'''
@@ -85,7 +83,7 @@ class Alerts:
 
   def send_everywhere(self, **kwargs):
     '''
-    This sends posts to Discord, Facebook, LinkedIn, Twitter, Instagram, my database, and Nk uncle's API.
+    This sends posts to Discord, my database and Nk uncle's API.
 
     Args:
         kwargs (dict): A dictionary of arguments containing:
@@ -140,10 +138,12 @@ class Alerts:
   def post_entries(self, screener_visibility):
     '''This goes through all the alerts in the Alerts log and posts each entry that came until all the alerts have been read.'''
     try:
+      self.utils.open_log_tab(self.driver) # Make sure that the Logs tab is open
       alert_boxes = WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[data-name="alert-log-item"]')))
       while alert_boxes:
         alert = self.get_alert()
         self.post(alert, screener_visibility)
+        self.utils.open_log_tab(self.driver) # Make sure that the Logs tab is open
         alert_boxes = WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[data-name="alert-log-item"]')))
     except TimeoutException:
       alert_data_logger.warning('Timeout exception occurred. Assuming that there are no alert boxes.')
@@ -151,6 +151,9 @@ class Alerts:
   def restart_inactive_alerts(self):
     '''Restarts all the inactive alerts by going to the settings and clicking on "Restart all inactive". Then it will click "Yes" on the popup which comes to confirm the restarting of the alerts.'''
     try:
+      # Make sure that the Alerts tab is open
+      self.utils.open_alert_tab(self.driver)
+
       # click the 3 dots
       WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-name="alerts-settings-button"]'))).click()
       
@@ -177,12 +180,10 @@ class Alerts:
         alert_data_logger.info('Clicked on "Restart all inactive"')
 
         # click Yes when the popup comes
-        popup = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[class="dialog-qyCw0PaN popupDialog-B02UUUN3 dialog-aRAWUDhF rounded-aRAWUDhF shadowed-aRAWUDhF"]')))
+        popup = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="confirm-dialog"]')))
         popup.find_element(By.CSS_SELECTOR, 'button[name="yes"]').click()
         alert_data_logger.info('Restarting all inactive alerts!')
 
-      # Close the dropdown
-      WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-name="alerts-settings-button"]'))).click()
       sleep(1)
       return True
     except Exception as e:
@@ -190,11 +191,9 @@ class Alerts:
       return False
 
   def get_alert(self):
-    '''As soon as an alert comes in the Alert log or whenever it sees an alert, the alert gets deleted from the log and its message gets returned'''
-
+    '''Whenever it sees an alert in the Logs tab, the alert gets deleted from the log and its message gets returned'''
     try:
       alert_box, alert_msg = self.get_alert_box_and_msg()
-      self.trim_file(self.log_file, self.lines) # only keep the latest lines in the log file
       if alert_box and alert_msg:
         if self.remove_alert(alert_box):
           return loads(alert_msg) if alert_msg != None else loads('{}')# the alert message is jsonified
@@ -221,7 +220,6 @@ class Alerts:
 
       try:
         alert_msg = self.get_exit_alert_msg(alert_name, symbol)
-        self.trim_file(self.log_file, self.lines) # only keep the latest lines in the log file
         if alert_msg != None:
           return loads(alert_msg) # the alert message is jsonified
         else:
@@ -229,6 +227,30 @@ class Alerts:
       
       except Exception as e:
         alert_data_logger.exception('Error in reading the alert. Error:')
+
+  def get_exit_alert_msg(self, alert_name, symbol):
+    '''Returns the alert message that comes from the alert called `alert_name` and the symbol `symbol`. If there is no alert, it waits for one. Also, it restarts all the inactive alerts periodically. If something goes wrong, `None` gets returned'''
+    try:
+      # restart all the inactive alerts every INTERVAL_MINUTES minutes (this is also done in get_alert_data.py in the method get_alert_box_and_msg())
+      if time() - self.last_run > self.interval_seconds:
+        self.restart_inactive_alerts()
+        self.last_run = time()
+
+      self.utils.open_log_tab(self.driver) # Make sure that the Logs tab is open
+
+      alert_box = self.driver.find_element(By.CSS_SELECTOR, 'div[class="widgetbar-page active"] div[data-name="alert-log-item"]')
+      first_alert_name = alert_box.find_element(By.CSS_SELECTOR, 'div[class="name-PQUvhamm"]').text
+      first_alert_msg = alert_box.find_element(By.CSS_SELECTOR, 'div[class="message-PQUvhamm"]').text
+      first_alert_symbol = alert_box.find_element(By.CSS_SELECTOR, 'span[class="attribute-PQUvhamm ticker-PQUvhamm"]').text
+      if first_alert_name == alert_name and symbol in first_alert_symbol:
+        return first_alert_msg
+      return None
+    except TimeoutException:
+      alert_data_logger.error('TimeoutException occured while waiting for a Get Exit alert.')
+      return None
+    except Exception as e:
+      alert_data_logger.exception('Error in getting the Get Exit\'s alert message. Error:')
+      return None
 
   def get_alert_box_and_msg(self):
     '''Returns the last alert box and its message if there is an alert. If there is no alert, it waits for one. Also, it restarts all the inactive alerts periodically. If something goes wrong, `None, None` gets returned'''
@@ -238,6 +260,7 @@ class Alerts:
         self.restart_inactive_alerts()
         self.last_run = time()
 
+      self.utils.open_log_tab(self.driver) # Make sure that the Logs tab is open
       alert_boxes = WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[data-name="alert-log-item"]')))
       if alert_boxes:
         alert_box = alert_boxes[-1] # take the last alert (the oldest one)
@@ -253,32 +276,11 @@ class Alerts:
     except Exception as e:
       alert_data_logger.exception('Error in getting the alert box and message. Error:')
       return loads('{}'), loads('{}')
-    
-  def get_exit_alert_msg(self, alert_name, symbol):
-    '''Returns the alert message that comes from the alert called `alert_name` and the symbol `symbol`. If there is no alert, it waits for one. Also, it restarts all the inactive alerts periodically. If something goes wrong, `None` gets returned'''
-    try:
-      # restart all the inactive alerts every INTERVAL_MINUTES minutes (this is also done in get_alert_data.py in the method get_alert_box_and_msg())
-      if time() - self.last_run > self.interval_seconds:
-        self.restart_inactive_alerts()
-        self.last_run = time()
-
-      alert_box = self.driver.find_element(By.CSS_SELECTOR, 'div[class="widgetbar-page active"] div[data-name="alert-log-item"]')
-      first_alert_name = alert_box.find_element(By.CSS_SELECTOR, 'div[class="name-PQUvhamm"]').text
-      first_alert_msg = alert_box.find_element(By.CSS_SELECTOR, 'div[class="message-PQUvhamm"]').text
-      first_alert_symbol = alert_box.find_element(By.CSS_SELECTOR, 'span[class="attribute-PQUvhamm ticker-PQUvhamm"]').text
-      if first_alert_name == alert_name and symbol in first_alert_symbol:
-        return first_alert_msg
-      return None
-    except TimeoutException:
-      alert_data_logger.error('TimeoutException occured while waiting for a Get Exit alert.')
-      return None
-    except Exception as e:
-      alert_data_logger.exception('Error in getting the Get Exit\'s alert message. Error:')
-      return None
-  
+      
   def remove_alert(self, alert_box):
     '''Removes the alert from the Alert log'''
     try:
+      self.utils.open_log_tab(self.driver) # Make sure that the Logs tab is open
       ActionChains(self.driver).move_to_element(alert_box).perform()
       remove_button = alert_box.find_element(By.CSS_SELECTOR, 'div[data-name="event-delete-button"]')
       remove_button.click()
@@ -286,16 +288,7 @@ class Alerts:
     except Exception as e:
       alert_data_logger.exception('Error in removing the alert from the Alert log. Error:')
       return False
-  
-  def get_alert_log(self):
-    '''makes an attribute called `self.alert_log` which has the alert log as a web element'''
-    try:
-      self.alert_log = self.driver.find_element(By.CSS_SELECTOR, 'div[class="widget-X9EuSe_t widgetbar-widget widgetbar-widget-alerts_log"]')
-      return True
-    except Exception as e:
-      alert_data_logger.exception('Error in getting the alert log. Error:')
-      return False
-    
+
   def scroll_to_alert(self, alert):
     '''This scrolls to the given alert'''
     try:
