@@ -122,7 +122,9 @@ class Exits:
             today = datetime.now(self.local_tz).date() # today's date
 
             # Remove all the duplicate entries so that the same entries don't get posted twice in the Discord channel
-            self.remove_duplicate_entries(self.col) 
+            # Currently, it produces this error (that's why I commented it): pymongo.errors.OperationFailure: PlanExecutor error during aggregation :: caused by :: Exceeded memory limit for $group, but didn't allow external spilling
+            # papa said that it's fine if there are repeated entries
+            # self.remove_duplicate_entries(self.col) 
 
             for category in categories:
                 # Check if certain categories can run when their market is open so that new ticks can come in their market. If new ticks come, alerts for the Get Exits indicator will be able to run. 
