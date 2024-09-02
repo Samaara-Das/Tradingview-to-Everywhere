@@ -2,15 +2,21 @@ import requests
 
 # Starting June 2022, LinkedIn Marketing APIs will be versioned and released under the base path: https://api.linkedin.com/rest/. Each version will be supported for 12 months. When making API calls make sure to specify the version you want and include the request header with key “LinkedIn-Version” and date (YYYYMM).
 
-CLIENT_ID = '86fzrened0vc97'
-CLIENT_SECRET = 'WoQpbhIl6EwFkTBU'
-ACCESS_TOKEN = 'LINKEDIN_ACCESS_TOKEN_REMOVED'
-PERSON_AUTHOR_ID = 'OJ7zXgqJEl'
-ORG_AUTHOR_ID = '99288912' # the number in in the Market DaVinci LinkedIn URL
-PERSON_AUTHOR_TYPE = 'person' 
-ORG_AUTHOR_TYPE = 'organization' 
-ORGANIZATION_URN = f'urn:li:{ORG_AUTHOR_TYPE}:{ORG_AUTHOR_ID}'
-AD_ACCOUNT_ID = '695134886'
+MD_CLIENT_ID = '86fzrened0vc97'
+MD_CLIENT_SECRET = 'WoQpbhIl6EwFkTBU'
+MD_ACCESS_TOKEN = 'LINKEDIN_ACCESS_TOKEN_REMOVED'
+MD_PERSON_AUTHOR_ID = 'OJ7zXgqJEl'
+MD_ORG_AUTHOR_ID = '99288912' # the number in in the Market DaVinci LinkedIn URL
+MD_PERSON_AUTHOR_TYPE = 'person' 
+MD_ORG_AUTHOR_TYPE = 'organization' 
+MD_ORGANIZATION_URN = f'urn:li:{MD_ORG_AUTHOR_TYPE}:{MD_ORG_AUTHOR_ID}'
+MD_AD_ACCOUNT_ID = '695134886'
+
+# For my LinkedIn account (Samaara Das)
+PC_CLIENT_ID = '865pvqn9t6je4s'
+PC_CLIENT_SECRET = 'xfMRGZEAFaET5PIO'
+PC_ACCESS_TOKEN = 'LINKEDIN_ACCESS_TOKEN_REMOVED'
+
 
 def get_user_info(access_token):
     headers = {
@@ -52,8 +58,6 @@ def post_article():
     response = requests.post('https://api.linkedin.com/v2/ugcPosts', headers=headers, json=payload)
     post_info = response.json()
     print(post_info)
-
-
 
 def post_to_group():
     headers = {
@@ -130,5 +134,4 @@ def init_img_upload():
 
     response = requests.post(f'https://api.linkedin.com/rest/images?action=initializeUpload', headers=headers)
     return response.json()
-
 # print(init_img_upload()) # error 500

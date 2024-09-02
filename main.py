@@ -6,6 +6,7 @@ import logger_setup
 import open_tv
 import exits as get_exits
 import time as time_module
+import threading
 
 # Set up logger for this file
 main_logger = logger_setup.setup_logger(__name__, logger_setup.logging.DEBUG)
@@ -17,7 +18,7 @@ DRAWER_NAME = 'Trade Drawer' # name of the trade drawer
 REMOVE_LOG = True # remove the content of the log file (to clean it up)
 INTERVAL_MINUTES = 5 # number of mins to wait until inactive alerts get reactivated and for the browser to refresh (refreshing will hopefully prevent the browser and this application from freezing)
 START_FRESH = False
-LINES_TO_KEEP = 400
+LINES_TO_KEEP = 500
 
 # Convert the interval to seconds
 interval_seconds = INTERVAL_MINUTES * 60
@@ -27,19 +28,26 @@ if REMOVE_LOG:
     with open('app_log.log', 'w') as file:
         pass
 
-def trim_file(file_path, lines_to_keep):
-    with open(file_path, 'r+', encoding='utf-8') as file:
+def trim_file():
+    with open('app_log.log', 'r+', encoding='utf-8') as file:
         lines = file.readlines()
-        # Keep only the last 'lines_to_keep' lines
-        trimmed_lines = lines[-lines_to_keep:]
+        # Keep only the last 'LINES_TO_KEEP' lines
+        trimmed_lines = lines[-LINES_TO_KEEP:]
         file.seek(0)  # Go back to the start of the file
         file.writelines(trimmed_lines)  # Write the trimmed lines
         file.truncate()  # Remove the remaining lines
+
+def trim_file_in_background():
+    thread = threading.Thread(target=trim_file)
+    thread.start()
 
 # Run main code
 if __name__ == '__main__':
 
     try:
+        # Trim the log file in the background
+        trim_file_in_background()
+
         # Just a seperator to make the log look readable
         main_logger.info('***********************************************************************************')
 
@@ -47,10 +55,10 @@ if __name__ == '__main__':
         browser = open_tv.Browser(True, SCREENER_SHORT, SCREENER_NAME, DRAWER_SHORT, DRAWER_NAME, INTERVAL_MINUTES, START_FRESH)
 
         # setup the indicators, alerts etc.
-        setup_check = browser.setup_tv(trim_file, 'app_log.log', LINES_TO_KEEP)
+        setup_check = browser.setup_tv()
 
         # set up alerts for all the symbols
-        if START_FRESH:
+        if START_FRESH and setup_check:
             browser.set_bulk_alerts()
 
         if setup_check and browser.init_succeeded:
@@ -76,4 +84,4 @@ if __name__ == '__main__':
 
     except Exception as e:
         main_logger.exception(f'Error in main.py:')
- 
+
