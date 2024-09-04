@@ -12,7 +12,7 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
 
 # Set up logger for this file
-entry_chart_logger = logger_setup.setup_logger(__name__, logger_setup.logging.DEBUG)
+entry_chart_logger = logger_setup.setup_logger(__name__, logger_setup.DEBUG)
 
 # class
 class OpenChart:
