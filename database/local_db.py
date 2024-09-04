@@ -20,7 +20,7 @@ load_dotenv('C:\\Users\\Puja\\Work\\Coding\\Python\\For Poolsifi\\tradingview to
 pwd = getenv('MONGODB_PWD')
 
 # Set up logger for this file
-local_db_logger = logger_setup.setup_logger(__name__, logger_setup.logging.DEBUG)
+local_db_logger = logger_setup.setup_logger(__name__, logger_setup.INFO)
 
 class Database:
     def __init__(self, col, delete=False):

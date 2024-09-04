@@ -11,7 +11,7 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.common.exceptions import TimeoutException, StaleElementReferenceException
 
 # Set up a logger for this file
-utils_logger = logger_setup.setup_logger(__name__, logger_setup.logging.INFO)
+utils_logger = logger_setup.setup_logger(__name__, logger_setup.INFO)
 
 class Utils:
     def is_log_tab_open(self, driver):

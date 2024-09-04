@@ -23,7 +23,7 @@ from selenium.webdriver.common.by import By
 from selenium.common.exceptions import WebDriverException, TimeoutException
 
 # Set up logger for this file
-open_tv_logger = logger_setup.setup_logger(__name__, logger_setup.logging.INFO)
+open_tv_logger = logger_setup.setup_logger(__name__, logger_setup.INFO)
 
 # some constants
 SYMBOL_INPUTS = 5 #number of symbol inputs in the screener
@@ -143,11 +143,11 @@ class Browser:
 
     self.alerts = handle_alerts.Alerts(self.drawer_shorttitle, self.screener_shorttitle, self.driver, CHART_TIMEFRAME, self.interval_seconds)
 
-    # make the screener visible and Trade Drawer indicator visible
-    if not self.indicator_visibility(True, self.screener_shorttitle):
-      self.indicator_visibility(True, self.screener_shorttitle)
-      if self.is_visible(self.screener_shorttitle) == False:
-        open_tv_logger.warning('Failed to make the screener indicator visible. The function will still continue on without exiting as this is not crucial.')
+    # make the screener hidden and Trade Drawer indicator visible
+    if not self.indicator_visibility(False, self.screener_shorttitle):
+      self.indicator_visibility(False, self.screener_shorttitle)
+      if self.is_visible(self.screener_shorttitle) == True:
+        open_tv_logger.warning('Failed to make the screener indicator hidden. The function will still continue on without exiting as this is not crucial.')
 
     if not self.indicator_visibility(True, self.drawer_shorttitle):
       self.indicator_visibility(True, self.drawer_shorttitle)
@@ -585,18 +585,8 @@ class Browser:
     try:
       if indicator != None: # that means that we've found our indicator
         eye = indicator.find_element(By.CSS_SELECTOR, 'button[data-name="legend-show-hide-action"]')
-        current_visibility = VISIBLE if 'Hide' in eye.get_attribute('class') else HIDDEN
+        current_visibility = VISIBLE if 'Hide' in eye.get_attribute('aria-label') else HIDDEN
         
-        if make_visible == False: # make the indicator hidden
-          if current_visibility == VISIBLE:
-            indicator.click()
-            eye.click()
-            open_tv_logger.info(f'Successfully changed the visibility of {shorttitle} to make it hidden!')
-            return True
-          if current_visibility == HIDDEN: 
-            open_tv_logger.info(f'{shorttitle} indicator is already hidden. No need to change its visibility!')
-            return True
-
         if make_visible == True: # make the indicator visible
           if current_visibility == HIDDEN:
             indicator.click()
@@ -606,8 +596,18 @@ class Browser:
           if current_visibility == VISIBLE: 
             open_tv_logger.info(f'{shorttitle} indicator is already visible. No need to change its visibility!')
             return True
+
+        if make_visible == False: # make the indicator hidden
+          if current_visibility == VISIBLE:
+            indicator.click()
+            eye.click()
+            open_tv_logger.info(f'Successfully changed the visibility of {shorttitle} to make it hidden!')
+            return True
+          if current_visibility == HIDDEN: 
+            open_tv_logger.info(f'{shorttitle} indicator is already hidden. No need to change its visibility!')
+            return True
     except Exception as e:
-      open_tv_logger.exception(f'Error ocurred when changing the visibility of {shorttitle} to make it {"visible" if make_visible else "hidden"}. Error: ')
+      open_tv_logger.exception(f'Error occurred when changing the visibility of {shorttitle} to make it {"visible" if make_visible else "hidden"}. Error: ')
       return False
     
     return False

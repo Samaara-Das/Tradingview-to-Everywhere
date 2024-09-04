@@ -9,7 +9,7 @@ from requests.exceptions import ConnectionError
 
 
 # Set up logger for this file
-nk_db_logger = logger_setup.setup_logger(__name__, logger_setup.logging.DEBUG)
+nk_db_logger = logger_setup.setup_logger(__name__, logger_setup.DEBUG)
 
 class Post:
   def __init__(self, max_retries=3):

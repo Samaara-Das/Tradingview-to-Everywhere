@@ -16,6 +16,7 @@ linkedin-api-client = "*"
 requests-oauthlib = "*"
 python-dotenv = "*"
 tweepy = "==4.9.0"
+aiofiles = "*"
 
 [dev-packages]
 

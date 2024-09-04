@@ -21,7 +21,7 @@ from selenium.common.exceptions import TimeoutException, StaleElementReferenceEx
 from json import loads
 
 # Set up logger for this file
-alert_data_logger = logger_setup.setup_logger(__name__, logger_setup.logging.DEBUG)
+alert_data_logger = logger_setup.setup_logger(__name__, logger_setup.INFO)
 
 # class
 class Alerts:

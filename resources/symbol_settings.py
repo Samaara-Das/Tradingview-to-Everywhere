@@ -16,7 +16,7 @@ import logger_setup
 from .categories import *
 
 # Set up logger for this file
-symbol_logger = logger_setup.setup_logger(__name__, logger_setup.logging.DEBUG)
+symbol_logger = logger_setup.setup_logger(__name__, logger_setup.DEBUG)
 
 # this is where all the symbols are stored for every category
 main_symbols = {
