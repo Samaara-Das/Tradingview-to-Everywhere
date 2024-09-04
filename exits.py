@@ -16,7 +16,7 @@ from selenium.webdriver.common.by import By
 from selenium.common.exceptions import WebDriverException, TimeoutException
 
 # Set up logger for this file
-exit_logger = logger_setup.setup_logger(__name__, logger_setup.logging.DEBUG)
+exit_logger = logger_setup.setup_logger(__name__, logger_setup.INFO)
 
 BI_REPORT_LINK = 'https://bit.ly/trade-stats' # link to the bi report
 INDICATOR_SHORT = 'Get Exits' # shorttitle of the Get Exits indicator
@@ -169,7 +169,7 @@ class Exits:
                                         word = 'hit' if sl_hit else ('gained' if tp1_hit or tp2_hit or tp3_hit else 'none')
                                         exit_type = 'Stop Loss' if sl_hit else ('3%' if tp3_hit else '2%' if tp2_hit else '1%' if tp1_hit else 'none')
                                         exit_content = f"{entry['direction']} trade in {symbol} {word} {exit_type}"
-                                        png_link_content = '. Link: {png_link}'
+                                        png_link_content = f'. Link: {png_link}'
                                         bi_content = f'For more stats, go here: {BI_REPORT_LINK}'
                                         
                                         self.discord.send_to_exit_channel(category, exit_content+png_link_content) 
