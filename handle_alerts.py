@@ -131,9 +131,10 @@ class Alerts:
         
         # Log success
         alert_data_logger.info(f"Successfully sent entry data to all platforms for symbol {key}.")
+        return True
     except Exception as e:
         alert_data_logger.error(f"Error sending entry data: {e}")
-        raise
+        return False
 
   def post_entries(self, screener_visibility):
     '''This goes through all the alerts in the Alerts log and posts each entry that came until all the alerts have been read.'''
