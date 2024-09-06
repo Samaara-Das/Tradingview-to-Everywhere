@@ -6,8 +6,6 @@ import logger_setup
 import open_tv
 import exits as get_exits
 import time as time_module
-import asyncio
-from logger_setup import continuous_trim
 
 # Set up logger for this file
 main_logger = logger_setup.setup_logger(__name__, logger_setup.INFO)
@@ -32,56 +30,44 @@ if REMOVE_LOG:
 
 # Run main code
 if __name__ == '__main__':
-    async def main():
-        # Start the trim_file task
-        trim_task = asyncio.create_task(continuous_trim('app_log.log'))
-        
-        try:
-            # Just a seperator to make the log look readable
-            main_logger.info('***********************************************************************************')
+    try:
+        logger_setup.start_continuous_trim('app_log.log')
 
-            # initiate Browser
-            browser = open_tv.Browser(True, SCREENER_SHORT, SCREENER_NAME, DRAWER_SHORT, DRAWER_NAME, INTERVAL_MINUTES, START_FRESH)
+        # Just a seperator to make the log look readable
+        main_logger.info('⭐***********************************************************************************')
 
-            # setup the indicators, alerts etc.
-            setup_check = browser.setup_tv()
+        # initiate Browser
+        browser = open_tv.Browser(True, SCREENER_SHORT, SCREENER_NAME, DRAWER_SHORT, DRAWER_NAME, INTERVAL_MINUTES, START_FRESH)
 
-            # set up alerts for all the symbols
-            if START_FRESH and setup_check:
-                browser.set_bulk_alerts()
+        # setup the indicators, alerts etc.
+        setup_check = browser.setup_tv()
 
-            if setup_check and browser.init_succeeded:
-                last_run = time_module.time()
-                exits = get_exits.Exits(browser.alerts.local_db, browser.open_chart, browser)
-                while True:
-                    # restart all the inactive alerts every INTERVAL_MINUTES minutes (this is also done in get_alert_data.py in the method get_alert_box_and_msg()) and refresh browser
-                    if time_module.time() - last_run > interval_seconds:
-                        browser.alerts.restart_inactive_alerts()
-                        last_run = time_module.time()
+        # set up alerts for all the symbols
+        if START_FRESH and setup_check:
+            browser.set_bulk_alerts()
 
-                    # instantiate the Exits class 
-                    exits.delete_all_get_exits_alerts()
+        if setup_check and browser.init_succeeded:
+            last_run = time_module.time()
+            exits = get_exits.Exits(browser.alerts.local_db, browser.open_chart, browser)
+            while True:
+                # restart all the inactive alerts every INTERVAL_MINUTES minutes (this is also done in get_alert_data.py in the method get_alert_box_and_msg()) and refresh browser
+                if time_module.time() - last_run > interval_seconds:
+                    browser.alerts.restart_inactive_alerts()
+                    last_run = time_module.time()
 
-                    # do the setup again so that posting of the entries can happen
-                    if browser.re_setup():
-                        # get entries from the alerts which come and post them
-                        browser.alerts.post_entries(browser.indicator_visibility)
+                # instantiate the Exits class 
+                exits.delete_all_get_exits_alerts()
 
-                    # check for exits
-                    if exits.set_up():
-                        exits.check_exits()
+                # do the setup again so that posting of the entries can happen
+                if browser.re_setup():
+                    # get entries from the alerts which come and post them
+                    browser.alerts.post_entries(browser.indicator_visibility)
 
-        except Exception as e:
-            main_logger.exception(f'Error in main.py:')
-        
-        finally:
-            # Cancel the trim_file task when the main program exits
-            trim_task.cancel()
-            try:
-                await trim_task
-            except asyncio.CancelledError:
-                pass
+                # check for exits
+                if exits.set_up():
+                    exits.check_exits()
 
-    # Run the main async function
-    asyncio.run(main())
+    except Exception as e:
+        main_logger.exception(f'Error in main.py:')
+    
 
