@@ -5,8 +5,8 @@ This was done to avoid repetition of code.
 
 from logging import getLogger, FileHandler, StreamHandler, Formatter, DEBUG, INFO, WARNING, ERROR, CRITICAL
 import sys
-import asyncio
-import aiofiles
+import threading
+import time
 
 def setup_logger(logger_name, logger_level=INFO, file='app_log.log'):
     '''This sets up a logger and returns it'''
@@ -27,18 +27,26 @@ def setup_logger(logger_name, logger_level=INFO, file='app_log.log'):
 
     return logger
 
-async def trim_file(file_path, max_lines=100):
+def trim_file(file_path, max_lines=1000):
+    """Trims a file to a maximum number of lines, keeping the most recent entries."""
     try:
-        async with aiofiles.open(file_path, 'r') as file:
-            lines = await file.readlines()
+        with open(file_path, 'r') as file:
+            lines = file.readlines()
         
         if len(lines) > max_lines:
-            async with aiofiles.open(file_path, 'w') as file:
-                await file.writelines(lines[-max_lines:])
+            with open(file_path, 'w') as file:
+                file.writelines(lines[-max_lines:])
     except Exception as e:
         print(f"Error trimming file: {e}")
 
-async def continuous_trim(file_path, interval=60):
+def continuous_trim(file_path, interval=300):
+    """Continuously trims a file at specified intervals."""
     while True:
-        await trim_file(file_path)
-        await asyncio.sleep(interval)
+        trim_file(file_path)
+        time.sleep(interval)
+
+def start_continuous_trim(file_path, interval=300):
+    """Starts the continuous trimming in a separate thread."""
+    trim_thread = threading.Thread(target=continuous_trim, args=(file_path, interval), daemon=True)
+    trim_thread.start()
+    return trim_thread

@@ -11,9 +11,11 @@ After alerts have been created for all the symbols, Python checks the "Alert log
 
 Python then goes through each message which came. It reads each entry in that message. Python then goes to that entry's symbol and timeframe. Then it fills up the entry time, entry price, TP and SL of that entry in an indicator. That other indicator then draws the entry based on the info it has been filled up with. The drawing will look like this: ![Alt text](media/entry-drawing.png) 
 
-Then, Python takes a snapshot of that and send it to Discord, Poolsifi and a database.
+Then, Python takes a snapshot of that and send it to Discord, Poolsifi and a MongoDB database.
 
-This whole process is repeated for all the messages until there are no more left. Once there are no more messages left, Python waits for them to come.
+This whole process is repeated for all the messages until there are no more left. Once there are no more messages left, It starts checking if any entries have been exited.
+
+It fetches the entries from MongoDB which have been made in the last 15 days. It then checks if those entries have hit their Stop Loss, Take Profit 1, Take Profit 2 or Take Profit 3. If any of those TPs or SLs have been hit, Python sends a snapshot of that entry and its exit to Discord, Facebook, X (Twitter) and a MongoDB database.
 
 ## Notes for programmers:
 
