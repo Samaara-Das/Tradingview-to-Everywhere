@@ -34,7 +34,7 @@ if __name__ == '__main__':
         logger_setup.start_continuous_trim('app_log.log')
 
         # Just a seperator to make the log look readable
-        main_logger.info('⭐***********************************************************************************')
+        main_logger.info('Start ***********************************************************************************')
 
         # initiate Browser
         browser = open_tv.Browser(True, SCREENER_SHORT, SCREENER_NAME, DRAWER_SHORT, DRAWER_NAME, INTERVAL_MINUTES, START_FRESH)
