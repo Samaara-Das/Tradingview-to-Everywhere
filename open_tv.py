@@ -91,21 +91,6 @@ class Browser:
       open_tv_logger.exception(f'Cannot open this url: {url}. Error: ')
       return False 
 
-  def ask_for_tv_info(self):
-    '''This asks the user for their TradingView email and password'''
-    root = tk.Tk()
-    root.withdraw()  # Hide the main window
-
-    self.tv_email = simpledialog.askstring("TradingView Login", "Enter your TradingView email:", parent=root)
-    self.tv_password = simpledialog.askstring("TradingView Login", "Enter your TradingView password:", show='*', parent=root)
-
-    root.destroy()
-
-    if not self.tv_email or not self.tv_password:
-      open_tv_logger.error("TradingView email or password not provided. Exiting function.")
-      return False
-    return True
-
   def sign_in(self):
     '''This signs in to TradingView if logged out'''
     self.driver.get('https://www.tradingview.com/accounts/signin/')

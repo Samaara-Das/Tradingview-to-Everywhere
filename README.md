@@ -20,16 +20,18 @@ It fetches the entries from MongoDB which have been made in the last 15 days. It
 ## Notes for programmers:
 
 ### For open_tv.py
-1. When inputting your TradingView email in the GUI, ensure that:
+1. This application signs in to TradingView using an email and password. It uses the email and password which are stored in the User Environment Variables. To change the email and password, edit the `TRADINGVIEW_EMAIL` and `TRADINGVIEW_PASSWORD` environment variables. Please follow the instructions below as well.
+
+2. When changing the `TRADINGVIEW_EMAIL` and `TRADINGVIEW_PASSWORD` environment variables, ensure that:
    - Two-factor authentication is disabled for your TradingView account (check under Settings -> Privacy and Security)
    - No social accounts are linked to your TradingView account. Check under Settings -> Privacy and Security. (if you don't see "Linked social accounts", you're good)
    - You originally created the account using email/password, not through Google or other social sign-ins
 
 These steps are crucial as they allow TTE to securely sign in to TradingView using the email and password you provide.
 
-2. `SYMBOL_INPUTS` in `open_tv.py` should be the number of inputs in the screener which will be filled with symbols by Python. There are currently a total of 20 symbol inputs in the screener. Only a couple of them will get filled (currently, 5 of them will get filled). So, don't give this constant a value of the total symbol inputs. To change how many symbols can get filled, go to the screener's code in Pine Script.
+3. `SYMBOL_INPUTS` in `open_tv.py` should be the number of inputs in the screener which will be filled with symbols by Python. There are currently a total of 20 symbol inputs in the screener. Only a couple of them will get filled (currently, 5 of them will get filled). So, don't give this constant a value of the total symbol inputs. To change how many symbols can get filled, go to the screener's code in Pine Script.
 
-3. In `open_tv.py`, specify the timeframe of the chart. It is in the `CHART_TIMEFRAME` constant. This is the timeframe which the entries run on. The value of the constant should be a string and one of these options (The spelling must be correct):![Alt text](media/chart-tf.png) 
+4. In `open_tv.py`, specify the timeframe of the chart. It is in the `CHART_TIMEFRAME` constant. This is the timeframe which the entries run on. The value of the constant should be a string and one of these options (The spelling must be correct):![Alt text](media/chart-tf.png) 
 
 5. In `open_tv.py`, make sure the `USED_SYMBOLS_INPUT` constant is the name of the "Used Symbols" input in the screener
 

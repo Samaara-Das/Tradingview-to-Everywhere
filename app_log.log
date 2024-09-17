@@ -1,0 +1,1000 @@
+open_entry_chart.py get_indicator() INFO: Found indicator Trade! 09.17.24 12:46:08
+open_entry_chart.py change_indicator_settings() INFO: Trade Drawer's settings changed. Inputs: entry_time - 1726079400000, entry_price - 4.2, sl_price - 6.01, tp1_price - 2.39, tp2_price - 0.58, tp3_price - -1.23 09.17.24 12:46:12
+open_entry_chart.py change_indicator_settings() INFO: Trade indicator fully loaded! 09.17.24 12:46:14
+open_entry_chart.py save_chart_img() INFO: Took a snapshot and opened it in new tab. 09.17.24 12:46:14
+open_entry_chart.py save_chart_img() INFO: Got link of image and tab! 09.17.24 12:46:16
+database.local_db.py add_doc() INFO: Successfully sent a doc to Entries collection! 09.17.24 12:46:16
+database.nk_db.py post_to_url() INFO: Post request to Nishant uncle's webhook sent successfully! Response: <Response [200]> 09.17.24 12:46:16
+handle_alerts.py send_everywhere() INFO: Successfully sent entry data to all platforms for symbol PIAIF. 09.17.24 12:46:16
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:46:16
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:46:16
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:46:17
+open_tv.py indicator_visibility() INFO: Screener indicator is already hidden. No need to change its visibility! 09.17.24 12:46:17
+open_entry_chart.py change_symbol() INFO: Entered symbol DLAKF 09.17.24 12:46:18
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 09.17.24 12:46:19
+open_entry_chart.py get_indicator() INFO: Found indicator Trade! 09.17.24 12:46:19
+open_entry_chart.py change_indicator_settings() INFO: Trade Drawer's settings changed. Inputs: entry_time - 1726061400000, entry_price - 5.95, sl_price - 6.38, tp1_price - 5.52, tp2_price - 5.09, tp3_price - 4.66 09.17.24 12:46:23
+open_entry_chart.py change_indicator_settings() INFO: Trade indicator fully loaded! 09.17.24 12:46:25
+open_entry_chart.py save_chart_img() INFO: Took a snapshot and opened it in new tab. 09.17.24 12:46:25
+open_entry_chart.py save_chart_img() INFO: Got link of image and tab! 09.17.24 12:46:27
+database.local_db.py add_doc() INFO: Successfully sent a doc to Entries collection! 09.17.24 12:46:27
+database.nk_db.py post_to_url() INFO: Post request to Nishant uncle's webhook sent successfully! Response: <Response [200]> 09.17.24 12:46:27
+handle_alerts.py send_everywhere() INFO: Successfully sent entry data to all platforms for symbol DLAKF. 09.17.24 12:46:27
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:46:27
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:46:27
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:46:28
+open_tv.py indicator_visibility() INFO: Screener indicator is already hidden. No need to change its visibility! 09.17.24 12:46:28
+open_entry_chart.py change_symbol() INFO: Entered symbol BAYZF 09.17.24 12:46:29
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 09.17.24 12:46:30
+open_entry_chart.py get_indicator() INFO: Found indicator Trade! 09.17.24 12:46:30
+open_entry_chart.py change_indicator_settings() INFO: Trade Drawer's settings changed. Inputs: entry_time - 1726493400000, entry_price - 29.55, sl_price - 32.43, tp1_price - 26.67, tp2_price - 23.79, tp3_price - 20.91 09.17.24 12:46:34
+open_entry_chart.py change_indicator_settings() INFO: Trade indicator fully loaded! 09.17.24 12:46:36
+open_entry_chart.py save_chart_img() INFO: Took a snapshot and opened it in new tab. 09.17.24 12:46:36
+open_entry_chart.py save_chart_img() INFO: Got link of image and tab! 09.17.24 12:46:38
+database.local_db.py add_doc() INFO: Successfully sent a doc to Entries collection! 09.17.24 12:46:39
+database.nk_db.py post_to_url() INFO: Post request to Nishant uncle's webhook sent successfully! Response: <Response [200]> 09.17.24 12:46:39
+handle_alerts.py send_everywhere() INFO: Successfully sent entry data to all platforms for symbol BAYZF. 09.17.24 12:46:39
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:46:39
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:46:39
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:46:39
+open_tv.py indicator_visibility() INFO: Screener indicator is already hidden. No need to change its visibility! 09.17.24 12:46:40
+open_entry_chart.py change_symbol() INFO: Entered symbol SHLAF 09.17.24 12:46:40
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 09.17.24 12:46:42
+open_entry_chart.py get_indicator() INFO: Found indicator Trade! 09.17.24 12:46:42
+open_entry_chart.py change_indicator_settings() INFO: Trade Drawer's settings changed. Inputs: entry_time - 1725975000000, entry_price - 270.54, sl_price - 195.05, tp1_price - 346.03, tp2_price - 421.52, tp3_price - 497.01 09.17.24 12:46:45
+open_entry_chart.py change_indicator_settings() INFO: Trade indicator fully loaded! 09.17.24 12:46:47
+open_entry_chart.py save_chart_img() INFO: Took a snapshot and opened it in new tab. 09.17.24 12:46:48
+open_entry_chart.py save_chart_img() INFO: Got link of image and tab! 09.17.24 12:46:49
+database.local_db.py add_doc() INFO: Successfully sent a doc to Entries collection! 09.17.24 12:46:50
+database.nk_db.py post_to_url() INFO: Post request to Nishant uncle's webhook sent successfully! Response: <Response [200]> 09.17.24 12:46:50
+handle_alerts.py send_everywhere() INFO: Successfully sent entry data to all platforms for symbol SHLAF. 09.17.24 12:46:50
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:46:50
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:46:50
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:46:50
+open_tv.py indicator_visibility() INFO: Screener indicator is already hidden. No need to change its visibility! 09.17.24 12:46:51
+open_entry_chart.py change_symbol() INFO: Entered symbol NHYKF 09.17.24 12:46:51
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 09.17.24 12:46:53
+open_entry_chart.py get_indicator() INFO: Found indicator Trade! 09.17.24 12:46:53
+open_entry_chart.py change_indicator_settings() INFO: Trade Drawer's settings changed. Inputs: entry_time - 1726493400000, entry_price - 5.58, sl_price - 5.055, tp1_price - 6.105, tp2_price - 6.63, tp3_price - 7.155 09.17.24 12:46:56
+open_entry_chart.py change_indicator_settings() INFO: Trade indicator fully loaded! 09.17.24 12:46:59
+open_entry_chart.py save_chart_img() INFO: Took a snapshot and opened it in new tab. 09.17.24 12:46:59
+open_entry_chart.py save_chart_img() INFO: Got link of image and tab! 09.17.24 12:47:01
+database.local_db.py add_doc() INFO: Successfully sent a doc to Entries collection! 09.17.24 12:47:01
+database.nk_db.py post_to_url() INFO: Post request to Nishant uncle's webhook sent successfully! Response: <Response [200]> 09.17.24 12:47:02
+handle_alerts.py send_everywhere() INFO: Successfully sent entry data to all platforms for symbol NHYKF. 09.17.24 12:47:02
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:47:02
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:47:02
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:47:02
+open_tv.py indicator_visibility() INFO: Screener indicator is already hidden. No need to change its visibility! 09.17.24 12:47:02
+open_entry_chart.py change_symbol() INFO: Entered symbol PSA/PK 09.17.24 12:47:03
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 09.17.24 12:47:05
+open_entry_chart.py get_indicator() INFO: Found indicator Trade! 09.17.24 12:47:05
+open_entry_chart.py change_indicator_settings() INFO: Trade Drawer's settings changed. Inputs: entry_time - 1726507800000, entry_price - 22.54, sl_price - 20.81, tp1_price - 24.27, tp2_price - 26.0, tp3_price - 27.73 09.17.24 12:47:08
+open_entry_chart.py change_indicator_settings() INFO: Trade indicator fully loaded! 09.17.24 12:47:12
+open_entry_chart.py save_chart_img() INFO: Took a snapshot and opened it in new tab. 09.17.24 12:47:13
+open_entry_chart.py save_chart_img() INFO: Got link of image and tab! 09.17.24 12:47:14
+database.local_db.py add_doc() INFO: Successfully sent a doc to Entries collection! 09.17.24 12:47:15
+database.nk_db.py post_to_url() INFO: Post request to Nishant uncle's webhook sent successfully! Response: <Response [200]> 09.17.24 12:47:15
+handle_alerts.py send_everywhere() INFO: Successfully sent entry data to all platforms for symbol PSA/PK. 09.17.24 12:47:15
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:47:15
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:47:15
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:47:15
+open_tv.py indicator_visibility() INFO: Screener indicator is already hidden. No need to change its visibility! 09.17.24 12:47:16
+open_entry_chart.py change_symbol() INFO: Entered symbol TBC 09.17.24 12:47:16
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 09.17.24 12:47:18
+open_entry_chart.py get_indicator() INFO: Found indicator Trade! 09.17.24 12:47:18
+open_entry_chart.py change_indicator_settings() INFO: Trade Drawer's settings changed. Inputs: entry_time - 1726507800000, entry_price - 25.38, sl_price - 23.55, tp1_price - 27.21, tp2_price - 29.04, tp3_price - 30.87 09.17.24 12:47:22
+open_entry_chart.py change_indicator_settings() INFO: Trade indicator fully loaded! 09.17.24 12:47:24
+open_entry_chart.py save_chart_img() INFO: Took a snapshot and opened it in new tab. 09.17.24 12:47:24
+open_entry_chart.py save_chart_img() INFO: Got link of image and tab! 09.17.24 12:47:25
+database.local_db.py add_doc() INFO: Successfully sent a doc to Entries collection! 09.17.24 12:47:26
+database.nk_db.py post_to_url() INFO: Post request to Nishant uncle's webhook sent successfully! Response: <Response [200]> 09.17.24 12:47:26
+handle_alerts.py send_everywhere() INFO: Successfully sent entry data to all platforms for symbol TBC. 09.17.24 12:47:26
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:47:26
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:47:26
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:47:26
+open_tv.py indicator_visibility() INFO: Screener indicator is already hidden. No need to change its visibility! 09.17.24 12:47:27
+open_entry_chart.py change_symbol() INFO: Entered symbol LDNXF 09.17.24 12:47:28
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 09.17.24 12:47:29
+open_entry_chart.py get_indicator() INFO: Found indicator Trade! 09.17.24 12:47:29
+open_entry_chart.py change_indicator_settings() INFO: Trade Drawer's settings changed. Inputs: entry_time - 1726493400000, entry_price - 141.86, sl_price - 115.362, tp1_price - 168.358, tp2_price - 194.856, tp3_price - 221.354 09.17.24 12:47:32
+open_entry_chart.py change_indicator_settings() INFO: Trade indicator fully loaded! 09.17.24 12:47:35
+open_entry_chart.py save_chart_img() INFO: Took a snapshot and opened it in new tab. 09.17.24 12:47:35
+open_entry_chart.py save_chart_img() INFO: Got link of image and tab! 09.17.24 12:47:36
+database.local_db.py add_doc() INFO: Successfully sent a doc to Entries collection! 09.17.24 12:47:37
+database.nk_db.py post_to_url() INFO: Post request to Nishant uncle's webhook sent successfully! Response: <Response [200]> 09.17.24 12:47:37
+handle_alerts.py send_everywhere() INFO: Successfully sent entry data to all platforms for symbol LDNXF. 09.17.24 12:47:37
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:47:37
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:47:37
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:47:37
+open_tv.py indicator_visibility() INFO: Screener indicator is already hidden. No need to change its visibility! 09.17.24 12:47:38
+open_entry_chart.py change_symbol() INFO: Entered symbol DLAKF 09.17.24 12:47:38
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 09.17.24 12:47:40
+open_entry_chart.py get_indicator() INFO: Found indicator Trade! 09.17.24 12:47:40
+open_entry_chart.py change_indicator_settings() INFO: Trade Drawer's settings changed. Inputs: entry_time - 1726061400000, entry_price - 5.95, sl_price - 6.38, tp1_price - 5.52, tp2_price - 5.09, tp3_price - 4.66 09.17.24 12:47:43
+open_entry_chart.py change_indicator_settings() INFO: Trade indicator fully loaded! 09.17.24 12:47:45
+open_entry_chart.py save_chart_img() INFO: Took a snapshot and opened it in new tab. 09.17.24 12:47:46
+open_entry_chart.py save_chart_img() INFO: Got link of image and tab! 09.17.24 12:47:47
+database.local_db.py add_doc() INFO: Successfully sent a doc to Entries collection! 09.17.24 12:47:48
+database.nk_db.py post_to_url() INFO: Post request to Nishant uncle's webhook sent successfully! Response: <Response [200]> 09.17.24 12:47:48
+handle_alerts.py send_everywhere() INFO: Successfully sent entry data to all platforms for symbol DLAKF. 09.17.24 12:47:48
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:47:48
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:47:48
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:47:48
+open_tv.py indicator_visibility() INFO: Screener indicator is already hidden. No need to change its visibility! 09.17.24 12:47:49
+open_entry_chart.py change_symbol() INFO: Entered symbol BAYZF 09.17.24 12:47:49
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 09.17.24 12:47:51
+open_entry_chart.py get_indicator() INFO: Found indicator Trade! 09.17.24 12:47:51
+open_entry_chart.py change_indicator_settings() INFO: Trade Drawer's settings changed. Inputs: entry_time - 1726493400000, entry_price - 29.55, sl_price - 32.43, tp1_price - 26.67, tp2_price - 23.79, tp3_price - 20.91 09.17.24 12:47:55
+open_entry_chart.py change_indicator_settings() INFO: Trade indicator fully loaded! 09.17.24 12:47:57
+open_entry_chart.py save_chart_img() INFO: Took a snapshot and opened it in new tab. 09.17.24 12:47:57
+open_entry_chart.py save_chart_img() INFO: Got link of image and tab! 09.17.24 12:47:59
+database.local_db.py add_doc() INFO: Successfully sent a doc to Entries collection! 09.17.24 12:48:00
+database.nk_db.py post_to_url() INFO: Post request to Nishant uncle's webhook sent successfully! Response: <Response [200]> 09.17.24 12:48:00
+handle_alerts.py send_everywhere() INFO: Successfully sent entry data to all platforms for symbol BAYZF. 09.17.24 12:48:00
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:48:00
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:48:00
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:48:00
+open_tv.py indicator_visibility() INFO: Screener indicator is already hidden. No need to change its visibility! 09.17.24 12:48:01
+open_entry_chart.py change_symbol() INFO: Entered symbol PIAIF 09.17.24 12:48:01
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 09.17.24 12:48:03
+open_entry_chart.py get_indicator() INFO: Found indicator Trade! 09.17.24 12:48:03
+open_entry_chart.py change_indicator_settings() INFO: Trade Drawer's settings changed. Inputs: entry_time - 1726079400000, entry_price - 4.2, sl_price - 6.01, tp1_price - 2.39, tp2_price - 0.58, tp3_price - -1.23 09.17.24 12:48:06
+open_entry_chart.py change_indicator_settings() INFO: Trade indicator fully loaded! 09.17.24 12:48:08
+open_entry_chart.py save_chart_img() INFO: Took a snapshot and opened it in new tab. 09.17.24 12:48:09
+open_entry_chart.py save_chart_img() INFO: Got link of image and tab! 09.17.24 12:48:10
+database.local_db.py add_doc() INFO: Successfully sent a doc to Entries collection! 09.17.24 12:48:11
+database.nk_db.py post_to_url() INFO: Post request to Nishant uncle's webhook sent successfully! Response: <Response [200]> 09.17.24 12:48:11
+handle_alerts.py send_everywhere() INFO: Successfully sent entry data to all platforms for symbol PIAIF. 09.17.24 12:48:11
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:48:11
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:48:11
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:48:11
+open_tv.py indicator_visibility() INFO: Screener indicator is already hidden. No need to change its visibility! 09.17.24 12:48:12
+open_entry_chart.py change_symbol() INFO: Entered symbol SHLAF 09.17.24 12:48:12
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 09.17.24 12:48:14
+open_entry_chart.py get_indicator() INFO: Found indicator Trade! 09.17.24 12:48:14
+open_entry_chart.py change_indicator_settings() INFO: Trade Drawer's settings changed. Inputs: entry_time - 1725975000000, entry_price - 270.54, sl_price - 195.05, tp1_price - 346.03, tp2_price - 421.52, tp3_price - 497.01 09.17.24 12:48:17
+open_entry_chart.py change_indicator_settings() INFO: Trade indicator fully loaded! 09.17.24 12:48:20
+open_entry_chart.py save_chart_img() INFO: Took a snapshot and opened it in new tab. 09.17.24 12:48:20
+open_entry_chart.py save_chart_img() INFO: Got link of image and tab! 09.17.24 12:48:21
+database.local_db.py add_doc() INFO: Successfully sent a doc to Entries collection! 09.17.24 12:48:22
+database.nk_db.py post_to_url() INFO: Post request to Nishant uncle's webhook sent successfully! Response: <Response [200]> 09.17.24 12:48:22
+handle_alerts.py send_everywhere() INFO: Successfully sent entry data to all platforms for symbol SHLAF. 09.17.24 12:48:22
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:48:22
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:48:22
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:48:22
+open_tv.py indicator_visibility() INFO: Screener indicator is already hidden. No need to change its visibility! 09.17.24 12:48:23
+open_entry_chart.py change_symbol() INFO: Entered symbol NZDCHF 09.17.24 12:48:23
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 09.17.24 12:48:26
+open_entry_chart.py get_indicator() INFO: Found indicator Trade! 09.17.24 12:48:26
+open_entry_chart.py change_indicator_settings() INFO: Trade Drawer's settings changed. Inputs: entry_time - 1726516800000, entry_price - 0.52338, sl_price - 0.52126, tp1_price - 0.5255, tp2_price - 0.52762, tp3_price - 0.52974 09.17.24 12:48:29
+open_entry_chart.py change_indicator_settings() INFO: Trade indicator fully loaded! 09.17.24 12:48:31
+open_entry_chart.py save_chart_img() INFO: Took a snapshot and opened it in new tab. 09.17.24 12:48:31
+open_entry_chart.py save_chart_img() INFO: Got link of image and tab! 09.17.24 12:48:33
+database.local_db.py add_doc() INFO: Successfully sent a doc to Entries collection! 09.17.24 12:48:34
+database.nk_db.py post_to_url() INFO: Post request to Nishant uncle's webhook sent successfully! Response: <Response [200]> 09.17.24 12:48:34
+handle_alerts.py send_everywhere() INFO: Successfully sent entry data to all platforms for symbol NZDCHF. 09.17.24 12:48:34
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:48:34
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:48:34
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:48:34
+open_tv.py indicator_visibility() INFO: Screener indicator is already hidden. No need to change its visibility! 09.17.24 12:48:35
+open_entry_chart.py change_symbol() INFO: The current symbol is the same as NZDCHF. There is no need to change the symbol! 09.17.24 12:48:35
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 09.17.24 12:48:35
+open_entry_chart.py get_indicator() INFO: Found indicator Trade! 09.17.24 12:48:35
+open_entry_chart.py change_indicator_settings() INFO: Trade Drawer's settings changed. Inputs: entry_time - 1726516800000, entry_price - 0.52338, sl_price - 0.52126, tp1_price - 0.5255, tp2_price - 0.52762, tp3_price - 0.52974 09.17.24 12:48:38
+open_entry_chart.py change_indicator_settings() INFO: Trade indicator fully loaded! 09.17.24 12:48:40
+open_entry_chart.py save_chart_img() INFO: Took a snapshot and opened it in new tab. 09.17.24 12:48:41
+open_entry_chart.py save_chart_img() INFO: Got link of image and tab! 09.17.24 12:48:42
+database.local_db.py add_doc() INFO: Successfully sent a doc to Entries collection! 09.17.24 12:48:43
+database.nk_db.py post_to_url() INFO: Post request to Nishant uncle's webhook sent successfully! Response: <Response [200]> 09.17.24 12:48:43
+handle_alerts.py send_everywhere() INFO: Successfully sent entry data to all platforms for symbol NZDCHF. 09.17.24 12:48:43
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:48:43
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:48:43
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:48:43
+open_tv.py indicator_visibility() INFO: Screener indicator is already hidden. No need to change its visibility! 09.17.24 12:48:43
+open_entry_chart.py change_symbol() INFO: Entered symbol LALPATHLAB 09.17.24 12:48:45
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 09.17.24 12:48:47
+open_entry_chart.py get_indicator() INFO: Found indicator Trade! 09.17.24 12:48:47
+open_entry_chart.py change_indicator_settings() INFO: Trade Drawer's settings changed. Inputs: entry_time - 1726476300000, entry_price - 3363.75, sl_price - 3436.1, tp1_price - 3291.4, tp2_price - 3219.05, tp3_price - 3146.7 09.17.24 12:48:50
+open_entry_chart.py change_indicator_settings() INFO: Trade indicator fully loaded! 09.17.24 12:48:52
+open_entry_chart.py save_chart_img() INFO: Took a snapshot and opened it in new tab. 09.17.24 12:48:53
+open_entry_chart.py save_chart_img() INFO: Got link of image and tab! 09.17.24 12:48:54
+database.local_db.py add_doc() INFO: Successfully sent a doc to Entries collection! 09.17.24 12:48:55
+database.nk_db.py post_to_url() INFO: Post request to Nishant uncle's webhook sent successfully! Response: <Response [200]> 09.17.24 12:48:55
+handle_alerts.py send_everywhere() INFO: Successfully sent entry data to all platforms for symbol LALPATHLAB. 09.17.24 12:48:55
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:48:55
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:48:55
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:48:55
+open_tv.py indicator_visibility() INFO: Screener indicator is already hidden. No need to change its visibility! 09.17.24 12:48:56
+open_entry_chart.py change_symbol() INFO: Entered symbol MGL 09.17.24 12:48:56
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 09.17.24 12:48:58
+open_entry_chart.py get_indicator() INFO: Found indicator Trade! 09.17.24 12:48:58
+open_entry_chart.py change_indicator_settings() INFO: Trade Drawer's settings changed. Inputs: entry_time - 1726544700000, entry_price - 1863.8, sl_price - 1790.05, tp1_price - 1937.55, tp2_price - 2011.3, tp3_price - 2085.05 09.17.24 12:49:02
+open_entry_chart.py change_indicator_settings() INFO: Trade indicator fully loaded! 09.17.24 12:49:05
+open_entry_chart.py save_chart_img() INFO: Took a snapshot and opened it in new tab. 09.17.24 12:49:05
+open_entry_chart.py save_chart_img() INFO: Got link of image and tab! 09.17.24 12:49:07
+database.local_db.py add_doc() INFO: Successfully sent a doc to Entries collection! 09.17.24 12:49:07
+database.nk_db.py post_to_url() INFO: Post request to Nishant uncle's webhook sent successfully! Response: <Response [200]> 09.17.24 12:49:08
+handle_alerts.py send_everywhere() INFO: Successfully sent entry data to all platforms for symbol MGL. 09.17.24 12:49:08
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:49:08
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:49:08
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:49:08
+open_tv.py indicator_visibility() INFO: Screener indicator is already hidden. No need to change its visibility! 09.17.24 12:49:08
+open_entry_chart.py change_symbol() INFO: Entered symbol MARUTI 09.17.24 12:49:10
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 09.17.24 12:49:12
+open_entry_chart.py get_indicator() INFO: Found indicator Trade! 09.17.24 12:49:12
+open_entry_chart.py change_indicator_settings() INFO: Trade Drawer's settings changed. Inputs: entry_time - 1726544700000, entry_price - 12243.1, sl_price - 12427.0, tp1_price - 12059.2, tp2_price - 11875.3, tp3_price - 11691.4 09.17.24 12:49:16
+open_entry_chart.py change_indicator_settings() INFO: Trade indicator fully loaded! 09.17.24 12:49:18
+open_entry_chart.py save_chart_img() INFO: Took a snapshot and opened it in new tab. 09.17.24 12:49:18
+open_entry_chart.py save_chart_img() INFO: Got link of image and tab! 09.17.24 12:49:20
+database.local_db.py add_doc() INFO: Successfully sent a doc to Entries collection! 09.17.24 12:49:20
+database.nk_db.py post_to_url() INFO: Post request to Nishant uncle's webhook sent successfully! Response: <Response [200]> 09.17.24 12:49:21
+handle_alerts.py send_everywhere() INFO: Successfully sent entry data to all platforms for symbol MARUTI. 09.17.24 12:49:21
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:49:21
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:49:21
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:49:21
+open_tv.py indicator_visibility() INFO: Screener indicator is already hidden. No need to change its visibility! 09.17.24 12:49:21
+open_entry_chart.py change_symbol() INFO: Entered symbol BEL 09.17.24 12:49:22
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 09.17.24 12:49:24
+open_entry_chart.py get_indicator() INFO: Found indicator Trade! 09.17.24 12:49:24
+open_entry_chart.py change_indicator_settings() INFO: Trade Drawer's settings changed. Inputs: entry_time - 1726544700000, entry_price - 290.45, sl_price - 294.0, tp1_price - 286.9, tp2_price - 283.35, tp3_price - 279.8 09.17.24 12:49:28
+open_entry_chart.py change_indicator_settings() INFO: Trade indicator fully loaded! 09.17.24 12:49:30
+open_entry_chart.py save_chart_img() INFO: Took a snapshot and opened it in new tab. 09.17.24 12:49:30
+open_entry_chart.py save_chart_img() INFO: Got link of image and tab! 09.17.24 12:49:33
+database.local_db.py add_doc() INFO: Successfully sent a doc to Entries collection! 09.17.24 12:49:33
+database.nk_db.py post_to_url() INFO: Post request to Nishant uncle's webhook sent successfully! Response: <Response [200]> 09.17.24 12:49:34
+handle_alerts.py send_everywhere() INFO: Successfully sent entry data to all platforms for symbol BEL. 09.17.24 12:49:34
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:49:34
+resources.utils.py open_alert_tab() INFO: Alerts tab is closed. Will open it. 09.17.24 12:49:34
+resources.utils.py open_log_tab() INFO: Logs tab is closed. Will open it. 09.17.24 12:49:35
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:49:35
+open_tv.py indicator_visibility() INFO: Screener indicator is already hidden. No need to change its visibility! 09.17.24 12:49:36
+open_entry_chart.py change_symbol() INFO: Entered symbol ASHOKLEY 09.17.24 12:49:37
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 09.17.24 12:49:39
+open_entry_chart.py get_indicator() INFO: Found indicator Trade! 09.17.24 12:49:39
+open_entry_chart.py change_indicator_settings() INFO: Trade Drawer's settings changed. Inputs: entry_time - 1726544700000, entry_price - 244.3, sl_price - 264.65, tp1_price - 223.95, tp2_price - 203.6, tp3_price - 183.25 09.17.24 12:49:43
+open_entry_chart.py change_indicator_settings() INFO: Trade indicator fully loaded! 09.17.24 12:49:45
+open_entry_chart.py save_chart_img() INFO: Took a snapshot and opened it in new tab. 09.17.24 12:49:45
+open_entry_chart.py save_chart_img() INFO: Got link of image and tab! 09.17.24 12:49:47
+database.local_db.py add_doc() INFO: Successfully sent a doc to Entries collection! 09.17.24 12:49:48
+database.nk_db.py post_to_url() INFO: Post request to Nishant uncle's webhook sent successfully! Response: <Response [200]> 09.17.24 12:49:48
+handle_alerts.py send_everywhere() INFO: Successfully sent entry data to all platforms for symbol ASHOKLEY. 09.17.24 12:49:48
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:49:48
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:49:48
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:49:48
+open_tv.py indicator_visibility() INFO: Screener indicator is already hidden. No need to change its visibility! 09.17.24 12:49:49
+open_entry_chart.py change_symbol() INFO: Entered symbol CONCOR 09.17.24 12:49:50
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 09.17.24 12:49:52
+open_entry_chart.py get_indicator() INFO: Found indicator Trade! 09.17.24 12:49:52
+open_entry_chart.py change_indicator_settings() INFO: Trade Drawer's settings changed. Inputs: entry_time - 1726544700000, entry_price - 952, sl_price - 965.9, tp1_price - 938.1, tp2_price - 924.2, tp3_price - 910.3 09.17.24 12:49:55
+open_entry_chart.py change_indicator_settings() INFO: Trade indicator fully loaded! 09.17.24 12:49:58
+open_entry_chart.py save_chart_img() INFO: Took a snapshot and opened it in new tab. 09.17.24 12:49:58
+open_entry_chart.py save_chart_img() INFO: Got link of image and tab! 09.17.24 12:50:00
+database.local_db.py add_doc() INFO: Successfully sent a doc to Entries collection! 09.17.24 12:50:01
+database.nk_db.py post_to_url() INFO: Post request to Nishant uncle's webhook sent successfully! Response: <Response [200]> 09.17.24 12:50:01
+handle_alerts.py send_everywhere() INFO: Successfully sent entry data to all platforms for symbol CONCOR. 09.17.24 12:50:01
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:50:01
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:50:01
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:50:01
+open_tv.py indicator_visibility() INFO: Screener indicator is already hidden. No need to change its visibility! 09.17.24 12:50:01
+open_entry_chart.py change_symbol() INFO: Entered symbol THYROCARE 09.17.24 12:50:02
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 09.17.24 12:50:04
+open_entry_chart.py get_indicator() INFO: Found indicator Trade! 09.17.24 12:50:04
+open_entry_chart.py change_indicator_settings() INFO: Trade Drawer's settings changed. Inputs: entry_time - 1726544700000, entry_price - 854.65, sl_price - 931.35, tp1_price - 777.95, tp2_price - 701.25, tp3_price - 624.55 09.17.24 12:50:07
+open_entry_chart.py change_indicator_settings() INFO: Trade indicator fully loaded! 09.17.24 12:50:10
+open_entry_chart.py save_chart_img() INFO: Took a snapshot and opened it in new tab. 09.17.24 12:50:10
+open_entry_chart.py save_chart_img() INFO: Got link of image and tab! 09.17.24 12:50:11
+database.local_db.py add_doc() INFO: Successfully sent a doc to Entries collection! 09.17.24 12:50:12
+database.nk_db.py post_to_url() INFO: Post request to Nishant uncle's webhook sent successfully! Response: <Response [200]> 09.17.24 12:50:12
+handle_alerts.py send_everywhere() INFO: Successfully sent entry data to all platforms for symbol THYROCARE. 09.17.24 12:50:12
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:50:12
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:50:12
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:50:12
+open_tv.py indicator_visibility() INFO: Screener indicator is already hidden. No need to change its visibility! 09.17.24 12:50:13
+open_entry_chart.py change_symbol() INFO: Entered symbol WELSPUNLIV 09.17.24 12:50:13
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 09.17.24 12:50:15
+open_entry_chart.py get_indicator() INFO: Found indicator Trade! 09.17.24 12:50:15
+open_entry_chart.py change_indicator_settings() INFO: Trade Drawer's settings changed. Inputs: entry_time - 1726544700000, entry_price - 179.13, sl_price - 212.95, tp1_price - 145.31, tp2_price - 111.49, tp3_price - 77.67 09.17.24 12:50:19
+open_entry_chart.py change_indicator_settings() INFO: Trade indicator fully loaded! 09.17.24 12:50:21
+open_entry_chart.py save_chart_img() INFO: Took a snapshot and opened it in new tab. 09.17.24 12:50:21
+open_entry_chart.py save_chart_img() INFO: Got link of image and tab! 09.17.24 12:50:23
+database.local_db.py add_doc() INFO: Successfully sent a doc to Entries collection! 09.17.24 12:50:24
+database.nk_db.py post_to_url() INFO: Post request to Nishant uncle's webhook sent successfully! Response: <Response [200]> 09.17.24 12:50:24
+handle_alerts.py send_everywhere() INFO: Successfully sent entry data to all platforms for symbol WELSPUNLIV. 09.17.24 12:50:24
+open_entry_chart.py change_symbol() INFO: Entered symbol IRCON 09.17.24 12:50:25
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 09.17.24 12:50:27
+open_entry_chart.py get_indicator() INFO: Found indicator Trade! 09.17.24 12:50:27
+open_entry_chart.py change_indicator_settings() INFO: Trade Drawer's settings changed. Inputs: entry_time - 1726544700000, entry_price - 240.5, sl_price - 327.95, tp1_price - 153.05, tp2_price - 65.6, tp3_price - -21.85 09.17.24 12:50:31
+open_entry_chart.py change_indicator_settings() INFO: Trade indicator fully loaded! 09.17.24 12:50:33
+open_entry_chart.py save_chart_img() INFO: Took a snapshot and opened it in new tab. 09.17.24 12:50:33
+open_entry_chart.py save_chart_img() INFO: Got link of image and tab! 09.17.24 12:50:34
+database.local_db.py add_doc() INFO: Successfully sent a doc to Entries collection! 09.17.24 12:50:35
+database.nk_db.py post_to_url() INFO: Post request to Nishant uncle's webhook sent successfully! Response: <Response [200]> 09.17.24 12:50:35
+handle_alerts.py send_everywhere() INFO: Successfully sent entry data to all platforms for symbol IRCON. 09.17.24 12:50:35
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:50:35
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:50:35
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:50:35
+open_tv.py indicator_visibility() INFO: Screener indicator is already hidden. No need to change its visibility! 09.17.24 12:50:36
+open_entry_chart.py change_symbol() INFO: Entered symbol CONCOR 09.17.24 12:50:37
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 09.17.24 12:50:38
+open_entry_chart.py get_indicator() INFO: Found indicator Trade! 09.17.24 12:50:38
+open_entry_chart.py change_indicator_settings() INFO: Trade Drawer's settings changed. Inputs: entry_time - 1726544700000, entry_price - 952, sl_price - 965.9, tp1_price - 938.1, tp2_price - 924.2, tp3_price - 910.3 09.17.24 12:50:41
+open_entry_chart.py change_indicator_settings() INFO: Trade indicator fully loaded! 09.17.24 12:50:43
+open_entry_chart.py save_chart_img() INFO: Took a snapshot and opened it in new tab. 09.17.24 12:50:44
+open_entry_chart.py save_chart_img() INFO: Got link of image and tab! 09.17.24 12:50:45
+database.local_db.py add_doc() INFO: Successfully sent a doc to Entries collection! 09.17.24 12:50:46
+database.nk_db.py post_to_url() INFO: Post request to Nishant uncle's webhook sent successfully! Response: <Response [200]> 09.17.24 12:50:46
+handle_alerts.py send_everywhere() INFO: Successfully sent entry data to all platforms for symbol CONCOR. 09.17.24 12:50:46
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:50:46
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:50:46
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:50:46
+open_tv.py indicator_visibility() INFO: Screener indicator is already hidden. No need to change its visibility! 09.17.24 12:50:47
+open_entry_chart.py change_symbol() INFO: Entered symbol BEL 09.17.24 12:50:48
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 09.17.24 12:50:49
+open_entry_chart.py get_indicator() INFO: Found indicator Trade! 09.17.24 12:50:49
+open_entry_chart.py change_indicator_settings() INFO: Trade Drawer's settings changed. Inputs: entry_time - 1726544700000, entry_price - 290.45, sl_price - 294.0, tp1_price - 286.9, tp2_price - 283.35, tp3_price - 279.8 09.17.24 12:50:53
+open_entry_chart.py change_indicator_settings() INFO: Trade indicator fully loaded! 09.17.24 12:50:55
+open_entry_chart.py save_chart_img() INFO: Took a snapshot and opened it in new tab. 09.17.24 12:50:55
+open_entry_chart.py save_chart_img() INFO: Got link of image and tab! 09.17.24 12:50:57
+database.local_db.py add_doc() INFO: Successfully sent a doc to Entries collection! 09.17.24 12:50:58
+database.nk_db.py post_to_url() INFO: Post request to Nishant uncle's webhook sent successfully! Response: <Response [200]> 09.17.24 12:50:58
+handle_alerts.py send_everywhere() INFO: Successfully sent entry data to all platforms for symbol BEL. 09.17.24 12:50:58
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:50:58
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:50:58
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:50:58
+open_tv.py indicator_visibility() INFO: Screener indicator is already hidden. No need to change its visibility! 09.17.24 12:50:58
+open_entry_chart.py change_symbol() INFO: Entered symbol JKLAKSHMI 09.17.24 12:50:59
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 09.17.24 12:51:01
+open_entry_chart.py get_indicator() INFO: Found indicator Trade! 09.17.24 12:51:01
+open_entry_chart.py change_indicator_settings() INFO: Trade Drawer's settings changed. Inputs: entry_time - 1726548300000, entry_price - 781.95, sl_price - 805.0, tp1_price - 758.9, tp2_price - 735.85, tp3_price - 712.8 09.17.24 12:51:04
+open_entry_chart.py change_indicator_settings() INFO: Trade indicator fully loaded! 09.17.24 12:51:07
+open_entry_chart.py save_chart_img() INFO: Took a snapshot and opened it in new tab. 09.17.24 12:51:07
+open_entry_chart.py save_chart_img() INFO: Got link of image and tab! 09.17.24 12:51:09
+database.local_db.py add_doc() INFO: Successfully sent a doc to Entries collection! 09.17.24 12:51:10
+database.nk_db.py post_to_url() INFO: Post request to Nishant uncle's webhook sent successfully! Response: <Response [200]> 09.17.24 12:51:10
+handle_alerts.py send_everywhere() INFO: Successfully sent entry data to all platforms for symbol JKLAKSHMI. 09.17.24 12:51:10
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:51:10
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:51:10
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:51:10
+open_tv.py indicator_visibility() INFO: Screener indicator is already hidden. No need to change its visibility! 09.17.24 12:51:11
+open_entry_chart.py change_symbol() INFO: Entered symbol ASHOKLEY 09.17.24 12:51:11
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 09.17.24 12:51:13
+open_entry_chart.py get_indicator() INFO: Found indicator Trade! 09.17.24 12:51:13
+open_entry_chart.py change_indicator_settings() INFO: Trade Drawer's settings changed. Inputs: entry_time - 1726544700000, entry_price - 244.3, sl_price - 264.65, tp1_price - 223.95, tp2_price - 203.6, tp3_price - 183.25 09.17.24 12:51:17
+open_entry_chart.py change_indicator_settings() INFO: Trade indicator fully loaded! 09.17.24 12:51:19
+open_entry_chart.py save_chart_img() INFO: Took a snapshot and opened it in new tab. 09.17.24 12:51:19
+open_entry_chart.py save_chart_img() INFO: Got link of image and tab! 09.17.24 12:51:21
+database.local_db.py add_doc() INFO: Successfully sent a doc to Entries collection! 09.17.24 12:51:21
+database.nk_db.py post_to_url() INFO: Post request to Nishant uncle's webhook sent successfully! Response: <Response [200]> 09.17.24 12:51:22
+handle_alerts.py send_everywhere() INFO: Successfully sent entry data to all platforms for symbol ASHOKLEY. 09.17.24 12:51:22
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:51:22
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:51:22
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:51:22
+open_tv.py indicator_visibility() INFO: Screener indicator is already hidden. No need to change its visibility! 09.17.24 12:51:22
+open_entry_chart.py change_symbol() INFO: Entered symbol WELSPUNLIV 09.17.24 12:51:23
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 09.17.24 12:51:25
+open_entry_chart.py get_indicator() INFO: Found indicator Trade! 09.17.24 12:51:25
+open_entry_chart.py change_indicator_settings() INFO: Trade Drawer's settings changed. Inputs: entry_time - 1726544700000, entry_price - 179.13, sl_price - 212.95, tp1_price - 145.31, tp2_price - 111.49, tp3_price - 77.67 09.17.24 12:51:28
+open_entry_chart.py change_indicator_settings() INFO: Trade indicator fully loaded! 09.17.24 12:51:30
+open_entry_chart.py save_chart_img() INFO: Took a snapshot and opened it in new tab. 09.17.24 12:51:31
+open_entry_chart.py save_chart_img() INFO: Got link of image and tab! 09.17.24 12:51:32
+database.local_db.py add_doc() INFO: Successfully sent a doc to Entries collection! 09.17.24 12:51:33
+database.nk_db.py post_to_url() INFO: Post request to Nishant uncle's webhook sent successfully! Response: <Response [200]> 09.17.24 12:51:33
+handle_alerts.py send_everywhere() INFO: Successfully sent entry data to all platforms for symbol WELSPUNLIV. 09.17.24 12:51:33
+open_entry_chart.py change_symbol() INFO: Entered symbol IRCON 09.17.24 12:51:34
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 09.17.24 12:51:36
+open_entry_chart.py get_indicator() INFO: Found indicator Trade! 09.17.24 12:51:36
+open_entry_chart.py change_indicator_settings() INFO: Trade Drawer's settings changed. Inputs: entry_time - 1726544700000, entry_price - 240.5, sl_price - 327.95, tp1_price - 153.05, tp2_price - 65.6, tp3_price - -21.85 09.17.24 12:51:39
+open_entry_chart.py change_indicator_settings() INFO: Trade indicator fully loaded! 09.17.24 12:51:41
+open_entry_chart.py save_chart_img() INFO: Took a snapshot and opened it in new tab. 09.17.24 12:51:42
+open_entry_chart.py save_chart_img() INFO: Got link of image and tab! 09.17.24 12:51:43
+database.local_db.py add_doc() INFO: Successfully sent a doc to Entries collection! 09.17.24 12:51:44
+database.nk_db.py post_to_url() INFO: Post request to Nishant uncle's webhook sent successfully! Response: <Response [200]> 09.17.24 12:51:44
+handle_alerts.py send_everywhere() INFO: Successfully sent entry data to all platforms for symbol IRCON. 09.17.24 12:51:44
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:51:44
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:51:44
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:51:44
+open_tv.py indicator_visibility() INFO: Screener indicator is already hidden. No need to change its visibility! 09.17.24 12:51:44
+open_entry_chart.py change_symbol() INFO: Entered symbol THYROCARE 09.17.24 12:51:46
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 09.17.24 12:51:47
+open_entry_chart.py get_indicator() INFO: Found indicator Trade! 09.17.24 12:51:47
+open_entry_chart.py change_indicator_settings() INFO: Trade Drawer's settings changed. Inputs: entry_time - 1726544700000, entry_price - 854.65, sl_price - 931.35, tp1_price - 777.95, tp2_price - 701.25, tp3_price - 624.55 09.17.24 12:51:50
+open_entry_chart.py change_indicator_settings() INFO: Trade indicator fully loaded! 09.17.24 12:51:53
+open_entry_chart.py save_chart_img() INFO: Took a snapshot and opened it in new tab. 09.17.24 12:51:53
+open_entry_chart.py save_chart_img() INFO: Got link of image and tab! 09.17.24 12:51:56
+database.local_db.py add_doc() INFO: Successfully sent a doc to Entries collection! 09.17.24 12:51:57
+database.nk_db.py post_to_url() INFO: Post request to Nishant uncle's webhook sent successfully! Response: <Response [200]> 09.17.24 12:51:57
+handle_alerts.py send_everywhere() INFO: Successfully sent entry data to all platforms for symbol THYROCARE. 09.17.24 12:51:57
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:51:57
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:51:57
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:51:57
+open_tv.py indicator_visibility() INFO: Screener indicator is already hidden. No need to change its visibility! 09.17.24 12:51:58
+open_entry_chart.py change_symbol() INFO: Entered symbol SOUTHBANK 09.17.24 12:51:58
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 09.17.24 12:52:00
+open_entry_chart.py get_indicator() INFO: Found indicator Trade! 09.17.24 12:52:00
+open_entry_chart.py change_indicator_settings() INFO: Trade Drawer's settings changed. Inputs: entry_time - 1726548300000, entry_price - 24.97, sl_price - 25.44, tp1_price - 24.5, tp2_price - 24.03, tp3_price - 23.56 09.17.24 12:52:04
+open_entry_chart.py change_indicator_settings() INFO: Trade indicator fully loaded! 09.17.24 12:52:06
+open_entry_chart.py save_chart_img() INFO: Took a snapshot and opened it in new tab. 09.17.24 12:52:06
+open_entry_chart.py save_chart_img() INFO: Got link of image and tab! 09.17.24 12:52:08
+database.local_db.py add_doc() INFO: Successfully sent a doc to Entries collection! 09.17.24 12:52:09
+database.nk_db.py post_to_url() INFO: Post request to Nishant uncle's webhook sent successfully! Response: <Response [200]> 09.17.24 12:52:09
+handle_alerts.py send_everywhere() INFO: Successfully sent entry data to all platforms for symbol SOUTHBANK. 09.17.24 12:52:09
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:52:09
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:52:09
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:52:09
+open_tv.py indicator_visibility() INFO: Screener indicator is already hidden. No need to change its visibility! 09.17.24 12:52:10
+open_entry_chart.py change_symbol() INFO: Entered symbol JKLAKSHMI 09.17.24 12:52:11
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 09.17.24 12:52:12
+open_entry_chart.py get_indicator() INFO: Found indicator Trade! 09.17.24 12:52:12
+open_entry_chart.py change_indicator_settings() INFO: Trade Drawer's settings changed. Inputs: entry_time - 1726548300000, entry_price - 781.95, sl_price - 805.0, tp1_price - 758.9, tp2_price - 735.85, tp3_price - 712.8 09.17.24 12:52:16
+open_entry_chart.py change_indicator_settings() INFO: Trade indicator fully loaded! 09.17.24 12:52:18
+open_entry_chart.py save_chart_img() INFO: Took a snapshot and opened it in new tab. 09.17.24 12:52:18
+open_entry_chart.py save_chart_img() INFO: Got link of image and tab! 09.17.24 12:52:20
+database.local_db.py add_doc() INFO: Successfully sent a doc to Entries collection! 09.17.24 12:52:21
+database.nk_db.py post_to_url() INFO: Post request to Nishant uncle's webhook sent successfully! Response: <Response [200]> 09.17.24 12:52:21
+handle_alerts.py send_everywhere() INFO: Successfully sent entry data to all platforms for symbol JKLAKSHMI. 09.17.24 12:52:21
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:52:21
+resources.utils.py open_log_tab() ERROR: Error occurred when opening the Log tab. Error:  09.17.24 12:52:26
+Traceback (most recent call last):
+  File "c:\Users\Puja\Work\Coding\Python\For Poolsifi\tradingview to everywhere\resources\utils.py", line 92, in open_log_tab
+    WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alert-log-item"]')))
+  File "C:\Users\Puja\.virtualenvs\tradingview_to_everywhere-NF3SeAh4\lib\site-packages\selenium\webdriver\support\wait.py", line 105, in until
+    raise TimeoutException(message, screen, stacktrace)
+selenium.common.exceptions.TimeoutException: Message: 
+Stacktrace:
+	GetHandleVerifier [0x00007FF7E8459632+30946]
+	(No symbol) [0x00007FF7E840E3C9]
+	(No symbol) [0x00007FF7E8306FDA]
+	(No symbol) [0x00007FF7E835822C]
+	(No symbol) [0x00007FF7E835850C]
+	(No symbol) [0x00007FF7E839DCB7]
+	(No symbol) [0x00007FF7E837CAAF]
+	(No symbol) [0x00007FF7E839B041]
+	(No symbol) [0x00007FF7E837C813]
+	(No symbol) [0x00007FF7E834A6E5]
+	(No symbol) [0x00007FF7E834B021]
+	GetHandleVerifier [0x00007FF7E858F83D+1301229]
+	GetHandleVerifier [0x00007FF7E859BDB7+1351783]
+	GetHandleVerifier [0x00007FF7E8592A03+1313971]
+	GetHandleVerifier [0x00007FF7E848DD06+245686]
+	(No symbol) [0x00007FF7E841758F]
+	(No symbol) [0x00007FF7E8413804]
+	(No symbol) [0x00007FF7E8413992]
+	(No symbol) [0x00007FF7E840A3EF]
+	BaseThreadInitThunk [0x00007FFE9C68257D+29]
+	RtlUserThreadStart [0x00007FFE9CF2AF28+40]
+
+handle_alerts.py post_entries() WARNING: Timeout exception occurred. Assuming that there are no alert boxes. 09.17.24 12:52:37
+open_tv.py save_layout() ERROR: Saved the current layout! 09.17.24 12:52:37
+NoneType: None
+open_tv.py change_candles_type() INFO: The candle type is already Line. 09.17.24 12:52:44
+open_tv.py get_indicator() INFO: Found indicator Get Exits! 09.17.24 12:52:44
+resources.utils.py open_alert_tab() INFO: Alerts tab is closed. Will open it. 09.17.24 12:52:44
+database.local_db.py get_unix_time() INFO: The date 15 days ago was: 2024-09-02 09.17.24 12:52:53
+database.local_db.py get_entries_in_timespan() INFO: Retrieving entries from Entries collection with Currencies category between 24-09-02 12:52 and 24-09-17 12:28 09.17.24 12:52:53
+open_entry_chart.py change_symbol() INFO: Entered symbol EURCHF 09.17.24 12:52:54
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 09.17.24 12:52:56
+open_entry_chart.py get_indicator() INFO: Found indicator Get Exits! 09.17.24 12:52:57
+open_entry_chart.py change_get_exit_settings() INFO: Get Exits's settings changed. Inputs: entry_time - 1725264000000, entry_price - 0.93986, entry_type - Buy, sl_price - 0.93528, tp1_price - 0.94444, tp2_price - 0.94902, tp3_price - 0.9536 09.17.24 12:53:01
+open_tv.py is_no_error() INFO: There is no error in Get Exits! 09.17.24 12:53:01
+resources.utils.py open_alert_tab() INFO: Alerts tab is already open. No need to open it! 09.17.24 12:53:01
+open_tv.py click_create_alert() INFO: Saved alert name to "Get Exits"! 09.17.24 12:53:03
+open_tv.py click_create_alert() INFO: Clicked on "Create"! 09.17.24 12:53:03
+open_tv.py click_create_alert() INFO: No error occured while saving alert! 09.17.24 12:53:05
+resources.utils.py open_log_tab() INFO: Logs tab is closed. Will open it. 09.17.24 12:53:05
+exits.py check_exits() INFO: An exit has been hit. Going to take a snapshot. Exits: sl-False, tp1-True, tp2-False, tp3-False 09.17.24 12:53:10
+open_entry_chart.py get_indicator() INFO: Found indicator Get Exits! 09.17.24 12:53:12
+open_entry_chart.py get_exit_snapshot() INFO: Get Exits indicator fully loaded! 09.17.24 12:53:12
+open_entry_chart.py save_chart_img() INFO: Took a snapshot and opened it in new tab. 09.17.24 12:53:12
+open_entry_chart.py save_chart_img() INFO: Got link of image and tab! 09.17.24 12:53:14
+send_to_socials._facebook.py post() INFO: Posted to Facebook: {'id': '122179770782230462', 'post_id': '252647061266029_122179770800230462'} 09.17.24 12:53:22
+send_to_socials._facebook.py post() INFO: Posted to Facebook: {'id': '122179770818230462', 'post_id': '252647061266029_122179770854230462'} 09.17.24 12:53:27
+resources.utils.py open_alert_tab() INFO: Alerts tab is closed. Will open it. 09.17.24 12:53:27
+exits.py delete_all_get_exits_alerts() INFO: Deleted alert with name Get Exits 09.17.24 12:53:27
+open_entry_chart.py change_symbol() INFO: The current symbol is the same as EURCHF. There is no need to change the symbol! 09.17.24 12:53:37
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 09.17.24 12:53:37
+open_entry_chart.py get_indicator() INFO: Found indicator Get Exits! 09.17.24 12:53:38
+open_entry_chart.py change_get_exit_settings() INFO: Get Exits's settings changed. Inputs: entry_time - 1725264000000, entry_price - 0.93986, entry_type - Buy, sl_price - 0.93528, tp1_price - 0.94444, tp2_price - 0.94902, tp3_price - 0.9536 09.17.24 12:53:42
+open_tv.py is_no_error() INFO: There is no error in Get Exits! 09.17.24 12:53:42
+resources.utils.py open_alert_tab() INFO: Alerts tab is already open. No need to open it! 09.17.24 12:53:42
+open_tv.py click_create_alert() INFO: Saved alert name to "Get Exits"! 09.17.24 12:53:42
+open_tv.py click_create_alert() INFO: Clicked on "Create"! 09.17.24 12:53:43
+open_tv.py click_create_alert() INFO: No error occured while saving alert! 09.17.24 12:53:45
+resources.utils.py open_log_tab() INFO: Logs tab is closed. Will open it. 09.17.24 12:53:45
+resources.utils.py open_log_tab() ERROR: Error occurred when opening the Log tab. Error:  09.17.24 12:53:50
+Traceback (most recent call last):
+  File "c:\Users\Puja\Work\Coding\Python\For Poolsifi\tradingview to everywhere\resources\utils.py", line 92, in open_log_tab
+    WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alert-log-item"]')))
+  File "C:\Users\Puja\.virtualenvs\tradingview_to_everywhere-NF3SeAh4\lib\site-packages\selenium\webdriver\support\wait.py", line 105, in until
+    raise TimeoutException(message, screen, stacktrace)
+selenium.common.exceptions.TimeoutException: Message: 
+Stacktrace:
+	GetHandleVerifier [0x00007FF7E8459632+30946]
+	(No symbol) [0x00007FF7E840E3C9]
+	(No symbol) [0x00007FF7E8306FDA]
+	(No symbol) [0x00007FF7E835822C]
+	(No symbol) [0x00007FF7E835850C]
+	(No symbol) [0x00007FF7E839DCB7]
+	(No symbol) [0x00007FF7E837CAAF]
+	(No symbol) [0x00007FF7E839B041]
+	(No symbol) [0x00007FF7E837C813]
+	(No symbol) [0x00007FF7E834A6E5]
+	(No symbol) [0x00007FF7E834B021]
+	GetHandleVerifier [0x00007FF7E858F83D+1301229]
+	GetHandleVerifier [0x00007FF7E859BDB7+1351783]
+	GetHandleVerifier [0x00007FF7E8592A03+1313971]
+	GetHandleVerifier [0x00007FF7E848DD06+245686]
+	(No symbol) [0x00007FF7E841758F]
+	(No symbol) [0x00007FF7E8413804]
+	(No symbol) [0x00007FF7E8413992]
+	(No symbol) [0x00007FF7E840A3EF]
+	BaseThreadInitThunk [0x00007FFE9C68257D+29]
+	RtlUserThreadStart [0x00007FFE9CF2AF28+40]
+
+handle_alerts.py get_exit_alert_msg() ERROR: Error in getting the Get Exit's alert message. Error: 09.17.24 12:53:50
+Traceback (most recent call last):
+  File "c:\Users\Puja\Work\Coding\Python\For Poolsifi\tradingview to everywhere\handle_alerts.py", line 242, in get_exit_alert_msg
+    alert_box = self.driver.find_element(By.CSS_SELECTOR, 'div[class="widgetbar-page active"] div[data-name="alert-log-item"]')
+  File "C:\Users\Puja\.virtualenvs\tradingview_to_everywhere-NF3SeAh4\lib\site-packages\selenium\webdriver\remote\webdriver.py", line 748, in find_element
+    return self.execute(Command.FIND_ELEMENT, {"using": by, "value": value})["value"]
+  File "C:\Users\Puja\.virtualenvs\tradingview_to_everywhere-NF3SeAh4\lib\site-packages\selenium\webdriver\remote\webdriver.py", line 354, in execute
+    self.error_handler.check_response(response)
+  File "C:\Users\Puja\.virtualenvs\tradingview_to_everywhere-NF3SeAh4\lib\site-packages\selenium\webdriver\remote\errorhandler.py", line 229, in check_response
+    raise exception_class(message, screen, stacktrace)
+selenium.common.exceptions.NoSuchElementException: Message: no such element: Unable to locate element: {"method":"css selector","selector":"div[class="widgetbar-page active"] div[data-name="alert-log-item"]"}
+  (Session info: chrome=128.0.6613.138); For documentation on this error, please visit: https://www.selenium.dev/documentation/webdriver/troubleshooting/errors#no-such-element-exception
+Stacktrace:
+	GetHandleVerifier [0x00007FF7E8459632+30946]
+	(No symbol) [0x00007FF7E840E3C9]
+	(No symbol) [0x00007FF7E8306FDA]
+	(No symbol) [0x00007FF7E835822C]
+	(No symbol) [0x00007FF7E835850C]
+	(No symbol) [0x00007FF7E839DCB7]
+	(No symbol) [0x00007FF7E837CAAF]
+	(No symbol) [0x00007FF7E839B041]
+	(No symbol) [0x00007FF7E837C813]
+	(No symbol) [0x00007FF7E834A6E5]
+	(No symbol) [0x00007FF7E834B021]
+	GetHandleVerifier [0x00007FF7E858F83D+1301229]
+	GetHandleVerifier [0x00007FF7E859BDB7+1351783]
+	GetHandleVerifier [0x00007FF7E8592A03+1313971]
+	GetHandleVerifier [0x00007FF7E848DD06+245686]
+	(No symbol) [0x00007FF7E841758F]
+	(No symbol) [0x00007FF7E8413804]
+	(No symbol) [0x00007FF7E8413992]
+	(No symbol) [0x00007FF7E840A3EF]
+	BaseThreadInitThunk [0x00007FFE9C68257D+29]
+	RtlUserThreadStart [0x00007FFE9CF2AF28+40]
+
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:53:50
+exits.py check_exits() INFO: An exit has been hit. Going to take a snapshot. Exits: sl-False, tp1-True, tp2-False, tp3-False 09.17.24 12:53:51
+open_entry_chart.py get_indicator() INFO: Found indicator Get Exits! 09.17.24 12:53:53
+open_entry_chart.py get_exit_snapshot() INFO: Get Exits indicator fully loaded! 09.17.24 12:53:53
+open_entry_chart.py save_chart_img() INFO: Took a snapshot and opened it in new tab. 09.17.24 12:53:53
+open_entry_chart.py save_chart_img() INFO: Got link of image and tab! 09.17.24 12:53:55
+send_to_socials._facebook.py post() INFO: Posted to Facebook: {'id': '122179771010230462', 'post_id': '252647061266029_122179771028230462'} 09.17.24 12:54:01
+send_to_socials._facebook.py post() INFO: Posted to Facebook: {'id': '122179771046230462', 'post_id': '252647061266029_122179771076230462'} 09.17.24 12:54:05
+resources.utils.py open_alert_tab() INFO: Alerts tab is closed. Will open it. 09.17.24 12:54:05
+exits.py delete_all_get_exits_alerts() INFO: Deleted alert with name Get Exits 09.17.24 12:54:06
+open_entry_chart.py change_symbol() INFO: Entered symbol EURCAD 09.17.24 12:54:16
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 09.17.24 12:54:18
+open_entry_chart.py get_indicator() INFO: Found indicator Get Exits! 09.17.24 12:54:19
+open_entry_chart.py change_get_exit_settings() INFO: Get Exits's settings changed. Inputs: entry_time - 1725364800000, entry_price - 1.49516, entry_type - Buy, sl_price - 1.48891, tp1_price - 1.50141, tp2_price - 1.50766, tp3_price - 1.51391 09.17.24 12:54:23
+open_tv.py is_no_error() INFO: There is no error in Get Exits! 09.17.24 12:54:23
+resources.utils.py open_alert_tab() INFO: Alerts tab is already open. No need to open it! 09.17.24 12:54:23
+open_tv.py click_create_alert() INFO: Saved alert name to "Get Exits"! 09.17.24 12:54:24
+open_tv.py click_create_alert() INFO: Clicked on "Create"! 09.17.24 12:54:24
+open_tv.py click_create_alert() INFO: No error occured while saving alert! 09.17.24 12:54:27
+resources.utils.py open_log_tab() INFO: Logs tab is closed. Will open it. 09.17.24 12:54:27
+resources.utils.py open_log_tab() ERROR: Error occurred when opening the Log tab. Error:  09.17.24 12:54:32
+Traceback (most recent call last):
+  File "c:\Users\Puja\Work\Coding\Python\For Poolsifi\tradingview to everywhere\resources\utils.py", line 92, in open_log_tab
+    WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alert-log-item"]')))
+  File "C:\Users\Puja\.virtualenvs\tradingview_to_everywhere-NF3SeAh4\lib\site-packages\selenium\webdriver\support\wait.py", line 105, in until
+    raise TimeoutException(message, screen, stacktrace)
+selenium.common.exceptions.TimeoutException: Message: 
+Stacktrace:
+	GetHandleVerifier [0x00007FF7E8459632+30946]
+	(No symbol) [0x00007FF7E840E3C9]
+	(No symbol) [0x00007FF7E8306FDA]
+	(No symbol) [0x00007FF7E835822C]
+	(No symbol) [0x00007FF7E835850C]
+	(No symbol) [0x00007FF7E839DCB7]
+	(No symbol) [0x00007FF7E837CAAF]
+	(No symbol) [0x00007FF7E839B041]
+	(No symbol) [0x00007FF7E837C813]
+	(No symbol) [0x00007FF7E834A6E5]
+	(No symbol) [0x00007FF7E834B021]
+	GetHandleVerifier [0x00007FF7E858F83D+1301229]
+	GetHandleVerifier [0x00007FF7E859BDB7+1351783]
+	GetHandleVerifier [0x00007FF7E8592A03+1313971]
+	GetHandleVerifier [0x00007FF7E848DD06+245686]
+	(No symbol) [0x00007FF7E841758F]
+	(No symbol) [0x00007FF7E8413804]
+	(No symbol) [0x00007FF7E8413992]
+	(No symbol) [0x00007FF7E840A3EF]
+	BaseThreadInitThunk [0x00007FFE9C68257D+29]
+	RtlUserThreadStart [0x00007FFE9CF2AF28+40]
+
+handle_alerts.py get_exit_alert_msg() ERROR: Error in getting the Get Exit's alert message. Error: 09.17.24 12:54:32
+Traceback (most recent call last):
+  File "c:\Users\Puja\Work\Coding\Python\For Poolsifi\tradingview to everywhere\handle_alerts.py", line 242, in get_exit_alert_msg
+    alert_box = self.driver.find_element(By.CSS_SELECTOR, 'div[class="widgetbar-page active"] div[data-name="alert-log-item"]')
+  File "C:\Users\Puja\.virtualenvs\tradingview_to_everywhere-NF3SeAh4\lib\site-packages\selenium\webdriver\remote\webdriver.py", line 748, in find_element
+    return self.execute(Command.FIND_ELEMENT, {"using": by, "value": value})["value"]
+  File "C:\Users\Puja\.virtualenvs\tradingview_to_everywhere-NF3SeAh4\lib\site-packages\selenium\webdriver\remote\webdriver.py", line 354, in execute
+    self.error_handler.check_response(response)
+  File "C:\Users\Puja\.virtualenvs\tradingview_to_everywhere-NF3SeAh4\lib\site-packages\selenium\webdriver\remote\errorhandler.py", line 229, in check_response
+    raise exception_class(message, screen, stacktrace)
+selenium.common.exceptions.NoSuchElementException: Message: no such element: Unable to locate element: {"method":"css selector","selector":"div[class="widgetbar-page active"] div[data-name="alert-log-item"]"}
+  (Session info: chrome=128.0.6613.138); For documentation on this error, please visit: https://www.selenium.dev/documentation/webdriver/troubleshooting/errors#no-such-element-exception
+Stacktrace:
+	GetHandleVerifier [0x00007FF7E8459632+30946]
+	(No symbol) [0x00007FF7E840E3C9]
+	(No symbol) [0x00007FF7E8306FDA]
+	(No symbol) [0x00007FF7E835822C]
+	(No symbol) [0x00007FF7E835850C]
+	(No symbol) [0x00007FF7E839DCB7]
+	(No symbol) [0x00007FF7E837CAAF]
+	(No symbol) [0x00007FF7E839B041]
+	(No symbol) [0x00007FF7E837C813]
+	(No symbol) [0x00007FF7E834A6E5]
+	(No symbol) [0x00007FF7E834B021]
+	GetHandleVerifier [0x00007FF7E858F83D+1301229]
+	GetHandleVerifier [0x00007FF7E859BDB7+1351783]
+	GetHandleVerifier [0x00007FF7E8592A03+1313971]
+	GetHandleVerifier [0x00007FF7E848DD06+245686]
+	(No symbol) [0x00007FF7E841758F]
+	(No symbol) [0x00007FF7E8413804]
+	(No symbol) [0x00007FF7E8413992]
+	(No symbol) [0x00007FF7E840A3EF]
+	BaseThreadInitThunk [0x00007FFE9C68257D+29]
+	RtlUserThreadStart [0x00007FFE9CF2AF28+40]
+
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:54:32
+resources.utils.py open_log_tab() ERROR: Error occurred when opening the Log tab. Error:  09.17.24 12:54:37
+Traceback (most recent call last):
+  File "c:\Users\Puja\Work\Coding\Python\For Poolsifi\tradingview to everywhere\resources\utils.py", line 92, in open_log_tab
+    WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alert-log-item"]')))
+  File "C:\Users\Puja\.virtualenvs\tradingview_to_everywhere-NF3SeAh4\lib\site-packages\selenium\webdriver\support\wait.py", line 105, in until
+    raise TimeoutException(message, screen, stacktrace)
+selenium.common.exceptions.TimeoutException: Message: 
+Stacktrace:
+	GetHandleVerifier [0x00007FF7E8459632+30946]
+	(No symbol) [0x00007FF7E840E3C9]
+	(No symbol) [0x00007FF7E8306FDA]
+	(No symbol) [0x00007FF7E835822C]
+	(No symbol) [0x00007FF7E835850C]
+	(No symbol) [0x00007FF7E839DCB7]
+	(No symbol) [0x00007FF7E837CAAF]
+	(No symbol) [0x00007FF7E839B041]
+	(No symbol) [0x00007FF7E837C813]
+	(No symbol) [0x00007FF7E834A6E5]
+	(No symbol) [0x00007FF7E834B021]
+	GetHandleVerifier [0x00007FF7E858F83D+1301229]
+	GetHandleVerifier [0x00007FF7E859BDB7+1351783]
+	GetHandleVerifier [0x00007FF7E8592A03+1313971]
+	GetHandleVerifier [0x00007FF7E848DD06+245686]
+	(No symbol) [0x00007FF7E841758F]
+	(No symbol) [0x00007FF7E8413804]
+	(No symbol) [0x00007FF7E8413992]
+	(No symbol) [0x00007FF7E840A3EF]
+	BaseThreadInitThunk [0x00007FFE9C68257D+29]
+	RtlUserThreadStart [0x00007FFE9CF2AF28+40]
+
+exits.py check_exits() INFO: An exit has been hit. Going to take a snapshot. Exits: sl-False, tp1-True, tp2-True, tp3-False 09.17.24 12:54:38
+open_entry_chart.py get_indicator() INFO: Found indicator Get Exits! 09.17.24 12:54:40
+open_entry_chart.py get_exit_snapshot() INFO: Get Exits indicator fully loaded! 09.17.24 12:54:40
+open_entry_chart.py save_chart_img() INFO: Took a snapshot and opened it in new tab. 09.17.24 12:54:40
+open_entry_chart.py save_chart_img() INFO: Got link of image and tab! 09.17.24 12:54:42
+send_to_socials._facebook.py post() INFO: Posted to Facebook: {'id': '122179771226230462', 'post_id': '252647061266029_122179771250230462'} 09.17.24 12:54:48
+send_to_socials._facebook.py post() INFO: Posted to Facebook: {'id': '122179771274230462', 'post_id': '252647061266029_122179771316230462'} 09.17.24 12:54:53
+resources.utils.py open_alert_tab() INFO: Alerts tab is closed. Will open it. 09.17.24 12:54:53
+exits.py delete_all_get_exits_alerts() INFO: Deleted alert with name Get Exits 09.17.24 12:54:54
+open_entry_chart.py change_symbol() INFO: Entered symbol EURGBP 09.17.24 12:55:04
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 09.17.24 12:55:06
+open_entry_chart.py get_indicator() INFO: Found indicator Get Exits! 09.17.24 12:55:07
+open_entry_chart.py change_get_exit_settings() INFO: Get Exits's settings changed. Inputs: entry_time - 1725372000000, entry_price - 0.84278, entry_type - Buy, sl_price - 0.84062, tp1_price - 0.84494, tp2_price - 0.8471, tp3_price - 0.84926 09.17.24 12:55:11
+open_tv.py is_no_error() INFO: There is no error in Get Exits! 09.17.24 12:55:11
+resources.utils.py open_alert_tab() INFO: Alerts tab is already open. No need to open it! 09.17.24 12:55:11
+open_tv.py click_create_alert() INFO: Saved alert name to "Get Exits"! 09.17.24 12:55:11
+open_tv.py click_create_alert() INFO: Clicked on "Create"! 09.17.24 12:55:12
+open_tv.py click_create_alert() INFO: No error occured while saving alert! 09.17.24 12:55:14
+resources.utils.py open_alert_tab() INFO: Alerts tab is already open. No need to open it! 09.17.24 12:55:14
+resources.utils.py open_log_tab() INFO: Logs tab is closed. Will open it. 09.17.24 12:55:15
+exits.py check_exits() INFO: An exit has been hit. Going to take a snapshot. Exits: sl-False, tp1-True, tp2-False, tp3-False 09.17.24 12:55:16
+open_entry_chart.py get_indicator() INFO: Found indicator Get Exits! 09.17.24 12:55:18
+open_entry_chart.py get_exit_snapshot() INFO: Get Exits indicator fully loaded! 09.17.24 12:55:18
+open_entry_chart.py save_chart_img() INFO: Took a snapshot and opened it in new tab. 09.17.24 12:55:18
+open_entry_chart.py save_chart_img() INFO: Got link of image and tab! 09.17.24 12:55:20
+send_to_socials._facebook.py post() INFO: Posted to Facebook: {'id': '122179771430230462', 'post_id': '252647061266029_122179771448230462'} 09.17.24 12:55:26
+send_to_socials._facebook.py post() INFO: Posted to Facebook: {'id': '122179771490230462', 'post_id': '252647061266029_122179771526230462'} 09.17.24 12:55:30
+resources.utils.py open_alert_tab() INFO: Alerts tab is closed. Will open it. 09.17.24 12:55:30
+exits.py delete_all_get_exits_alerts() INFO: Deleted alert with name Get Exits 09.17.24 12:55:31
+open_entry_chart.py change_symbol() INFO: The current symbol is the same as EURGBP. There is no need to change the symbol! 09.17.24 12:55:40
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 09.17.24 12:55:40
+open_entry_chart.py get_indicator() INFO: Found indicator Get Exits! 09.17.24 12:55:41
+open_entry_chart.py change_get_exit_settings() INFO: Get Exits's settings changed. Inputs: entry_time - 1725372000000, entry_price - 0.84278, entry_type - Buy, sl_price - 0.84062, tp1_price - 0.84494, tp2_price - 0.8471, tp3_price - 0.84926 09.17.24 12:55:45
+open_tv.py is_no_error() INFO: There is no error in Get Exits! 09.17.24 12:55:45
+resources.utils.py open_alert_tab() INFO: Alerts tab is already open. No need to open it! 09.17.24 12:55:45
+open_tv.py click_create_alert() INFO: Saved alert name to "Get Exits"! 09.17.24 12:55:45
+open_tv.py click_create_alert() INFO: Clicked on "Create"! 09.17.24 12:55:45
+open_tv.py click_create_alert() INFO: No error occured while saving alert! 09.17.24 12:55:48
+resources.utils.py open_log_tab() INFO: Logs tab is closed. Will open it. 09.17.24 12:55:48
+resources.utils.py open_log_tab() ERROR: Error occurred when opening the Log tab. Error:  09.17.24 12:55:53
+Traceback (most recent call last):
+  File "c:\Users\Puja\Work\Coding\Python\For Poolsifi\tradingview to everywhere\resources\utils.py", line 92, in open_log_tab
+    WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alert-log-item"]')))
+  File "C:\Users\Puja\.virtualenvs\tradingview_to_everywhere-NF3SeAh4\lib\site-packages\selenium\webdriver\support\wait.py", line 105, in until
+    raise TimeoutException(message, screen, stacktrace)
+selenium.common.exceptions.TimeoutException: Message: 
+Stacktrace:
+	GetHandleVerifier [0x00007FF7E8459632+30946]
+	(No symbol) [0x00007FF7E840E3C9]
+	(No symbol) [0x00007FF7E8306FDA]
+	(No symbol) [0x00007FF7E835822C]
+	(No symbol) [0x00007FF7E835850C]
+	(No symbol) [0x00007FF7E839DCB7]
+	(No symbol) [0x00007FF7E837CAAF]
+	(No symbol) [0x00007FF7E839B041]
+	(No symbol) [0x00007FF7E837C813]
+	(No symbol) [0x00007FF7E834A6E5]
+	(No symbol) [0x00007FF7E834B021]
+	GetHandleVerifier [0x00007FF7E858F83D+1301229]
+	GetHandleVerifier [0x00007FF7E859BDB7+1351783]
+	GetHandleVerifier [0x00007FF7E8592A03+1313971]
+	GetHandleVerifier [0x00007FF7E848DD06+245686]
+	(No symbol) [0x00007FF7E841758F]
+	(No symbol) [0x00007FF7E8413804]
+	(No symbol) [0x00007FF7E8413992]
+	(No symbol) [0x00007FF7E840A3EF]
+	BaseThreadInitThunk [0x00007FFE9C68257D+29]
+	RtlUserThreadStart [0x00007FFE9CF2AF28+40]
+
+handle_alerts.py get_exit_alert_msg() ERROR: Error in getting the Get Exit's alert message. Error: 09.17.24 12:55:53
+Traceback (most recent call last):
+  File "c:\Users\Puja\Work\Coding\Python\For Poolsifi\tradingview to everywhere\handle_alerts.py", line 242, in get_exit_alert_msg
+    alert_box = self.driver.find_element(By.CSS_SELECTOR, 'div[class="widgetbar-page active"] div[data-name="alert-log-item"]')
+  File "C:\Users\Puja\.virtualenvs\tradingview_to_everywhere-NF3SeAh4\lib\site-packages\selenium\webdriver\remote\webdriver.py", line 748, in find_element
+    return self.execute(Command.FIND_ELEMENT, {"using": by, "value": value})["value"]
+  File "C:\Users\Puja\.virtualenvs\tradingview_to_everywhere-NF3SeAh4\lib\site-packages\selenium\webdriver\remote\webdriver.py", line 354, in execute
+    self.error_handler.check_response(response)
+  File "C:\Users\Puja\.virtualenvs\tradingview_to_everywhere-NF3SeAh4\lib\site-packages\selenium\webdriver\remote\errorhandler.py", line 229, in check_response
+    raise exception_class(message, screen, stacktrace)
+selenium.common.exceptions.NoSuchElementException: Message: no such element: Unable to locate element: {"method":"css selector","selector":"div[class="widgetbar-page active"] div[data-name="alert-log-item"]"}
+  (Session info: chrome=128.0.6613.138); For documentation on this error, please visit: https://www.selenium.dev/documentation/webdriver/troubleshooting/errors#no-such-element-exception
+Stacktrace:
+	GetHandleVerifier [0x00007FF7E8459632+30946]
+	(No symbol) [0x00007FF7E840E3C9]
+	(No symbol) [0x00007FF7E8306FDA]
+	(No symbol) [0x00007FF7E835822C]
+	(No symbol) [0x00007FF7E835850C]
+	(No symbol) [0x00007FF7E839DCB7]
+	(No symbol) [0x00007FF7E837CAAF]
+	(No symbol) [0x00007FF7E839B041]
+	(No symbol) [0x00007FF7E837C813]
+	(No symbol) [0x00007FF7E834A6E5]
+	(No symbol) [0x00007FF7E834B021]
+	GetHandleVerifier [0x00007FF7E858F83D+1301229]
+	GetHandleVerifier [0x00007FF7E859BDB7+1351783]
+	GetHandleVerifier [0x00007FF7E8592A03+1313971]
+	GetHandleVerifier [0x00007FF7E848DD06+245686]
+	(No symbol) [0x00007FF7E841758F]
+	(No symbol) [0x00007FF7E8413804]
+	(No symbol) [0x00007FF7E8413992]
+	(No symbol) [0x00007FF7E840A3EF]
+	BaseThreadInitThunk [0x00007FFE9C68257D+29]
+	RtlUserThreadStart [0x00007FFE9CF2AF28+40]
+
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:55:53
+exits.py check_exits() INFO: An exit has been hit. Going to take a snapshot. Exits: sl-False, tp1-True, tp2-False, tp3-False 09.17.24 12:55:56
+open_entry_chart.py get_indicator() INFO: Found indicator Get Exits! 09.17.24 12:55:58
+open_entry_chart.py get_exit_snapshot() INFO: Get Exits indicator fully loaded! 09.17.24 12:55:58
+open_entry_chart.py save_chart_img() INFO: Took a snapshot and opened it in new tab. 09.17.24 12:55:58
+open_entry_chart.py save_chart_img() INFO: Got link of image and tab! 09.17.24 12:56:01
+send_to_socials._facebook.py post() INFO: Posted to Facebook: {'id': '122179771646230462', 'post_id': '252647061266029_122179771670230462'} 09.17.24 12:56:08
+send_to_socials._facebook.py post() INFO: Posted to Facebook: {'id': '122179771700230462', 'post_id': '252647061266029_122179771724230462'} 09.17.24 12:56:12
+resources.utils.py open_alert_tab() INFO: Alerts tab is closed. Will open it. 09.17.24 12:56:12
+exits.py delete_all_get_exits_alerts() INFO: Deleted alert with name Get Exits 09.17.24 12:56:13
+open_entry_chart.py change_symbol() INFO: Entered symbol GBPCHF 09.17.24 12:56:22
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 09.17.24 12:56:24
+open_entry_chart.py get_indicator() INFO: Found indicator Get Exits! 09.17.24 12:56:26
+open_entry_chart.py change_get_exit_settings() INFO: Get Exits's settings changed. Inputs: entry_time - 1725487200000, entry_price - 1.11324, entry_type - Sell, sl_price - 1.12162, tp1_price - 1.10486, tp2_price - 1.09648, tp3_price - 1.0881 09.17.24 12:56:29
+open_tv.py is_no_error() INFO: There is no error in Get Exits! 09.17.24 12:56:29
+resources.utils.py open_alert_tab() INFO: Alerts tab is already open. No need to open it! 09.17.24 12:56:30
+open_tv.py click_create_alert() INFO: Saved alert name to "Get Exits"! 09.17.24 12:56:30
+open_tv.py click_create_alert() INFO: Clicked on "Create"! 09.17.24 12:56:30
+open_tv.py click_create_alert() INFO: No error occured while saving alert! 09.17.24 12:56:33
+resources.utils.py open_log_tab() INFO: Logs tab is closed. Will open it. 09.17.24 12:56:33
+exits.py check_exits() INFO: An exit has been hit. Going to take a snapshot. Exits: sl-False, tp1-True, tp2-False, tp3-False 09.17.24 12:56:37
+open_entry_chart.py get_indicator() INFO: Found indicator Get Exits! 09.17.24 12:56:39
+open_entry_chart.py get_exit_snapshot() INFO: Get Exits indicator fully loaded! 09.17.24 12:56:39
+open_entry_chart.py save_chart_img() INFO: Took a snapshot and opened it in new tab. 09.17.24 12:56:39
+open_entry_chart.py save_chart_img() INFO: Got link of image and tab! 09.17.24 12:56:41
+send_to_socials._facebook.py post() INFO: Posted to Facebook: {'id': '122179771880230462', 'post_id': '252647061266029_122179771904230462'} 09.17.24 12:56:49
+send_to_socials._facebook.py post() INFO: Posted to Facebook: {'id': '122179771940230462', 'post_id': '252647061266029_122179771958230462'} 09.17.24 12:56:53
+resources.utils.py open_alert_tab() INFO: Alerts tab is closed. Will open it. 09.17.24 12:56:53
+exits.py delete_all_get_exits_alerts() INFO: Deleted alert with name Get Exits 09.17.24 12:56:53
+open_entry_chart.py change_symbol() INFO: Entered symbol NZDCHF 09.17.24 12:57:03
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 09.17.24 12:57:05
+open_entry_chart.py get_indicator() INFO: Found indicator Get Exits! 09.17.24 12:57:06
+open_entry_chart.py change_get_exit_settings() INFO: Get Exits's settings changed. Inputs: entry_time - 1725490800000, entry_price - 0.52446, entry_type - Sell, sl_price - 0.53154, tp1_price - 0.51738, tp2_price - 0.5103, tp3_price - 0.50322 09.17.24 12:57:10
+open_tv.py is_no_error() INFO: There is no error in Get Exits! 09.17.24 12:57:10
+resources.utils.py open_alert_tab() INFO: Alerts tab is already open. No need to open it! 09.17.24 12:57:10
+open_tv.py click_create_alert() INFO: Saved alert name to "Get Exits"! 09.17.24 12:57:11
+open_tv.py click_create_alert() INFO: Clicked on "Create"! 09.17.24 12:57:11
+open_tv.py click_create_alert() INFO: No error occured while saving alert! 09.17.24 12:57:13
+resources.utils.py open_log_tab() INFO: Logs tab is closed. Will open it. 09.17.24 12:57:13
+resources.utils.py open_log_tab() ERROR: Error occurred when opening the Log tab. Error:  09.17.24 12:57:19
+Traceback (most recent call last):
+  File "c:\Users\Puja\Work\Coding\Python\For Poolsifi\tradingview to everywhere\resources\utils.py", line 92, in open_log_tab
+    WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alert-log-item"]')))
+  File "C:\Users\Puja\.virtualenvs\tradingview_to_everywhere-NF3SeAh4\lib\site-packages\selenium\webdriver\support\wait.py", line 105, in until
+    raise TimeoutException(message, screen, stacktrace)
+selenium.common.exceptions.TimeoutException: Message: 
+Stacktrace:
+	GetHandleVerifier [0x00007FF7E8459632+30946]
+	(No symbol) [0x00007FF7E840E3C9]
+	(No symbol) [0x00007FF7E8306FDA]
+	(No symbol) [0x00007FF7E835822C]
+	(No symbol) [0x00007FF7E835850C]
+	(No symbol) [0x00007FF7E839DCB7]
+	(No symbol) [0x00007FF7E837CAAF]
+	(No symbol) [0x00007FF7E839B041]
+	(No symbol) [0x00007FF7E837C813]
+	(No symbol) [0x00007FF7E834A6E5]
+	(No symbol) [0x00007FF7E834B021]
+	GetHandleVerifier [0x00007FF7E858F83D+1301229]
+	GetHandleVerifier [0x00007FF7E859BDB7+1351783]
+	GetHandleVerifier [0x00007FF7E8592A03+1313971]
+	GetHandleVerifier [0x00007FF7E848DD06+245686]
+	(No symbol) [0x00007FF7E841758F]
+	(No symbol) [0x00007FF7E8413804]
+	(No symbol) [0x00007FF7E8413992]
+	(No symbol) [0x00007FF7E840A3EF]
+	BaseThreadInitThunk [0x00007FFE9C68257D+29]
+	RtlUserThreadStart [0x00007FFE9CF2AF28+40]
+
+handle_alerts.py get_exit_alert_msg() ERROR: Error in getting the Get Exit's alert message. Error: 09.17.24 12:57:19
+Traceback (most recent call last):
+  File "c:\Users\Puja\Work\Coding\Python\For Poolsifi\tradingview to everywhere\handle_alerts.py", line 242, in get_exit_alert_msg
+    alert_box = self.driver.find_element(By.CSS_SELECTOR, 'div[class="widgetbar-page active"] div[data-name="alert-log-item"]')
+  File "C:\Users\Puja\.virtualenvs\tradingview_to_everywhere-NF3SeAh4\lib\site-packages\selenium\webdriver\remote\webdriver.py", line 748, in find_element
+    return self.execute(Command.FIND_ELEMENT, {"using": by, "value": value})["value"]
+  File "C:\Users\Puja\.virtualenvs\tradingview_to_everywhere-NF3SeAh4\lib\site-packages\selenium\webdriver\remote\webdriver.py", line 354, in execute
+    self.error_handler.check_response(response)
+  File "C:\Users\Puja\.virtualenvs\tradingview_to_everywhere-NF3SeAh4\lib\site-packages\selenium\webdriver\remote\errorhandler.py", line 229, in check_response
+    raise exception_class(message, screen, stacktrace)
+selenium.common.exceptions.NoSuchElementException: Message: no such element: Unable to locate element: {"method":"css selector","selector":"div[class="widgetbar-page active"] div[data-name="alert-log-item"]"}
+  (Session info: chrome=128.0.6613.138); For documentation on this error, please visit: https://www.selenium.dev/documentation/webdriver/troubleshooting/errors#no-such-element-exception
+Stacktrace:
+	GetHandleVerifier [0x00007FF7E8459632+30946]
+	(No symbol) [0x00007FF7E840E3C9]
+	(No symbol) [0x00007FF7E8306FDA]
+	(No symbol) [0x00007FF7E835822C]
+	(No symbol) [0x00007FF7E835850C]
+	(No symbol) [0x00007FF7E839DCB7]
+	(No symbol) [0x00007FF7E837CAAF]
+	(No symbol) [0x00007FF7E839B041]
+	(No symbol) [0x00007FF7E837C813]
+	(No symbol) [0x00007FF7E834A6E5]
+	(No symbol) [0x00007FF7E834B021]
+	GetHandleVerifier [0x00007FF7E858F83D+1301229]
+	GetHandleVerifier [0x00007FF7E859BDB7+1351783]
+	GetHandleVerifier [0x00007FF7E8592A03+1313971]
+	GetHandleVerifier [0x00007FF7E848DD06+245686]
+	(No symbol) [0x00007FF7E841758F]
+	(No symbol) [0x00007FF7E8413804]
+	(No symbol) [0x00007FF7E8413992]
+	(No symbol) [0x00007FF7E840A3EF]
+	BaseThreadInitThunk [0x00007FFE9C68257D+29]
+	RtlUserThreadStart [0x00007FFE9CF2AF28+40]
+
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:57:19
+resources.utils.py open_alert_tab() INFO: Alerts tab is closed. Will open it. 09.17.24 12:57:19
+exits.py delete_all_get_exits_alerts() INFO: Deleted alert with name Get Exits 09.17.24 12:57:20
+open_entry_chart.py change_symbol() INFO: The current symbol is the same as NZDCHF. There is no need to change the symbol! 09.17.24 12:57:29
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 09.17.24 12:57:29
+open_entry_chart.py get_indicator() INFO: Found indicator Get Exits! 09.17.24 12:57:30
+open_entry_chart.py change_get_exit_settings() INFO: Get Exits's settings changed. Inputs: entry_time - 1725490800000, entry_price - 0.52446, entry_type - Sell, sl_price - 0.53154, tp1_price - 0.51738, tp2_price - 0.5103, tp3_price - 0.50322 09.17.24 12:57:34
+open_tv.py is_no_error() INFO: There is no error in Get Exits! 09.17.24 12:57:34
+resources.utils.py open_alert_tab() INFO: Alerts tab is already open. No need to open it! 09.17.24 12:57:34
+open_tv.py click_create_alert() INFO: Saved alert name to "Get Exits"! 09.17.24 12:57:35
+open_tv.py click_create_alert() INFO: Clicked on "Create"! 09.17.24 12:57:35
+open_tv.py click_create_alert() INFO: No error occured while saving alert! 09.17.24 12:57:37
+resources.utils.py open_log_tab() INFO: Logs tab is closed. Will open it. 09.17.24 12:57:37
+resources.utils.py open_log_tab() ERROR: Error occurred when opening the Log tab. Error:  09.17.24 12:57:43
+Traceback (most recent call last):
+  File "c:\Users\Puja\Work\Coding\Python\For Poolsifi\tradingview to everywhere\resources\utils.py", line 92, in open_log_tab
+    WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alert-log-item"]')))
+  File "C:\Users\Puja\.virtualenvs\tradingview_to_everywhere-NF3SeAh4\lib\site-packages\selenium\webdriver\support\wait.py", line 105, in until
+    raise TimeoutException(message, screen, stacktrace)
+selenium.common.exceptions.TimeoutException: Message: 
+Stacktrace:
+	GetHandleVerifier [0x00007FF7E8459632+30946]
+	(No symbol) [0x00007FF7E840E3C9]
+	(No symbol) [0x00007FF7E8306FDA]
+	(No symbol) [0x00007FF7E835822C]
+	(No symbol) [0x00007FF7E835850C]
+	(No symbol) [0x00007FF7E839DCB7]
+	(No symbol) [0x00007FF7E837CAAF]
+	(No symbol) [0x00007FF7E839B041]
+	(No symbol) [0x00007FF7E837C813]
+	(No symbol) [0x00007FF7E834A6E5]
+	(No symbol) [0x00007FF7E834B021]
+	GetHandleVerifier [0x00007FF7E858F83D+1301229]
+	GetHandleVerifier [0x00007FF7E859BDB7+1351783]
+	GetHandleVerifier [0x00007FF7E8592A03+1313971]
+	GetHandleVerifier [0x00007FF7E848DD06+245686]
+	(No symbol) [0x00007FF7E841758F]
+	(No symbol) [0x00007FF7E8413804]
+	(No symbol) [0x00007FF7E8413992]
+	(No symbol) [0x00007FF7E840A3EF]
+	BaseThreadInitThunk [0x00007FFE9C68257D+29]
+	RtlUserThreadStart [0x00007FFE9CF2AF28+40]
+
+handle_alerts.py get_exit_alert_msg() ERROR: Error in getting the Get Exit's alert message. Error: 09.17.24 12:57:43
+Traceback (most recent call last):
+  File "c:\Users\Puja\Work\Coding\Python\For Poolsifi\tradingview to everywhere\handle_alerts.py", line 242, in get_exit_alert_msg
+    alert_box = self.driver.find_element(By.CSS_SELECTOR, 'div[class="widgetbar-page active"] div[data-name="alert-log-item"]')
+  File "C:\Users\Puja\.virtualenvs\tradingview_to_everywhere-NF3SeAh4\lib\site-packages\selenium\webdriver\remote\webdriver.py", line 748, in find_element
+    return self.execute(Command.FIND_ELEMENT, {"using": by, "value": value})["value"]
+  File "C:\Users\Puja\.virtualenvs\tradingview_to_everywhere-NF3SeAh4\lib\site-packages\selenium\webdriver\remote\webdriver.py", line 354, in execute
+    self.error_handler.check_response(response)
+  File "C:\Users\Puja\.virtualenvs\tradingview_to_everywhere-NF3SeAh4\lib\site-packages\selenium\webdriver\remote\errorhandler.py", line 229, in check_response
+    raise exception_class(message, screen, stacktrace)
+selenium.common.exceptions.NoSuchElementException: Message: no such element: Unable to locate element: {"method":"css selector","selector":"div[class="widgetbar-page active"] div[data-name="alert-log-item"]"}
+  (Session info: chrome=128.0.6613.138); For documentation on this error, please visit: https://www.selenium.dev/documentation/webdriver/troubleshooting/errors#no-such-element-exception
+Stacktrace:
+	GetHandleVerifier [0x00007FF7E8459632+30946]
+	(No symbol) [0x00007FF7E840E3C9]
+	(No symbol) [0x00007FF7E8306FDA]
+	(No symbol) [0x00007FF7E835822C]
+	(No symbol) [0x00007FF7E835850C]
+	(No symbol) [0x00007FF7E839DCB7]
+	(No symbol) [0x00007FF7E837CAAF]
+	(No symbol) [0x00007FF7E839B041]
+	(No symbol) [0x00007FF7E837C813]
+	(No symbol) [0x00007FF7E834A6E5]
+	(No symbol) [0x00007FF7E834B021]
+	GetHandleVerifier [0x00007FF7E858F83D+1301229]
+	GetHandleVerifier [0x00007FF7E859BDB7+1351783]
+	GetHandleVerifier [0x00007FF7E8592A03+1313971]
+	GetHandleVerifier [0x00007FF7E848DD06+245686]
+	(No symbol) [0x00007FF7E841758F]
+	(No symbol) [0x00007FF7E8413804]
+	(No symbol) [0x00007FF7E8413992]
+	(No symbol) [0x00007FF7E840A3EF]
+	BaseThreadInitThunk [0x00007FFE9C68257D+29]
+	RtlUserThreadStart [0x00007FFE9CF2AF28+40]
+
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 09.17.24 12:57:43
+resources.utils.py open_alert_tab() INFO: Alerts tab is closed. Will open it. 09.17.24 12:57:44
+exits.py delete_all_get_exits_alerts() INFO: Deleted alert with name Get Exits 09.17.24 12:57:45
+open_entry_chart.py change_symbol() INFO: Entered symbol NZDUSD 09.17.24 12:57:55
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 09.17.24 12:57:57
+open_entry_chart.py get_indicator() INFO: Found indicator Get Exits! 09.17.24 12:57:58
+open_entry_chart.py change_get_exit_settings() INFO: Get Exits's settings changed. Inputs: entry_time - 1725494400000, entry_price - 0.61862, entry_type - Sell, sl_price - 0.62992, tp1_price - 0.60732, tp2_price - 0.59602, tp3_price - 0.58472 09.17.24 12:58:02
+open_tv.py is_no_error() INFO: There is no error in Get Exits! 09.17.24 12:58:02
+resources.utils.py open_alert_tab() INFO: Alerts tab is already open. No need to open it! 09.17.24 12:58:02
+open_tv.py click_create_alert() INFO: Saved alert name to "Get Exits"! 09.17.24 12:58:02
+open_tv.py click_create_alert() INFO: Clicked on "Create"! 09.17.24 12:58:02
+open_tv.py click_create_alert() INFO: No error occured while saving alert! 09.17.24 12:58:05
+resources.utils.py open_log_tab() INFO: Logs tab is closed. Will open it. 09.17.24 12:58:05
+resources.utils.py open_alert_tab() INFO: Alerts tab is closed. Will open it. 09.17.24 12:58:08
+exits.py delete_all_get_exits_alerts() INFO: Deleted alert with name Get Exits 09.17.24 12:58:09
+open_entry_chart.py change_symbol() INFO: The current symbol is the same as NZDUSD. There is no need to change the symbol! 09.17.24 12:58:18
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 09.17.24 12:58:18
+open_entry_chart.py get_indicator() INFO: Found indicator Get Exits! 09.17.24 12:58:19
+open_entry_chart.py change_get_exit_settings() INFO: Get Exits's settings changed. Inputs: entry_time - 1725494400000, entry_price - 0.61862, entry_type - Sell, sl_price - 0.62992, tp1_price - 0.60732, tp2_price - 0.59602, tp3_price - 0.58472 09.17.24 12:58:23
+open_tv.py is_no_error() INFO: There is no error in Get Exits! 09.17.24 12:58:23
+resources.utils.py open_alert_tab() INFO: Alerts tab is already open. No need to open it! 09.17.24 12:58:23
+open_tv.py click_create_alert() INFO: Saved alert name to "Get Exits"! 09.17.24 12:58:23
+open_tv.py click_create_alert() INFO: Clicked on "Create"! 09.17.24 12:58:23
+open_tv.py click_create_alert() INFO: No error occured while saving alert! 09.17.24 12:58:26
+resources.utils.py open_log_tab() INFO: Logs tab is closed. Will open it. 09.17.24 12:58:26
+resources.utils.py open_alert_tab() INFO: Alerts tab is closed. Will open it. 09.17.24 12:58:30
+exits.py delete_all_get_exits_alerts() INFO: Deleted alert with name Get Exits 09.17.24 12:58:30
+open_entry_chart.py change_symbol() INFO: Entered symbol NZDCAD 09.17.24 12:58:40
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 09.17.24 12:58:42
+open_entry_chart.py get_indicator() INFO: Found indicator Get Exits! 09.17.24 12:58:43
