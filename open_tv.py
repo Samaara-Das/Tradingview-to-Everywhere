@@ -6,9 +6,12 @@ There are a few other things this does that are related to all the things mentio
 '''
 
 # import modules
+import tkinter as tk
+from tkinter import simpledialog
 from resources.utils import Utils
 import handle_alerts
 import logger_setup
+from os import environ
 from time import sleep, time
 from open_entry_chart import OpenChart
 from resources.symbol_settings import *
@@ -57,7 +60,10 @@ class Browser:
     chrome_options = Options() 
     chrome_options.add_experimental_option("detach", keep_open)
     chrome_options.add_argument('--profile-directory=Profile 2')
-    chrome_options.add_argument(f"--user-data-dir={CHROME_PROFILE_PATH}")
+    chrome_options.add_argument(f"--user-data-dir={CHROME_PROFILE_PATH}/TTE")
+    chrome_options.add_argument("--remote-debugging-port=9224") 
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
     self.driver = webdriver.Chrome(service=ChromeService(executable_path=CHROMEDRIVER_EXE_PATH), options=chrome_options)
     self.open_chart = OpenChart(self.driver)
     self.utils = Utils()
@@ -68,6 +74,8 @@ class Browser:
     self.interval_seconds = interval_minutes * 60 # Convert the interval to seconds
     self.start_fresh = start_fresh
     self.init_succeeded = True
+    self.tv_email = ''
+    self.tv_password = ''
     if start_fresh: 
       if not fill_symbol_set(SYMBOL_INPUTS): # Call the function to fill up symbol_set in symbol_settings.py
         open_tv_logger.error(f'Cannot fill up the symbol set. Exiting function')
@@ -83,8 +91,66 @@ class Browser:
       open_tv_logger.exception(f'Cannot open this url: {url}. Error: ')
       return False 
 
+  def ask_for_tv_info(self):
+    '''This asks the user for their TradingView email and password'''
+    root = tk.Tk()
+    root.withdraw()  # Hide the main window
+
+    self.tv_email = simpledialog.askstring("TradingView Login", "Enter your TradingView email:", parent=root)
+    self.tv_password = simpledialog.askstring("TradingView Login", "Enter your TradingView password:", show='*', parent=root)
+
+    root.destroy()
+
+    if not self.tv_email or not self.tv_password:
+      open_tv_logger.error("TradingView email or password not provided. Exiting function.")
+      return False
+    return True
+
+  def sign_in(self):
+    '''This signs in to TradingView if logged out'''
+    self.driver.get('https://www.tradingview.com/accounts/signin/')
+    self.driver.maximize_window()
+    try:
+      # If the products menu is found, the user is signed in
+      WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'a[data-main-menu-root-track-id="products"]')))
+      return True
+    except TimeoutException: # If the products menu is not found, the user is not signed in
+      open_tv_logger.warning("Products menu not found within 5 seconds. User might not be signed in.")
+      tv_email = environ.get('TRADINGVIEW_EMAIL')
+      tv_password = environ.get('TRADINGVIEW_PASSWORD')
+      
+      if not tv_email or not tv_password:
+        open_tv_logger.error("TradingView credentials not found in environment variables.")
+        return False
+
+      # Wait for the email input field to be present  
+      email_input = WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.NAME, "id_username")))
+      email_input.send_keys(tv_email)
+
+      # Wait for the password input field to be present
+      password_input = WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.NAME, "id_password")))
+      password_input.send_keys(tv_password)
+
+      # Wait for the sign in button to be clickable
+      sign_in_button = self.driver.find_element(By.CSS_SELECTOR, 'button[data-overflow-tooltip-text="Sign in"]')
+      sign_in_button.click()
+
+      # Wait for the products menu to appear, indicating successful sign-in
+      try:
+        WebDriverWait(self.driver, 7).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'a[data-main-menu-root-track-id="products"]')))
+        open_tv_logger.info("Successfully signed in to TradingView")
+        return True
+      except TimeoutException:
+        open_tv_logger.error("Failed to sign in to TradingView")
+        return False
+
   def setup_tv(self): 
     '''This opens tradigview, changes the layout of the chart, saves the layout if `LAYOUT_NAME` == 'Screener', opens the alert sidebar, deletes all alerts, gets access to the screener & trade drawer indicators, makes them both visible and changes the timeframe of the screener'''
+
+    # sign in to tradingview
+    if not self.sign_in():
+      open_tv_logger.error('Failed to sign in to TradingView. Exiting function')
+      return False
 
     # open tradingview
     if not self.open_page('https://www.tradingview.com/chart'):

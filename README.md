@@ -15,22 +15,29 @@ Then, Python takes a snapshot of that and send it to Discord, Poolsifi and a Mon
 
 This whole process is repeated for all the messages until there are no more left. Once there are no more messages left, It starts checking if any entries have been exited.
 
-It fetches the entries from MongoDB which have been made in the last 15 days. It then checks if those entries have hit their Stop Loss, Take Profit 1, Take Profit 2 or Take Profit 3. If any of those TPs or SLs have been hit, Python sends a snapshot of that entry and its exit to Discord, Facebook, X (Twitter) and a MongoDB database.
+It fetches the entries from MongoDB which have been made in the last 15 days. It then checks if those entries have hit their Stop Loss, Take Profit 1, Take Profit 2 or Take Profit 3. If any of those TPs or SLs have been hit, Python sends a snapshot of that entry and its exit to Discord, Facebook, X (Twitter) and a MongoDB database. 
 
 ## Notes for programmers:
 
 ### For open_tv.py
-1. `SYMBOL_INPUTS` in `open_tv.py` should be the number of inputs in the screener which will be filled with symbols by Python. There are currently a total of 20 symbol inputs in the screener. Only a couple of them will get filled (currently, 5 of them will get filled). So, don't give this constant a value of the total symbol inputs. To change how many symbols can get filled, go to the screener's code in Pine Script.
+1. When inputting your TradingView email in the GUI, ensure that:
+   - Two-factor authentication is disabled for your TradingView account (check under Settings -> Privacy and Security)
+   - No social accounts are linked to your TradingView account. Check under Settings -> Privacy and Security. (if you don't see "Linked social accounts", you're good)
+   - You originally created the account using email/password, not through Google or other social sign-ins
 
-2. In `open_tv.py`, specify the timeframe of the chart. It is in the `CHART_TIMEFRAME` constant. This is the timeframe which the entries run on. The value of the constant should be a string and one of these options (The spelling must be correct):![Alt text](media/chart-tf.png) 
+These steps are crucial as they allow TTE to securely sign in to TradingView using the email and password you provide.
 
-4. In `open_tv.py`, make sure the `USED_SYMBOLS_INPUT` constant is the name of the "Used Symbols" input in the screener
+2. `SYMBOL_INPUTS` in `open_tv.py` should be the number of inputs in the screener which will be filled with symbols by Python. There are currently a total of 20 symbol inputs in the screener. Only a couple of them will get filled (currently, 5 of them will get filled). So, don't give this constant a value of the total symbol inputs. To change how many symbols can get filled, go to the screener's code in Pine Script.
 
-5. In `open_tv.py`, make sure the `LAYOUT_NAME` constant is set to the name of the layout on Tradingview which is meant for the screener.
+3. In `open_tv.py`, specify the timeframe of the chart. It is in the `CHART_TIMEFRAME` constant. This is the timeframe which the entries run on. The value of the constant should be a string and one of these options (The spelling must be correct):![Alt text](media/chart-tf.png) 
 
-6. In `open_tv.py`, the constant `SCREENER_REUPLOAD_TIMEOUT` has to have a value for the number of seconds it should wait for the screener to be re-uploaded on the chart. 
+5. In `open_tv.py`, make sure the `USED_SYMBOLS_INPUT` constant is the name of the "Used Symbols" input in the screener
 
-7. If an error like this occurs "session not created: This version of ChromeDriver only supports Chrome version 114
+6. In `open_tv.py`, make sure the `LAYOUT_NAME` constant is set to the name of the layout on Tradingview which is meant for the screener.
+
+7. In `open_tv.py`, the constant `SCREENER_REUPLOAD_TIMEOUT` has to have a value for the number of seconds it should wait for the screener to be re-uploaded on the chart. 
+
+8. If an error like this occurs "session not created: This version of ChromeDriver only supports Chrome version 114
 Current browser version is 127.0.6533.100", 
     - Go to the ![Chromium website](https://sites.google.com/chromium.org/driver/)
     - click here: ![Alt text](media/chromium.png)

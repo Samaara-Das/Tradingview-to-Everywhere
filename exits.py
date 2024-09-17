@@ -169,14 +169,16 @@ class Exits:
                                         word = 'hit' if sl_hit else ('gained' if tp1_hit or tp2_hit or tp3_hit else 'none')
                                         exit_type = 'Stop Loss' if sl_hit else ('3%' if tp3_hit else '2%' if tp2_hit else '1%' if tp1_hit else 'none')
                                         exit_content = f"{entry['direction']} trade in {symbol} {word} {exit_type}"
-                                        png_link_content = f'. Link: {png_link}'
+                                        png_link_content = f'{png_link}'
                                         bi_content = f'For more stats, go here: {BI_REPORT_LINK}'
                                         
                                         self.discord.send_to_exit_channel(category, exit_content+png_link_content) 
 
                                         self.discord.send_to_before_and_after_channel(entry['category'], entry['pngEntrySnapshot'], entry['pngExitSnapshot'], bi_content) 
 
-                                        self.twitter.before_after_tweets(entry['tvEntrySnapshot'], entry['tvExitSnapshot'], entry['content'], exit_content)
+                                        # entry['content'].split("Link:")[0] removes the snapshot from the text because a snapshot is already added in the message
+                                        exit_snapshot = entry['pngExitSnapshot'] if entry['tvExitSnapshot'] == '' else entry['tvExitSnapshot']
+                                        self.twitter.before_after_tweets(entry['tvEntrySnapshot'], exit_snapshot, entry['content'].split("Link:")[0], exit_content)
                                         
                                         fb_post(entry['pngEntrySnapshot'], entry['pngExitSnapshot'], entry['content']+'\n'+bi_content, exit_content+png_link_content+'\n'+bi_content) 
 
