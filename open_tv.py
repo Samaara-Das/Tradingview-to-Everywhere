@@ -11,7 +11,7 @@ from tkinter import simpledialog
 from resources.utils import Utils
 import handle_alerts
 import logger_setup
-from os import environ
+from os import getenv
 from time import sleep, time
 from open_entry_chart import OpenChart
 from resources.symbol_settings import *
@@ -35,9 +35,8 @@ USED_SYMBOLS_INPUT = "Used Symbols" # Name of the Used Symbols input in the Scre
 LAYOUT_NAME = 'Screener' # Name of the layout for the screener
 SCREENER_REUPLOAD_TIMEOUT = 15 # seconds to wait for the screener to show up on the chart after re-uploading it
 
-CHROMEDRIVER_EXE_PATH = 'C:\\Users\\Puja\\Work\\Coding\\Python\\chromedriver.exe'
-CHROME_PROFILE_PATH = 'C:\\Users\\Puja\\AppData\\Local\\Google\\Chrome\\User Data'
-# CHROME_PROFILE_PATH = 'C:\\Users\\pripuja\\AppData\\Local\\Google\\Chrome\\User Data'
+CHROMEDRIVER_EXE_PATH = getenv('CHROMEDRIVER_EXE_PATH')
+CHROME_PROFILES_PATH = getenv('CHROME_PROFILES_PATH')
 
 # generator functions
 def main_list_gen():
@@ -60,7 +59,7 @@ class Browser:
     chrome_options = Options() 
     chrome_options.add_experimental_option("detach", keep_open)
     chrome_options.add_argument('--profile-directory=Profile 2')
-    chrome_options.add_argument(f"--user-data-dir={CHROME_PROFILE_PATH}/TTE")
+    chrome_options.add_argument(f"--user-data-dir={CHROME_PROFILES_PATH}/TTE")
     chrome_options.add_argument("--remote-debugging-port=9224") 
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
@@ -101,8 +100,8 @@ class Browser:
       return True
     except TimeoutException: # If the products menu is not found, the user is not signed in
       open_tv_logger.warning("Products menu not found within 5 seconds. User might not be signed in.")
-      tv_email = environ.get('TRADINGVIEW_EMAIL')
-      tv_password = environ.get('TRADINGVIEW_PASSWORD')
+      tv_email = getenv('TRADINGVIEW_EMAIL')
+      tv_password = getenv('TRADINGVIEW_PASSWORD')
       
       if not tv_email or not tv_password:
         open_tv_logger.error("TradingView credentials not found in environment variables.")

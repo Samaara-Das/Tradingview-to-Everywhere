@@ -13,11 +13,9 @@ import pytz
 from pymongo.mongo_client import MongoClient
 from datetime import datetime, timedelta, timezone
 from time import mktime
-from dotenv import load_dotenv
 from os import getenv
 
-load_dotenv('C:\\Users\\Puja\\Work\\Coding\\Python\\For Poolsifi\\tradingview to everywhere\\.env')
-pwd = getenv('MONGODB_PWD')
+pwd = getenv('MONGODB_PWD')  # This environment variable is set in the system environment, not in the .env file
 
 # Set up logger for this file
 local_db_logger = logger_setup.setup_logger(__name__, logger_setup.INFO)
