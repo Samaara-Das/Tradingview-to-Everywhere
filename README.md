@@ -39,12 +39,6 @@ These steps are crucial as they allow TTE to securely sign in to TradingView usi
 
 7. In `open_tv.py`, the constant `SCREENER_REUPLOAD_TIMEOUT` has to have a value for the number of seconds it should wait for the screener to be re-uploaded on the chart. 
 
-8. If an error like this occurs "session not created: This version of ChromeDriver only supports Chrome version 114
-Current browser version is 127.0.6533.100", 
-    - Go to the ![Chromium website](https://sites.google.com/chromium.org/driver/)
-    - click here: ![Alt text](media/chromium.png)
-    - scroll down until you see a green table and download the latest chrome web driver
-
 ### For send_to_socials/send_to_discord.py
 1. `BI_REPORT_LINK` should be the shortened link of the latest Trade Stats Power BI Report. Use Bitly to shorten it.
 
