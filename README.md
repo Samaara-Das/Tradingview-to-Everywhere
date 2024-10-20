@@ -1,15 +1,10 @@
 # Tradingview to Everywhere
 
-## What this does (high level overview)
-This opens Tradingview and sets it up. Then python gets a set of upto 5 symbols from a category (the categories are Us Stocks, Indian Stocks, Crypto etc.) It changes the symbol of the chart to the 1st symbol of that set (so that an alert can get created for that symbol). Then Python goes to the screener and fills it up with all those symbols in the set. The maximum number of symbols it can fill into the screener are 5. After that, an alert gets set for the screener. This process continues until Python covers all the symbols of every category.
+## Description
+TradingView to Everywhere (TTE) automatically creates posts about trading entries and exits and publishes them to various social media platforms. These trading entries and exits are being generated on a charting platform called TradingView. TradingView has no API for TTE to access these trading signals so it instead utilizes web automation to access them.
 
-After alerts have been created for all the symbols, Python checks the "Alert log" for messages from the alerts it created. Every message comes from a specific alert. So, every message will have the entries which came from the screener which that specific alert was set to. There can be a single entry or multiple entries in a message.
+To post about trading entries, TTE goes to the TradingView website. It scrapes notifications about new trading entries across 1,300+ financial instruments. These notifications are generated through a custom indicator that I built on TradingView. These notifications contain information about an entry like it's entry and exit levels, the time it started, which instrument it got generated on etc. TTE uses this information to visualize each entry using TradingView's drawing tools. After that, a screenshot is taken of each entry. The screenshot along with information about the respective entry is posted to Discord, [Facebook](https://www.facebook.com/profile.php?id=61556913881911), [X (Twitter)](https://x.com/MarketDavinci) and [Poolsifi (my startup's website where these entries are displayed)](https://poolsifi.com/pool/setup). These entries are also simultaneously being stored on MongoDB.
 
-Python then goes through each message which came. It reads each entry in that message. Python then goes to that entry's symbol and timeframe. Then it fills up the entry time, entry price, TP and SL of that entry in an indicator. That other indicator then draws the entry based on the info it has been filled up with. The drawing will look like this: ![Alt text](media/entry-drawing.png) 
+To post about trading exits, TTE periodically checks if any of the trading entries have hit their exit levels. It starts with accessing these entries from MongoDB. Then, it feeds each entry to another custom indicator which checks if the given entry has hit its exit levels. If the entry has, the exit of the entry is visualized using TradingView's drawing tools and a screenshot is taken of it. That, along with informatin about the exit, is posted to Discord, Facebook, X (Twitter) and Poolsifi.
 
-Then, Python takes a snapshot of that and send it to Discord, Poolsifi and a database.
-
-This whole process is repeated for all the messages until there are no more left. Once there are no more messages left, Python waits for them to come.
-
-## Things to do for programmers:
-
+This system works 24/7. Check out [the statistics](https://bit.ly/trade-stats) of the trading signals.
