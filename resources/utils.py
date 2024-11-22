@@ -20,7 +20,7 @@ class Utils:
         '''
         try:
             # make sure the the Alerts tab is currently open
-            alert_tab_selector = 'div[class="widget-X9EuSe_t widgetbar-widget widgetbar-widget-alerts"] div[class="widgetHeader-X9EuSe_t"] div[id="id_AlertsHeaderTabs_tablist"] button[data-name="light-tab-1"]'
+            alert_tab_selector = 'div[class="widget-X9EuSe_t widgetbar-widget widgetbar-widget-alerts"] div[class="widgetHeader-X9EuSe_t"] div[id="AlertsHeaderTabs"] button[data-name="light-tab-1"]'
 
             if WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, alert_tab_selector))).get_attribute('aria-selected') == 'true': # if the Alerts tab is already open
                 utils_logger.info('Logs tab is already open.')
@@ -39,7 +39,7 @@ class Utils:
         '''
         try:
             # make sure the the Alerts tab is currently open
-            alert_tab_selector = 'div[class="widget-X9EuSe_t widgetbar-widget widgetbar-widget-alerts"] div[class="widgetHeader-X9EuSe_t"] div[id="id_AlertsHeaderTabs_tablist"] button[data-name="light-tab-0"]'
+            alert_tab_selector = 'div[class="widget-X9EuSe_t widgetbar-widget widgetbar-widget-alerts"] div[class="widgetHeader-X9EuSe_t"] div[id="AlertsHeaderTabs"] button[data-name="light-tab-0"]'
 
             if WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, alert_tab_selector))).get_attribute('aria-selected') == 'true': # if the Alerts tab is already open
                 utils_logger.info('Alerts tab is already open.')
@@ -61,7 +61,7 @@ class Utils:
         '''
         try:
             # make sure the the Alerts tab is currently open
-            alert_tab_selector = 'div[class="widget-X9EuSe_t widgetbar-widget widgetbar-widget-alerts"] div[class="widgetHeader-X9EuSe_t"] div[id="id_AlertsHeaderTabs_tablist"] button[data-name="light-tab-0"]'
+            alert_tab_selector = 'div[class="widget-X9EuSe_t widgetbar-widget widgetbar-widget-alerts"] div[class="widgetHeader-X9EuSe_t"] div[id="AlertsHeaderTabs"] button[data-name="light-tab-0"]'
 
             if WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, alert_tab_selector))).get_attribute('aria-selected') == 'true': # if the Alerts tab is already open
                 utils_logger.info('Alerts tab is already open. No need to open it!')
@@ -80,7 +80,7 @@ class Utils:
         '''This makes sure that the Log tab in the alerts sidebar is open.'''
         try:
             # make sure the the Log tab is currently open
-            alert_tab_selector = 'div[class="widget-X9EuSe_t widgetbar-widget widgetbar-widget-alerts"] div[class="widgetHeader-X9EuSe_t"] div[id="id_AlertsHeaderTabs_tablist"] button[data-name="light-tab-1"]'
+            alert_tab_selector = 'div[class="widget-X9EuSe_t widgetbar-widget widgetbar-widget-alerts"] div[class="widgetHeader-X9EuSe_t"] div[id="AlertsHeaderTabs"] button[data-name="light-tab-1"]'
 
             if driver.find_element(By.CSS_SELECTOR, alert_tab_selector).get_attribute('aria-selected') == 'true': # if the Log tab is already open
                 utils_logger.info('Log tab is already open. No need to open it!')
