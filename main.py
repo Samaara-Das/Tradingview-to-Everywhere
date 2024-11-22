@@ -55,7 +55,6 @@ if __name__ == '__main__':
                     browser.alerts.restart_inactive_alerts()
                     last_run = time_module.time()
 
-                # instantiate the Exits class 
                 exits.delete_all_get_exits_alerts()
 
                 # do the setup again so that posting of the entries can happen
