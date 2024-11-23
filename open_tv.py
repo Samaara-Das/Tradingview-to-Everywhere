@@ -16,6 +16,9 @@ from time import sleep, time
 from open_entry_chart import OpenChart
 from resources.symbol_settings import *
 from selenium import webdriver
+from webdriver_manager.chrome import ChromeDriverManager
+from webdriver_manager.core.utils import read_version_from_cmd 
+from webdriver_manager.core.os_manager import PATTERN
 from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.keys import Keys
@@ -58,12 +61,18 @@ class Browser:
   def __init__(self, keep_open: bool, screener_shorttitle: str, screener_name: str, drawer_shorttitle: str, drawer_name: str, interval_minutes: int, start_fresh: bool) -> None:
     chrome_options = Options() 
     chrome_options.add_experimental_option("detach", keep_open)
+
     chrome_options.add_argument('--profile-directory=Profile 2')
     chrome_options.add_argument(f"--user-data-dir={CHROME_PROFILES_PATH}/TTE")
     chrome_options.add_argument("--remote-debugging-port=9224") 
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
-    self.driver = webdriver.Chrome(service=ChromeService(executable_path=CHROMEDRIVER_EXE_PATH), options=chrome_options)
+
+    cmd = "powershell -command \"&{(Get-Item 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe').VersionInfo.ProductVersion}\""
+    version = read_version_from_cmd(cmd, PATTERN["google-chrome"])
+    service = ChromeDriverManager(driver_version=version).install()
+    self.driver = webdriver.Chrome(service=ChromeService(service), options=chrome_options)
+
     self.open_chart = OpenChart(self.driver)
     self.utils = Utils()
     self.screener_name = screener_name
