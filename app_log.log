@@ -1,0 +1,1004 @@
+	(No symbol) [0x01081B96]
+	(No symbol) [0x01053F3C]
+	(No symbol) [0x01054EBD]
+	GetHandleVerifier [0x0149AC73+3017699]
+	GetHandleVerifier [0x014AB93B+3086507]
+	GetHandleVerifier [0x014A40F2+3055714]
+	GetHandleVerifier [0x01255AF0+637536]
+	(No symbol) [0x01150A5D]
+	(No symbol) [0x0114DA28]
+	(No symbol) [0x0114DBC5]
+	(No symbol) [0x011407F0]
+	BaseThreadInitThunk [0x75B95D49+25]
+	RtlInitializeExceptionChain [0x7714CEBB+107]
+	RtlGetAppContainerNamedObjectPath [0x7714CE41+561]
+
+handle_alerts.py post_entries() WARNING: Timeout exception occurred. Assuming that there are no alert boxes. 01.13.25 12:20:49
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:20:55
+open_tv.py get_indicator() INFO: Found indicator Get Exits! 01.13.25 12:20:55
+resources.utils.py open_alert_tab() INFO: Alerts tab is closed. Will open it. 01.13.25 12:20:55
+resources.utils.py open_alert_tab() INFO: Alerts tab is already open. No need to open it! 01.13.25 12:21:05
+open_tv.py get_indicator() INFO: Found indicator Screener! 01.13.25 12:21:17
+open_tv.py get_indicator() INFO: Found indicator Trade! 01.13.25 12:21:17
+open_tv.py indicator_visibility() INFO: Screener indicator is already visible. No need to change its visibility! 01.13.25 12:21:17
+open_tv.py indicator_visibility() INFO: Trade indicator is already visible. No need to change its visibility! 01.13.25 12:21:17
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:21:17
+resources.utils.py open_log_tab() INFO: Logs tab is closed. Will open it. 01.13.25 12:21:19
+resources.utils.py open_log_tab() ERROR: Error occurred when opening the Log tab. Error:  01.13.25 12:21:25
+Traceback (most recent call last):
+  File "C:\Users\Samaara\Work\Coding\Python\For Poolsifi\tradingview to everywhere\resources\utils.py", line 92, in open_log_tab
+    WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alert-log-item"]')))
+  File "C:\Users\Samaara\.virtualenvs\tradingview_to_everywhere-WckG3AQf\Lib\site-packages\selenium\webdriver\support\wait.py", line 105, in until
+    raise TimeoutException(message, screen, stacktrace)
+selenium.common.exceptions.TimeoutException: Message: 
+Stacktrace:
+	GetHandleVerifier [0x011BFD53+23747]
+	(No symbol) [0x01147D54]
+	(No symbol) [0x0101BE53]
+	(No symbol) [0x0105FCA6]
+	(No symbol) [0x0105FEEB]
+	(No symbol) [0x0109D852]
+	(No symbol) [0x01081E44]
+	(No symbol) [0x0109B41E]
+	(No symbol) [0x01081B96]
+	(No symbol) [0x01053F3C]
+	(No symbol) [0x01054EBD]
+	GetHandleVerifier [0x0149AC73+3017699]
+	GetHandleVerifier [0x014AB93B+3086507]
+	GetHandleVerifier [0x014A40F2+3055714]
+	GetHandleVerifier [0x01255AF0+637536]
+	(No symbol) [0x01150A5D]
+	(No symbol) [0x0114DA28]
+	(No symbol) [0x0114DBC5]
+	(No symbol) [0x011407F0]
+	BaseThreadInitThunk [0x75B95D49+25]
+	RtlInitializeExceptionChain [0x7714CEBB+107]
+	RtlGetAppContainerNamedObjectPath [0x7714CE41+561]
+
+handle_alerts.py post_entries() WARNING: Timeout exception occurred. Assuming that there are no alert boxes. 01.13.25 12:21:35
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:21:41
+open_tv.py get_indicator() INFO: Found indicator Get Exits! 01.13.25 12:21:41
+resources.utils.py open_alert_tab() INFO: Alerts tab is already open. No need to open it! 01.13.25 12:21:41
+resources.utils.py open_alert_tab() INFO: Alerts tab is already open. No need to open it! 01.13.25 12:21:50
+open_tv.py get_indicator() INFO: Found indicator Screener! 01.13.25 12:22:04
+open_tv.py get_indicator() INFO: Found indicator Trade! 01.13.25 12:22:04
+open_tv.py indicator_visibility() INFO: Screener indicator is already visible. No need to change its visibility! 01.13.25 12:22:04
+open_tv.py indicator_visibility() INFO: Trade indicator is already visible. No need to change its visibility! 01.13.25 12:22:04
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:22:04
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 01.13.25 12:22:06
+resources.utils.py open_log_tab() ERROR: Error occurred when opening the Log tab. Error:  01.13.25 12:22:12
+Traceback (most recent call last):
+  File "C:\Users\Samaara\Work\Coding\Python\For Poolsifi\tradingview to everywhere\resources\utils.py", line 92, in open_log_tab
+    WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alert-log-item"]')))
+  File "C:\Users\Samaara\.virtualenvs\tradingview_to_everywhere-WckG3AQf\Lib\site-packages\selenium\webdriver\support\wait.py", line 105, in until
+    raise TimeoutException(message, screen, stacktrace)
+selenium.common.exceptions.TimeoutException: Message: 
+Stacktrace:
+	GetHandleVerifier [0x011BFD53+23747]
+	(No symbol) [0x01147D54]
+	(No symbol) [0x0101BE53]
+	(No symbol) [0x0105FCA6]
+	(No symbol) [0x0105FEEB]
+	(No symbol) [0x0109D852]
+	(No symbol) [0x01081E44]
+	(No symbol) [0x0109B41E]
+	(No symbol) [0x01081B96]
+	(No symbol) [0x01053F3C]
+	(No symbol) [0x01054EBD]
+	GetHandleVerifier [0x0149AC73+3017699]
+	GetHandleVerifier [0x014AB93B+3086507]
+	GetHandleVerifier [0x014A40F2+3055714]
+	GetHandleVerifier [0x01255AF0+637536]
+	(No symbol) [0x01150A5D]
+	(No symbol) [0x0114DA28]
+	(No symbol) [0x0114DBC5]
+	(No symbol) [0x011407F0]
+	BaseThreadInitThunk [0x75B95D49+25]
+	RtlInitializeExceptionChain [0x7714CEBB+107]
+	RtlGetAppContainerNamedObjectPath [0x7714CE41+561]
+
+handle_alerts.py post_entries() WARNING: Timeout exception occurred. Assuming that there are no alert boxes. 01.13.25 12:22:22
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:22:28
+open_tv.py get_indicator() INFO: Found indicator Get Exits! 01.13.25 12:22:28
+resources.utils.py open_alert_tab() INFO: Alerts tab is closed. Will open it. 01.13.25 12:22:28
+resources.utils.py open_alert_tab() INFO: Alerts tab is already open. No need to open it! 01.13.25 12:22:38
+open_tv.py get_indicator() INFO: Found indicator Screener! 01.13.25 12:22:51
+open_tv.py get_indicator() INFO: Found indicator Trade! 01.13.25 12:22:51
+open_tv.py indicator_visibility() INFO: Screener indicator is already visible. No need to change its visibility! 01.13.25 12:22:51
+open_tv.py indicator_visibility() INFO: Trade indicator is already visible. No need to change its visibility! 01.13.25 12:22:51
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:22:51
+resources.utils.py open_log_tab() INFO: Logs tab is closed. Will open it. 01.13.25 12:22:53
+resources.utils.py open_log_tab() ERROR: Error occurred when opening the Log tab. Error:  01.13.25 12:22:59
+Traceback (most recent call last):
+  File "C:\Users\Samaara\Work\Coding\Python\For Poolsifi\tradingview to everywhere\resources\utils.py", line 92, in open_log_tab
+    WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alert-log-item"]')))
+  File "C:\Users\Samaara\.virtualenvs\tradingview_to_everywhere-WckG3AQf\Lib\site-packages\selenium\webdriver\support\wait.py", line 105, in until
+    raise TimeoutException(message, screen, stacktrace)
+selenium.common.exceptions.TimeoutException: Message: 
+Stacktrace:
+	GetHandleVerifier [0x011BFD53+23747]
+	(No symbol) [0x01147D54]
+	(No symbol) [0x0101BE53]
+	(No symbol) [0x0105FCA6]
+	(No symbol) [0x0105FEEB]
+	(No symbol) [0x0109D852]
+	(No symbol) [0x01081E44]
+	(No symbol) [0x0109B41E]
+	(No symbol) [0x01081B96]
+	(No symbol) [0x01053F3C]
+	(No symbol) [0x01054EBD]
+	GetHandleVerifier [0x0149AC73+3017699]
+	GetHandleVerifier [0x014AB93B+3086507]
+	GetHandleVerifier [0x014A40F2+3055714]
+	GetHandleVerifier [0x01255AF0+637536]
+	(No symbol) [0x01150A5D]
+	(No symbol) [0x0114DA28]
+	(No symbol) [0x0114DBC5]
+	(No symbol) [0x011407F0]
+	BaseThreadInitThunk [0x75B95D49+25]
+	RtlInitializeExceptionChain [0x7714CEBB+107]
+	RtlGetAppContainerNamedObjectPath [0x7714CE41+561]
+
+handle_alerts.py post_entries() WARNING: Timeout exception occurred. Assuming that there are no alert boxes. 01.13.25 12:23:09
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:23:14
+open_tv.py get_indicator() INFO: Found indicator Get Exits! 01.13.25 12:23:14
+resources.utils.py open_alert_tab() INFO: Alerts tab is closed. Will open it. 01.13.25 12:23:14
+resources.utils.py open_alert_tab() INFO: Alerts tab is already open. No need to open it! 01.13.25 12:23:24
+open_tv.py get_indicator() INFO: Found indicator Screener! 01.13.25 12:23:38
+open_tv.py get_indicator() INFO: Found indicator Trade! 01.13.25 12:23:38
+open_tv.py indicator_visibility() INFO: Screener indicator is already visible. No need to change its visibility! 01.13.25 12:23:38
+open_tv.py indicator_visibility() INFO: Trade indicator is already visible. No need to change its visibility! 01.13.25 12:23:38
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:23:38
+resources.utils.py open_log_tab() INFO: Logs tab is closed. Will open it. 01.13.25 12:23:40
+resources.utils.py open_log_tab() ERROR: Error occurred when opening the Log tab. Error:  01.13.25 12:23:45
+Traceback (most recent call last):
+  File "C:\Users\Samaara\Work\Coding\Python\For Poolsifi\tradingview to everywhere\resources\utils.py", line 92, in open_log_tab
+    WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alert-log-item"]')))
+  File "C:\Users\Samaara\.virtualenvs\tradingview_to_everywhere-WckG3AQf\Lib\site-packages\selenium\webdriver\support\wait.py", line 105, in until
+    raise TimeoutException(message, screen, stacktrace)
+selenium.common.exceptions.TimeoutException: Message: 
+Stacktrace:
+	GetHandleVerifier [0x011BFD53+23747]
+	(No symbol) [0x01147D54]
+	(No symbol) [0x0101BE53]
+	(No symbol) [0x0105FCA6]
+	(No symbol) [0x0105FEEB]
+	(No symbol) [0x0109D852]
+	(No symbol) [0x01081E44]
+	(No symbol) [0x0109B41E]
+	(No symbol) [0x01081B96]
+	(No symbol) [0x01053F3C]
+	(No symbol) [0x01054EBD]
+	GetHandleVerifier [0x0149AC73+3017699]
+	GetHandleVerifier [0x014AB93B+3086507]
+	GetHandleVerifier [0x014A40F2+3055714]
+	GetHandleVerifier [0x01255AF0+637536]
+	(No symbol) [0x01150A5D]
+	(No symbol) [0x0114DA28]
+	(No symbol) [0x0114DBC5]
+	(No symbol) [0x011407F0]
+	BaseThreadInitThunk [0x75B95D49+25]
+	RtlInitializeExceptionChain [0x7714CEBB+107]
+	RtlGetAppContainerNamedObjectPath [0x7714CE41+561]
+
+handle_alerts.py post_entries() WARNING: Timeout exception occurred. Assuming that there are no alert boxes. 01.13.25 12:23:56
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:24:01
+open_tv.py get_indicator() INFO: Found indicator Get Exits! 01.13.25 12:24:01
+resources.utils.py open_alert_tab() INFO: Alerts tab is already open. No need to open it! 01.13.25 12:24:01
+resources.utils.py open_alert_tab() INFO: Alerts tab is already open. No need to open it! 01.13.25 12:24:11
+open_tv.py get_indicator() INFO: Found indicator Screener! 01.13.25 12:24:24
+open_tv.py get_indicator() INFO: Found indicator Trade! 01.13.25 12:24:24
+open_tv.py indicator_visibility() INFO: Screener indicator is already visible. No need to change its visibility! 01.13.25 12:24:24
+open_tv.py indicator_visibility() INFO: Trade indicator is already visible. No need to change its visibility! 01.13.25 12:24:24
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:24:24
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 01.13.25 12:24:26
+resources.utils.py open_log_tab() ERROR: Error occurred when opening the Log tab. Error:  01.13.25 12:24:31
+Traceback (most recent call last):
+  File "C:\Users\Samaara\Work\Coding\Python\For Poolsifi\tradingview to everywhere\resources\utils.py", line 92, in open_log_tab
+    WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alert-log-item"]')))
+  File "C:\Users\Samaara\.virtualenvs\tradingview_to_everywhere-WckG3AQf\Lib\site-packages\selenium\webdriver\support\wait.py", line 105, in until
+    raise TimeoutException(message, screen, stacktrace)
+selenium.common.exceptions.TimeoutException: Message: 
+Stacktrace:
+	GetHandleVerifier [0x011BFD53+23747]
+	(No symbol) [0x01147D54]
+	(No symbol) [0x0101BE53]
+	(No symbol) [0x0105FCA6]
+	(No symbol) [0x0105FEEB]
+	(No symbol) [0x0109D852]
+	(No symbol) [0x01081E44]
+	(No symbol) [0x0109B41E]
+	(No symbol) [0x01081B96]
+	(No symbol) [0x01053F3C]
+	(No symbol) [0x01054EBD]
+	GetHandleVerifier [0x0149AC73+3017699]
+	GetHandleVerifier [0x014AB93B+3086507]
+	GetHandleVerifier [0x014A40F2+3055714]
+	GetHandleVerifier [0x01255AF0+637536]
+	(No symbol) [0x01150A5D]
+	(No symbol) [0x0114DA28]
+	(No symbol) [0x0114DBC5]
+	(No symbol) [0x011407F0]
+	BaseThreadInitThunk [0x75B95D49+25]
+	RtlInitializeExceptionChain [0x7714CEBB+107]
+	RtlGetAppContainerNamedObjectPath [0x7714CE41+561]
+
+handle_alerts.py post_entries() WARNING: Timeout exception occurred. Assuming that there are no alert boxes. 01.13.25 12:24:42
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:24:47
+open_tv.py get_indicator() INFO: Found indicator Get Exits! 01.13.25 12:24:47
+resources.utils.py open_alert_tab() INFO: Alerts tab is closed. Will open it. 01.13.25 12:24:47
+resources.utils.py open_alert_tab() INFO: Alerts tab is already open. No need to open it! 01.13.25 12:24:57
+open_tv.py get_indicator() INFO: Found indicator Screener! 01.13.25 12:25:10
+open_tv.py get_indicator() INFO: Found indicator Trade! 01.13.25 12:25:10
+open_tv.py indicator_visibility() INFO: Screener indicator is already visible. No need to change its visibility! 01.13.25 12:25:10
+open_tv.py indicator_visibility() INFO: Trade indicator is already visible. No need to change its visibility! 01.13.25 12:25:10
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:25:10
+resources.utils.py open_log_tab() INFO: Logs tab is closed. Will open it. 01.13.25 12:25:12
+resources.utils.py open_log_tab() ERROR: Error occurred when opening the Log tab. Error:  01.13.25 12:25:18
+Traceback (most recent call last):
+  File "C:\Users\Samaara\Work\Coding\Python\For Poolsifi\tradingview to everywhere\resources\utils.py", line 92, in open_log_tab
+    WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alert-log-item"]')))
+  File "C:\Users\Samaara\.virtualenvs\tradingview_to_everywhere-WckG3AQf\Lib\site-packages\selenium\webdriver\support\wait.py", line 105, in until
+    raise TimeoutException(message, screen, stacktrace)
+selenium.common.exceptions.TimeoutException: Message: 
+Stacktrace:
+	GetHandleVerifier [0x011BFD53+23747]
+	(No symbol) [0x01147D54]
+	(No symbol) [0x0101BE53]
+	(No symbol) [0x0105FCA6]
+	(No symbol) [0x0105FEEB]
+	(No symbol) [0x0109D852]
+	(No symbol) [0x01081E44]
+	(No symbol) [0x0109B41E]
+	(No symbol) [0x01081B96]
+	(No symbol) [0x01053F3C]
+	(No symbol) [0x01054EBD]
+	GetHandleVerifier [0x0149AC73+3017699]
+	GetHandleVerifier [0x014AB93B+3086507]
+	GetHandleVerifier [0x014A40F2+3055714]
+	GetHandleVerifier [0x01255AF0+637536]
+	(No symbol) [0x01150A5D]
+	(No symbol) [0x0114DA28]
+	(No symbol) [0x0114DBC5]
+	(No symbol) [0x011407F0]
+	BaseThreadInitThunk [0x75B95D49+25]
+	RtlInitializeExceptionChain [0x7714CEBB+107]
+	RtlGetAppContainerNamedObjectPath [0x7714CE41+561]
+
+handle_alerts.py post_entries() WARNING: Timeout exception occurred. Assuming that there are no alert boxes. 01.13.25 12:25:28
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:25:34
+open_tv.py get_indicator() INFO: Found indicator Get Exits! 01.13.25 12:25:34
+resources.utils.py open_alert_tab() INFO: Alerts tab is closed. Will open it. 01.13.25 12:25:34
+resources.utils.py open_alert_tab() INFO: Alerts tab is already open. No need to open it! 01.13.25 12:25:44
+resources.utils.py open_alert_tab() INFO: Alerts tab is already open. No need to open it! 01.13.25 12:25:45
+open_tv.py get_indicator() INFO: Found indicator Screener! 01.13.25 12:25:58
+open_tv.py get_indicator() INFO: Found indicator Trade! 01.13.25 12:25:58
+open_tv.py indicator_visibility() INFO: Screener indicator is already visible. No need to change its visibility! 01.13.25 12:25:58
+open_tv.py indicator_visibility() INFO: Trade indicator is already visible. No need to change its visibility! 01.13.25 12:25:58
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:25:59
+resources.utils.py open_log_tab() INFO: Logs tab is closed. Will open it. 01.13.25 12:26:01
+resources.utils.py open_log_tab() ERROR: Error occurred when opening the Log tab. Error:  01.13.25 12:26:06
+Traceback (most recent call last):
+  File "C:\Users\Samaara\Work\Coding\Python\For Poolsifi\tradingview to everywhere\resources\utils.py", line 92, in open_log_tab
+    WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alert-log-item"]')))
+  File "C:\Users\Samaara\.virtualenvs\tradingview_to_everywhere-WckG3AQf\Lib\site-packages\selenium\webdriver\support\wait.py", line 105, in until
+    raise TimeoutException(message, screen, stacktrace)
+selenium.common.exceptions.TimeoutException: Message: 
+Stacktrace:
+	GetHandleVerifier [0x011BFD53+23747]
+	(No symbol) [0x01147D54]
+	(No symbol) [0x0101BE53]
+	(No symbol) [0x0105FCA6]
+	(No symbol) [0x0105FEEB]
+	(No symbol) [0x0109D852]
+	(No symbol) [0x01081E44]
+	(No symbol) [0x0109B41E]
+	(No symbol) [0x01081B96]
+	(No symbol) [0x01053F3C]
+	(No symbol) [0x01054EBD]
+	GetHandleVerifier [0x0149AC73+3017699]
+	GetHandleVerifier [0x014AB93B+3086507]
+	GetHandleVerifier [0x014A40F2+3055714]
+	GetHandleVerifier [0x01255AF0+637536]
+	(No symbol) [0x01150A5D]
+	(No symbol) [0x0114DA28]
+	(No symbol) [0x0114DBC5]
+	(No symbol) [0x011407F0]
+	BaseThreadInitThunk [0x75B95D49+25]
+	RtlInitializeExceptionChain [0x7714CEBB+107]
+	RtlGetAppContainerNamedObjectPath [0x7714CE41+561]
+
+handle_alerts.py post_entries() WARNING: Timeout exception occurred. Assuming that there are no alert boxes. 01.13.25 12:26:16
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:26:21
+open_tv.py get_indicator() INFO: Found indicator Get Exits! 01.13.25 12:26:21
+resources.utils.py open_alert_tab() INFO: Alerts tab is closed. Will open it. 01.13.25 12:26:21
+resources.utils.py open_alert_tab() INFO: Alerts tab is already open. No need to open it! 01.13.25 12:26:31
+open_tv.py get_indicator() INFO: Found indicator Screener! 01.13.25 12:26:44
+open_tv.py get_indicator() INFO: Found indicator Trade! 01.13.25 12:26:44
+open_tv.py indicator_visibility() INFO: Screener indicator is already visible. No need to change its visibility! 01.13.25 12:26:44
+open_tv.py indicator_visibility() INFO: Trade indicator is already visible. No need to change its visibility! 01.13.25 12:26:44
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:26:44
+resources.utils.py open_log_tab() INFO: Logs tab is closed. Will open it. 01.13.25 12:26:46
+resources.utils.py open_log_tab() ERROR: Error occurred when opening the Log tab. Error:  01.13.25 12:26:52
+Traceback (most recent call last):
+  File "C:\Users\Samaara\Work\Coding\Python\For Poolsifi\tradingview to everywhere\resources\utils.py", line 92, in open_log_tab
+    WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alert-log-item"]')))
+  File "C:\Users\Samaara\.virtualenvs\tradingview_to_everywhere-WckG3AQf\Lib\site-packages\selenium\webdriver\support\wait.py", line 105, in until
+    raise TimeoutException(message, screen, stacktrace)
+selenium.common.exceptions.TimeoutException: Message: 
+Stacktrace:
+	GetHandleVerifier [0x011BFD53+23747]
+	(No symbol) [0x01147D54]
+	(No symbol) [0x0101BE53]
+	(No symbol) [0x0105FCA6]
+	(No symbol) [0x0105FEEB]
+	(No symbol) [0x0109D852]
+	(No symbol) [0x01081E44]
+	(No symbol) [0x0109B41E]
+	(No symbol) [0x01081B96]
+	(No symbol) [0x01053F3C]
+	(No symbol) [0x01054EBD]
+	GetHandleVerifier [0x0149AC73+3017699]
+	GetHandleVerifier [0x014AB93B+3086507]
+	GetHandleVerifier [0x014A40F2+3055714]
+	GetHandleVerifier [0x01255AF0+637536]
+	(No symbol) [0x01150A5D]
+	(No symbol) [0x0114DA28]
+	(No symbol) [0x0114DBC5]
+	(No symbol) [0x011407F0]
+	BaseThreadInitThunk [0x75B95D49+25]
+	RtlInitializeExceptionChain [0x7714CEBB+107]
+	RtlGetAppContainerNamedObjectPath [0x7714CE41+561]
+
+handle_alerts.py post_entries() WARNING: Timeout exception occurred. Assuming that there are no alert boxes. 01.13.25 12:27:02
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:27:07
+open_tv.py get_indicator() INFO: Found indicator Get Exits! 01.13.25 12:27:07
+resources.utils.py open_alert_tab() INFO: Alerts tab is closed. Will open it. 01.13.25 12:27:07
+resources.utils.py open_alert_tab() INFO: Alerts tab is already open. No need to open it! 01.13.25 12:27:17
+open_tv.py get_indicator() INFO: Found indicator Screener! 01.13.25 12:27:31
+open_tv.py get_indicator() INFO: Found indicator Trade! 01.13.25 12:27:31
+open_tv.py indicator_visibility() INFO: Screener indicator is already visible. No need to change its visibility! 01.13.25 12:27:31
+open_tv.py indicator_visibility() INFO: Trade indicator is already visible. No need to change its visibility! 01.13.25 12:27:31
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:27:31
+resources.utils.py open_log_tab() INFO: Logs tab is closed. Will open it. 01.13.25 12:27:33
+resources.utils.py open_log_tab() ERROR: Error occurred when opening the Log tab. Error:  01.13.25 12:27:38
+Traceback (most recent call last):
+  File "C:\Users\Samaara\Work\Coding\Python\For Poolsifi\tradingview to everywhere\resources\utils.py", line 92, in open_log_tab
+    WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alert-log-item"]')))
+  File "C:\Users\Samaara\.virtualenvs\tradingview_to_everywhere-WckG3AQf\Lib\site-packages\selenium\webdriver\support\wait.py", line 105, in until
+    raise TimeoutException(message, screen, stacktrace)
+selenium.common.exceptions.TimeoutException: Message: 
+Stacktrace:
+	GetHandleVerifier [0x011BFD53+23747]
+	(No symbol) [0x01147D54]
+	(No symbol) [0x0101BE53]
+	(No symbol) [0x0105FCA6]
+	(No symbol) [0x0105FEEB]
+	(No symbol) [0x0109D852]
+	(No symbol) [0x01081E44]
+	(No symbol) [0x0109B41E]
+	(No symbol) [0x01081B96]
+	(No symbol) [0x01053F3C]
+	(No symbol) [0x01054EBD]
+	GetHandleVerifier [0x0149AC73+3017699]
+	GetHandleVerifier [0x014AB93B+3086507]
+	GetHandleVerifier [0x014A40F2+3055714]
+	GetHandleVerifier [0x01255AF0+637536]
+	(No symbol) [0x01150A5D]
+	(No symbol) [0x0114DA28]
+	(No symbol) [0x0114DBC5]
+	(No symbol) [0x011407F0]
+	BaseThreadInitThunk [0x75B95D49+25]
+	RtlInitializeExceptionChain [0x7714CEBB+107]
+	RtlGetAppContainerNamedObjectPath [0x7714CE41+561]
+
+handle_alerts.py post_entries() WARNING: Timeout exception occurred. Assuming that there are no alert boxes. 01.13.25 12:27:48
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:27:54
+open_tv.py get_indicator() INFO: Found indicator Get Exits! 01.13.25 12:27:54
+resources.utils.py open_alert_tab() INFO: Alerts tab is closed. Will open it. 01.13.25 12:27:54
+resources.utils.py open_alert_tab() INFO: Alerts tab is already open. No need to open it! 01.13.25 12:28:04
+open_tv.py get_indicator() INFO: Found indicator Screener! 01.13.25 12:28:18
+open_tv.py get_indicator() INFO: Found indicator Trade! 01.13.25 12:28:18
+open_tv.py indicator_visibility() INFO: Screener indicator is already visible. No need to change its visibility! 01.13.25 12:28:18
+open_tv.py indicator_visibility() INFO: Trade indicator is already visible. No need to change its visibility! 01.13.25 12:28:18
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:28:18
+resources.utils.py open_log_tab() INFO: Logs tab is closed. Will open it. 01.13.25 12:28:20
+resources.utils.py open_log_tab() ERROR: Error occurred when opening the Log tab. Error:  01.13.25 12:28:25
+Traceback (most recent call last):
+  File "C:\Users\Samaara\Work\Coding\Python\For Poolsifi\tradingview to everywhere\resources\utils.py", line 92, in open_log_tab
+    WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alert-log-item"]')))
+  File "C:\Users\Samaara\.virtualenvs\tradingview_to_everywhere-WckG3AQf\Lib\site-packages\selenium\webdriver\support\wait.py", line 105, in until
+    raise TimeoutException(message, screen, stacktrace)
+selenium.common.exceptions.TimeoutException: Message: 
+Stacktrace:
+	GetHandleVerifier [0x011BFD53+23747]
+	(No symbol) [0x01147D54]
+	(No symbol) [0x0101BE53]
+	(No symbol) [0x0105FCA6]
+	(No symbol) [0x0105FEEB]
+	(No symbol) [0x0109D852]
+	(No symbol) [0x01081E44]
+	(No symbol) [0x0109B41E]
+	(No symbol) [0x01081B96]
+	(No symbol) [0x01053F3C]
+	(No symbol) [0x01054EBD]
+	GetHandleVerifier [0x0149AC73+3017699]
+	GetHandleVerifier [0x014AB93B+3086507]
+	GetHandleVerifier [0x014A40F2+3055714]
+	GetHandleVerifier [0x01255AF0+637536]
+	(No symbol) [0x01150A5D]
+	(No symbol) [0x0114DA28]
+	(No symbol) [0x0114DBC5]
+	(No symbol) [0x011407F0]
+	BaseThreadInitThunk [0x75B95D49+25]
+	RtlInitializeExceptionChain [0x7714CEBB+107]
+	RtlGetAppContainerNamedObjectPath [0x7714CE41+561]
+
+handle_alerts.py post_entries() WARNING: Timeout exception occurred. Assuming that there are no alert boxes. 01.13.25 12:28:36
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:28:41
+open_tv.py get_indicator() INFO: Found indicator Get Exits! 01.13.25 12:28:41
+resources.utils.py open_alert_tab() INFO: Alerts tab is closed. Will open it. 01.13.25 12:28:42
+resources.utils.py open_alert_tab() INFO: Alerts tab is already open. No need to open it! 01.13.25 12:28:52
+open_tv.py get_indicator() INFO: Found indicator Screener! 01.13.25 12:29:05
+open_tv.py get_indicator() INFO: Found indicator Trade! 01.13.25 12:29:05
+open_tv.py indicator_visibility() INFO: Screener indicator is already visible. No need to change its visibility! 01.13.25 12:29:05
+open_tv.py indicator_visibility() INFO: Trade indicator is already visible. No need to change its visibility! 01.13.25 12:29:05
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:29:05
+resources.utils.py open_log_tab() INFO: Logs tab is closed. Will open it. 01.13.25 12:29:07
+resources.utils.py open_log_tab() ERROR: Error occurred when opening the Log tab. Error:  01.13.25 12:29:12
+Traceback (most recent call last):
+  File "C:\Users\Samaara\Work\Coding\Python\For Poolsifi\tradingview to everywhere\resources\utils.py", line 92, in open_log_tab
+    WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alert-log-item"]')))
+  File "C:\Users\Samaara\.virtualenvs\tradingview_to_everywhere-WckG3AQf\Lib\site-packages\selenium\webdriver\support\wait.py", line 105, in until
+    raise TimeoutException(message, screen, stacktrace)
+selenium.common.exceptions.TimeoutException: Message: 
+Stacktrace:
+	GetHandleVerifier [0x011BFD53+23747]
+	(No symbol) [0x01147D54]
+	(No symbol) [0x0101BE53]
+	(No symbol) [0x0105FCA6]
+	(No symbol) [0x0105FEEB]
+	(No symbol) [0x0109D852]
+	(No symbol) [0x01081E44]
+	(No symbol) [0x0109B41E]
+	(No symbol) [0x01081B96]
+	(No symbol) [0x01053F3C]
+	(No symbol) [0x01054EBD]
+	GetHandleVerifier [0x0149AC73+3017699]
+	GetHandleVerifier [0x014AB93B+3086507]
+	GetHandleVerifier [0x014A40F2+3055714]
+	GetHandleVerifier [0x01255AF0+637536]
+	(No symbol) [0x01150A5D]
+	(No symbol) [0x0114DA28]
+	(No symbol) [0x0114DBC5]
+	(No symbol) [0x011407F0]
+	BaseThreadInitThunk [0x75B95D49+25]
+	RtlInitializeExceptionChain [0x7714CEBB+107]
+	RtlGetAppContainerNamedObjectPath [0x7714CE41+561]
+
+handle_alerts.py post_entries() WARNING: Timeout exception occurred. Assuming that there are no alert boxes. 01.13.25 12:29:22
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:29:27
+open_tv.py get_indicator() INFO: Found indicator Get Exits! 01.13.25 12:29:27
+resources.utils.py open_alert_tab() INFO: Alerts tab is closed. Will open it. 01.13.25 12:29:27
+resources.utils.py open_alert_tab() INFO: Alerts tab is already open. No need to open it! 01.13.25 12:29:37
+open_tv.py get_indicator() INFO: Found indicator Screener! 01.13.25 12:29:50
+open_tv.py get_indicator() INFO: Found indicator Trade! 01.13.25 12:29:50
+open_tv.py indicator_visibility() INFO: Screener indicator is already visible. No need to change its visibility! 01.13.25 12:29:50
+open_tv.py indicator_visibility() INFO: Trade indicator is already visible. No need to change its visibility! 01.13.25 12:29:50
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:29:50
+resources.utils.py open_log_tab() INFO: Logs tab is closed. Will open it. 01.13.25 12:29:52
+resources.utils.py open_log_tab() ERROR: Error occurred when opening the Log tab. Error:  01.13.25 12:29:58
+Traceback (most recent call last):
+  File "C:\Users\Samaara\Work\Coding\Python\For Poolsifi\tradingview to everywhere\resources\utils.py", line 92, in open_log_tab
+    WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alert-log-item"]')))
+  File "C:\Users\Samaara\.virtualenvs\tradingview_to_everywhere-WckG3AQf\Lib\site-packages\selenium\webdriver\support\wait.py", line 105, in until
+    raise TimeoutException(message, screen, stacktrace)
+selenium.common.exceptions.TimeoutException: Message: 
+Stacktrace:
+	GetHandleVerifier [0x011BFD53+23747]
+	(No symbol) [0x01147D54]
+	(No symbol) [0x0101BE53]
+	(No symbol) [0x0105FCA6]
+	(No symbol) [0x0105FEEB]
+	(No symbol) [0x0109D852]
+	(No symbol) [0x01081E44]
+	(No symbol) [0x0109B41E]
+	(No symbol) [0x01081B96]
+	(No symbol) [0x01053F3C]
+	(No symbol) [0x01054EBD]
+	GetHandleVerifier [0x0149AC73+3017699]
+	GetHandleVerifier [0x014AB93B+3086507]
+	GetHandleVerifier [0x014A40F2+3055714]
+	GetHandleVerifier [0x01255AF0+637536]
+	(No symbol) [0x01150A5D]
+	(No symbol) [0x0114DA28]
+	(No symbol) [0x0114DBC5]
+	(No symbol) [0x011407F0]
+	BaseThreadInitThunk [0x75B95D49+25]
+	RtlInitializeExceptionChain [0x7714CEBB+107]
+	RtlGetAppContainerNamedObjectPath [0x7714CE41+561]
+
+handle_alerts.py post_entries() WARNING: Timeout exception occurred. Assuming that there are no alert boxes. 01.13.25 12:30:08
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:30:14
+open_tv.py get_indicator() INFO: Found indicator Get Exits! 01.13.25 12:30:14
+resources.utils.py open_alert_tab() INFO: Alerts tab is closed. Will open it. 01.13.25 12:30:14
+resources.utils.py open_alert_tab() INFO: Alerts tab is already open. No need to open it! 01.13.25 12:30:24
+open_tv.py get_indicator() INFO: Found indicator Screener! 01.13.25 12:30:40
+open_tv.py get_indicator() INFO: Found indicator Trade! 01.13.25 12:30:40
+open_tv.py indicator_visibility() INFO: Screener indicator is already visible. No need to change its visibility! 01.13.25 12:30:40
+open_tv.py indicator_visibility() INFO: Trade indicator is already visible. No need to change its visibility! 01.13.25 12:30:40
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:30:40
+resources.utils.py open_log_tab() INFO: Logs tab is closed. Will open it. 01.13.25 12:30:42
+resources.utils.py open_alert_tab() INFO: Alerts tab is closed. Will open it. 01.13.25 12:30:42
+resources.utils.py open_log_tab() INFO: Logs tab is closed. Will open it. 01.13.25 12:30:44
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 01.13.25 12:30:44
+open_tv.py indicator_visibility() INFO: Successfully changed the visibility of Screener to make it hidden! 01.13.25 12:30:45
+open_entry_chart.py change_symbol() INFO: Entered symbol NEOUSDT 01.13.25 12:30:46
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 01.13.25 12:30:48
+open_entry_chart.py get_indicator() INFO: Found indicator Trade! 01.13.25 12:30:48
+open_entry_chart.py change_indicator_settings() INFO: Trade Drawer's settings changed. Inputs: entry_time - 1736748000000, entry_price - 14.77, sl_price - 15.94, tp1_price - 13.6, tp2_price - 12.43, tp3_price - 11.26 01.13.25 12:30:52
+open_entry_chart.py change_indicator_settings() INFO: Trade indicator fully loaded! 01.13.25 12:30:54
+open_entry_chart.py save_chart_img() INFO: Took a snapshot and opened it in new tab. 01.13.25 12:30:54
+open_entry_chart.py save_chart_img() INFO: Got link of image and tab! 01.13.25 12:30:56
+database.local_db.py add_doc() INFO: Successfully sent a doc to Entries collection! 01.13.25 12:30:56
+database.nk_db.py post_to_url() INFO: Post request to Nishant uncle's webhook sent successfully! Response: <Response [200]> 01.13.25 12:30:57
+handle_alerts.py send_everywhere() INFO: Successfully sent entry data to all platforms for symbol NEOUSDT. 01.13.25 12:30:57
+open_entry_chart.py change_symbol() INFO: Entered symbol EOSUSDT 01.13.25 12:30:58
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 01.13.25 12:31:00
+open_entry_chart.py get_indicator() INFO: Found indicator Trade! 01.13.25 12:31:00
+open_entry_chart.py change_indicator_settings() INFO: Trade Drawer's settings changed. Inputs: entry_time - 1736744400000, entry_price - 0.7727, sl_price - 0.808, tp1_price - 0.7374, tp2_price - 0.7021, tp3_price - 0.6668 01.13.25 12:31:04
+open_entry_chart.py change_indicator_settings() INFO: Trade indicator fully loaded! 01.13.25 12:31:06
+open_entry_chart.py save_chart_img() INFO: Took a snapshot and opened it in new tab. 01.13.25 12:31:06
+open_entry_chart.py save_chart_img() INFO: Got link of image and tab! 01.13.25 12:31:07
+database.local_db.py add_doc() INFO: Successfully sent a doc to Entries collection! 01.13.25 12:31:08
+database.nk_db.py post_to_url() INFO: Post request to Nishant uncle's webhook sent successfully! Response: <Response [200]> 01.13.25 12:31:08
+handle_alerts.py send_everywhere() INFO: Successfully sent entry data to all platforms for symbol EOSUSDT. 01.13.25 12:31:08
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 01.13.25 12:31:08
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 01.13.25 12:31:08
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 01.13.25 12:31:08
+open_tv.py indicator_visibility() INFO: Screener indicator is already hidden. No need to change its visibility! 01.13.25 12:31:09
+open_entry_chart.py change_symbol() INFO: Entered symbol ETHUSDT 01.13.25 12:31:10
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 01.13.25 12:31:12
+open_entry_chart.py get_indicator() INFO: Found indicator Trade! 01.13.25 12:31:12
+open_entry_chart.py change_indicator_settings() INFO: Trade Drawer's settings changed. Inputs: entry_time - 1736748000000, entry_price - 3225.82, sl_price - 3339.0, tp1_price - 3112.64, tp2_price - 2999.46, tp3_price - 2886.28 01.13.25 12:31:15
+open_entry_chart.py change_indicator_settings() INFO: Trade indicator fully loaded! 01.13.25 12:31:17
+open_entry_chart.py save_chart_img() INFO: Took a snapshot and opened it in new tab. 01.13.25 12:31:18
+open_entry_chart.py save_chart_img() INFO: Got link of image and tab! 01.13.25 12:31:19
+database.local_db.py add_doc() INFO: Successfully sent a doc to Entries collection! 01.13.25 12:31:20
+database.nk_db.py post_to_url() INFO: Post request to Nishant uncle's webhook sent successfully! Response: <Response [200]> 01.13.25 12:31:20
+handle_alerts.py send_everywhere() INFO: Successfully sent entry data to all platforms for symbol ETHUSDT. 01.13.25 12:31:20
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 01.13.25 12:31:20
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 01.13.25 12:31:20
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 01.13.25 12:31:20
+open_tv.py indicator_visibility() INFO: Screener indicator is already hidden. No need to change its visibility! 01.13.25 12:31:21
+open_entry_chart.py change_symbol() INFO: Entered symbol BTCUSDT 01.13.25 12:31:21
+open_entry_chart.py change_tframe() INFO: No need to change the timeframe as the current chart is already on that timeframe! 01.13.25 12:31:24
+open_entry_chart.py get_indicator() INFO: Found indicator Trade! 01.13.25 12:31:24
+open_entry_chart.py change_indicator_settings() INFO: Trade Drawer's settings changed. Inputs: entry_time - 1736748000000, entry_price - 94181.37, sl_price - 95940.0, tp1_price - 92422.74, tp2_price - 90664.11, tp3_price - 88905.48 01.13.25 12:31:27
+open_entry_chart.py change_indicator_settings() INFO: Trade indicator fully loaded! 01.13.25 12:31:29
+open_entry_chart.py save_chart_img() INFO: Took a snapshot and opened it in new tab. 01.13.25 12:31:29
+open_entry_chart.py save_chart_img() INFO: Got link of image and tab! 01.13.25 12:31:31
+database.local_db.py add_doc() INFO: Successfully sent a doc to Entries collection! 01.13.25 12:31:31
+database.nk_db.py post_to_url() INFO: Post request to Nishant uncle's webhook sent successfully! Response: <Response [200]> 01.13.25 12:31:32
+handle_alerts.py send_everywhere() INFO: Successfully sent entry data to all platforms for symbol BTCUSDT. 01.13.25 12:31:32
+resources.utils.py open_log_tab() INFO: Log tab is already open. No need to open it! 01.13.25 12:31:32
+resources.utils.py open_log_tab() ERROR: Error occurred when opening the Log tab. Error:  01.13.25 12:31:37
+Traceback (most recent call last):
+  File "C:\Users\Samaara\Work\Coding\Python\For Poolsifi\tradingview to everywhere\resources\utils.py", line 92, in open_log_tab
+    WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alert-log-item"]')))
+  File "C:\Users\Samaara\.virtualenvs\tradingview_to_everywhere-WckG3AQf\Lib\site-packages\selenium\webdriver\support\wait.py", line 105, in until
+    raise TimeoutException(message, screen, stacktrace)
+selenium.common.exceptions.TimeoutException: Message: 
+Stacktrace:
+	GetHandleVerifier [0x011BFD53+23747]
+	(No symbol) [0x01147D54]
+	(No symbol) [0x0101BE53]
+	(No symbol) [0x0105FCA6]
+	(No symbol) [0x0105FEEB]
+	(No symbol) [0x0109D852]
+	(No symbol) [0x01081E44]
+	(No symbol) [0x0109B41E]
+	(No symbol) [0x01081B96]
+	(No symbol) [0x01053F3C]
+	(No symbol) [0x01054EBD]
+	GetHandleVerifier [0x0149AC73+3017699]
+	GetHandleVerifier [0x014AB93B+3086507]
+	GetHandleVerifier [0x014A40F2+3055714]
+	GetHandleVerifier [0x01255AF0+637536]
+	(No symbol) [0x01150A5D]
+	(No symbol) [0x0114DA28]
+	(No symbol) [0x0114DBC5]
+	(No symbol) [0x011407F0]
+	BaseThreadInitThunk [0x75B95D49+25]
+	RtlInitializeExceptionChain [0x7714CEBB+107]
+	RtlGetAppContainerNamedObjectPath [0x7714CE41+561]
+
+handle_alerts.py post_entries() WARNING: Timeout exception occurred. Assuming that there are no alert boxes. 01.13.25 12:31:47
+open_tv.py save_layout() ERROR: Saved the current layout! 01.13.25 12:31:47
+NoneType: None
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:31:53
+open_tv.py get_indicator() INFO: Found indicator Get Exits! 01.13.25 12:31:53
+resources.utils.py open_alert_tab() INFO: Alerts tab is closed. Will open it. 01.13.25 12:31:53
+resources.utils.py open_alert_tab() INFO: Alerts tab is already open. No need to open it! 01.13.25 12:32:03
+resources.utils.py open_alert_tab() INFO: Alerts tab is already open. No need to open it! 01.13.25 12:32:04
+open_tv.py get_indicator() INFO: Found indicator Screener! 01.13.25 12:32:17
+open_tv.py get_indicator() INFO: Found indicator Trade! 01.13.25 12:32:17
+open_tv.py indicator_visibility() INFO: Successfully changed the visibility of Screener to make it visible! 01.13.25 12:32:18
+open_tv.py indicator_visibility() INFO: Trade indicator is already visible. No need to change its visibility! 01.13.25 12:32:18
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:32:18
+resources.utils.py open_log_tab() INFO: Logs tab is closed. Will open it. 01.13.25 12:32:20
+resources.utils.py open_log_tab() ERROR: Error occurred when opening the Log tab. Error:  01.13.25 12:32:25
+Traceback (most recent call last):
+  File "C:\Users\Samaara\Work\Coding\Python\For Poolsifi\tradingview to everywhere\resources\utils.py", line 92, in open_log_tab
+    WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alert-log-item"]')))
+  File "C:\Users\Samaara\.virtualenvs\tradingview_to_everywhere-WckG3AQf\Lib\site-packages\selenium\webdriver\support\wait.py", line 105, in until
+    raise TimeoutException(message, screen, stacktrace)
+selenium.common.exceptions.TimeoutException: Message: 
+Stacktrace:
+	GetHandleVerifier [0x011BFD53+23747]
+	(No symbol) [0x01147D54]
+	(No symbol) [0x0101BE53]
+	(No symbol) [0x0105FCA6]
+	(No symbol) [0x0105FEEB]
+	(No symbol) [0x0109D852]
+	(No symbol) [0x01081E44]
+	(No symbol) [0x0109B41E]
+	(No symbol) [0x01081B96]
+	(No symbol) [0x01053F3C]
+	(No symbol) [0x01054EBD]
+	GetHandleVerifier [0x0149AC73+3017699]
+	GetHandleVerifier [0x014AB93B+3086507]
+	GetHandleVerifier [0x014A40F2+3055714]
+	GetHandleVerifier [0x01255AF0+637536]
+	(No symbol) [0x01150A5D]
+	(No symbol) [0x0114DA28]
+	(No symbol) [0x0114DBC5]
+	(No symbol) [0x011407F0]
+	BaseThreadInitThunk [0x75B95D49+25]
+	RtlInitializeExceptionChain [0x7714CEBB+107]
+	RtlGetAppContainerNamedObjectPath [0x7714CE41+561]
+
+handle_alerts.py post_entries() WARNING: Timeout exception occurred. Assuming that there are no alert boxes. 01.13.25 12:32:36
+open_tv.py save_layout() ERROR: Saved the current layout! 01.13.25 12:32:36
+NoneType: None
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:32:41
+open_tv.py get_indicator() INFO: Found indicator Get Exits! 01.13.25 12:32:41
+resources.utils.py open_alert_tab() INFO: Alerts tab is closed. Will open it. 01.13.25 12:32:41
+resources.utils.py open_alert_tab() INFO: Alerts tab is already open. No need to open it! 01.13.25 12:32:51
+open_tv.py get_indicator() INFO: Found indicator Screener! 01.13.25 12:33:04
+open_tv.py get_indicator() INFO: Found indicator Trade! 01.13.25 12:33:04
+open_tv.py indicator_visibility() INFO: Screener indicator is already visible. No need to change its visibility! 01.13.25 12:33:04
+open_tv.py indicator_visibility() INFO: Trade indicator is already visible. No need to change its visibility! 01.13.25 12:33:04
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:33:04
+resources.utils.py open_log_tab() INFO: Logs tab is closed. Will open it. 01.13.25 12:33:06
+resources.utils.py open_log_tab() ERROR: Error occurred when opening the Log tab. Error:  01.13.25 12:33:12
+Traceback (most recent call last):
+  File "C:\Users\Samaara\Work\Coding\Python\For Poolsifi\tradingview to everywhere\resources\utils.py", line 92, in open_log_tab
+    WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alert-log-item"]')))
+  File "C:\Users\Samaara\.virtualenvs\tradingview_to_everywhere-WckG3AQf\Lib\site-packages\selenium\webdriver\support\wait.py", line 105, in until
+    raise TimeoutException(message, screen, stacktrace)
+selenium.common.exceptions.TimeoutException: Message: 
+Stacktrace:
+	GetHandleVerifier [0x011BFD53+23747]
+	(No symbol) [0x01147D54]
+	(No symbol) [0x0101BE53]
+	(No symbol) [0x0105FCA6]
+	(No symbol) [0x0105FEEB]
+	(No symbol) [0x0109D852]
+	(No symbol) [0x01081E44]
+	(No symbol) [0x0109B41E]
+	(No symbol) [0x01081B96]
+	(No symbol) [0x01053F3C]
+	(No symbol) [0x01054EBD]
+	GetHandleVerifier [0x0149AC73+3017699]
+	GetHandleVerifier [0x014AB93B+3086507]
+	GetHandleVerifier [0x014A40F2+3055714]
+	GetHandleVerifier [0x01255AF0+637536]
+	(No symbol) [0x01150A5D]
+	(No symbol) [0x0114DA28]
+	(No symbol) [0x0114DBC5]
+	(No symbol) [0x011407F0]
+	BaseThreadInitThunk [0x75B95D49+25]
+	RtlInitializeExceptionChain [0x7714CEBB+107]
+	RtlGetAppContainerNamedObjectPath [0x7714CE41+561]
+
+handle_alerts.py post_entries() WARNING: Timeout exception occurred. Assuming that there are no alert boxes. 01.13.25 12:33:22
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:33:27
+open_tv.py get_indicator() INFO: Found indicator Get Exits! 01.13.25 12:33:27
+resources.utils.py open_alert_tab() INFO: Alerts tab is closed. Will open it. 01.13.25 12:33:27
+resources.utils.py open_alert_tab() INFO: Alerts tab is already open. No need to open it! 01.13.25 12:33:36
+open_tv.py get_indicator() INFO: Found indicator Screener! 01.13.25 12:33:50
+open_tv.py get_indicator() INFO: Found indicator Trade! 01.13.25 12:33:50
+open_tv.py indicator_visibility() INFO: Screener indicator is already visible. No need to change its visibility! 01.13.25 12:33:50
+open_tv.py indicator_visibility() INFO: Trade indicator is already visible. No need to change its visibility! 01.13.25 12:33:50
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:33:50
+resources.utils.py open_log_tab() INFO: Logs tab is closed. Will open it. 01.13.25 12:33:52
+resources.utils.py open_log_tab() ERROR: Error occurred when opening the Log tab. Error:  01.13.25 12:33:57
+Traceback (most recent call last):
+  File "C:\Users\Samaara\Work\Coding\Python\For Poolsifi\tradingview to everywhere\resources\utils.py", line 92, in open_log_tab
+    WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alert-log-item"]')))
+  File "C:\Users\Samaara\.virtualenvs\tradingview_to_everywhere-WckG3AQf\Lib\site-packages\selenium\webdriver\support\wait.py", line 105, in until
+    raise TimeoutException(message, screen, stacktrace)
+selenium.common.exceptions.TimeoutException: Message: 
+Stacktrace:
+	GetHandleVerifier [0x011BFD53+23747]
+	(No symbol) [0x01147D54]
+	(No symbol) [0x0101BE53]
+	(No symbol) [0x0105FCA6]
+	(No symbol) [0x0105FEEB]
+	(No symbol) [0x0109D852]
+	(No symbol) [0x01081E44]
+	(No symbol) [0x0109B41E]
+	(No symbol) [0x01081B96]
+	(No symbol) [0x01053F3C]
+	(No symbol) [0x01054EBD]
+	GetHandleVerifier [0x0149AC73+3017699]
+	GetHandleVerifier [0x014AB93B+3086507]
+	GetHandleVerifier [0x014A40F2+3055714]
+	GetHandleVerifier [0x01255AF0+637536]
+	(No symbol) [0x01150A5D]
+	(No symbol) [0x0114DA28]
+	(No symbol) [0x0114DBC5]
+	(No symbol) [0x011407F0]
+	BaseThreadInitThunk [0x75B95D49+25]
+	RtlInitializeExceptionChain [0x7714CEBB+107]
+	RtlGetAppContainerNamedObjectPath [0x7714CE41+561]
+
+handle_alerts.py post_entries() WARNING: Timeout exception occurred. Assuming that there are no alert boxes. 01.13.25 12:34:07
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:34:13
+open_tv.py get_indicator() INFO: Found indicator Get Exits! 01.13.25 12:34:13
+resources.utils.py open_alert_tab() INFO: Alerts tab is closed. Will open it. 01.13.25 12:34:13
+resources.utils.py open_alert_tab() INFO: Alerts tab is already open. No need to open it! 01.13.25 12:34:23
+open_tv.py get_indicator() INFO: Found indicator Screener! 01.13.25 12:34:36
+open_tv.py get_indicator() INFO: Found indicator Trade! 01.13.25 12:34:36
+open_tv.py indicator_visibility() INFO: Screener indicator is already visible. No need to change its visibility! 01.13.25 12:34:36
+open_tv.py indicator_visibility() INFO: Trade indicator is already visible. No need to change its visibility! 01.13.25 12:34:36
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:34:36
+resources.utils.py open_log_tab() INFO: Logs tab is closed. Will open it. 01.13.25 12:34:38
+resources.utils.py open_log_tab() ERROR: Error occurred when opening the Log tab. Error:  01.13.25 12:34:43
+Traceback (most recent call last):
+  File "C:\Users\Samaara\Work\Coding\Python\For Poolsifi\tradingview to everywhere\resources\utils.py", line 92, in open_log_tab
+    WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alert-log-item"]')))
+  File "C:\Users\Samaara\.virtualenvs\tradingview_to_everywhere-WckG3AQf\Lib\site-packages\selenium\webdriver\support\wait.py", line 105, in until
+    raise TimeoutException(message, screen, stacktrace)
+selenium.common.exceptions.TimeoutException: Message: 
+Stacktrace:
+	GetHandleVerifier [0x011BFD53+23747]
+	(No symbol) [0x01147D54]
+	(No symbol) [0x0101BE53]
+	(No symbol) [0x0105FCA6]
+	(No symbol) [0x0105FEEB]
+	(No symbol) [0x0109D852]
+	(No symbol) [0x01081E44]
+	(No symbol) [0x0109B41E]
+	(No symbol) [0x01081B96]
+	(No symbol) [0x01053F3C]
+	(No symbol) [0x01054EBD]
+	GetHandleVerifier [0x0149AC73+3017699]
+	GetHandleVerifier [0x014AB93B+3086507]
+	GetHandleVerifier [0x014A40F2+3055714]
+	GetHandleVerifier [0x01255AF0+637536]
+	(No symbol) [0x01150A5D]
+	(No symbol) [0x0114DA28]
+	(No symbol) [0x0114DBC5]
+	(No symbol) [0x011407F0]
+	BaseThreadInitThunk [0x75B95D49+25]
+	RtlInitializeExceptionChain [0x7714CEBB+107]
+	RtlGetAppContainerNamedObjectPath [0x7714CE41+561]
+
+handle_alerts.py post_entries() WARNING: Timeout exception occurred. Assuming that there are no alert boxes. 01.13.25 12:34:54
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:34:59
+open_tv.py get_indicator() INFO: Found indicator Get Exits! 01.13.25 12:35:00
+resources.utils.py open_alert_tab() INFO: Alerts tab is closed. Will open it. 01.13.25 12:35:00
+resources.utils.py open_alert_tab() INFO: Alerts tab is already open. No need to open it! 01.13.25 12:35:09
+open_tv.py get_indicator() INFO: Found indicator Screener! 01.13.25 12:35:22
+open_tv.py get_indicator() INFO: Found indicator Trade! 01.13.25 12:35:22
+open_tv.py indicator_visibility() INFO: Screener indicator is already visible. No need to change its visibility! 01.13.25 12:35:22
+open_tv.py indicator_visibility() INFO: Trade indicator is already visible. No need to change its visibility! 01.13.25 12:35:22
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:35:22
+resources.utils.py open_log_tab() INFO: Logs tab is closed. Will open it. 01.13.25 12:35:24
+resources.utils.py open_log_tab() ERROR: Error occurred when opening the Log tab. Error:  01.13.25 12:35:29
+Traceback (most recent call last):
+  File "C:\Users\Samaara\Work\Coding\Python\For Poolsifi\tradingview to everywhere\resources\utils.py", line 92, in open_log_tab
+    WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alert-log-item"]')))
+  File "C:\Users\Samaara\.virtualenvs\tradingview_to_everywhere-WckG3AQf\Lib\site-packages\selenium\webdriver\support\wait.py", line 105, in until
+    raise TimeoutException(message, screen, stacktrace)
+selenium.common.exceptions.TimeoutException: Message: 
+Stacktrace:
+	GetHandleVerifier [0x011BFD53+23747]
+	(No symbol) [0x01147D54]
+	(No symbol) [0x0101BE53]
+	(No symbol) [0x0105FCA6]
+	(No symbol) [0x0105FEEB]
+	(No symbol) [0x0109D852]
+	(No symbol) [0x01081E44]
+	(No symbol) [0x0109B41E]
+	(No symbol) [0x01081B96]
+	(No symbol) [0x01053F3C]
+	(No symbol) [0x01054EBD]
+	GetHandleVerifier [0x0149AC73+3017699]
+	GetHandleVerifier [0x014AB93B+3086507]
+	GetHandleVerifier [0x014A40F2+3055714]
+	GetHandleVerifier [0x01255AF0+637536]
+	(No symbol) [0x01150A5D]
+	(No symbol) [0x0114DA28]
+	(No symbol) [0x0114DBC5]
+	(No symbol) [0x011407F0]
+	BaseThreadInitThunk [0x75B95D49+25]
+	RtlInitializeExceptionChain [0x7714CEBB+107]
+	RtlGetAppContainerNamedObjectPath [0x7714CE41+561]
+
+handle_alerts.py post_entries() WARNING: Timeout exception occurred. Assuming that there are no alert boxes. 01.13.25 12:35:40
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:35:45
+open_tv.py get_indicator() INFO: Found indicator Get Exits! 01.13.25 12:35:45
+resources.utils.py open_alert_tab() INFO: Alerts tab is closed. Will open it. 01.13.25 12:35:45
+resources.utils.py open_alert_tab() INFO: Alerts tab is already open. No need to open it! 01.13.25 12:35:55
+open_tv.py get_indicator() INFO: Found indicator Screener! 01.13.25 12:36:10
+open_tv.py get_indicator() INFO: Found indicator Trade! 01.13.25 12:36:10
+open_tv.py indicator_visibility() INFO: Screener indicator is already visible. No need to change its visibility! 01.13.25 12:36:10
+open_tv.py indicator_visibility() INFO: Trade indicator is already visible. No need to change its visibility! 01.13.25 12:36:10
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:36:10
+resources.utils.py open_log_tab() INFO: Logs tab is closed. Will open it. 01.13.25 12:36:12
+resources.utils.py open_log_tab() ERROR: Error occurred when opening the Log tab. Error:  01.13.25 12:36:18
+Traceback (most recent call last):
+  File "C:\Users\Samaara\Work\Coding\Python\For Poolsifi\tradingview to everywhere\resources\utils.py", line 92, in open_log_tab
+    WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alert-log-item"]')))
+  File "C:\Users\Samaara\.virtualenvs\tradingview_to_everywhere-WckG3AQf\Lib\site-packages\selenium\webdriver\support\wait.py", line 105, in until
+    raise TimeoutException(message, screen, stacktrace)
+selenium.common.exceptions.TimeoutException: Message: 
+Stacktrace:
+	GetHandleVerifier [0x011BFD53+23747]
+	(No symbol) [0x01147D54]
+	(No symbol) [0x0101BE53]
+	(No symbol) [0x0105FCA6]
+	(No symbol) [0x0105FEEB]
+	(No symbol) [0x0109D852]
+	(No symbol) [0x01081E44]
+	(No symbol) [0x0109B41E]
+	(No symbol) [0x01081B96]
+	(No symbol) [0x01053F3C]
+	(No symbol) [0x01054EBD]
+	GetHandleVerifier [0x0149AC73+3017699]
+	GetHandleVerifier [0x014AB93B+3086507]
+	GetHandleVerifier [0x014A40F2+3055714]
+	GetHandleVerifier [0x01255AF0+637536]
+	(No symbol) [0x01150A5D]
+	(No symbol) [0x0114DA28]
+	(No symbol) [0x0114DBC5]
+	(No symbol) [0x011407F0]
+	BaseThreadInitThunk [0x75B95D49+25]
+	RtlInitializeExceptionChain [0x7714CEBB+107]
+	RtlGetAppContainerNamedObjectPath [0x7714CE41+561]
+
+handle_alerts.py post_entries() WARNING: Timeout exception occurred. Assuming that there are no alert boxes. 01.13.25 12:36:28
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:36:34
+open_tv.py get_indicator() INFO: Found indicator Get Exits! 01.13.25 12:36:34
+resources.utils.py open_alert_tab() INFO: Alerts tab is closed. Will open it. 01.13.25 12:36:34
+resources.utils.py open_alert_tab() INFO: Alerts tab is already open. No need to open it! 01.13.25 12:36:44
+open_tv.py get_indicator() INFO: Found indicator Screener! 01.13.25 12:36:57
+open_tv.py get_indicator() INFO: Found indicator Trade! 01.13.25 12:36:57
+open_tv.py indicator_visibility() INFO: Screener indicator is already visible. No need to change its visibility! 01.13.25 12:36:57
+open_tv.py indicator_visibility() INFO: Trade indicator is already visible. No need to change its visibility! 01.13.25 12:36:57
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:36:57
+resources.utils.py open_log_tab() INFO: Logs tab is closed. Will open it. 01.13.25 12:36:59
+resources.utils.py open_log_tab() ERROR: Error occurred when opening the Log tab. Error:  01.13.25 12:37:04
+Traceback (most recent call last):
+  File "C:\Users\Samaara\Work\Coding\Python\For Poolsifi\tradingview to everywhere\resources\utils.py", line 92, in open_log_tab
+    WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alert-log-item"]')))
+  File "C:\Users\Samaara\.virtualenvs\tradingview_to_everywhere-WckG3AQf\Lib\site-packages\selenium\webdriver\support\wait.py", line 105, in until
+    raise TimeoutException(message, screen, stacktrace)
+selenium.common.exceptions.TimeoutException: Message: 
+Stacktrace:
+	GetHandleVerifier [0x011BFD53+23747]
+	(No symbol) [0x01147D54]
+	(No symbol) [0x0101BE53]
+	(No symbol) [0x0105FCA6]
+	(No symbol) [0x0105FEEB]
+	(No symbol) [0x0109D852]
+	(No symbol) [0x01081E44]
+	(No symbol) [0x0109B41E]
+	(No symbol) [0x01081B96]
+	(No symbol) [0x01053F3C]
+	(No symbol) [0x01054EBD]
+	GetHandleVerifier [0x0149AC73+3017699]
+	GetHandleVerifier [0x014AB93B+3086507]
+	GetHandleVerifier [0x014A40F2+3055714]
+	GetHandleVerifier [0x01255AF0+637536]
+	(No symbol) [0x01150A5D]
+	(No symbol) [0x0114DA28]
+	(No symbol) [0x0114DBC5]
+	(No symbol) [0x011407F0]
+	BaseThreadInitThunk [0x75B95D49+25]
+	RtlInitializeExceptionChain [0x7714CEBB+107]
+	RtlGetAppContainerNamedObjectPath [0x7714CE41+561]
+
+handle_alerts.py post_entries() WARNING: Timeout exception occurred. Assuming that there are no alert boxes. 01.13.25 12:37:15
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:37:20
+open_tv.py get_indicator() INFO: Found indicator Get Exits! 01.13.25 12:37:20
+resources.utils.py open_alert_tab() INFO: Alerts tab is closed. Will open it. 01.13.25 12:37:20
+resources.utils.py open_alert_tab() INFO: Alerts tab is already open. No need to open it! 01.13.25 12:37:30
+resources.utils.py open_alert_tab() INFO: Alerts tab is already open. No need to open it! 01.13.25 12:37:32
+open_tv.py get_indicator() INFO: Found indicator Screener! 01.13.25 12:37:45
+open_tv.py get_indicator() INFO: Found indicator Trade! 01.13.25 12:37:45
+open_tv.py indicator_visibility() INFO: Screener indicator is already visible. No need to change its visibility! 01.13.25 12:37:45
+open_tv.py indicator_visibility() INFO: Trade indicator is already visible. No need to change its visibility! 01.13.25 12:37:45
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:37:45
+resources.utils.py open_log_tab() INFO: Logs tab is closed. Will open it. 01.13.25 12:37:47
+resources.utils.py open_log_tab() ERROR: Error occurred when opening the Log tab. Error:  01.13.25 12:37:52
+Traceback (most recent call last):
+  File "C:\Users\Samaara\Work\Coding\Python\For Poolsifi\tradingview to everywhere\resources\utils.py", line 92, in open_log_tab
+    WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alert-log-item"]')))
+  File "C:\Users\Samaara\.virtualenvs\tradingview_to_everywhere-WckG3AQf\Lib\site-packages\selenium\webdriver\support\wait.py", line 105, in until
+    raise TimeoutException(message, screen, stacktrace)
+selenium.common.exceptions.TimeoutException: Message: 
+Stacktrace:
+	GetHandleVerifier [0x011BFD53+23747]
+	(No symbol) [0x01147D54]
+	(No symbol) [0x0101BE53]
+	(No symbol) [0x0105FCA6]
+	(No symbol) [0x0105FEEB]
+	(No symbol) [0x0109D852]
+	(No symbol) [0x01081E44]
+	(No symbol) [0x0109B41E]
+	(No symbol) [0x01081B96]
+	(No symbol) [0x01053F3C]
+	(No symbol) [0x01054EBD]
+	GetHandleVerifier [0x0149AC73+3017699]
+	GetHandleVerifier [0x014AB93B+3086507]
+	GetHandleVerifier [0x014A40F2+3055714]
+	GetHandleVerifier [0x01255AF0+637536]
+	(No symbol) [0x01150A5D]
+	(No symbol) [0x0114DA28]
+	(No symbol) [0x0114DBC5]
+	(No symbol) [0x011407F0]
+	BaseThreadInitThunk [0x75B95D49+25]
+	RtlInitializeExceptionChain [0x7714CEBB+107]
+	RtlGetAppContainerNamedObjectPath [0x7714CE41+561]
+
+handle_alerts.py post_entries() WARNING: Timeout exception occurred. Assuming that there are no alert boxes. 01.13.25 12:38:03
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:38:08
+open_tv.py get_indicator() INFO: Found indicator Get Exits! 01.13.25 12:38:08
+resources.utils.py open_alert_tab() INFO: Alerts tab is closed. Will open it. 01.13.25 12:38:08
+resources.utils.py open_alert_tab() INFO: Alerts tab is already open. No need to open it! 01.13.25 12:38:19
+open_tv.py get_indicator() INFO: Found indicator Screener! 01.13.25 12:38:32
+open_tv.py get_indicator() INFO: Found indicator Trade! 01.13.25 12:38:32
+open_tv.py indicator_visibility() INFO: Screener indicator is already visible. No need to change its visibility! 01.13.25 12:38:32
+open_tv.py indicator_visibility() INFO: Trade indicator is already visible. No need to change its visibility! 01.13.25 12:38:32
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:38:32
+resources.utils.py open_log_tab() INFO: Logs tab is closed. Will open it. 01.13.25 12:38:34
+resources.utils.py open_log_tab() ERROR: Error occurred when opening the Log tab. Error:  01.13.25 12:38:39
+Traceback (most recent call last):
+  File "C:\Users\Samaara\Work\Coding\Python\For Poolsifi\tradingview to everywhere\resources\utils.py", line 92, in open_log_tab
+    WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alert-log-item"]')))
+  File "C:\Users\Samaara\.virtualenvs\tradingview_to_everywhere-WckG3AQf\Lib\site-packages\selenium\webdriver\support\wait.py", line 105, in until
+    raise TimeoutException(message, screen, stacktrace)
+selenium.common.exceptions.TimeoutException: Message: 
+Stacktrace:
+	GetHandleVerifier [0x011BFD53+23747]
+	(No symbol) [0x01147D54]
+	(No symbol) [0x0101BE53]
+	(No symbol) [0x0105FCA6]
+	(No symbol) [0x0105FEEB]
+	(No symbol) [0x0109D852]
+	(No symbol) [0x01081E44]
+	(No symbol) [0x0109B41E]
+	(No symbol) [0x01081B96]
+	(No symbol) [0x01053F3C]
+	(No symbol) [0x01054EBD]
+	GetHandleVerifier [0x0149AC73+3017699]
+	GetHandleVerifier [0x014AB93B+3086507]
+	GetHandleVerifier [0x014A40F2+3055714]
+	GetHandleVerifier [0x01255AF0+637536]
+	(No symbol) [0x01150A5D]
+	(No symbol) [0x0114DA28]
+	(No symbol) [0x0114DBC5]
+	(No symbol) [0x011407F0]
+	BaseThreadInitThunk [0x75B95D49+25]
+	RtlInitializeExceptionChain [0x7714CEBB+107]
+	RtlGetAppContainerNamedObjectPath [0x7714CE41+561]
+
+handle_alerts.py post_entries() WARNING: Timeout exception occurred. Assuming that there are no alert boxes. 01.13.25 12:38:50
+open_tv.py change_candles_type() INFO: The candle type is already Line. 01.13.25 12:38:56
+open_tv.py get_indicator() INFO: Found indicator Get Exits! 01.13.25 12:38:56
+resources.utils.py open_alert_tab() INFO: Alerts tab is closed. Will open it. 01.13.25 12:38:56
+resources.utils.py open_alert_tab() INFO: Alerts tab is already open. No need to open it! 01.13.25 12:39:05

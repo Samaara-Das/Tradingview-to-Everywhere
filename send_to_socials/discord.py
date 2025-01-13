@@ -6,7 +6,7 @@ go to a discord channel -> Edit channel -> Integrations -> Webhooks -> New Webho
 '''
 import logger_setup 
 from discord_webhook import DiscordWebhook
-from resources.categories import *
+from env import *
 
 # Set up logger for this file
 discord_logger = logger_setup.setup_logger(__name__, logger_setup.INFO)
@@ -17,24 +17,21 @@ class Discord:
             CURRENCIES_WEBHOOK_NAME: CURRENCIES_ENTRY_WEBHOOK_LINK,
             US_STOCKS_WEBHOOK_NAME: US_STOCKS_ENTRY_WEBHOOK_LINK,
             INDIAN_STOCKS_WEBHOOK_NAME: INDIAN_STOCKS_ENTRY_WEBHOOK_LINK,
-            CRYPTO_WEBHOOK_NAME: CRYPTO_ENTRY_WEBHOOK_LINK,
-            INDICES_WEBHOOK_NAME: INDICES_ENTRY_WEBHOOK_LINK
+            CRYPTO_WEBHOOK_NAME: CRYPTO_ENTRY_WEBHOOK_LINK
         }
 
         self.exit_webhook_urls = {
             CURRENCIES_WEBHOOK_NAME: CURRENCIES_EXIT_WEBHOOK_LINK,
             US_STOCKS_WEBHOOK_NAME: US_STOCKS_EXIT_WEBHOOK_LINK,
             INDIAN_STOCKS_WEBHOOK_NAME: INDIAN_STOCKS_EXIT_WEBHOOK_LINK,
-            CRYPTO_WEBHOOK_NAME: CRYPTO_EXIT_WEBHOOK_LINK,
-            INDICES_WEBHOOK_NAME: INDICES_EXIT_WEBHOOK_LINK
+            CRYPTO_WEBHOOK_NAME: CRYPTO_EXIT_WEBHOOK_LINK
         }
 
         self.before_after_webhook_urls = {
             CURRENCIES_WEBHOOK_NAME: CURRENCIES_BEFORE_AFTER_WEBHOOK_LINK,
             US_STOCKS_WEBHOOK_NAME: US_STOCKS_BEFORE_AFTER_WEBHOOK_LINK,
             INDIAN_STOCKS_WEBHOOK_NAME: INDIAN_STOCKS_BEFORE_AFTER_WEBHOOK_LINK,
-            CRYPTO_WEBHOOK_NAME: CRYPTO_BEFORE_AFTER_WEBHOOK_LINK,
-            INDICES_WEBHOOK_NAME: INDICES_BEFORE_AFTER_WEBHOOK_LINK
+            CRYPTO_WEBHOOK_NAME: CRYPTO_BEFORE_AFTER_WEBHOOK_LINK
         }
 
     def send_to_entry_channel(self, category, content):
@@ -51,9 +48,9 @@ class Discord:
         except Exception as e:
             discord_logger.exception(f'Error sending "{content}" to {category} webhook for the exit channel. Response: {response} Error:')
 
-    def send_to_before_and_after_channel(self, category, entry_img, exit_img, bi_content):
+    def send_to_before_and_after_channel(self, category, entry_img, exit_img):
         try:
-            content = f"1st image -> entry: {entry_img} \n2nd image -> exit: {exit_img}"+'\n'+bi_content
+            content = f"1st image -> entry: {entry_img} \n2nd image -> exit: {exit_img}"
             webhook = DiscordWebhook(url=self.before_after_webhook_urls[category], content=content)
             response = webhook.execute()
         except Exception as e:
