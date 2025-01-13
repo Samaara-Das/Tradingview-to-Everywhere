@@ -5,12 +5,12 @@ opens Tradingview, sets it up, sets alerts for all the symbols, changes the layo
 There are a few other things this does that are related to all the things mentioned above.
 '''
 
-# import modules
 import tkinter as tk
 from tkinter import simpledialog
 from resources.utils import Utils
 import handle_alerts
 import logger_setup
+from env import PROFILE
 from os import getenv
 from time import sleep, time
 from open_entry_chart import OpenChart
@@ -38,7 +38,6 @@ USED_SYMBOLS_INPUT = "Used Symbols" # Name of the Used Symbols input in the Scre
 LAYOUT_NAME = 'Screener' # Name of the layout for the screener
 SCREENER_REUPLOAD_TIMEOUT = 15 # seconds to wait for the screener to show up on the chart after re-uploading it
 
-CHROMEDRIVER_EXE_PATH = getenv('CHROMEDRIVER_EXE_PATH')
 CHROME_PROFILES_PATH = getenv('CHROME_PROFILES_PATH')
 
 # generator functions
@@ -62,7 +61,7 @@ class Browser:
     chrome_options = Options() 
     chrome_options.add_experimental_option("detach", keep_open)
 
-    chrome_options.add_argument('--profile-directory=Profile 2')
+    chrome_options.add_argument(f'--profile-directory={PROFILE}')
     chrome_options.add_argument(f"--user-data-dir={CHROME_PROFILES_PATH}/TTE")
     chrome_options.add_argument("--remote-debugging-port=9224") 
     chrome_options.add_argument("--no-sandbox")
@@ -86,7 +85,7 @@ class Browser:
     self.tv_password = ''
     if start_fresh: 
       if not fill_symbol_set(SYMBOL_INPUTS): # Call the function to fill up symbol_set in symbol_settings.py
-        open_tv_logger.error(f'Cannot fill up the symbol set. Exiting function')
+        open_tv_logger.error('Cannot fill up the symbol set. Exiting function')
         self.init_succeeded = False
 
   def open_page(self, url: str):
@@ -115,6 +114,9 @@ class Browser:
       if not tv_email or not tv_password:
         open_tv_logger.error("TradingView credentials not found in environment variables.")
         return False
+      
+      # wait for the name="Email" button to be present and click it
+      WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.NAME, "Email"))).click()
 
       # Wait for the email input field to be present  
       email_input = WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.NAME, "id_username")))

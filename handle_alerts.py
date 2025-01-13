@@ -2,12 +2,10 @@
 This handles getting the alert and the alert message, removing it from the log, restarting inactive alerts and posting entry snapshots everywhere.
 '''
 
-# import modules
 from resources.utils import Utils
 import logger_setup
 import open_entry_chart
 from datetime import datetime
-from traceback import print_exc
 from resources.symbol_settings import symbol_category
 import send_to_socials.discord as discord
 import database.nk_db as nk_db
