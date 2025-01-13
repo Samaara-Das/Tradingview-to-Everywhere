@@ -2,7 +2,6 @@
 this can change the Trade Drawer's settings, change the chart's symbol and timeframe and take a snapshot of the chart.
 '''
 
-# import modules
 import logger_setup
 from time import sleep, time
 from selenium.webdriver.support.wait import WebDriverWait
