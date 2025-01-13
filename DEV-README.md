@@ -3,11 +3,17 @@
 ## Notes for programmers:
 
 ### For open_tv.py
-1. This application signs in to TradingView using an email and password. It uses the email and password which are stored in the User Environment Variables. To change the email and password, edit the `TRADINGVIEW_EMAIL` and `TRADINGVIEW_PASSWORD` environment variables. Please follow the instructions below as well.
+1. Ensure that you have the `CHROME_PROFILES_PATH` User Environment Variable. The value of this variable should be the path to the chrome user data folder. Eg: `CHROME_PROFILES_PATH = 'C:\\Users\\Username\\AppData\\Local\\Google\\Chrome\\User Data'`
+
+2. Ensure that you have a TTE folder in the chrome user data directory.
+
+3. Ensure that the PROFILE constant in the env.py file is set to the profile (in the chrome user data directory) which you want TTE to use as the chrome profile. Please ensure that it uses the profile for the dassamaara account.
+
+3. Ensure that you have the `TRADINGVIEW_EMAIL` and `TRADINGVIEW_PASSWORD` user environment variables. This application signs in to TradingView using them. Please follow the instructions below as well.
 
 2. When changing the `TRADINGVIEW_EMAIL` and `TRADINGVIEW_PASSWORD` environment variables, ensure that:
-   - Two-factor authentication is disabled for your TradingView account (check under Settings -> Privacy and Security)
-   - No social accounts are linked to your TradingView account. Check under Settings -> Privacy and Security. (if you don't see "Linked social accounts", you're good)
+   - Two-factor authentication is disabled for the corresponding TradingView account (check under Settings -> Privacy and Security)
+   - No social accounts are linked to the TradingView account. Check under Settings -> Privacy and Security. (if you don't see "Linked social accounts", you're good)
    - You originally created the account using email/password, not through Google or other social sign-ins
 
 These steps are crucial as they allow TTE to securely sign in to TradingView using the email and password you provide.
@@ -26,9 +32,10 @@ These steps are crucial as they allow TTE to securely sign in to TradingView usi
 1. `BI_REPORT_LINK` should be the shortened link of the latest Trade Stats Power BI Report. Use Bitly to shorten it.
 
 ### For resources/categories.py
-In Poolsifi's server, there are 5 categories: CURRENCIES, US STOCKS, INDIAN STOCKS, CRYPTO and INDICES. 
+In Poolsifi's server, there are 4 categories: CURRENCIES, US STOCKS, INDIAN STOCKS and CRYPTO. 
 In each category, there are 3 channels: strategy-1, exits and before-and-after.
 The instructions below will show you what you need to do for each category and its channels. 
+Note: The indices category is not used anywhere because papa told me to remove it as barely a few entries and exits are made.
 
 **For the CURRENCIES category:**
 - `CURRENCIES_WEBHOOK_NAME` in categories.py should be "Currencies". 
@@ -54,17 +61,11 @@ The instructions below will show you what you need to do for each category and i
 - `CRYPTO_EXIT_WEBHOOK_LINK` in categories.py should be the webhook link of the exits channel.
 - `CRYPTO_BEFORE_AFTER_WEBHOOK_LINK` in categories.py should be the webhook link of the before-and-after channel.
 
-**For the INDICES category:**
-- `INDICES_WEBHOOK_NAME` in categories.py should be "Indices". 
-- `INDICES_ENTRY_WEBHOOK_LINK` in categories.py should be the webhook link of the strategy-1 channel.
-- `INDICES_EXIT_WEBHOOK_LINK` in categories.py should be the webhook link of the exits channel.
-- `INDICES_BEFORE_AFTER_WEBHOOK_LINK` in categories.py should be the webhook link of the before-and-after channel.
-
 ### For database/local_db.py
-1. `PWD` is supposed to be the password of our remote database. To edit that password, sign in to MongoDb and go to Data/base Access on the left. Click on the user (i.e. sammy) and edit the password.
+1. Ensure that the `MONGODB_PWD` user environment variable is set to the password of the mongodb database. To edit that password, sign in to MongoDb and go to Database Access on the left. Click on the user (i.e. sammy) and edit the password.
 
 ### For exits.py
-1. `self.col` is supposed to be the name of the collection where entries should be checked for exits.
+1. `self.col` is supposed to be the name of the collection where entries are stored.
 2. The keys in the `self.last_checked_dates` dictionary should be the value of the category field in MongoDB documents (i.e. Currencies, US Stocks, Crypto etc...)
 
 ### For main.py

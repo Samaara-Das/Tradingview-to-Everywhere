@@ -4,7 +4,6 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-selenium = "*"
 discord-webhook = "*"
 pymongo = "*"
 requests = "*"
@@ -17,8 +16,10 @@ requests-oauthlib = "*"
 python-dotenv = "*"
 tweepy = "==4.9.0"
 aiofiles = "*"
+selenium = "*"
+pyinstaller = "*"
 
 [dev-packages]
 
 [requires]
-python_version = "3.10"
+python_version = "3.11"

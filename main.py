@@ -16,7 +16,7 @@ SCREENER_NAME = 'Premium Screener' # name of the screener
 DRAWER_NAME = 'Trade Drawer' # name of the trade drawer
 REMOVE_LOG = True # remove the content of the log file (to clean it up)
 INTERVAL_MINUTES = 5 # number of mins to wait until inactive alerts get reactivated and for the browser to refresh (refreshing will hopefully prevent the browser and this application from freezing)
-START_FRESH = False
+START_FRESH = True
 
 # Convert the interval to seconds
 interval_seconds = INTERVAL_MINUTES * 60
