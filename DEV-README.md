@@ -4,7 +4,7 @@
    - [Pinescript](#for-pinescript)
    - [main.py](#for-mainpy)
    - [database/local_db.py](#for-databaselocal_dbpy)
-   - [resources/categories.py](#for-resourcescategoriespy)
+   - [resources/symbol_settings.py](#for-resourcessymbol_settingspy)
    - [send_to_socials/send_to_discord.py](#for-send_to_socialssend_to_discordpy)
    - [open_tv.py](#for-open_tvpy)
 2. Run the main.py file or start the exe file in the dist directory
@@ -37,13 +37,20 @@
 
 # Configuration
 
+### For .env
+
+1. Ensure that all the Discord webhook links and webhook names are set in the .env file. 
+2. Ensure that the X API keys, tokens and secrets are set in the .env file.
+
+### For env.py
+
+1. Ensure that the `PROFILE` constant is set to the profile (in the chrome user data directory) which you want TTE to use as the chrome profile. Please ensure that it uses the profile for the dassamaara account.
+
 ### For open_tv.py
 
 1. Ensure that you have the `CHROME_PROFILES_PATH` User Environment Variable. The value of this variable should be the path to the chrome user data folder. Eg: `CHROME_PROFILES_PATH = 'C:\\Users\\Username\\AppData\\Local\\Google\\Chrome\\User Data'`
 
 2. Ensure that you have a TTE folder in the chrome user data directory.
-
-3. Ensure that the PROFILE constant in the env.py file is set to the profile (in the chrome user data directory) which you want TTE to use as the chrome profile. Please ensure that it uses the profile for the dassamaara account.
 
 4. Ensure that you have the `TRADINGVIEW_EMAIL` and `TRADINGVIEW_PASSWORD` user environment variables. This application signs in to TradingView using them. Please ensure that you have followed the instructions below as well.
 
@@ -63,13 +70,13 @@ These steps are crucial as they allow TTE to securely sign in to TradingView usi
 
 9. In `open_tv.py`, make sure the `LAYOUT_NAME` constant is set to the name of the layout on Tradingview which is meant for the screener.
 
-10. In `open_tv.py`, the constant `SCREENER_REUPLOAD_TIMEOUT` has to have a value for the number of seconds it should wait for the screener to be re-uploaded on the chart.
+10. In `open_tv.py`, the constant `SCREENER_REUPLOAD_TIMEOUT` has to have a value for the seconds it should wait for the screener to be re-uploaded on the chart (if it needs to be re-uploaded).
 
 ### For send_to_socials/send_to_discord.py
 
 1. `BI_REPORT_LINK` should be the shortened link of the latest Trade Stats Power BI Report. Use Bitly to shorten it.
 
-### For resources/categories.py
+### For resources/symbol_settings.py
 
 In Poolsifi's discord server, there are 4 categories: CURRENCIES, US STOCKS, INDIAN STOCKS and CRYPTO.
 In each category, there are 3 channels: strategy-1, exits and before-and-after.
@@ -110,8 +117,8 @@ Note: The indices category is not used anywhere because papa told me to remove i
 
 ### For exits.py
 
-1. `self.col` is supposed to be the name of the collection where entries are stored.
-2. The keys in the `self.last_checked_dates` dictionary should be the value of the category field in MongoDB documents (i.e. Currencies, US Stocks, Crypto etc...)
+1. `COLLECTION_NAME` is supposed to be the name of the MongoDB collection where all entries are stored.
+2. The keys in the `self.last_checked_dates` dictionary in the `__init__` function should be the values of the category field in MongoDB documents (i.e. Currencies, US Stocks, Crypto etc...)
 
 ### For main.py
 
@@ -121,8 +128,8 @@ Note: The indices category is not used anywhere because papa told me to remove i
 4. `DRAWER_NAME` is supposed to be the name of the Trade Drawer indicator (the name of the script).
 5. `INTERVAL_MINUTES` has to be set to the number of minutes Python should wait until it restarts all the inactive alerts
 6. `START_FRESH` is like an on/off switch for starting fresh, deleting all alerts and setting up new alerts OR just opening TradingView, keeping the pre-existing alerts and waiting for alerts to come. If it's `True`, the application will open TradingView, delete all the alerts and start setting up all 260 alerts again. If it's `False`, the application will open TradingView, NOT delete the alerts but instead keep all the alerts that were made when the application was previously run. This variable was created so that I could do 2 things:
-   - When I leave the application running, come back in the morning to find it frozen and find alerts in the Alerts log that are unread by the application, I would like to re-start the application and keep the alerts that were made when it ran previously without deleting all the alerts and therefore, keeping the alerts in the Alerts log. So, when I run the application with `START_FRESH` set to `False`, the application won't delete all the alerts, read the unread alerts that came when it was previously running and wait for new alerts.
-   - Sometimes, when I think I need to start fresh, delete all the alerts and make new ones, I can set `START_FRESH` set to `True`.
+   - When I leave the application running, come back in the morning to find it frozen and find alerts in the Alerts log that are unread by the application, I would like to re-start the application and keep the alerts that were made when it ran previously without deleting all the alerts and therefore, keeping the alerts in the Alerts log. So, when I run the application with `START_FRESH` set to `False`, the application will keep all the alerts, read the unread alerts that came when it was previously running and wait for new alerts.
+   - When I think I need to start fresh, delete all the alerts and make new ones, I can set `START_FRESH` set to `True`.
 7. `LINES_TO_KEEP` is the number of latest lines to keep in the log file. It keeps deleting the oldest logs and keeps the latest `LINES_TO_KEEP` lines. This was done to prevent the log file from slowing down the application.
 
 ### For Pinescript

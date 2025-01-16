@@ -3,10 +3,11 @@
 
 ## What TTE does in steps
 1. creates alerts on TradingView which give alert messages about new entries for 1300 symbols
-2. read the alert messages to get the entries
-3. take screenshots of the entries 
-4. post the screenshots of the entries (and other info) to X, Facebook, Discord and Poolsifi
-5. 
+2. reads the alert messages to get the entries
+3. takes screenshots of the entries 
+4. posts the screenshots of the entries (and other info) to X, Facebook, Discord and Poolsifi
+5. checks if any of the entries have been exited in the last 15 days or so
+6. posts the screenshots of the exited entries to X, Facebook, Discord and Poolsifi
 
 ## Detailed overview
 Tradingview and sets it up. Then python gets a set of upto 5 symbols from a category (the categories are Us Stocks, Indian Stocks, Crypto etc.) It changes the symbol of the chart to the 1st symbol of that set (so that an alert can get created for that symbol). Then Python goes to the screener and fills it up with all those symbols in the set. The maximum number of symbols it can fill into the screener are 5. After that, an alert gets set for the screener. This process continues until Python covers all the symbols of every category.
