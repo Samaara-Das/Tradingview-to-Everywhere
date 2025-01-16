@@ -23,14 +23,14 @@ INDICATOR_NAME = 'Get Exits' # name of the Get Exits indicator
 GET_EXITS_LAYOUT_NAME = 'Exits' # Name of the layout on TradingView
 DAYS = 15 # all the entries within this timespan will be retrieved
 DAYS_TO_RUN = [0, 1, 2, 3, 4, 5, 6] # the days of the week on which this application should check for entries in each of the collections. 0 is for Monday and 6 is for Sunday
-
+COLLECTION_NAME = 'Entries'
 class Exits:
     def __init__(self, database, open_entry_chart, browser) -> None:
         self.open_chart = open_entry_chart
         self.browser = browser
         self.database = database
         self.utils = Utils()
-        self.col = 'Entries'
+        self.col = COLLECTION_NAME
         self.last_checked_dates = {
             'Currencies': None,
             'US Stocks': None,
