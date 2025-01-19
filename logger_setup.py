@@ -3,38 +3,62 @@ This is for setting up a logger for the application. Any file can use this to cr
 This was done to avoid repetition of code.
 '''
 
-from logging import getLogger, FileHandler, StreamHandler, Formatter, DEBUG, INFO, WARNING, ERROR, CRITICAL
-import sys
+import logging
 import threading
 import time
+import os
 
-def setup_logger(logger_name, logger_level=INFO, file='app_log.log'):
-    '''This sets up a logger and returns it'''
-    logger = getLogger(logger_name)
-    logger.setLevel(logger_level)
+def setup_logger(name, level=logging.INFO):
+    """Set up and return a logger instance."""
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
     
-    date_format = "%m.%d.%y %H:%M:%S"
-    formatter = Formatter('%(name)s.py %(funcName)s() %(levelname)s: %(message)s %(asctime)s', datefmt=date_format)
-
-    file_handler = FileHandler(file)
-    file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
-
-    # Create a StreamHandler with utf-8 encoding for sys.stdout
-    stream_handler = StreamHandler(sys.stdout)
-    stream_handler.setFormatter(formatter)
-    logger.addHandler(stream_handler)
-
+    # Create handlers if they don't exist
+    if not logger.handlers:
+        # File handler
+        file_handler = logging.FileHandler('app_log.log')
+        file_handler.setLevel(level)
+        
+        # Console handler
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(level)
+        
+        # Create formatters and add it to handlers
+        log_format = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        file_handler.setFormatter(log_format)
+        console_handler.setFormatter(log_format)
+        
+        # Add handlers to the logger
+        logger.addHandler(file_handler)
+        logger.addHandler(console_handler)
+    
     return logger
 
+# Define log levels
+DEBUG = logging.DEBUG
+INFO = logging.INFO
+WARNING = logging.WARNING
+ERROR = logging.ERROR
+CRITICAL = logging.CRITICAL
+
 def trim_file(file_path, max_lines=1000):
-    """Trims a file to a maximum number of lines, keeping the most recent entries."""
+    """
+    Trims a file to a maximum number of lines, keeping the most recent entries.
+    Creates the file if it doesn't exist.
+    """
     try:
-        with open(file_path, 'r') as file:
+        # Create file if it doesn't exist
+        if not os.path.exists(file_path):
+            with open(file_path, 'w', encoding='utf-8') as file:
+                file.write('')
+            return
+
+        # Read existing lines
+        with open(file_path, 'r', encoding='utf-8') as file:
             lines = file.readlines()
         
         if len(lines) > max_lines:
-            with open(file_path, 'w') as file:
+            with open(file_path, 'w', encoding='utf-8') as file:
                 file.writelines(lines[-max_lines:])
     except Exception as e:
         print(f"Error trimming file: {e}")

@@ -21,20 +21,34 @@ START_FRESH = False
 # Convert the interval to seconds
 interval_seconds = INTERVAL_MINUTES * 60
 
-# Clean up the log
-if REMOVE_LOG:
-    try:
-        open('app_log.log', 'w').close()
-    except PermissionError:
-        print("Warning: Unable to clear log file due to permission error.")
-
-# Run main code
-if __name__ == '__main__':
+def run_trading_view(on_status_change=None):
+    """
+    Run the main TradingView monitoring loop.
+    
+    Args:
+        on_status_change: Optional callback function to receive status updates.
+                         Will be called with (status_message, is_error)
+    
+    Returns:
+        None
+    
+    Raises:
+        Exception: If initialization fails or any error occurs during execution
+    """
     try:
         logger_setup.start_continuous_trim('app_log.log')
 
-        # Just a seperator to make the log look readable
+        # Just a separator to make the log look readable
         main_logger.info('Start ***********************************************************************************')
+
+        if REMOVE_LOG:
+            try:
+                open('app_log.log', 'w', encoding='utf-8').close()
+            except PermissionError:
+                main_logger.warning("Unable to clear log file due to permission error.")
+
+        if on_status_change:
+            on_status_change("Initializing browser...", False)
 
         # initiate Browser
         browser = open_tv.Browser(True, SCREENER_SHORT, SCREENER_NAME, DRAWER_SHORT, DRAWER_NAME, INTERVAL_MINUTES, START_FRESH)
@@ -47,6 +61,9 @@ if __name__ == '__main__':
             browser.set_bulk_alerts()
 
         if setup_check and browser.init_succeeded:
+            if on_status_change:
+                on_status_change("Running - monitoring for alerts...", False)
+
             last_run = time_module.time()
             exits = get_exits.Exits(browser.alerts.local_db, browser.open_chart, browser)
             while True:
@@ -65,8 +82,17 @@ if __name__ == '__main__':
                 # check for exits
                 if exits.set_up():
                     exits.check_exits()
+        else:
+            raise Exception("Failed to initialize TradingView setup")
 
     except Exception as e:
         main_logger.exception(f'Error in main.py:')
+        if on_status_change:
+            on_status_change(str(e), True)
+        raise
+
+# Run main code if script is run directly
+if __name__ == '__main__':
+    run_trading_view()
     
 
