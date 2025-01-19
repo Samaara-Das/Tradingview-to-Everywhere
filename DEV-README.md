@@ -130,7 +130,7 @@ Note: The indices category is not used anywhere because papa told me to remove i
 6. `START_FRESH` is like an on/off switch for starting fresh, deleting all alerts and setting up new alerts OR just opening TradingView, keeping the pre-existing alerts and waiting for alerts to come. If it's `True`, the application will open TradingView, delete all the alerts and start setting up all 260 alerts again. If it's `False`, the application will open TradingView, NOT delete the alerts but instead keep all the alerts that were made when the application was previously run. This variable was created so that I could do 2 things:
    - When I leave the application running, come back in the morning to find it frozen and find alerts in the Alerts log that are unread by the application, I would like to re-start the application and keep the alerts that were made when it ran previously without deleting all the alerts and therefore, keeping the alerts in the Alerts log. So, when I run the application with `START_FRESH` set to `False`, the application will keep all the alerts, read the unread alerts that came when it was previously running and wait for new alerts.
    - When I think I need to start fresh, delete all the alerts and make new ones, I can set `START_FRESH` set to `True`.
-7. `LINES_TO_KEEP` is the number of latest lines to keep in the log file. It keeps deleting the oldest logs and keeps the latest `LINES_TO_KEEP` lines. This was done to prevent the log file from slowing down the application.
+7. All the above constants can be changed in the GUI. So, you don't have to change them in the code.
 
 ### For Pinescript
 
