@@ -70,7 +70,7 @@ class Utils:
                 WebDriverWait(driver, 3).until(EC.element_to_be_clickable((By.CSS_SELECTOR, alert_tab_selector))).click() # open the Alerts tab
             
             # Wait until the Alerts tab opens
-            WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alert-item-name"]')))
+            WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.ID, 'AlertsHeaderTabs')))
             return True
         except Exception as e:
             utils_logger.exception(f'Error ocurred when opening the Alert tab. Error: ')
