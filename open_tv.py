@@ -308,7 +308,7 @@ class Browser:
         return True
 
       # click on the dropdown arrow
-      WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.XPATH, '/html/body/div[2]/div[3]/div/div/div[3]/div[1]/div/div/div/div/div[14]/div/div/div/button'))).click()
+      WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.XPATH, '/html/body/div[2]/div/div[3]/div/div/div[3]/div[1]/div/div/div/div/div[14]/div/div/div/button'))).click()
       
       # choose the screener layout
       layouts = WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.XPATH, '//*[@id="overlap-manager-root"]/div/span/div[1]/div/div/a')))
@@ -582,7 +582,7 @@ class Browser:
         plus_button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-name="set-alert-button"]')))
         plus_button.click()
       
-      WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'span[data-name="main-series-select"]'))).click()
+      WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'span[data-qa-id="ui-kit-disclosure-control main-series-select"]'))).click()
     
       # choose the indicator
       indicator_found = False
@@ -828,6 +828,7 @@ class Browser:
     '''Returns the indicator which has the same shorttitle as `ind_shorttitle`. If an indicator with the same shorttitle can't be found or an error occurs, `None` will be returned'''
     try:
       indicator = None
+      sleep(3) # wait for the chart to load
       wait = WebDriverWait(self.driver, 15)
       indicators = wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')))
       

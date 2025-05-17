@@ -7,7 +7,12 @@
    - [resources/symbol_settings.py](#for-resourcessymbol_settingspy)
    - [send_to_socials/send_to_discord.py](#for-send_to_socialssend_to_discordpy)
    - [open_tv.py](#for-open_tvpy)
-2. Run the main.py file or start the exe file in the dist directory
+2. To run TTE:
+   - Option 1: Run the main.py file or start the exe file in the dist directory
+   - Option 2: To run without the GUI:
+     - Open a terminal and navigate to the project directory
+     - Run `pipenv shell` to activate the virtual environment
+     - Run `python main.py` to start the application
 
 # Things to keep in mind while TTE is running
 
@@ -26,8 +31,9 @@
 4. There must be a saved layout named "Screener" which has the following setup:
    - The bars are medium sized and the chart is a 100 bars from the right
    - Premium Screener indicator & Trade Drawer indicator should be on the chart
-   - Premium Screener should have 15-20 inputs (So that Python can click on it)
 5. There must be a saved layout named "Exits" and the Get Exits indicator should be on it.
+6. The Premium Screener and the Get Exits indicators on Tradingview must to be starred (so that they can appear in the Favorites dropdown)
+
 
 ## Some errors which might happen on Tradingview
 
@@ -44,7 +50,7 @@
 
 ### For env.py
 
-1. Ensure that the `PROFILE` constant is set to the profile (in the chrome user data directory) which you want TTE to use as the chrome profile. Please ensure that it uses the profile for the dassamaara account.
+1. Ensure that the `PROFILE` constant is set to the profile (in the chrome user data directory) which you want TTE to use as the chrome profile. Please ensure that it uses the profile for the poolsifi account.
 
 ### For open_tv.py
 
@@ -58,7 +64,6 @@
    - Two-factor authentication is disabled for the corresponding TradingView account (check under Settings -> Privacy and Security)
    - No social accounts are linked to the TradingView account. Check under Settings -> Privacy and Security. (if you don't see "Linked social accounts", you're good)
    - You originally created the account using email/password, not through Google or other social sign-ins
-   - The email and password are for the dassamaara account as the chart on that account has been set up in a specific way for TTE to work
 
 These steps are crucial as they allow TTE to securely sign in to TradingView using the email and password you provide.
 
@@ -133,13 +138,16 @@ Note: The indices category is not used anywhere because papa told me to remove i
 7. All the above constants can be changed in the GUI. So, you don't have to change them in the code.
 
 ### For Pinescript
+1. Download these indicators and set them up on Tradingview:
+   - [Premium Screener](https://drive.google.com/file/d/1aiAB2gtAAGi2ov_LEV78Qa2ORZbgaZA9/view?usp=drive_link)
+   - [Trade Drawer](https://drive.google.com/file/d/18tCSEAKP3LPEQobXvSz0sAvnHYaZOC75/view?usp=drive_link)
+   - [Get Exits](https://drive.google.com/file/d/1oz4aRhGWADyzM_XgrhhK-len_bLw6DPM/view?usp=drive_link)
 
 1. In the Trade Drawer indicator, in Pinescript, the first 6 inputs have to be arranged in this order: dateTime, entry, sl, tp1, tp2, tp3
 
 2. In Pine Script, the Get Exits indicator must have its first 7 inputs in this order: `entryTime`, `entryPrice`, `entryType`, `sl`, `tp1`, `tp2`, `tp3`
 
-3. If the symbols in `symbol_settings.py` are rare and have prices like -5.0000000034782 or 0.00000389, go to the screener and fix the code in the alertMsg function to make it convert those prices into their correct string versions. Their string versions should be the exact same as the prices and should not be rounded off and the decimal places should not be cut off.
+3. Premium Screener should have 15-20 inputs (So that Python can click on it)
 
-4. The Premium Screener and the Get Exits indicators on Tradingview must to be starred (so that they can appear in the Favorites dropdown)
+4. If the symbols in `symbol_settings.py` are rare and have prices like -5.0000000034782 or 0.00000389, go to the screener and fix the code in the alertMsg function to make it convert those prices into their correct string versions. Their string versions should be the exact same as the prices and should not be rounded off and the decimal places should not be cut off.
 
-5. Make sure that in the `timeframeToString` function, the timeframe of the entries is mentioned under the `switch` statement. Eg: If the timeframe of the entries is 1 hour, this statement should be there: `'60' => '1 hour'`
