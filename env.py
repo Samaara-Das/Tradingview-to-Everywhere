@@ -4,7 +4,7 @@ import os
 load_dotenv()
 
 # Profile path in chrome user data folder
-PROFILE = 'Profile 2'
+PROFILE = 'Profile 3'
 
 # Twitter API credentials
 X_API_KEY = os.getenv('X_API_KEY')
