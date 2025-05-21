@@ -18,6 +18,7 @@ tweepy = "==4.9.0"
 aiofiles = "*"
 selenium = "*"
 pyinstaller = "*"
+firebase-admin = "*"
 
 [dev-packages]
 
