@@ -1,6 +1,26 @@
-'''
-this is the main module which starts everything.
-'''
+"""
+TradingView to Everywhere (TTE) - Main Entry Point
+
+Purpose: This is the main entry point for the TradingView to Everywhere (TTE) application that automates trading signal distribution.
+
+Functionality: This module initializes and manages the core application workflow:
+1. Sets up the TradingView browser environment
+2. Configures and creates alerts for trading symbols
+3. Monitors the alert log for new trading signals
+4. Processes and distributes trading signals to various platforms (Discord, Facebook, Twitter/X, MongoDB)
+5. Periodically checks for trade exits and distributes exit information
+6. Manages the application lifecycle including refreshing the browser and restarting inactive alerts
+
+Dependencies:
+- logger_setup.py: For application logging
+- open_tv.py: For browser automation and TradingView interaction
+- exits.py: For monitoring and processing trade exits
+- GUI components (referenced but not directly imported here)
+
+Usage: This file can be run directly to start the application in console mode,
+or it can be imported and the run_trading_view function called with a status callback
+to run the application with GUI status updates.
+"""
 
 import logger_setup
 import open_tv
@@ -94,5 +114,3 @@ def run_trading_view(on_status_change=None):
 # Run main code if script is run directly
 if __name__ == '__main__':
     run_trading_view()
-    
-
