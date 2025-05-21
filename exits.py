@@ -1,4 +1,30 @@
-'''This module is for checking for exits'''
+"""
+TradingView to Everywhere (TTE) - Trade Exit Monitoring Module
+
+Purpose: This module is responsible for detecting and processing trade exits for previously entered trades,
+checking if entries have hit their Stop Loss or Take Profit levels.
+
+Functionality: This module provides comprehensive exit monitoring capabilities:
+1. Retrieves recent trade entries from the MongoDB database
+2. Systematically checks if each trade has hit its Stop Loss (SL) or Take Profit (TP) levels
+3. Updates trade records with exit status (SL hit, TP1 hit, TP2 hit, TP3 hit)
+4. Captures screenshots of chart at exit points
+5. Distributes exit information and screenshots to multiple platforms (Discord, Twitter, Facebook)
+6. Manages exit alerts in TradingView
+7. Implements market timing checks to only process exits during appropriate market hours
+
+Dependencies:
+- pytz: For timezone handling
+- logger_setup.py: For application logging
+- resources/symbol_settings.py: For symbol categorization
+- resources/utils.py: For utility functions
+- send_to_socials modules: For distributing exit information
+- database modules: For data storage and retrieval
+- Selenium WebDriver: For browser interaction
+
+Usage: This module is used by the main application loop to periodically check for trade exits
+and distribute exit information when trades hit their target levels.
+"""
 
 import pytz
 import logger_setup
@@ -49,7 +75,7 @@ class Exits:
         try:
             if not self.browser.save_layout(): # save the current layout so that it a popup won't come and interfere with the application
                 return
-            
+
             if not self.browser.change_layout(GET_EXITS_LAYOUT_NAME):
                 return
             sleep(3)
@@ -85,7 +111,7 @@ class Exits:
                     popup = WebDriverWait(self.browser.driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="confirm-dialog"]')))
                     popup.find_element(By.CSS_SELECTOR, 'button[name="yes"]').click()
                     exit_logger.info(f'Deleted alert with name {self.alert_name}')
-    
+
             return True
         except Exception as e:
             exit_logger.exception(f'An error occurred while deleting all the Get Exits alerts. Error:')
@@ -123,10 +149,10 @@ class Exits:
             # Remove all the duplicate entries so that the same entries don't get posted twice in the Discord channel
             # Currently, it produces this error (that's why I commented it): pymongo.errors.OperationFailure: PlanExecutor error during aggregation :: caused by :: Exceeded memory limit for $group, but didn't allow external spilling
             # papa said that it's fine if there are repeated entries
-            # self.remove_duplicate_entries(self.col) 
+            # self.remove_duplicate_entries(self.col)
 
             for category in categories:
-                # Check if certain categories can run when their market is open so that new ticks can come in their market. If new ticks come, alerts for the Get Exits indicator will be able to run. 
+                # Check if certain categories can run when their market is open so that new ticks can come in their market. If new ticks come, alerts for the Get Exits indicator will be able to run.
                 # Also, make sure that this can run on certain days in a week like Tue and Thur. There's no need to run it everyday and running it once a week might be too late to check for the exits of entries.
                 if self.is_market_open(category):
                     # If this category has already been gone through for today, skip to the next category
@@ -151,7 +177,19 @@ class Exits:
                                 tp3_hit = True if stats['isTp3Hit'] == 'true' else False
                                 sl_hit = True if stats['isSlHit'] == 'true' else False
 
-                                self.database.db[self.col].update_one({'_id': entry['_id']}, {'$set': {'isTp1Hit': tp1_hit, 'isTp2Hit': tp2_hit, 'isTp3Hit': tp3_hit, 'isSlHit': sl_hit}})
+                                # Update the document in Firestore
+                                doc_id = entry["_id"]
+                                doc_ref = self.database.db.collection(
+                                    self.col
+                                ).document(doc_id)
+                                doc_ref.update(
+                                    {
+                                        "isTp1Hit": tp1_hit,
+                                        "isTp2Hit": tp2_hit,
+                                        "isTp3Hit": tp3_hit,
+                                        "isSlHit": sl_hit,
+                                    }
+                                )
 
                                 # take a snapshot
                                 if tp1_hit or tp2_hit or tp3_hit or sl_hit:
@@ -160,7 +198,12 @@ class Exits:
                                     if links:
                                         png_link, tv_link = links['png'], links['tv'] 
                                         # add the link to the document
-                                        self.database.db[self.col].update_one({'_id': entry['_id']}, {'$set': {'tvExitSnapshot': tv_link, 'pngExitSnapshot': png_link}})
+                                        doc_ref.update(
+                                            {
+                                                "tvExitSnapshot": tv_link,
+                                                "pngExitSnapshot": png_link,
+                                            }
+                                        )
 
                                         # send the message to the exits channel
                                         symbol = entry['symbol']
@@ -169,7 +212,7 @@ class Exits:
                                         exit_type = 'Stop Loss' if sl_hit else ('3%' if tp3_hit else '2%' if tp2_hit else '1%' if tp1_hit else 'none')
                                         exit_content = f"{entry['direction']} trade in {symbol} {word} {exit_type}"
                                         png_link_content = f'{png_link}'
-                                        
+
                                         self.discord.send_to_exit_channel(category, exit_content+png_link_content) 
 
                                         self.discord.send_to_before_and_after_channel(entry['category'], entry['pngEntrySnapshot'], entry['pngExitSnapshot']) 
@@ -177,7 +220,7 @@ class Exits:
                                         # entry['content'].split("Link:")[0] removes the snapshot from the text because a snapshot is already added in the message
                                         exit_snapshot = entry['pngExitSnapshot'] if entry['tvExitSnapshot'] == '' else entry['tvExitSnapshot']
                                         self.twitter.before_after_tweets(entry['tvEntrySnapshot'], exit_snapshot, entry['content'].split("Link:")[0], exit_content)
-                                        
+
                                         fb_post(entry['pngEntrySnapshot'], entry['pngExitSnapshot'], entry['content'], exit_content+png_link_content) 
 
                             # delete the alert made by Get Exits
@@ -205,33 +248,45 @@ class Exits:
     def remove_duplicate_entries(self, col):
         '''This removes the duplicate document in `col` collection so that each document can be unique. Entries are considered duplicates if their direction, symbol, category and unixTime fields match another document.'''
         try:
-            collection = self.database.db[col]
-            pipeline = [
-                {
-                    '$group': {
-                        '_id': {'direction': '$direction', 'symbol': '$symbol', 'category': '$category', 'unixTime': '$unixTime'},
-                        'docs': {'$push': '$_id'},
-                        'count': {'$sum': 1}
-                    }
-                },
-                {
-                    '$match': {'count': {'$gt': 1}}
-                }
-            ]
+            exit_logger.info("Checking for duplicate entries...")
 
-            duplicate_groups = list(collection.aggregate(pipeline))
-            ids_to_delete = []
-            for group in duplicate_groups:
-                ids_to_delete.extend(group['docs'][1:]) # Skip the first id to keep one document from each group
+            # Get all documents from the collection
+            docs = list(self.database.db.collection(col).stream())
+            if not docs:
+                exit_logger.info("No documents found in collection")
+                return
 
-            if ids_to_delete: # Delete the documents with the collected _id values
-                delete_result = collection.delete_many({'_id': {'$in': ids_to_delete}})
-                exit_logger.info(f"Deleted {delete_result.deleted_count} duplicates from the {col} collection.")
-            else:
-                exit_logger.info(f"No duplicates to delete in {col} collection.")     
+            # Create a dictionary to track unique entries
+            unique_entries = {}
+            duplicates = []
+
+            # Find duplicates
+            for doc in docs:
+                doc_data = doc.to_dict()
+
+                # Create a unique key based on direction, symbol, category, and unixTime
+                unique_key = (
+                    doc_data.get("direction", ""),
+                    doc_data.get("symbol", ""),
+                    doc_data.get("category", ""),
+                    doc_data.get("unixTime", 0),
+                )
+
+                if unique_key in unique_entries:
+                    # This is a duplicate, mark for deletion
+                    duplicates.append(doc.id)
+                else:
+                    # This is a unique entry
+                    unique_entries[unique_key] = doc.id
+
+            # Delete duplicates
+            for doc_id in duplicates:
+                self.database.db.collection(col).document(doc_id).delete()
+
+            exit_logger.info(f"Removed {len(duplicates)} duplicate entries from {col}")
+
         except Exception as e:
-            exit_logger.exception('Error encountered: ')
-            return False
+            exit_logger.exception(f"Error removing duplicate entries: {e}")
 
     def is_market_open(self, col):
         '''This checks if the `col` market ic currently open. Returns `True` if it is and `False` if it isn't.'''
@@ -254,7 +309,7 @@ class Exits:
         if col == 'Crypto':
             if not (now_in_est.weekday() in DAYS_TO_RUN):
                 return False
-        
+
         return True
 
     def indian_market_timing_valid(self):
@@ -273,18 +328,18 @@ class Exits:
         '''This returns `True` if the US markets are open i.e. the current time should be within 9:30 AM to 4:00 PM from Monday to Friday EST. `False` otherwise.'''
         new_york_tz = pytz.timezone('America/New_York') # Define New York timezone
         now_in_new_york = datetime.now(new_york_tz) # Get the current time in New York
-        
+
         # Check if today is a weekday (Monday is 0, Sunday is 6)
         if now_in_new_york.weekday() not in range(0, 5):  # If it's not Monday to Friday
             return False
-        
+
         # Define start and end times
         start_time = time(hour=9, minute=30)
         end_time = time(hour=16, minute=0)  # 4 PM
-        
+
         # Check if current time is within working hours
         return start_time <= now_in_new_york.time() <= end_time
-    
+
     def forex_market_timing_valid(self):
         '''This returns `True` if the Forex markets are open i.e. the current time should be within Sunday 5:00 PM EST to Friday 5:00 PM EST. `False` otherwise.'''
         est_tz = pytz.timezone('America/New_York') # Define EST timezone
@@ -301,6 +356,5 @@ class Exits:
             end_time = time(hour=17) 
             if now_in_est.time() > end_time: # Check if current time is past 5:00 PM on Friday
                 return False
-                
+
         return True # If it's not Saturday, before 5:00 PM on Sunday, or after 5:00 PM on Friday, return True
- 
