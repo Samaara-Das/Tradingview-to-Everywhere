@@ -1,9 +1,28 @@
-'''
-Sends messages to discord webhooks.
+"""
+TradingView to Everywhere (TTE) - Discord Integration Module
 
-if you have to create a webhook url, do this:
-go to a discord channel -> Edit channel -> Integrations -> Webhooks -> New Webhook
-'''
+Purpose: This module handles the distribution of trading signals and exit information to Discord channels
+via webhook integration.
+
+Functionality: This module provides Discord-specific distribution capabilities:
+1. Sends trading entry signals to category-specific Discord channels
+2. Sends trade exit notifications to category-specific Discord channels
+3. Posts "before and after" comparisons showing entry and exit points
+4. Manages webhook URLs for different categories (Currencies, US Stocks, Indian Stocks, Crypto)
+5. Handles error logging for failed message deliveries
+
+Dependencies:
+- logger_setup.py: For application logging
+- discord_webhook: For Discord webhook integration
+- env.py: For environment variables containing webhook URLs and channel names
+
+Usage: This module is primarily used by the handle_alerts.py and exits.py modules to send
+formatted trade information to the appropriate Discord channels.
+
+Note: To create a webhook URL, go to a Discord channel -> Edit channel -> Integrations ->
+Webhooks -> New Webhook.
+"""
+
 import logger_setup 
 from discord_webhook import DiscordWebhook
 from env import *
@@ -55,4 +74,3 @@ class Discord:
             response = webhook.execute()
         except Exception as e:
             discord_logger.exception(f"Error sending \"{content}\" to {category} webhook for the exit channel. Response: {response} Error:", exc_info=e)
-

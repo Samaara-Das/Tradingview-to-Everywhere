@@ -1,0 +1,161 @@
+# Instructions
+You should use the `.cursorrules` file as a Scratchpad to organize your thoughts. Especially when you receive a new task, you should first review the content of the Scratchpad, clear old, different tasks if necessary, first explain the task, and plan the steps you need to take to complete the task. You can use todo markers to indicate the progress, e.g.
+[X] Task 1
+[ ] Task 2
+
+Also update the progress of the task in the Scratchpad when you finish a subtask.
+Especially when you finished a milestone, it will help to improve your depth of task accomplishment to use the Scratchpad to reflect and plan.
+The goal is to help you maintain a big picture as well as the progress of the task. Always refer to the Scratchpad when you plan the next step.
+
+# TradingView to Everywhere - Migration from MongoDB to Firebase
+
+## Task Understanding
+Replace MongoDB database in the TTE (TradingView to Everywhere) application with Firebase. All entry and exit trading signals currently stored in MongoDB need to be migrated to and handled by Firebase instead.
+
+## Current Architecture
+- MongoDB is used to store trading signals (entries and exits)
+- The `database/local_db.py` module handles MongoDB connection and operations
+- Trading signals are stored in collections (primarily "Entries2")
+- The application uses MongoDB for:
+  - Storing new trading signals with metadata
+  - Retrieving signals for exit checks
+  - Updating signals when exits occur
+  - Various utility functions for data formatting and retrieval
+
+## Firebase Migration Plan
+
+### [X] Analysis Phase
+- [X] Identify all MongoDB usage in codebase
+- [X] Understand data model and schema requirements
+- [X] Map MongoDB operations to Firebase equivalents
+
+### [X] Setup Phase
+- [X] Create a Firebase project
+- [X] Set up Firestore database
+- [X] Configure Firebase authentication
+- [X] Install Firebase SDK for Python (firebase-admin)
+
+### [X] Implementation Phase
+1. [X] Create a new `database/firebase_db.py` module
+   - [X] Implement Firebase connection and initialization
+   - [X] Create Database class with equivalent methods to the current MongoDB class
+   - [X] Map MongoDB document structure to Firestore document structure
+
+2. [X] Modify the database interface
+   - [X] Update the Database class to use Firebase methods
+   - [X] Implement CRUD operations (add_doc, get_latest_doc, etc.)
+   - [X] Implement query operations (get_entries_in_timespan)
+   - [X] Create utilities for data conversion between application and Firebase
+
+3. [X] Update dependent modules
+   - [X] Update handle_alerts.py to use Firebase for storing entries
+   - [X] Update exits.py to use Firebase for retrieving and updating entries
+   - [X] Create a simple test utility for Firebase connection
+
+4. [X] Create data migration script
+   - [X] Script to migrate existing MongoDB data to Firebase
+   - [X] Data validation and verification process
+
+### [ ] Testing Phase
+- [ ] Test Firebase connection and authentication
+- [ ] Test CRUD operations
+- [ ] Test query performance
+- [ ] Test the entire application workflow
+- [ ] Compare results with the MongoDB implementation
+
+## Next Steps
+
+1. Run the Firebase connection test:
+   ```
+   python database/test_firebase_connection.py
+   ```
+
+2. Run the migration script to transfer data from MongoDB to Firebase:
+   ```
+   python database/migrate_to_firebase.py
+   ```
+
+3. Test the application with Firebase integration:
+   - Start the application in test mode
+   - Monitor logs for any Firebase-related errors
+   - Verify that entries are properly stored in Firebase
+   - Verify that exits are properly retrieved and updated
+
+4. Troubleshooting:
+   - If you encounter authentication issues, verify the service account credentials
+   - If you encounter timeout errors, check your network connection
+   - If data is not being properly migrated, check the MongoDB and Firebase schema mapping
+
+## Completed Tasks
+- Created Firebase database module with equivalent functionality to MongoDB
+- Updated handle_alerts.py to use Firebase instead of MongoDB
+- Updated exits.py to use Firebase for document operations
+- Created migration script to transfer data from MongoDB to Firebase
+- Created a test utility to verify Firebase connection
+
+## Detailed Implementation Plan
+
+### 1. Firebase Database Module (firebase_db.py)
+
+```python
+# Key methods to implement:
+- __init__(self, col)  # Initialize Firebase connection
+- add_doc(self, doc, col)  # Add document to a collection
+- get_latest_doc(self, col)  # Get most recent document
+- get_entries_in_timespan(self, col, category, start_time, end_time)  # Query by time period
+- delete_all(self, col)  # Delete all documents in a collection
+- delete_some(self, count, col)  # Keep only recent documents
+- unix_to_readable(self, unix_timestamp)  # Utility function
+```
+
+### 2. Data Structure Mapping
+
+MongoDB Collection → Firestore Collection
+MongoDB Document → Firestore Document
+
+Fields to migrate:
+- direction
+- symbol
+- timeframe
+- entryPrice
+- tp1Price, tp2Price, tp3Price
+- slPrice
+- tvEntrySnapshot
+- pngEntrySnapshot
+- content
+- unixTime
+- category
+- isSlHit, isTp1Hit, isTp2Hit, isTp3Hit
+- tvExitSnapshot
+- pngExitSnapshot
+
+### 3. Authentication Strategy
+
+Use Firebase service account for server-side authentication:
+- Create and download service account credentials
+- Store credentials securely (environment variable or secure file)
+- Initialize Firebase Admin SDK with credentials
+
+### 4. Indexing Strategy
+
+Create indexes on Firestore for commonly queried fields:
+- unixTime (for time-based queries)
+- category (for category filtering)
+- symbol (for symbol-specific queries)
+
+### 5. Query Performance Considerations
+
+- Optimize queries to minimize read operations
+- Use composite indexes for complex queries
+- Consider Firestore query limitations compared to MongoDB
+
+### 6. Dependencies
+
+Add to Pipfile:
+- firebase-admin
+
+### 7. Environment Variables
+
+Update required environment variables:
+- FIREBASE_PROJECT_ID
+- FIREBASE_CREDENTIALS_PATH (or individual credential fields)
