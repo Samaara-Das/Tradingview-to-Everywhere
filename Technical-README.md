@@ -100,7 +100,7 @@ The application follows a modular architecture with clear separation of concerns
 
 ### Database Manager (database/)
 - **Purpose:** Stores and retrieves trade information
-- **Key Files:** `local_db.py`, `nk_db.py`
+- **Key Files:** `local_db.py`, `nk_db.py`, `firebase_db.py`
 - **Data Models:** Trade entry/exit documents
 - **Technical Challenges:** Reliable data storage, efficient querying
 
