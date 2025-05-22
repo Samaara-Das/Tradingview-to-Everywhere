@@ -20,6 +20,7 @@ Dependencies:
 - send_to_socials/discord.py: For Discord message distribution
 - database modules (local_db.py, nk_db.py): For data storage and retrieval
 - Selenium WebDriver: For browser interaction
+- env.py: For environment variables and configuration
 
 Usage: This module is primarily used by the open_tv.py module, which creates an instance of the Alerts class
 and calls its methods to process alerts and distribute trading signals.
@@ -40,6 +41,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.common.exceptions import TimeoutException, StaleElementReferenceException
 from json import loads
+from env import COLLECTION
 
 # Set up logger for this file
 alert_data_logger = logger_setup.setup_logger(__name__, logger_setup.INFO)
@@ -195,7 +197,30 @@ class Alerts:
             self.discord.send_to_entry_channel(category, content) 
 
             # My database
-            self.local_db.add_doc({"direction": direction, "symbol": key, "timeframe": timeframe, "entryPrice": entry_price, "tp1Price": tp1_price, "tp2Price": tp2_price, "tp3Price": tp3_price, "slPrice": sl_price, "tvEntrySnapshot": tv_link, "pngEntrySnapshot": png_link, "content": content, "unixTime": entry_time, "category": category, "isSlHit": False, "isTp1Hit": False, "isTp2Hit": False, "isTp3Hit": False, "tvExitSnapshot": '', "pngExitSnapshot": ''}, "Entries2")
+            self.local_db.add_doc(
+                {
+                    "direction": direction,
+                    "symbol": key,
+                    "timeframe": timeframe,
+                    "entryPrice": entry_price,
+                    "tp1Price": tp1_price,
+                    "tp2Price": tp2_price,
+                    "tp3Price": tp3_price,
+                    "slPrice": sl_price,
+                    "tvEntrySnapshot": tv_link,
+                    "pngEntrySnapshot": png_link,
+                    "content": content,
+                    "unixTime": entry_time,
+                    "category": category,
+                    "isSlHit": False,
+                    "isTp1Hit": False,
+                    "isTp2Hit": False,
+                    "isTp3Hit": False,
+                    "tvExitSnapshot": "",
+                    "pngExitSnapshot": "",
+                },
+                COLLECTION,
+            )
 
             # Nk uncle's server
             self.nk_db.post_to_url({"type": value['type'], "direction": direction, "symbol": key, "tframe": timeframe, "entry": entry_price, "tp1": tp1_price, "tp2": tp2_price, "tp3": tp3_price, "sl": sl_price, "chart_link": png_link, "content": content, "date": formatted_time, "symbol_type": category, "exit_msg": ''})
