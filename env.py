@@ -6,6 +6,9 @@ load_dotenv()
 # Profile path in chrome user data folder
 PROFILE = 'Profile 3'
 
+# Collection name for storing trading signals
+COLLECTION = "Entries"
+
 # Twitter API credentials
 X_API_KEY = os.getenv('X_API_KEY')
 X_API_SECRET = os.getenv('X_API_SECRET')
