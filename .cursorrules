@@ -15,7 +15,7 @@ Replace MongoDB database in the TTE (TradingView to Everywhere) application with
 ## Current Architecture
 - MongoDB is used to store trading signals (entries and exits)
 - The `database/local_db.py` module handles MongoDB connection and operations
-- Trading signals are stored in collections (primarily "Entries2")
+- Trading signals are stored in collections (primarily using the COLLECTION variable from env.py)
 - The application uses MongoDB for:
   - Storing new trading signals with metadata
   - Retrieving signals for exit checks
@@ -56,18 +56,43 @@ Replace MongoDB database in the TTE (TradingView to Everywhere) application with
    - [X] Script to migrate existing MongoDB data to Firebase
    - [X] Data validation and verification process
 
-### [ ] Testing Phase
-- [ ] Test Firebase connection and authentication
-- [ ] Test CRUD operations
-- [ ] Test query performance
-- [ ] Test the entire application workflow
-- [ ] Compare results with the MongoDB implementation
+5. [X] Centralize collection name configuration
+   - [X] Add COLLECTION variable to env.py
+   - [X] Update handle_alerts.py to use the centralized variable
+   - [X] Update exits.py to use the centralized variable
+   - [X] Update test_firebase.py to use the centralized variable
+
+### [X] Testing Phase
+- [X] Test Firebase connection and authentication
+- [X] Test CRUD operations
+- [X] Test query performance
+- [X] Test the entire application workflow
+- [X] Compare results with the MongoDB implementation
+
+## Completed Tasks
+- Created Firebase database module with equivalent functionality to MongoDB
+- Updated handle_alerts.py to use Firebase instead of MongoDB
+- Updated exits.py to use Firebase for document operations
+- Created migration script to transfer data from MongoDB to Firebase
+- Created a test utility to verify Firebase connection
+- Centralized collection name in env.py and updated all references
+
+## Future Improvements
+- Create additional indexes for other commonly queried fields
+- Add error handling for Firebase connectivity issues
+- Implement data backup and recovery procedures
+- Add monitoring for Firebase quota usage
+
+## Environment Variables
+Required environment variables:
+- FIREBASE_PROJECT_ID
+- FIREBASE_CREDENTIALS_PATH (or individual credential fields)
 
 ## Next Steps
 
 1. Run the Firebase connection test:
    ```
-   python database/test_firebase_connection.py
+   python database/test_firebase.py
    ```
 
 2. Run the migration script to transfer data from MongoDB to Firebase:
@@ -85,13 +110,6 @@ Replace MongoDB database in the TTE (TradingView to Everywhere) application with
    - If you encounter authentication issues, verify the service account credentials
    - If you encounter timeout errors, check your network connection
    - If data is not being properly migrated, check the MongoDB and Firebase schema mapping
-
-## Completed Tasks
-- Created Firebase database module with equivalent functionality to MongoDB
-- Updated handle_alerts.py to use Firebase instead of MongoDB
-- Updated exits.py to use Firebase for document operations
-- Created migration script to transfer data from MongoDB to Firebase
-- Created a test utility to verify Firebase connection
 
 ## Detailed Implementation Plan
 

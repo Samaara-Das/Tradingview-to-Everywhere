@@ -21,6 +21,7 @@ Dependencies:
 - send_to_socials modules: For distributing exit information
 - database modules: For data storage and retrieval
 - Selenium WebDriver: For browser interaction
+- env.py: For environment variables and configuration
 
 Usage: This module is used by the main application loop to periodically check for trade exits
 and distribute exit information when trades hit their target levels.
@@ -39,6 +40,7 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
+from env import COLLECTION
 
 # Set up logger for this file
 exit_logger = logger_setup.setup_logger(__name__, logger_setup.INFO)
@@ -49,14 +51,14 @@ INDICATOR_NAME = 'Get Exits' # name of the Get Exits indicator
 GET_EXITS_LAYOUT_NAME = 'Exits' # Name of the layout on TradingView
 DAYS = 15 # all the entries within this timespan will be retrieved
 DAYS_TO_RUN = [0, 1, 2, 3, 4, 5, 6] # the days of the week on which this application should check for entries in each of the collections. 0 is for Monday and 6 is for Sunday
-COLLECTION_NAME = 'Entries2'
+
 class Exits:
     def __init__(self, database, open_entry_chart, browser) -> None:
         self.open_chart = open_entry_chart
         self.browser = browser
         self.database = database
         self.utils = Utils()
-        self.col = COLLECTION_NAME
+        self.col = COLLECTION
         self.last_checked_dates = {
             'Currencies': None,
             'US Stocks': None,
