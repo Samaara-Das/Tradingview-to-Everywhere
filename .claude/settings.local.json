@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git checkout:*)",
+      "mcp__task-master-ai__initialize_project",
+      "mcp__task-master-ai__parse_prd",
+      "mcp__task-master-ai__get_tasks",
+      "Bash(git add:*)",
+      "Bash(git config:*)"
+    ],
+    "deny": []
+  }
+}

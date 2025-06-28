@@ -1,0 +1,211 @@
+# Point Capital Project - Product Requirements Document
+
+## Project Overview
+
+Transform the existing TradingView to Everywhere (TTE) application to work with 3 new Pine Script screener indicators instead of the current Premium Screener system. The goal is to capture alert data and screenshots from these new screeners and store them in a MongoDB database, while maintaining the core automation framework.
+
+## Background
+
+The current TTE system uses Premium Screener, Trade Drawer, and Get Exits indicators to process trading signals from 1300+ symbols across 4 categories. This project replaces the existing screener functionality with 3 new specialized screeners that provide different types of trading signals with unique JSON message formats.
+
+## Goals and Objectives
+
+### Primary Goal
+Replace the existing TTE screener system with 3 new Pine Script screener indicators to capture and store their alert data in MongoDB.
+
+### Success Criteria
+- Successfully process alerts from all 3 new screeners
+- Store alert data with screenshots in new MongoDB collection
+- Maintain existing symbol processing (1300+ symbols, 4 categories, 5 symbols per alert)
+- Process alerts sequentially as they appear in TradingView logs
+- Disable social media distribution initially while preserving code for future use
+
+## Target Users
+
+- Trading signal analysts who need automated data collection from multiple screener indicators
+- System operators who configure and monitor the automated trading signal processing
+
+## Core Features and Requirements
+
+### Feature 1: New Screener Integration
+**Description:** Replace existing Premium Screener with 3 new screener indicators
+**Priority:** High
+**Requirements:**
+- Integrate Order Block Screener, Structure break Screener, and Nadaraya Watson Screener
+- Use new "PointCapital" TradingView layout with all 3 screeners
+- Create separate alerts for each screener per symbol set
+- Process same 1300+ symbols across 4 categories (US Stocks, Indian Stocks, Crypto, Currencies)
+- Maintain 5 symbols per alert grouping approach
+
+### Feature 2: Alert Message Processing
+**Description:** Parse and process different JSON formats from each screener
+**Priority:** High
+**Requirements:**
+- Handle Structure Break Screener format: Compact JSON with abbreviated keys (t, s, tf, d, zz, ts, p)
+- Handle Nadaraya Watson Screener format: Clean JSON with standard keys (type, symbol, timeframe, direction, timestamp)
+- Handle Order Block Screener format: Standard JSON with price level data (timestamp, symbol, timeframe, signal_type, ob_type, ob_high, ob_low, current_price)
+- Support both single signal and multiple signal formats
+- Add screener identification field to all processed data
+
+### Feature 3: MongoDB Data Storage
+**Description:** Store processed alert data in new MongoDB collection
+**Priority:** High
+**Requirements:**
+- Create new "Point Capitalis" collection (do not use existing "Entries" collection)
+- Include screener source identification field
+- Store all alert data fields specific to each screener type
+- Include screenshot links (both PNG and TradingView links)
+- Maintain data structure compatibility for future enhancements
+
+### Feature 4: Updated Browser Automation
+**Description:** Modify browser automation to work with new screener inputs
+**Priority:** High
+**Requirements:**
+- Update input scraping logic from "Used Symbols" to "Symbol 1", "Symbol 2", "Symbol 3", "Symbol 4", "Symbol 5"
+- Configure timeframe inputs: 4H Timeframe, Daily Timeframe, Weekly Timeframe
+- Maintain existing Chrome browser setup (profile, debugging port 9224)
+- Use new "PointCapital" layout instead of "Screener" layout
+
+### Feature 5: Screenshot Functionality
+**Description:** Maintain screenshot capture for alert processing
+**Priority:** High
+**Requirements:**
+- Keep existing screenshot functionality enabled
+- Capture chart screenshots when processing alerts
+- Store both PNG and TradingView links in database
+- Navigate to symbol/timeframe before taking screenshots
+
+### Feature 6: GUI Configuration Updates
+**Description:** Update GUI to configure new screener-specific settings
+**Priority:** Medium
+**Requirements:**
+- Add configuration options for each of the 3 screeners
+- Include timeframe selection inputs for each screener
+- Update screener name constants to match new indicators
+- Maintain existing validation and error handling
+
+### Feature 7: Social Media Distribution (Disabled)
+**Description:** Disable social media distribution while preserving code
+**Priority:** Low
+**Requirements:**
+- Comment out or disable Discord, Twitter, Facebook distribution calls
+- Preserve existing social media code for future reactivation
+- Maintain external API integration code structure
+- Focus on MongoDB storage only initially
+
+## Technical Requirements
+
+### System Architecture
+- Maintain existing Python 3.11+ and Selenium WebDriver framework
+- Continue using Chrome browser automation with existing profile setup
+- Keep MongoDB as primary database (migrate to new collection)
+- Preserve existing logging and error handling systems
+
+### Performance Requirements
+- Process alerts sequentially as they appear in logs
+- Handle 1300+ symbols across 4 categories efficiently
+- Maintain existing alert creation batching (5 symbols per alert)
+- Support multiple alert formats without performance degradation
+
+### Integration Requirements
+- TradingView Pine Script indicators (already installed and starred)
+- New "PointCapital" layout in TradingView (user will create)
+- MongoDB database with new "Point Capitalis" collection
+- Existing Chrome profile and browser automation setup
+
+## Data Models
+
+### Alert Data Structure
+Each processed alert should include:
+- Screener source identifier (Order Block/Structure Break/Nadaraya Watson)
+- Original JSON message data (varies by screener)
+- Symbol and timeframe information
+- Direction/signal type
+- Timestamp (parsed and standardized)
+- Screenshot links (PNG and TradingView)
+- Processing metadata
+
+### Screener-Specific Fields
+
+#### Structure Break Screener
+- Type (t): "sb"
+- Symbol (s): Trading symbol
+- Timeframe (tf): Chart timeframe
+- Direction (d): "bullish" or "bearish"
+- ZigZag degree (zz): "ZZ1", "ZZ2", "ZZ3"
+- Timestamp (ts): Alert timestamp
+- Price (p): Current price
+
+#### Nadaraya Watson Screener
+- Type: "nw"
+- Symbol: Trading pair
+- Timeframe: Time period
+- Direction: "buy" or "sell"
+- Timestamp: UTC timestamp
+
+#### Order Block Screener
+- Timestamp: ISO format
+- Symbol: Trading symbol
+- Timeframe: Timeframe string
+- Signal_type: "buy_signal" or "sell_signal"
+- Ob_type: "bullish" or "bearish"
+- Ob_high: Order block high price
+- Ob_low: Order block low price
+- Current_price: Current market price
+
+## Implementation Strategy
+
+### Phase 1: Core Infrastructure (Week 1)
+- Update environment constants for new screeners
+- Modify MongoDB connection to use new collection
+- Update GUI configuration options
+- Create new layout handling code
+
+### Phase 2: Browser Automation Updates (Week 1-2)
+- Modify input scraping for new symbol input structure
+- Update alert creation logic for 3 screeners
+- Implement new layout switching functionality
+- Test browser automation with new indicators
+
+### Phase 3: Alert Processing (Week 2)
+- Implement JSON parsing for 3 different alert formats
+- Update alert monitoring and processing logic
+- Handle screener identification and routing
+- Test end-to-end alert processing
+
+### Phase 4: Integration and Testing (Week 2-3)
+- Integrate all components
+- Disable social media distribution calls
+- Comprehensive testing with all 3 screeners
+- Performance optimization and bug fixes
+
+## Success Metrics
+
+- Successfully process alerts from all 3 screeners without errors
+- Store complete alert data in "Point Capitalis" MongoDB collection
+- Maintain screenshot capture functionality
+- Process 1300+ symbols efficiently across all screeners
+- Zero data loss during alert processing
+- Successful GUI configuration of screener parameters
+
+## Constraints and Assumptions
+
+### Constraints
+- Must use existing TradingView account and browser setup
+- Cannot modify Pine Script indicators (user will handle)
+- Must maintain existing symbol management system
+- Limited to MongoDB storage initially (no social media distribution)
+
+### Assumptions
+- User will create required "PointCapital" TradingView layout
+- 3 screener indicators are already installed and starred in TradingView
+- Existing Chrome profile and automation setup remains functional
+- MongoDB database access and permissions are maintained
+
+## Future Considerations
+
+- Re-enable social media distribution after initial implementation
+- Add real-time alert processing monitoring
+- Implement alert processing analytics and reporting
+- Consider database optimization for high-volume alert processing
+- Potential migration to Firebase Firestore (matching existing TTE pattern)
