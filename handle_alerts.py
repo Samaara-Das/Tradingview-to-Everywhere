@@ -52,7 +52,7 @@ class Alerts:
     def __init__(
         self,
         drawer_shorttitle,
-        screener_shortitle,
+        screener_shorttitles,
         driver,
         chart_timeframe,
         interval_seconds,
@@ -64,7 +64,7 @@ class Alerts:
         self.discord = discord.Discord()
         self.drawer_shorttitle = drawer_shorttitle
         self.utils = Utils()
-        self.screener_shortitle = screener_shortitle
+        self.screener_shorttitles = screener_shorttitles
         self.chart_timeframe = chart_timeframe
         self.interval_seconds = interval_seconds
         self.last_run = time()
@@ -72,12 +72,12 @@ class Alerts:
     def post(self, msg, screener_visibility):
         """This goes through every entry in `msg` and takes a snapshot of those entries and posts them to Nk uncle's database, our remote database & Discord"""
         try:
-            if not screener_visibility(
-                False, self.screener_shortitle
-            ):  # hide the screener indicator with the passed in function
-                alert_data_logger.warning(
-                    "Failed to hide the screener indicator but still continuing to post about entries"
-                )
+            # hide all screener indicators with the passed in function
+            for screener_shorttitle in self.screener_shorttitles:
+                if not screener_visibility(False, screener_shorttitle):
+                    alert_data_logger.warning(
+                        f"Failed to hide the screener indicator {screener_shorttitle} but still continuing to post about entries"
+                    )
 
             for (
                 key,
