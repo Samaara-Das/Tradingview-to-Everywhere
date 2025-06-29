@@ -4,7 +4,7 @@ import os
 load_dotenv()
 
 # Profile path in chrome user data folder
-PROFILE = 'Profile 3'
+PROFILE = 'Profile 2'
 
 # Collection name for storing trading signals
 COLLECTION = "Entries"

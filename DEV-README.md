@@ -50,13 +50,13 @@
 
 ### For env.py
 
-1. Ensure that the `PROFILE` constant is set to the profile (in the chrome user data directory) which you want TTE to use as the chrome profile. Please ensure that it uses the profile for the poolsifi account.
+1. Ensure that the `PROFILE` constant is set to the profile (in the chrome user data directory) which you want TTE to use as the chrome profile. Please ensure that it uses the profile for the dassamaara account. This is the chrome user data directory: `'C:\\Users\\Username\\AppData\\Local\\Google\\Chrome\\User Data'`
 
 ### For open_tv.py
 
 1. Ensure that you have the `CHROME_PROFILES_PATH` User Environment Variable. The value of this variable should be the path to the chrome user data folder. Eg: `CHROME_PROFILES_PATH = 'C:\\Users\\Username\\AppData\\Local\\Google\\Chrome\\User Data'`
 
-2. Ensure that you have a TTE folder in the chrome user data directory.
+2. Ensure that you have a TTE folder in the chrome user data directory: `'C:\\Users\\Username\\AppData\\Local\\Google\\Chrome\\User Data'`. If there's an existing TTE folder, delete it and create a new one.
 
 4. Ensure that you have the `TRADINGVIEW_EMAIL` and `TRADINGVIEW_PASSWORD` user environment variables. This application signs in to TradingView using them. Please ensure that you have followed the instructions below as well.
 
@@ -138,16 +138,12 @@ Note: The indices category is not used anywhere because papa told me to remove i
 7. All the above constants can be changed in the GUI. So, you don't have to change them in the code.
 
 ### For Pinescript
-1. Download these indicators and set them up on Tradingview:
-   - [Premium Screener](https://drive.google.com/file/d/1aiAB2gtAAGi2ov_LEV78Qa2ORZbgaZA9/view?usp=drive_link)
-   - [Trade Drawer](https://drive.google.com/file/d/18tCSEAKP3LPEQobXvSz0sAvnHYaZOC75/view?usp=drive_link)
-   - [Get Exits](https://drive.google.com/file/d/1oz4aRhGWADyzM_XgrhhK-len_bLw6DPM/view?usp=drive_link)
+- Download these indicators and set them up on Tradingview:
+   - [Order Block Screener](https://drive.google.com/file/d/1ORTa2TUwb4m4TCKNTmrjBc4sACffvi2t/view?usp=drive_link)
+   - [Nadaraya Watson Screener](https://drive.google.com/file/d/1crtBVlGivH6j8exWPkwpsHXk9RI1C4DE/view?usp=drive_link)
+   - [Structure Break Screener](https://drive.google.com/file/d/1crtBVlGivH6j8exWPkwpsHXk9RI1C4DE/view?usp=drive_link)
 
-1. In the Trade Drawer indicator, in Pinescript, the first 6 inputs have to be arranged in this order: dateTime, entry, sl, tp1, tp2, tp3
+- The screeners should have 15-20 inputs (So that Python can click on it)
 
-2. In Pine Script, the Get Exits indicator must have its first 7 inputs in this order: `entryTime`, `entryPrice`, `entryType`, `sl`, `tp1`, `tp2`, `tp3`
-
-3. Premium Screener should have 15-20 inputs (So that Python can click on it)
-
-4. If the symbols in `symbol_settings.py` are rare and have prices like -5.0000000034782 or 0.00000389, go to the screener and fix the code in the alertMsg function to make it convert those prices into their correct string versions. Their string versions should be the exact same as the prices and should not be rounded off and the decimal places should not be cut off.
+- If the symbols in `symbol_settings.py` are rare and have prices like -5.0000000034782 or 0.00000389, go to the screener and fix the code in the alertMsg function to make it convert those prices into their correct string versions. Their string versions should be the exact same as the prices and should not be rounded off and the decimal places should not be cut off.
 
