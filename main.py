@@ -31,9 +31,9 @@ import time as time_module
 main_logger = logger_setup.setup_logger(__name__, logger_setup.INFO)
 
 SCREENER_SHORT = 'Screener' # short title of the screener
-DRAWER_SHORT = 'Trade' # short title of the trade drawer indicator 
+DRAWER_SHORT = 'Trade Drawer 2' # short title of the trade drawer indicator 
 SCREENER_NAME = 'Premium Screener' # name of the screener
-DRAWER_NAME = 'Trade Drawer' # name of the trade drawer
+DRAWER_NAME = 'Trade Drawer 2' # name of the trade drawer
 
 # Additional screeners
 SCREENER_OB_SHORT = "Order Block Screener"  # short title of the Order Block Screener
@@ -79,7 +79,7 @@ def run_trading_view(on_status_change=None):
             on_status_change("Initializing browser...", False)
 
         # initiate Browser
-        browser = open_tv.Browser(True, SCREENER_SHORT, SCREENER_NAME, DRAWER_SHORT, DRAWER_NAME, INTERVAL_MINUTES, START_FRESH)
+        browser = open_tv.Browser(True, SCREENER_SHORT, SCREENER_NAME, DRAWER_SHORT, DRAWER_NAME, INTERVAL_MINUTES, START_FRESH, SCREENER_OB_SHORT, SCREENER_OB_NAME, SCREENER_NW_SHORT, SCREENER_NW_NAME, SCREENER_SB_SHORT, SCREENER_SB_NAME)
 
         # setup the indicators, alerts etc.
         setup_check = browser.setup_tv()

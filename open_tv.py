@@ -5,8 +5,6 @@ opens Tradingview, sets it up, sets alerts for all the symbols, changes the layo
 There are a few other things this does that are related to all the things mentioned above.
 '''
 
-import tkinter as tk
-from tkinter import simpledialog
 from resources.utils import Utils
 import handle_alerts
 import logger_setup
@@ -33,9 +31,9 @@ open_tv_logger = logger_setup.setup_logger(__name__, logger_setup.INFO)
 
 # some constants
 SYMBOL_INPUTS = 5 #number of symbol inputs in the screener
-CHART_TIMEFRAME = '1 hour' # the timeframe that the entries are from
+CHART_TIMEFRAME = '1 minute' # the timeframe that the entries are from
 USED_SYMBOLS_INPUT = "Used Symbols" # Name of the Used Symbols input in the Screener
-LAYOUT_NAME = 'Screener' # Name of the layout for the screener
+LAYOUT_NAME = 'PointCapital' # Name of the layout for the screener
 SCREENER_REUPLOAD_TIMEOUT = 15 # seconds to wait for the screener to show up on the chart after re-uploading it
 
 CHROME_PROFILES_PATH = getenv('CHROME_PROFILES_PATH')
@@ -57,7 +55,7 @@ def symbol_sublist_gen():
 # class
 class Browser:
 
-  def __init__(self, keep_open: bool, screener_shorttitle: str, screener_name: str, drawer_shorttitle: str, drawer_name: str, interval_minutes: int, start_fresh: bool) -> None:
+  def __init__(self, keep_open: bool, screener_shorttitle: str, screener_name: str, drawer_shorttitle: str, drawer_name: str, interval_minutes: int, start_fresh: bool, screener_ob_short: str, screener_ob_name: str, screener_nw_short: str, screener_nw_name: str, screener_sb_short: str, screener_sb_name: str) -> None:
     chrome_options = Options() 
     chrome_options.add_experimental_option("detach", keep_open)
 
@@ -78,6 +76,12 @@ class Browser:
     self.screener_shorttitle = screener_shorttitle
     self.drawer_name = drawer_name
     self.drawer_shorttitle = drawer_shorttitle
+    self.screener_ob_short = screener_ob_short
+    self.screener_ob_name = screener_ob_name
+    self.screener_nw_short = screener_nw_short
+    self.screener_nw_name = screener_nw_name
+    self.screener_sb_short = screener_sb_short
+    self.screener_sb_name = screener_sb_name
     self.interval_seconds = interval_minutes * 60 # Convert the interval to seconds
     self.start_fresh = start_fresh
     self.init_succeeded = True
@@ -150,10 +154,10 @@ class Browser:
     # open tradingview
     if not self.open_page('https://www.tradingview.com/chart'):
       if not self.open_page('https://www.tradingview.com/chart'): # try once more
-        open_tv_logger.error(f'Failed to open tradingview. Exiting function')
+        open_tv_logger.error('Failed to open tradingview. Exiting function')
         return False
 
-    # change to the screener layout (if we are on any other layout)
+    # change to the correct layout (if we are on any other layout)
     if not self.change_layout(LAYOUT_NAME):
       self.change_layout(LAYOUT_NAME) # try once more
       if self.current_layout() != LAYOUT_NAME:
@@ -166,7 +170,7 @@ class Browser:
         open_tv_logger.warning(f'Cannot save the current layout {LAYOUT_NAME}. Exiting function')
         return False
 
-    # set the timeframe to 1H 
+    # set the timeframe to the correct timeframe
     if not self.open_chart.change_tframe(CHART_TIMEFRAME):
       self.open_chart.change_tframe(CHART_TIMEFRAME) # try once more
       if not self.current_chart_tframe() == CHART_TIMEFRAME:
@@ -177,7 +181,7 @@ class Browser:
     if not self.open_alerts_sidebar():
       self.open_alerts_sidebar() # try once more
       if not self.is_alerts_sidebar_open():
-        open_tv_logger.error(f'Cannot open the alerts sidebar. Exiting function')
+        open_tv_logger.error('Cannot open the alerts sidebar. Exiting function')
         return False
 
     # delete all alerts
@@ -185,35 +189,55 @@ class Browser:
       if not self.delete_all_alerts():
         self.delete_all_alerts() # try once more
         if not self.no_alerts():
-          open_tv_logger.error(f'Cannot delete all alerts. Exiting function')
+          open_tv_logger.error('Cannot delete all alerts. Exiting function')
           return False
 
-    # make the screener and the trade drawer indicator into attributes of this object
-    self.screener_indicator = self.get_indicator(self.screener_shorttitle)
+    # make the screener indicators and the trade drawer indicator into attributes of this object
+    self.screener_ob_indicator = self.get_indicator(self.screener_ob_short)
+    self.screener_nw_indicator = self.get_indicator(self.screener_nw_short)
+    self.screener_sb_indicator = self.get_indicator(self.screener_sb_short)
     self.drawer_indicator = self.get_indicator(self.drawer_shorttitle)
 
-    if self.screener_indicator is None: # try once more to find the screener
-      self.screener_indicator = self.get_indicator(self.screener_shorttitle)
+    if self.screener_ob_indicator is None: # try once more to find the Order Block screener
+      self.screener_ob_indicator = self.get_indicator(self.screener_ob_short)
+
+    if self.screener_nw_indicator is None: # try once more to find the Nadaraya Watson screener
+      self.screener_nw_indicator = self.get_indicator(self.screener_nw_short)
+
+    if self.screener_sb_indicator is None: # try once more to find the Structure break screener
+      self.screener_sb_indicator = self.get_indicator(self.screener_sb_short)
 
     if self.drawer_indicator is None: # try once more to find the trade drawer
       self.drawer_indicator = self.get_indicator(self.drawer_shorttitle)
 
-    if self.screener_indicator is None or self.drawer_indicator is None:
-      open_tv_logger.error(f'One of the indicators is not found. Exiting function. Screener: {self.screener_indicator}, Trade Drawer: {self.drawer_indicator}')
+    if (self.screener_ob_indicator is None or self.screener_nw_indicator is None or 
+        self.screener_sb_indicator is None or self.drawer_indicator is None):
+      open_tv_logger.error(f'One or more indicators not found. Exiting function. Order Block: {self.screener_ob_indicator}, Nadaraya Watson: {self.screener_nw_indicator}, Structure break: {self.screener_sb_indicator}, Trade Drawer: {self.drawer_indicator}')
       return False
 
-    self.alerts = handle_alerts.Alerts(self.drawer_shorttitle, self.screener_shorttitle, self.driver, CHART_TIMEFRAME, self.interval_seconds)
+    self.alerts = handle_alerts.Alerts(self.drawer_shorttitle, [self.screener_ob_short, self.screener_nw_short, self.screener_sb_short], self.driver, CHART_TIMEFRAME, self.interval_seconds)
 
-    # make the screener hidden and Trade Drawer indicator visible
-    if not self.indicator_visibility(False, self.screener_shorttitle):
-      self.indicator_visibility(False, self.screener_shorttitle)
-      if self.is_visible(self.screener_shorttitle) == True:
-        open_tv_logger.warning('Failed to make the screener indicator hidden. The function will still continue on without exiting as this is not crucial.')
-
+    # make the Trade Drawer indicator visible
     if not self.indicator_visibility(True, self.drawer_shorttitle):
       self.indicator_visibility(True, self.drawer_shorttitle)
       if self.is_visible(self.drawer_shorttitle) == False:
         open_tv_logger.warning('Failed to make the Trade Drawer indicator visible. The function will still continue on without exiting as this is not crucial.')
+    
+    # hide all 3 screener indicators
+    if not self.indicator_visibility(False, self.screener_ob_short):
+      self.indicator_visibility(False, self.screener_ob_short)
+      if self.is_visible(self.screener_ob_short) == True:
+        open_tv_logger.warning('Failed to hide the Order Block screener indicator. The function will still continue on without exiting as this is not crucial.')
+
+    if not self.indicator_visibility(False, self.screener_nw_short):
+      self.indicator_visibility(False, self.screener_nw_short)
+      if self.is_visible(self.screener_nw_short) == True:
+        open_tv_logger.warning('Failed to hide the Nadaraya Watson screener indicator. The function will still continue on without exiting as this is not crucial.')
+
+    if not self.indicator_visibility(False, self.screener_sb_short):
+      self.indicator_visibility(False, self.screener_sb_short)
+      if self.is_visible(self.screener_sb_short) == True:
+        open_tv_logger.warning('Failed to hide the Structure break screener indicator. The function will still continue on without exiting as this is not crucial.')
     
     # Change the candle type to a line
     candle_type = 'Line'
@@ -240,26 +264,30 @@ class Browser:
         open_tv_logger.warning(f'Cannot save the current layout {LAYOUT_NAME}. Exiting function')
         return False
     
-    # make the screener and the trade drawer indicator into attributes of this object
-    self.screener_indicator = self.get_indicator(self.screener_shorttitle)
+    # make the screener indicators and the trade drawer indicator into attributes of this object
+    self.screener_ob_indicator = self.get_indicator(self.screener_ob_short)
+    self.screener_nw_indicator = self.get_indicator(self.screener_nw_short)
+    self.screener_sb_indicator = self.get_indicator(self.screener_sb_short)
     self.drawer_indicator = self.get_indicator(self.drawer_shorttitle)
 
-    if self.screener_indicator is None: # try once more to find the screener
-      self.screener_indicator = self.get_indicator(self.screener_shorttitle)
+    if self.screener_ob_indicator is None: # try once more to find the Order Block screener
+      self.screener_ob_indicator = self.get_indicator(self.screener_ob_short)
+
+    if self.screener_nw_indicator is None: # try once more to find the Nadaraya Watson screener
+      self.screener_nw_indicator = self.get_indicator(self.screener_nw_short)
+
+    if self.screener_sb_indicator is None: # try once more to find the Structure break screener
+      self.screener_sb_indicator = self.get_indicator(self.screener_sb_short)
 
     if self.drawer_indicator is None: # try once more to find the trade drawer
       self.drawer_indicator = self.get_indicator(self.drawer_shorttitle)
 
-    if self.screener_indicator is None or self.drawer_indicator is None:
-      open_tv_logger.error(f'One of the indicators is not found. Exiting function. Screener: {self.screener_indicator}, Trade Drawer: {self.drawer_indicator}')
+    if (self.screener_ob_indicator is None or self.screener_nw_indicator is None or 
+        self.screener_sb_indicator is None or self.drawer_indicator is None):
+      open_tv_logger.error(f'One or more indicators not found. Exiting function. Order Block: {self.screener_ob_indicator}, Nadaraya Watson: {self.screener_nw_indicator}, Structure break: {self.screener_sb_indicator}, Trade Drawer: {self.drawer_indicator}')
       return False
 
-    # make the screener visible and Trade Drawer indicator visible
-    if not self.indicator_visibility(True, self.screener_shorttitle):
-      self.indicator_visibility(True, self.screener_shorttitle)
-      if self.is_visible(self.screener_shorttitle) == False:
-        open_tv_logger.warning('Failed to make the screener indicator visible. The function will still continue on without exiting as this is not crucial.')
-
+    # make the Trade Drawer indicator visible
     if not self.indicator_visibility(True, self.drawer_shorttitle):
       self.indicator_visibility(True, self.drawer_shorttitle)
       if self.is_visible(self.drawer_shorttitle) == False:
@@ -638,8 +666,12 @@ class Browser:
 
     # get the indicator
     indicator = None
-    if shorttitle == self.screener_shorttitle:
-      indicator = self.screener_indicator
+    if shorttitle == self.screener_ob_short:
+      indicator = self.screener_ob_indicator
+    elif shorttitle == self.screener_nw_short:
+      indicator = self.screener_nw_indicator
+    elif shorttitle == self.screener_sb_short:
+      indicator = self.screener_sb_indicator
     elif shorttitle == self.drawer_shorttitle:
       indicator = self.drawer_indicator
 
@@ -677,8 +709,12 @@ class Browser:
     '''This returns `True` if the visibility of `shorttitle` indicator is shown. Otherwise, this returns `False` if its visibility is hidden.'''
     # get the indicator
     indicator = None
-    if shorttitle == self.screener_shorttitle:
-      indicator = self.screener_indicator
+    if shorttitle == self.screener_ob_short:
+      indicator = self.screener_ob_indicator
+    elif shorttitle == self.screener_nw_short:
+      indicator = self.screener_nw_indicator
+    elif shorttitle == self.screener_sb_short:
+      indicator = self.screener_sb_indicator
     elif shorttitle == self.drawer_shorttitle:
       indicator = self.drawer_indicator
       
