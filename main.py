@@ -34,6 +34,14 @@ SCREENER_SHORT = 'Screener' # short title of the screener
 DRAWER_SHORT = 'Trade' # short title of the trade drawer indicator 
 SCREENER_NAME = 'Premium Screener' # name of the screener
 DRAWER_NAME = 'Trade Drawer' # name of the trade drawer
+
+# Additional screeners
+SCREENER_OB_SHORT = "Order Block Screener"  # short title of the Order Block Screener
+SCREENER_OB_NAME = "Order Block Screener"  # name of the Order Block Screener
+SCREENER_NW_SHORT = "Nadaraya Watson Screener"  # short title of the Nadaraya Watson Screener
+SCREENER_NW_NAME = "Nadaraya Watson Screener"  # name of the Nadaraya Watson Screener
+SCREENER_SB_SHORT = "Structure break Screener"  # short title of the Structure break Screener
+SCREENER_SB_NAME = "Structure break Screener"  # name of the Structure break Screener
 REMOVE_LOG = True # remove the content of the log file (to clean it up)
 INTERVAL_MINUTES = 10 # number of mins to wait until inactive alerts get reactivated and for the browser to refresh (refreshing will hopefully prevent the browser and this application from freezing)
 START_FRESH = True
