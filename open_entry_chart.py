@@ -161,7 +161,7 @@ class OpenChart:
         entry_chart_logger.info(f'The current symbol is the same as {no_exchange_symbol}. There is no need to change the symbol!')
         return True
     except Exception as e:
-      entry_chart_logger.exception(f'Failed to change the symbol of the chart. Error: ')
+      entry_chart_logger.exception(f'Failed to change the symbol of the chart. Error: {e}')
       return False
 
   def change_tframe(self, timeframe):

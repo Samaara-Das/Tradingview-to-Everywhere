@@ -24,7 +24,7 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
-from selenium.common.exceptions import WebDriverException, TimeoutException
+from selenium.common.exceptions import WebDriverException, TimeoutException, StaleElementReferenceException
 
 # Set up logger for this file
 open_tv_logger = logger_setup.setup_logger(__name__, logger_setup.INFO)
@@ -192,27 +192,27 @@ class Browser:
           open_tv_logger.error('Cannot delete all alerts. Exiting function')
           return False
 
-    # make the screener indicators and the trade drawer indicator into attributes of this object
-    self.screener_ob_indicator = self.get_indicator(self.screener_ob_short)
-    self.screener_nw_indicator = self.get_indicator(self.screener_nw_short)
-    self.screener_sb_indicator = self.get_indicator(self.screener_sb_short)
-    self.drawer_indicator = self.get_indicator(self.drawer_shorttitle)
+    # verify that all required indicators are present on the chart
+    screener_ob_check = self.get_indicator(self.screener_ob_short)
+    screener_nw_check = self.get_indicator(self.screener_nw_short)
+    screener_sb_check = self.get_indicator(self.screener_sb_short)
+    drawer_check = self.get_indicator(self.drawer_shorttitle)
 
-    if self.screener_ob_indicator is None: # try once more to find the Order Block screener
-      self.screener_ob_indicator = self.get_indicator(self.screener_ob_short)
+    if screener_ob_check is None: # try once more to find the Order Block screener
+      screener_ob_check = self.get_indicator(self.screener_ob_short)
 
-    if self.screener_nw_indicator is None: # try once more to find the Nadaraya Watson screener
-      self.screener_nw_indicator = self.get_indicator(self.screener_nw_short)
+    if screener_nw_check is None: # try once more to find the Nadaraya Watson screener
+      screener_nw_check = self.get_indicator(self.screener_nw_short)
 
-    if self.screener_sb_indicator is None: # try once more to find the Structure break screener
-      self.screener_sb_indicator = self.get_indicator(self.screener_sb_short)
+    if screener_sb_check is None: # try once more to find the Structure break screener
+      screener_sb_check = self.get_indicator(self.screener_sb_short)
 
-    if self.drawer_indicator is None: # try once more to find the trade drawer
-      self.drawer_indicator = self.get_indicator(self.drawer_shorttitle)
+    if drawer_check is None: # try once more to find the trade drawer
+      drawer_check = self.get_indicator(self.drawer_shorttitle)
 
-    if (self.screener_ob_indicator is None or self.screener_nw_indicator is None or 
-        self.screener_sb_indicator is None or self.drawer_indicator is None):
-      open_tv_logger.error(f'One or more indicators not found. Exiting function. Order Block: {self.screener_ob_indicator}, Nadaraya Watson: {self.screener_nw_indicator}, Structure break: {self.screener_sb_indicator}, Trade Drawer: {self.drawer_indicator}')
+    if (screener_ob_check is None or screener_nw_check is None or 
+        screener_sb_check is None or drawer_check is None):
+      open_tv_logger.error(f'One or more indicators not found. Exiting function. Order Block: {screener_ob_check}, Nadaraya Watson: {screener_nw_check}, Structure break: {screener_sb_check}, Trade Drawer: {drawer_check}')
       return False
 
     self.alerts = handle_alerts.Alerts(self.drawer_shorttitle, [self.screener_ob_short, self.screener_nw_short, self.screener_sb_short], self.driver, CHART_TIMEFRAME, self.interval_seconds)
@@ -264,27 +264,27 @@ class Browser:
         open_tv_logger.warning(f'Cannot save the current layout {LAYOUT_NAME}. Exiting function')
         return False
     
-    # make the screener indicators and the trade drawer indicator into attributes of this object
-    self.screener_ob_indicator = self.get_indicator(self.screener_ob_short)
-    self.screener_nw_indicator = self.get_indicator(self.screener_nw_short)
-    self.screener_sb_indicator = self.get_indicator(self.screener_sb_short)
-    self.drawer_indicator = self.get_indicator(self.drawer_shorttitle)
+    # verify that all required indicators are present on the chart
+    screener_ob_check = self.get_indicator(self.screener_ob_short)
+    screener_nw_check = self.get_indicator(self.screener_nw_short)
+    screener_sb_check = self.get_indicator(self.screener_sb_short)
+    drawer_check = self.get_indicator(self.drawer_shorttitle)
 
-    if self.screener_ob_indicator is None: # try once more to find the Order Block screener
-      self.screener_ob_indicator = self.get_indicator(self.screener_ob_short)
+    if screener_ob_check is None: # try once more to find the Order Block screener
+      screener_ob_check = self.get_indicator(self.screener_ob_short)
 
-    if self.screener_nw_indicator is None: # try once more to find the Nadaraya Watson screener
-      self.screener_nw_indicator = self.get_indicator(self.screener_nw_short)
+    if screener_nw_check is None: # try once more to find the Nadaraya Watson screener
+      screener_nw_check = self.get_indicator(self.screener_nw_short)
 
-    if self.screener_sb_indicator is None: # try once more to find the Structure break screener
-      self.screener_sb_indicator = self.get_indicator(self.screener_sb_short)
+    if screener_sb_check is None: # try once more to find the Structure break screener
+      screener_sb_check = self.get_indicator(self.screener_sb_short)
 
-    if self.drawer_indicator is None: # try once more to find the trade drawer
-      self.drawer_indicator = self.get_indicator(self.drawer_shorttitle)
+    if drawer_check is None: # try once more to find the trade drawer
+      drawer_check = self.get_indicator(self.drawer_shorttitle)
 
-    if (self.screener_ob_indicator is None or self.screener_nw_indicator is None or 
-        self.screener_sb_indicator is None or self.drawer_indicator is None):
-      open_tv_logger.error(f'One or more indicators not found. Exiting function. Order Block: {self.screener_ob_indicator}, Nadaraya Watson: {self.screener_nw_indicator}, Structure break: {self.screener_sb_indicator}, Trade Drawer: {self.drawer_indicator}')
+    if (screener_ob_check is None or screener_nw_check is None or 
+        screener_sb_check is None or drawer_check is None):
+      open_tv_logger.error(f'One or more indicators not found. Exiting function. Order Block: {screener_ob_check}, Nadaraya Watson: {screener_nw_check}, Structure break: {screener_sb_check}, Trade Drawer: {drawer_check}')
       return False
 
     # make the Trade Drawer indicator visible
@@ -305,7 +305,8 @@ class Browser:
 
   def set_bulk_alerts(self):
     '''
-    This goes over every sublist in `symbol_sublists`. Each sublist has symbols. It opens a chart with the symbol as `symbol_sublist[0]`. Then, it fills up the settings of the screener with symbols. Then an alert gets set for the screener.
+    This goes over every sublist in `symbol_sublists`. Each sublist has symbols. It opens a chart with the symbol as `symbol_sublist[0]`. 
+    Then, it fills up the settings of all 3 screeners with symbols. Then alerts get set for all 3 screeners.
     Note: Sometimes, when alerts are made, the alerts are duplicated. 2 alerts are made on the same chart with the same symbols. I don't know why. It has been decided that this won't be fixed because it is unnecessary.
     '''
     symbol_sublists = symbol_sublist_gen()
@@ -315,16 +316,22 @@ class Browser:
         if not self.open_chart.change_symbol(chart_symbol): # change chart's symbol
           open_tv_logger.error(f'Failed to change the chart\'s symbol to {chart_symbol}. Going to try with the next set of symbols for this category (if there are sets left)')
           continue
-        if not self.change_settings(symbol_sublist): # input the symbols in the screener's inputs
-          open_tv_logger.error('Failed to change screener\'s symbol settings. Going to try with the next set of symbols for this category (if there are sets left)')
+        
+        # Configure all 3 screeners with the symbols
+        if not self.change_settings(symbol_sublist): # input the symbols in all screeners' inputs
+          open_tv_logger.error('Failed to change screeners\'s symbol settings. Going to try with the next set of symbols for this category (if there are sets left)')
           continue
-        sleep(3) # wait for the screener indicator to fully load (we are avoiding to wait for the indicator to load as it will take too long)
-        if not self.set_alerts(symbol_sublist): # wait for the screener to load and set an alert for it
-          open_tv_logger.error('Failed to set alert for screener. Going to try with the next set of symbols for this category (if there are sets left)')
+        
+        sleep(3) # wait for the screener indicators to fully load (we are avoiding to wait for the indicators to load as it will take too long)
+        
+        # Set alerts for all 3 screeners
+        if not self.set_alerts(symbol_sublist): # set alerts for all 3 screeners
+          open_tv_logger.error('Failed to set alerts for all screeners. Going to try with the next set of symbols for this category (if there are sets left)')
           continue
-        sleep(5) # wait for 5 secs instead of waiting for the alert to show up (it might be unnecessary)
+          
+        sleep(5) # wait for 5 secs instead of waiting for the alerts to show up (it might be unnecessary)
       except Exception as e:
-        open_tv_logger.exception(f'An error happened in set_bulk_alerts. Will continue with the next alerts. Error: ')
+        open_tv_logger.exception(f'An error happened in set_bulk_alerts. Will continue with the next alerts. Error: {e}')
         continue 
         
   def change_layout(self, layout_name):
@@ -373,134 +380,72 @@ class Browser:
       open_tv_logger.exception(f'An error happened when saving the layout. Error: ')
       return False
 
-  def change_settings(self, symbols_list):
-    '''This changes the settings of the screener. It first fills in the "Used Symbols" input to tell the indicator how many symbols we're going to use. Then it fills in the symbols and clicks on Submit.'''
-    try:
-      # find the settings popup
-      settings = None
-      screener = self.get_indicator(self.screener_shorttitle)  # get the screener
-      if not screener:
-        open_tv_logger.error(f'Could not find screener indicator: {screener}. Exiting function.')
-        return False
-      
-      # Open its settings
-      self.screener_indicator = screener
-      self.screener_indicator.click()
-      WebDriverWait(self.screener_indicator, 15).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[data-name="legend-settings-action"]'))).click()
-      settings = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.content-tBgV1m0B')))
-      symbol_inputs = settings.find_elements(By.CSS_SELECTOR, '.inlineRow-tBgV1m0B div[data-name="edit-button"]') # symbol inputs
-
-      # fill in the Used Symbols input
-      input_names = settings.find_elements(By.CSS_SELECTOR, 'div[class="cell-tBgV1m0B first-tBgV1m0B"] div[class="inner-tBgV1m0B"]')
-      inputs = settings.find_elements(By.CSS_SELECTOR, 'div[class="cell-tBgV1m0B"] div[class="inner-tBgV1m0B"] > span')
-      symbols_used_input = None
-
-      for index, element in enumerate(input_names):
-        if element.text == USED_SYMBOLS_INPUT:
-          symbols_used_input = inputs[index]
-          break
-
-      symbols_used_input.send_keys(len(symbols_list))
-      symbols_used_input.send_keys(Keys.ENTER)
-
-      # change the symbol inputs based on the total number of symbols
-      for i, to_be_symbol in enumerate(symbols_list):
-        symbol_inputs[i].click()
-        search_input = self.driver.find_element(By.XPATH, '//*[@id="overlap-manager-root"]/div/div/div[2]/div/div/div[2]/div/div[2]/div/input')
-        search_input.send_keys(to_be_symbol)
-        search_input.send_keys(Keys.ENTER)
-
-      # click on submit
-      self.driver.find_element(By.CSS_SELECTOR, 'button[name="submit"]').click()
-      open_tv_logger.info(f'Successfully changed the inputs of the screener: {symbols_list}')
-      return True
-    except Exception as e:
-      open_tv_logger.exception('Error ocurred when filling in the inputs of the screener. Error:')
-      return False
-
-  def change_get_exit_settings(self, entry_time, entry_price, entry_type, sl_price, tp1_price, tp2_price, tp3_price):
-    try:
-      # double click on the indicator so that the settings can open 
-      i = 1
-      while i <= 3:
-        try:
-          self.get_exits_indicator = self.get_indicator(self.get_exits_shorttitle)
-          ActionChains(self.driver).move_to_element(self.get_exits_indicator).perform()
-          ActionChains(self.driver).double_click(self.get_exits_indicator).perform()
-          settings = WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="indicator-properties-dialog"]')))
-          break
-        except Exception as e:
-          open_tv_logger.exception('Failed to open Get Exit\'s settings. Error:')
-          i += 1
-          if i == 4:
-            open_tv_logger.error('Get Exit indicator\'s settings failed to open. Could not change the settings. Exiting function.')
-            return False
-        
-      # when the settings come up, click on the Inputs tab (just in case we’re on some other tab)
-      settings.find_element(By.CSS_SELECTOR, 'div[class="tabs-vwgPOHG8"] button[id="inputs"]').click()
-
-      # fill up the settings
-      inputs = settings.find_elements(By.CSS_SELECTOR, '.cell-tBgV1m0B input')
-      for i in range(len(inputs)):
-        val = 0
-        if i == 0:
-          val = entry_time
-        elif i == 1:
-          val = entry_price
-        elif i == 2:
-          val = entry_type
-        elif i == 3:
-          val = sl_price
-        elif i == 4:
-          val = tp1_price
-        elif i == 5:
-          val = tp2_price
-        elif i == 6:
-          val = tp3_price
-
-        ActionChains(self.driver).key_down(Keys.CONTROL, inputs[i]).send_keys('a').perform()
-        inputs[i].send_keys(Keys.DELETE)
-        inputs[i].send_keys(val)
-
-      open_tv_logger.info(f'Get Exits\'s settings changed. Inputs: entry_time - {entry_time}, entry_price - {entry_price}, entry_type - {entry_type}, sl_price - {sl_price}, tp1_price - {tp1_price}, tp2_price - {tp2_price}, tp3_price - {tp3_price}')
-
-      # click on submit
-      self.driver.find_element(By.CSS_SELECTOR, 'button[name="submit"]').click()
-      return True
-    except Exception as e:
-      open_tv_logger.exception('Failed to change the Get Exits\'s settings. Error:')
-      return False
-
-  def set_get_exit_alert(self, alert_name, entry_time, entry_price, entry_type, sl_price, tp1_price, tp2_price, tp3_price):
-    '''This first checks if the Get Exit indicator has an error. If it does, it re-uploads it and fills in the inputs again. If an error is still there, `False` is returned. If there was no error in the first place, an alert gets created. If there was an error in creating the alert, it tries again.'''
-
-    # check if the indicator indicator has an error
-    if not self.is_no_error(self.get_exits_shorttitle):
-      open_tv_logger.error('indicator had an error. Could not set an alert for this tab. Trying to reupload indicator')
-      if not self.reupload_indicator(self.get_exits_indicator, self.get_exits_name, self.get_exits_shorttitle):
-        open_tv_logger.error('Could not re-upload indicator. Cannot set an alert for the indicator. Exiting function.')
-        return False
-      if not self.change_get_exit_settings(entry_time, entry_price, entry_type, sl_price, tp1_price, tp2_price, tp3_price):
-        open_tv_logger.error('Could not input the settings. Cannot set an alert for the indicator. Exiting function.')
-        return False
-      sleep(5) # wait for the indicator to fully load (we are avoiding to wait for the indicator to load because it will take too long)
-      if not self.is_no_error(self.get_exits_shorttitle): # if an error is still there
-        open_tv_logger.error('Error is still there in the indicator. Cannot set an alert for the indicator. Exiting function.')
-        return False
-   
-    # set the alert for the indicator
-    try:
-      if not self.click_create_alert(self.get_exits_shorttitle, alert_name):
-        if self.reupload_indicator(self.get_exits_indicator, self.get_exits_name, self.get_exits_shorttitle): # Reuploading the indicator
-          if self.change_get_exit_settings(entry_time, entry_price, entry_type, sl_price, tp1_price, tp2_price, tp3_price):
-            return self.click_create_alert(self.get_exits_shorttitle, alert_name)
-      else:
-        return True
-    except Exception as e:
-      open_tv_logger.exception('Error occurred when setting up alert. Exiting function. Error:')
-      return False
+  def change_settings(self, symbols_list, screener_shorttitle=None):
+    '''This changes the settings of a screener. It fills in the symbols and clicks on Submit.
     
-    return False
+    Args:
+        symbols_list: List of symbols to input into the screener
+        screener_shorttitle: The short title of the screener to configure. If None, uses all 3 screeners.
+    '''
+    try:
+      # Determine which screeners to configure
+      screeners_to_configure = []
+      if screener_shorttitle:
+        # Configure specific screener - get fresh indicator reference
+        if screener_shorttitle == self.screener_ob_short:
+          indicator = self._safe_indicator_access(self.screener_ob_short)
+          screeners_to_configure = [(self.screener_ob_short, indicator)]
+        elif screener_shorttitle == self.screener_nw_short:
+          indicator = self._safe_indicator_access(self.screener_nw_short)
+          screeners_to_configure = [(self.screener_nw_short, indicator)]
+        elif screener_shorttitle == self.screener_sb_short:
+          indicator = self._safe_indicator_access(self.screener_sb_short)
+          screeners_to_configure = [(self.screener_sb_short, indicator)]
+        else:
+          open_tv_logger.error(f'Unknown screener shorttitle: {screener_shorttitle}')
+          return False
+      else:
+        # Configure all 3 screeners - get fresh indicator references
+        screeners_to_configure = [
+          (self.screener_ob_short, self._safe_indicator_access(self.screener_ob_short)),
+          (self.screener_nw_short, self._safe_indicator_access(self.screener_nw_short)),
+          (self.screener_sb_short, self._safe_indicator_access(self.screener_sb_short))
+        ]
+      
+      # Configure each screener
+      all_success = True
+      for shorttitle, screener in screeners_to_configure:
+        if not screener:
+          open_tv_logger.error(f'Could not find screener indicator: {shorttitle}. Skipping.')
+          all_success = False
+          continue
+        
+        try:
+          # Open its settings
+          screener.click()
+          WebDriverWait(screener, 15).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[data-name="legend-settings-action"]'))).click()
+          settings = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.content-tBgV1m0B')))
+          symbol_inputs = settings.find_elements(By.CSS_SELECTOR, '.inlineRow-tBgV1m0B div[data-name="edit-button"]') # symbol inputs
+
+          # change the symbol inputs based on the total number of symbols
+          for i, to_be_symbol in enumerate(symbols_list):
+            symbol_inputs[i].click()
+            search_input = self.driver.find_element(By.XPATH, '//*[@id="overlap-manager-root"]/div/div/div[2]/div/div/div[2]/div/div[2]/div/input')
+            search_input.send_keys(to_be_symbol)
+            search_input.send_keys(Keys.ENTER)
+
+          # click on submit
+          self.driver.find_element(By.CSS_SELECTOR, 'button[name="submit"]').click()
+          open_tv_logger.info(f'Successfully changed the inputs of screener {shorttitle}: {symbols_list}')
+          sleep(2)  # Give time for settings to apply before moving to next screener
+        except Exception as e:
+          open_tv_logger.exception(f'Error occurred when filling in the inputs of screener {shorttitle}. Error:')
+          all_success = False
+          
+      return all_success
+    except Exception as e:
+      open_tv_logger.exception('Error occurred when configuring screeners. Error:')
+      return False
 
   def open_alerts_sidebar(self):
     '''opens the alerts sidebar if it is closed. If it is already open, it does nothing'''
@@ -559,36 +504,99 @@ class Browser:
         open_tv_logger.error(f"Error in changing candle type: {e}")
         return False
 		
-  def set_alerts(self, symbols):
-    '''This first checks if the screener has an error. If it does, it re-uploads it and fills in the symbols again. If an error is still there, `False` is returned. If there was no error in the first place, an alert gets created. If there was an error in creating the alert, it tries again.'''
-
-    # check if the screener indicator has an error
-    if not self.is_no_error(self.screener_shorttitle):
-      open_tv_logger.error('Screener indicator had an error. Could not set an alert for this tab. Trying to reupload indicator')
-      if not self.reupload_indicator(self.screener_indicator, self.screener_name, self.screener_shorttitle):
-        open_tv_logger.error('Could not re-upload screener. Cannot set an alert for the screener. Exiting function.')
-        return False
-      if not self.change_settings(symbols):
-        open_tv_logger.error('Could not input the symbols into the screener. Cannot set an alert for the screener. Exiting function.')
-        return False
-      sleep(5) # wait for the screener indicator to fully load (we are avoiding to wait for the indicator to load because it will take too long)
-      if not self.is_no_error(self.screener_shorttitle): # if an error is still there
-        open_tv_logger.error('Error is still there in the screener. Cannot set an alert for the screener. Exiting function.')
-        return False
-   
-    # set the alert for the screener
-    try:
-      if not self.click_create_alert(self.screener_shorttitle):
-        if self.reupload_indicator(self.screener_indicator, self.screener_name, self.screener_shorttitle): # Reuploading the screener
-          if self.change_settings(symbols):
-            return self.click_create_alert(self.screener_shorttitle)
-      else:
-        return True
-    except Exception as e:
-      open_tv_logger.exception('Error occurred when setting up alert. Exiting function. Error:')
-      return False
+  def _reinitialize_screener_indicator(self, shorttitle):
+    '''Re-initializes a screener indicator after it has been re-uploaded to avoid stale element errors.
     
-    return False
+    Args:
+        shorttitle: The short title of the screener to re-initialize
+        
+    Returns:
+        The re-initialized indicator element, or None if not found
+    '''
+    if shorttitle == self.screener_ob_short:
+      self.screener_ob_indicator = self.get_indicator(self.screener_ob_short)
+      return self.screener_ob_indicator
+    elif shorttitle == self.screener_nw_short:
+      self.screener_nw_indicator = self.get_indicator(self.screener_nw_short)
+      return self.screener_nw_indicator
+    elif shorttitle == self.screener_sb_short:
+      self.screener_sb_indicator = self.get_indicator(self.screener_sb_short)
+      return self.screener_sb_indicator
+    return None
+
+  def set_alerts(self, symbols, screener_shorttitle=None):
+    '''This first checks if the screener(s) have an error. If they do, it re-uploads them and fills in the symbols again. 
+    If an error is still there, `False` is returned. If there was no error in the first place, alerts get created.
+    
+    Args:
+        symbols: List of symbols to set alerts for
+        screener_shorttitle: The short title of a specific screener to set alerts for. If None, sets alerts for all 3 screeners.
+    '''
+    # Determine which screeners to set alerts for - get fresh references
+    screeners_to_alert = []
+    if screener_shorttitle:
+      # Set alert for specific screener
+      if screener_shorttitle == self.screener_ob_short:
+        indicator = self._safe_indicator_access(self.screener_ob_short)
+        screeners_to_alert = [(self.screener_ob_short, indicator, self.screener_ob_name)]
+      elif screener_shorttitle == self.screener_nw_short:
+        indicator = self._safe_indicator_access(self.screener_nw_short)
+        screeners_to_alert = [(self.screener_nw_short, indicator, self.screener_nw_name)]
+      elif screener_shorttitle == self.screener_sb_short:
+        indicator = self._safe_indicator_access(self.screener_sb_short)
+        screeners_to_alert = [(self.screener_sb_short, indicator, self.screener_sb_name)]
+      else:
+        open_tv_logger.error(f'Unknown screener shorttitle: {screener_shorttitle}')
+        return False
+    else:
+      # Set alerts for all 3 screeners - get fresh references
+      screeners_to_alert = [
+        (self.screener_ob_short, self._safe_indicator_access(self.screener_ob_short), self.screener_ob_name),
+        (self.screener_nw_short, self._safe_indicator_access(self.screener_nw_short), self.screener_nw_name),
+        (self.screener_sb_short, self._safe_indicator_access(self.screener_sb_short), self.screener_sb_name)
+      ]
+    
+    all_success = True
+    for shorttitle, indicator, name in screeners_to_alert:
+      try:
+        # check if the screener indicator has an error
+        if not self.is_no_error(shorttitle):
+          open_tv_logger.error(f'Screener {shorttitle} had an error. Could not set an alert for this tab. Trying to reupload indicator')
+          if not self.reupload_indicator(indicator, name, shorttitle):
+            open_tv_logger.error(f'Could not re-upload screener {shorttitle}. Cannot set an alert for the screener.')
+            all_success = False
+            continue
+          
+          # Re-initialize the screener indicator after re-uploading (to prevent StaleElementReferenceException)
+          indicator = self._reinitialize_screener_indicator(shorttitle)
+          if not self.change_settings(symbols, shorttitle):
+            open_tv_logger.error(f'Could not input the symbols into screener {shorttitle}. Cannot set an alert for the screener.')
+            all_success = False
+            continue
+          sleep(5) # wait for the screener indicator to fully load
+          if not self.is_no_error(shorttitle): # if an error is still there
+            open_tv_logger.error(f'Error is still there in screener {shorttitle}. Cannot set an alert for the screener.')
+            all_success = False
+            continue
+       
+        # set the alert for the screener
+        if not self.click_create_alert(shorttitle, name):
+          if self.reupload_indicator(indicator, name, shorttitle): # Reuploading the screener
+            # Re-initialize the screener indicator after re-uploading (to prevent StaleElementReferenceException)
+            indicator = self._reinitialize_screener_indicator(shorttitle)
+            if self.change_settings(symbols, shorttitle):
+              if not self.click_create_alert(shorttitle, name):
+                all_success = False
+            else:
+              all_success = False
+          else:
+            all_success = False
+            
+      except Exception as e:
+        open_tv_logger.exception(f'Error occurred when setting up alert for screener {shorttitle}. Error:')
+        all_success = False
+        
+    return all_success
 
   def click_create_alert(self, shorttitle, alert_name=''):
     '''This clicks the + button to create an alert for the indicator with the shorttitle of `shorttitle`, names the alert to `alert_name` if it's not an empty string otherwise no name will be given and the default alert name will be used. Then, "Create" gets clicked. This returns `True` if the alert was created otherwise `False`. If something goes wrong, the "Create Alert" popup will be closed (if it was open) and `False` will be returned.'''
@@ -604,7 +612,7 @@ class Browser:
       try:
         popup = WebDriverWait(self.driver, 5).until(EC.visibility_of_element_located((By.CSS_SELECTOR, 'div[data-name="alerts-create-edit-dialog"]')))
       except TimeoutException:
-        self.driver.get(self.driver.current_url) # If the popup doesn't show up within 5 seconds, refresh the page and try again. I can't use self.driver.refresh() because that might trigger a Google popup asking you if you want to refresh the page. I don't think PYthon can click control Google popups
+        self.driver.get(self.driver.current_url) # If the popup doesn't show up within 5 seconds, refresh the page and try again. I can't use self.driver.refresh() because that might trigger a Google popup asking you if you want to refresh the page. I don't think PYthon can control Google popups
         sleep(3) # wait for the page to load after refreshing
         open_tv_logger.error('Popup did not show up within 5 seconds. Page refreshed. Trying to create alert again.')
         plus_button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-name="set-alert-button"]')))
@@ -624,14 +632,7 @@ class Browser:
         open_tv_logger.error(f'Failed to create alert. {shorttitle} is unavailable in the dropdown. Closing popup and exiting.')
         popup.find_element(By.CSS_SELECTOR, 'button[data-name="close"]').click()
         return False
-      
-      if alert_name != '': # if an alert name is given, set it
-        alert_name_input = popup.find_element(By.CSS_SELECTOR, 'input[id="alert-name"]')
-        alert_name_input.send_keys(Keys.CONTROL + "a") # Clear the field by sending Ctrl+A and then Backspace
-        alert_name_input.send_keys(Keys.BACKSPACE)  
-        alert_name_input.send_keys(alert_name)
-        open_tv_logger.info(f'Saved alert name to "{alert_name}"!')
-      
+   
       # click on submit if the indicator was available in the dropdown and was selected
       if indicator_found:
         self.driver.find_element(By.CSS_SELECTOR, 'button[data-name="submit"]').click()
@@ -664,16 +665,8 @@ class Browser:
     HIDDEN = 'Hidden'
     VISIBLE = 'Visible'
 
-    # get the indicator
-    indicator = None
-    if shorttitle == self.screener_ob_short:
-      indicator = self.screener_ob_indicator
-    elif shorttitle == self.screener_nw_short:
-      indicator = self.screener_nw_indicator
-    elif shorttitle == self.screener_sb_short:
-      indicator = self.screener_sb_indicator
-    elif shorttitle == self.drawer_shorttitle:
-      indicator = self.drawer_indicator
+    # get the indicator - always get fresh reference
+    indicator = self._safe_indicator_access(shorttitle)
 
     try:
       if indicator != None: # that means that we've found our indicator
@@ -707,16 +700,8 @@ class Browser:
 
   def is_visible(self, shorttitle: str):
     '''This returns `True` if the visibility of `shorttitle` indicator is shown. Otherwise, this returns `False` if its visibility is hidden.'''
-    # get the indicator
-    indicator = None
-    if shorttitle == self.screener_ob_short:
-      indicator = self.screener_ob_indicator
-    elif shorttitle == self.screener_nw_short:
-      indicator = self.screener_nw_indicator
-    elif shorttitle == self.screener_sb_short:
-      indicator = self.screener_sb_indicator
-    elif shorttitle == self.drawer_shorttitle:
-      indicator = self.drawer_indicator
+    # get the indicator - always get fresh reference
+    indicator = self._safe_indicator_access(shorttitle)
       
     # check its visibility
     try:
@@ -735,22 +720,28 @@ class Browser:
     this checks if the indicator has successfully loaded without an error. Returns `True` if it has no error but `False` if there is an error.
     '''
     try:
-      # find the indicator
-      indicator = None
-      if shorttitle == self.screener_shorttitle:
-        indicator = self.screener_indicator
-      elif shorttitle == self.drawer_shorttitle:
-        indicator = self.drawer_indicator
-      elif shorttitle == self.get_exits_shorttitle:
-        indicator = self.get_exits_indicator
+      # find the indicator - always get fresh reference to avoid stale element
+      indicator = self._safe_indicator_access(shorttitle)
 
       # if there is no error
-      if indicator.find_elements(By.CSS_SELECTOR, '.statusItem-Lgtz1OtS.small-Lgtz1OtS.dataProblemLow-Lgtz1OtS') == []:
+      if indicator and indicator.find_elements(By.CSS_SELECTOR, '.statusItem-Lgtz1OtS.small-Lgtz1OtS.dataProblemLow-Lgtz1OtS') == []:
         open_tv_logger.info(f'There is no error in {shorttitle}!')
         return True
       
       open_tv_logger.error(f'There is an error in {shorttitle}.')
       return False
+    except StaleElementReferenceException:
+      open_tv_logger.warning(f'Stale element when checking error for {shorttitle}, trying to get fresh reference')
+      try:
+        indicator = self._get_fresh_indicator(shorttitle)
+        if indicator and indicator.find_elements(By.CSS_SELECTOR, '.statusItem-Lgtz1OtS.small-Lgtz1OtS.dataProblemLow-Lgtz1OtS') == []:
+          open_tv_logger.info(f'There is no error in {shorttitle}!')
+          return True
+        open_tv_logger.error(f'There is an error in {shorttitle}.')
+        return False
+      except Exception as e:
+        open_tv_logger.exception(f'Error occurred even after retry for {shorttitle}. Error:')
+        return False
     except Exception as e:
       open_tv_logger.exception(f'Error ocurred when checking if {shorttitle} had an error. Error:')
       return False
@@ -807,11 +798,17 @@ class Browser:
     val = False
 
     try:
+      # Get fresh indicator reference to avoid stale element
+      fresh_indicator = self._safe_indicator_access(indicator_shorttitle)
+      if not fresh_indicator:
+        open_tv_logger.error(f'Could not get fresh reference to {indicator_shorttitle}')
+        return False
+        
       # click on the indicator
-      indicator.click()
+      fresh_indicator.click()
 
       # click on data-name="legend-delete-action" (a sub element under the indicator)
-      delete_action = WebDriverWait(indicator, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-name="legend-delete-action"]')))
+      delete_action = WebDriverWait(fresh_indicator, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[data-name="legend-delete-action"]')))
       print('Found remove button: ', delete_action)
       delete_action.click()
 
@@ -848,14 +845,12 @@ class Browser:
         for ind in indicators:
           if ind.find_element(By.CSS_SELECTOR, 'div[class="title-l31H9iuA"]').text == indicator_shorttitle:
             val = True
-            if indicator_shorttitle == self.get_exits_shorttitle:
-              self.get_exits_indicator = self.get_indicator(indicator_shorttitle)
             break
         if val: # if the indicator is found on the chart, break the while loop
           open_tv_logger.info(f'{indicator_shorttitle} is on the chart after re-uploading it!')
           break
     except Exception as e:
-      open_tv_logger.exception(f'An error occurred when re-uploading {indicator_shorttitle}. Could not reupload {indicator_shorttitle}. Error: ')
+      open_tv_logger.exception(f'An error occurred when re-uploading {indicator_shorttitle}. Could not reupload {indicator_shorttitle}. Error: {e}')
       return False
 
     return val
@@ -879,6 +874,27 @@ class Browser:
       return None
 
     return indicator
+    
+  def _get_fresh_indicator(self, ind_shorttitle: str):
+    '''Always gets a fresh reference to the indicator to avoid stale element errors'''
+    return self.get_indicator(ind_shorttitle)
+    
+  def _safe_indicator_access(self, shorttitle: str, max_retries: int = 2):
+    '''Safely access an indicator with retry logic for stale element exceptions'''
+    for attempt in range(max_retries):
+      try:
+        indicator = self._get_fresh_indicator(shorttitle)
+        if indicator:
+          # Test if the element is still valid by accessing a property
+          _ = indicator.get_attribute('class')
+          return indicator
+      except StaleElementReferenceException:
+        if attempt < max_retries - 1:
+          open_tv_logger.warning(f'Stale element for {shorttitle}, retrying... (attempt {attempt + 1})')
+          sleep(1)
+        else:
+          open_tv_logger.error(f'Failed to get fresh indicator {shorttitle} after {max_retries} attempts')
+    return None
     
   def current_chart_tframe(self):
     '''Returns the current chart's timeframe'''

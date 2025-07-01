@@ -77,3 +77,57 @@ python database/test_firebase.py
 - `database/firebase_db.py`: Firebase database operations
 - `env.py`: Central configuration constants
 - `resources/symbol_settings.py`: Trading symbol categories and settings
+
+## Accessing Screener Indicators in open_tv.py
+
+Due to TradingView's dynamic DOM updates, screener indicators must be accessed using safe methods to prevent StaleElementReferenceException errors.
+
+### Methods to Use:
+
+1. **`_safe_indicator_access(shorttitle)`** - RECOMMENDED
+   - Primary method for safely accessing any indicator
+   - Automatically handles stale element errors with retry logic
+   - Returns `None` if indicator not found
+   ```python
+   # Get a screener indicator safely
+   screener_ob = self._safe_indicator_access(self.screener_ob_short)
+   screener_nw = self._safe_indicator_access(self.screener_nw_short)
+   screener_sb = self._safe_indicator_access(self.screener_sb_short)
+   drawer = self._safe_indicator_access(self.drawer_shorttitle)
+   ```
+
+2. **`_get_fresh_indicator(shorttitle)`**
+   - Simple wrapper that calls `get_indicator()`
+   - Use when you want a fresh reference without retry logic
+
+3. **`get_indicator(shorttitle)`**
+   - Base method that searches the DOM
+   - Use when implementing custom error handling
+
+### Available Screener Properties:
+- `self.screener_ob_short` - Order Block screener
+- `self.screener_nw_short` - Nadaraya Watson screener
+- `self.screener_sb_short` - Structure Break screener
+- `self.drawer_shorttitle` - Trade Drawer indicator
+
+### Important Notes:
+- **Never store indicator references** as instance variables (no `self.screener_ob_indicator`)
+- **Always get fresh references** when needed
+- **Check for `None`** before using returned indicators
+- **DOM changes** during alert creation invalidate stored references
+
+### Example Usage:
+```python
+def some_method(self):
+    # Get the Order Block screener safely
+    ob_screener = self._safe_indicator_access(self.screener_ob_short)
+    if ob_screener:
+        ob_screener.click()
+        
+    # Get all screeners at once
+    screeners = {
+        'ob': self._safe_indicator_access(self.screener_ob_short),
+        'nw': self._safe_indicator_access(self.screener_nw_short),
+        'sb': self._safe_indicator_access(self.screener_sb_short)
+    }
+```
