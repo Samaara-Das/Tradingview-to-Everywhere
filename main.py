@@ -46,6 +46,30 @@ REMOVE_LOG = True # remove the content of the log file (to clean it up)
 INTERVAL_MINUTES = 10 # number of mins to wait until inactive alerts get reactivated and for the browser to refresh (refreshing will hopefully prevent the browser and this application from freezing)
 START_FRESH = True
 
+# Timeframe constants for screeners
+SCREENER_TIMEFRAME_1 = "1 hour"  # First timeframe for screeners
+SCREENER_TIMEFRAME_2 = "4 hours"  # Second timeframe for screeners  
+SCREENER_TIMEFRAME_3 = "1 day"  # Third timeframe for screeners
+
+# Timeframe ID mapping dictionary for TradingView dropdown
+TIMEFRAME_ID_MAP = {
+    "1 minute": "id_in_5_item_1",
+    "5 minutes": "id_in_5_item_5",
+    "10 minutes": "id_in_5_item_10",
+    "15 minutes": "id_in_5_item_15",
+    "30 minutes": "id_in_5_item_30",
+    "1 hour": "id_in_5_item_60",
+    "2 hours": "id_in_5_item_120",
+    "3 hours": "id_in_5_item_180",
+    "4 hours": "id_in_5_item_240",
+    "8 hours": "id_in_5_item_480",
+    "1 day": "id_in_5_item_1D",
+    "1 week": "id_in_5_item_1W",
+    "1 month": "id_in_5_item_1M",
+    "3 months": "id_in_5_item_3M",
+    "6 months": "id_in_5_item_6M"
+}
+
 # Convert the interval to seconds
 interval_seconds = INTERVAL_MINUTES * 60
 

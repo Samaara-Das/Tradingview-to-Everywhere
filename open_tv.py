@@ -434,6 +434,49 @@ class Browser:
             search_input.send_keys(to_be_symbol)
             search_input.send_keys(Keys.ENTER)
 
+          # Handle the 3 timeframe inputs
+          open_tv_logger.info(f'Setting timeframe inputs for screener {shorttitle}')
+          timeframe_inputs = settings.find_elements(By.CSS_SELECTOR, 'div[class="cell-tBgV1m0B"] div[class="inner-tBgV1m0B"] span')
+          
+          # Get the first 3 timeframe elements
+          if len(timeframe_inputs) >= 3:
+            # Import timeframe constants here to avoid circular import
+            from main import SCREENER_TIMEFRAME_1, SCREENER_TIMEFRAME_2, SCREENER_TIMEFRAME_3, TIMEFRAME_ID_MAP
+            timeframes = [SCREENER_TIMEFRAME_1, SCREENER_TIMEFRAME_2, SCREENER_TIMEFRAME_3]
+            
+            for idx, (tf_input, timeframe) in enumerate(zip(timeframe_inputs[:3], timeframes)):
+              try:
+                # Click on the timeframe input to open dropdown
+                tf_input.click()
+                sleep(0.5)  # Small delay to ensure dropdown opens
+                
+                # Find the popup menu container in the root driver
+                popup_menu = WebDriverWait(self.driver, 5).until(
+                  EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="popup-menu-container"]'))
+                )
+                
+                # Get the corresponding ID for this timeframe
+                if timeframe in TIMEFRAME_ID_MAP:
+                  timeframe_id = TIMEFRAME_ID_MAP[timeframe]
+                  
+                  # Find and click the option with the matching ID
+                  option = popup_menu.find_element(By.ID, timeframe_id)
+                  
+                  # Scroll the option into view if needed
+                  self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", option)
+                  sleep(0.2)
+                  
+                  option.click()
+                  open_tv_logger.info(f'Set timeframe {idx + 1} to: {timeframe}')
+                  sleep(0.5)  # Small delay before next timeframe
+                else:
+                  open_tv_logger.error(f'Timeframe "{timeframe}" not found in TIMEFRAME_ID_MAP')
+                  
+              except Exception as e:
+                open_tv_logger.error(f'Error setting timeframe {idx + 1}: {e}')
+          else:
+            open_tv_logger.warning(f'Found only {len(timeframe_inputs)} timeframe inputs, expected at least 3')
+
           # click on submit
           self.driver.find_element(By.CSS_SELECTOR, 'button[name="submit"]').click()
           open_tv_logger.info(f'Successfully changed the inputs of screener {shorttitle}: {symbols_list}')

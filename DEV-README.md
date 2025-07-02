@@ -135,7 +135,19 @@ Note: The indices category is not used anywhere because papa told me to remove i
 6. `START_FRESH` is like an on/off switch for starting fresh, deleting all alerts and setting up new alerts OR just opening TradingView, keeping the pre-existing alerts and waiting for alerts to come. If it's `True`, the application will open TradingView, delete all the alerts and start setting up all 260 alerts again. If it's `False`, the application will open TradingView, NOT delete the alerts but instead keep all the alerts that were made when the application was previously run. This variable was created so that I could do 2 things:
    - When I leave the application running, come back in the morning to find it frozen and find alerts in the Alerts log that are unread by the application, I would like to re-start the application and keep the alerts that were made when it ran previously without deleting all the alerts and therefore, keeping the alerts in the Alerts log. So, when I run the application with `START_FRESH` set to `False`, the application will keep all the alerts, read the unread alerts that came when it was previously running and wait for new alerts.
    - When I think I need to start fresh, delete all the alerts and make new ones, I can set `START_FRESH` set to `True`.
-7. All the above constants can be changed in the GUI. So, you don't have to change them in the code.
+7. **Screener Timeframe Configuration:**
+   - `SCREENER_TIMEFRAME_1`, `SCREENER_TIMEFRAME_2`, and `SCREENER_TIMEFRAME_3` define the 3 timeframes that will be automatically set for each screener
+   - These constants must match one of the values in the `TIMEFRAME_ID_MAP` dictionary
+   - The `TIMEFRAME_ID_MAP` dictionary maps timeframe names to their corresponding TradingView dropdown element IDs
+   - **Important**: Ensure that the 3 timeframe constants have corresponding ID attributes in the ID dictionary. To get these "id attributes":
+     1. Go to TradingView and open one of the screeners in the PointCapital layout
+     2. Click on any timeframe input (e.g., 4H) to open the dropdown menu
+     3. Open Developer Tools (F12)
+     4. Select an option in the opened dropdown menu
+     5. Each option is a div with an id attribute (e.g., `id="id_in_5_item_240"` for 4 hours)
+     6. Find the corresponding id attribute for each of the 3 timeframe constants and ensure it exists in the `TIMEFRAME_ID_MAP` dictionary
+   - This is crucial as TTE needs these IDs to automatically select the correct timeframes for each screener
+8. All the above constants can be changed in the GUI. So, you don't have to change them in the code.
 
 ### For Pinescript
 - Download these indicators and set them up on Tradingview:
