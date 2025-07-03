@@ -10,7 +10,8 @@
       "Bash(rg:*)",
       "Bash(git commit:*)",
       "Bash(git push:*)",
-      "WebFetch(domain:www.selenium.dev)"
+      "WebFetch(domain:www.selenium.dev)",
+      "Bash(grep:*)"
     ],
     "deny": []
   }

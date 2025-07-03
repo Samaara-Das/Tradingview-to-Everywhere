@@ -380,6 +380,16 @@ class Browser:
       open_tv_logger.exception(f'An error happened when saving the layout. Error: ')
       return False
 
+  def _close_dropdown_by_clicking_settings(self):
+    '''Helper method to close any open dropdown by clicking on the settings modal.
+    This prevents UI issues where an open dropdown blocks further interactions.'''
+    try:
+      settings = self.driver.find_element(By.CSS_SELECTOR, '.content-tBgV1m0B')
+      settings.click()
+      sleep(0.5)
+    except:
+      pass
+
   def change_settings(self, symbols_list, screener_shorttitle=None):
     '''This changes the settings of a screener. It fills in the symbols and clicks on Submit.
     
@@ -436,17 +446,20 @@ class Browser:
 
           # Handle the 3 timeframe inputs
           open_tv_logger.info(f'Setting timeframe inputs for screener {shorttitle}')
-          timeframe_inputs = settings.find_elements(By.CSS_SELECTOR, 'div[class="cell-tBgV1m0B"] div[class="inner-tBgV1m0B"] span')
           
-          # Get the first 3 timeframe elements
-          if len(timeframe_inputs) >= 3:
-            # Import timeframe constants here to avoid circular import
-            from main import SCREENER_TIMEFRAME_1, SCREENER_TIMEFRAME_2, SCREENER_TIMEFRAME_3, TIMEFRAME_ID_MAP
-            timeframes = [SCREENER_TIMEFRAME_1, SCREENER_TIMEFRAME_2, SCREENER_TIMEFRAME_3]
-            
-            for idx, (tf_input, timeframe) in enumerate(zip(timeframe_inputs[:3], timeframes)):
-              try:
-                # Click on the timeframe input to open dropdown
+          # Import timeframe constants here to avoid circular import
+          from main import SCREENER_TIMEFRAME_1, SCREENER_TIMEFRAME_2, SCREENER_TIMEFRAME_3, TIMEFRAME_ID_MAP
+          timeframes = [SCREENER_TIMEFRAME_1, SCREENER_TIMEFRAME_2, SCREENER_TIMEFRAME_3]
+          
+          # Process each timeframe input separately
+          for idx, timeframe in enumerate(timeframes):
+            try:
+              settings = self.driver.find_element(By.CSS_SELECTOR, '.content-tBgV1m0B')
+              timeframe_inputs = settings.find_elements(By.CSS_SELECTOR, 'div[class="cell-tBgV1m0B"] div[class="inner-tBgV1m0B"] span[data-role="listbox"]')
+              
+              if idx < len(timeframe_inputs):
+                # Click on the specific timeframe input (using index)
+                tf_input = timeframe_inputs[idx]
                 tf_input.click()
                 sleep(0.5)  # Small delay to ensure dropdown opens
                 
@@ -457,25 +470,40 @@ class Browser:
                 
                 # Get the corresponding ID for this timeframe
                 if timeframe in TIMEFRAME_ID_MAP:
-                  timeframe_id = TIMEFRAME_ID_MAP[timeframe]
+                  timeframe_partial_id = TIMEFRAME_ID_MAP[timeframe]
                   
-                  # Find and click the option with the matching ID
-                  option = popup_menu.find_element(By.ID, timeframe_id)
+                  # Find option by checking if ID ends with our partial ID
+                  options = popup_menu.find_elements(By.CSS_SELECTOR, 'div[role="option"]')
+                  option_found = False
                   
-                  # Scroll the option into view if needed
-                  self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", option)
-                  sleep(0.2)
+                  for option in options:
+                    option_id = option.get_attribute('id')
+                    if option_id and option_id.endswith(timeframe_partial_id):
+                      # Scroll the option into view if needed
+                      self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", option)
+                      sleep(0.2)
+                      
+                      option.click()
+                      open_tv_logger.info(f'Set timeframe {idx + 1} to: {timeframe}')
+                      option_found = True
+                      sleep(0.5)  # Small delay before next timeframe
+                      break
                   
-                  option.click()
-                  open_tv_logger.info(f'Set timeframe {idx + 1} to: {timeframe}')
-                  sleep(0.5)  # Small delay before next timeframe
+                  if not option_found:
+                    open_tv_logger.error(f'Could not find option for timeframe "{timeframe}" with partial ID "{timeframe_partial_id}"')
+                    # Close the dropdown that was opened but couldn't be used
+                    self._close_dropdown_by_clicking_settings()
                 else:
                   open_tv_logger.error(f'Timeframe "{timeframe}" not found in TIMEFRAME_ID_MAP')
+                  # Close the dropdown that was opened but couldn't be used
+                  self._close_dropdown_by_clicking_settings()
+              else:
+                open_tv_logger.warning(f'Could not find timeframe input at index {idx}')
                   
-              except Exception as e:
-                open_tv_logger.error(f'Error setting timeframe {idx + 1}: {e}')
-          else:
-            open_tv_logger.warning(f'Found only {len(timeframe_inputs)} timeframe inputs, expected at least 3')
+            except Exception as e:
+              open_tv_logger.error(f'Error setting timeframe {idx + 1}: {e}')
+              # Close the dropdown that was opened when clicking on the timeframe input
+              self._close_dropdown_by_clicking_settings()
 
           # click on submit
           self.driver.find_element(By.CSS_SELECTOR, 'button[name="submit"]').click()
