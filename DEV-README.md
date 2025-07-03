@@ -144,10 +144,10 @@ Note: The indices category is not used anywhere because papa told me to remove i
      2. Click on any timeframe input (e.g., 4H) to open the dropdown menu
      3. Open Developer Tools (F12)
      4. Select an option in the opened dropdown menu
-     5. Each option is a div with an id attribute (e.g., `id="id_in_5_item_240"` for 4 hours)
+     5. Each option is a div with an id attribute (e.g., `id="item_240"` for 4 hours)
      6. Find the corresponding id attribute for each of the 3 timeframe constants and ensure it exists in the `TIMEFRAME_ID_MAP` dictionary
    - This is crucial as TTE needs these IDs to automatically select the correct timeframes for each screener
-8. All the above constants can be changed in the GUI. So, you don't have to change them in the code.
+
 
 ### For Pinescript
 - Download these indicators and set them up on Tradingview:
