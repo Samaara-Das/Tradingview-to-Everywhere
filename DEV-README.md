@@ -159,3 +159,5 @@ Note: The indices category is not used anywhere because papa told me to remove i
 
 - If the symbols in `symbol_settings.py` are rare and have prices like -5.0000000034782 or 0.00000389, go to the screener and fix the code in the alertMsg function to make it convert those prices into their correct string versions. Their string versions should be the exact same as the prices and should not be rounded off and the decimal places should not be cut off.
 
+- The timeframetoString function in the 3 tradingview screeners must handle the 3 timeframes which are in the inputs of each screener
+
