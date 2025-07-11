@@ -1,0 +1,27 @@
+{
+    "hooks": {
+      "Stop": [
+        {
+          "matcher": "",
+          "hooks": [
+            {
+              "type": "command",
+              "command": "curl -X POST \"https://DISCORD_WEBHOOK_REVOKED\" -H \"Content-Type: application/json\" -d \"{\\\"content\\\": \\\"Claude Code responded at $(date).\\\"}\""
+            }
+          ]
+        }
+      ],
+
+      "Notification": [
+        {
+          "matcher": "",
+          "hooks": [
+            {
+              "type": "command",
+              "command": "curl -X POST \"https://DISCORD_WEBHOOK_REVOKED\" -H \"Content-Type: application/json\" -d \"{\\\"content\\\": \\\"Claude Code needs your input at $(date).\\\"}\""
+            }
+          ]
+        }
+      ],
+    }
+}
