@@ -161,3 +161,4 @@ Note: The indices category is not used anywhere because papa told me to remove i
 
 - The timeframetoString function in the 3 tradingview screeners must handle the 3 timeframes which are in the inputs of each screener
 
+- Ensure that the values of the Nadaraya Watson inputs in the Nadaraya Watson screener match the inputs in the The Trade Drawer 2 indicator. Trade Drawer 2 will draw the correct Nadaraya Watson line that the screener uses for its signals. That's why the Nadaraya Watson inputs have to be the same
