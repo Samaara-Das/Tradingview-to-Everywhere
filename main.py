@@ -8,13 +8,11 @@ Functionality: This module initializes and manages the core application workflow
 2. Configures and creates alerts for trading symbols
 3. Monitors the alert log for new trading signals
 4. Processes and distributes trading signals to various platforms (Discord, Facebook, Twitter/X, MongoDB)
-5. Periodically checks for trade exits and distributes exit information
-6. Manages the application lifecycle including refreshing the browser and restarting inactive alerts
+5. Manages the application lifecycle including refreshing the browser and restarting inactive alerts
 
 Dependencies:
 - logger_setup.py: For application logging
 - open_tv.py: For browser automation and TradingView interaction
-- exits.py: For monitoring and processing trade exits
 - GUI components (referenced but not directly imported here)
 
 Usage: This file can be run directly to start the application in console mode,
@@ -24,7 +22,6 @@ to run the application with GUI status updates.
 
 import logger_setup
 import open_tv
-import exits as get_exits
 import time as time_module
 
 # Set up logger for this file
@@ -44,12 +41,12 @@ SCREENER_SB_SHORT = "Structure break Screener"  # short title of the Structure b
 SCREENER_SB_NAME = "Structure break Screener"  # name of the Structure break Screener
 REMOVE_LOG = True # remove the content of the log file (to clean it up)
 INTERVAL_MINUTES = 10 # number of mins to wait until inactive alerts get reactivated and for the browser to refresh (refreshing will hopefully prevent the browser and this application from freezing)
-START_FRESH = False
+START_FRESH = True
 
 # Timeframe constants for screeners
-SCREENER_TIMEFRAME_1 = "1 hour"  # First timeframe for screeners
-SCREENER_TIMEFRAME_2 = "4 hours"  # Second timeframe for screeners  
-SCREENER_TIMEFRAME_3 = "1 day"  # Third timeframe for screeners
+SCREENER_TIMEFRAME_1 = "1 minute"  # First timeframe for screeners
+SCREENER_TIMEFRAME_2 = "5 minutes"  # Second timeframe for screeners  
+SCREENER_TIMEFRAME_3 = "15 minutes"  # Third timeframe for screeners
 
 # Timeframe ID mapping dictionary for TradingView dropdown
 # Now using partial IDs (last 2 words) to handle dynamic ID changes
@@ -118,23 +115,15 @@ def run_trading_view(on_status_change=None):
                 on_status_change("Running - monitoring for alerts...", False)
 
             last_run = time_module.time()
-            exits = get_exits.Exits(browser.alerts.local_db, browser.open_chart, browser)
             while True:
                 # restart all the inactive alerts every INTERVAL_MINUTES minutes (this is also done in get_alert_data.py in the method get_alert_box_and_msg()) and refresh browser
                 if time_module.time() - last_run > interval_seconds:
                     browser.alerts.restart_inactive_alerts()
                     last_run = time_module.time()
 
-                exits.delete_all_get_exits_alerts()
+                # get entries from the alerts which come and post them
+                browser.alerts.post_entries(browser.indicator_visibility)
 
-                # do the setup again so that posting of the entries can happen
-                if browser.re_setup():
-                    # get entries from the alerts which come and post them
-                    browser.alerts.post_entries(browser.indicator_visibility)
-
-                # check for exits
-                if exits.set_up():
-                    exits.check_exits()
         else:
             raise Exception("Failed to initialize TradingView setup")
 
