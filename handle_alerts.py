@@ -69,10 +69,10 @@ class Alerts:
         self.interval_seconds = interval_seconds
         self.last_run = time()
 
-    def post(self, msg, screener_visibility):
-        """This goes through every entry in `msg` and takes a snapshot of those entries and posts them to Nk uncle's database, our remote database & Discord"""
+    def post(self, alert_msg, screener_visibility):
+        """This goes through every entry in `alert_msg` and takes a snapshot of those entries and stores them in MongoDB"""
         try:
-            # hide all screener indicators with the passed in function
+            # hide all screener indicators with the passed in function (to prevent the screener indicators from showing up in the screenshots)
             for screener_shorttitle in self.screener_shorttitles:
                 if not screener_visibility(False, screener_shorttitle):
                     alert_data_logger.warning(
@@ -81,53 +81,41 @@ class Alerts:
 
             for (
                 key,
-                value,
-            ) in msg.items():  # go over every json field in this specific alert message
+                entry_object,
+            ) in alert_msg.items():  # go over every json field in this specific alert message
                 try:
                     # get all the data from the message
-                    timeframe = value["timeframe"]
-                    entry_time = int(value["entryTime"].replace(",", ""))
-                    entry_price = value["entryPrice"]
-                    formatted_time = datetime.fromtimestamp(
-                        float(entry_time) / 1000
-                    ).strftime(
-                        "%Y-%m-%d %H:%M"
-                    )  # divide entry_time by 1000 because the function accepts only seconds not milliseconds
-                    sl_price = float(value["slPrice"])
-                    tp1_price = float(value["tp1Price"])
-                    tp2_price = float(value["tp2Price"])
-                    tp3_price = float(value["tp3Price"])
-                    direction = str(value["direction"])
+                    screener_type = entry_object["screener"]
+                    symbol = entry_object["symbol"]
+                    timeframe = entry_object["timeframe"]
 
                     # go to that specific entry's symbol and its timeframe. Then it inputs all the entry info into the Trade Drawer indicator
-                    if not self.chart.change_symbol(key):
+                    if not self.chart.change_symbol(symbol):
                         alert_data_logger.error(
-                            f"Error in changing the symbol to {key}. Going to next symbol."
+                            f"Error in changing the symbol to {symbol}. Going to next symbol."
                         )
                         continue
-                    if not self.chart.change_tframe(self.chart_timeframe):
+                    if not self.chart.change_tframe(timeframe):
                         alert_data_logger.error(
                             f"Error in changing the timeframe to {timeframe}. Going to next symbol."
                         )
                         continue
+
                     if not self.chart.change_indicator_settings(
                         self.drawer_shorttitle,
-                        entry_time,
-                        entry_price,
-                        sl_price,
-                        tp1_price,
-                        tp2_price,
-                        tp3_price,
+                        screener_type,
+                        entry_object
                     ):
                         alert_data_logger.error(
-                            f"Error in changing the Trade Drawer indicator's settings. Going to next symbol."
+                            "Error in changing the Trade Drawer indicator's settings. Going to next symbol. "
                         )
                         continue
 
+                    continue
                     # Take a snapshot of it and send it to social media
                     if not self.send_everywhere(
                         direction=direction,
-                        key=key,
+                        key=symbol,
                         timeframe=timeframe,
                         entry_price=entry_price,
                         tp1_price=tp1_price,
@@ -192,10 +180,6 @@ class Alerts:
                 png_link, tv_link = links['png'], links['tv'] 
             category = symbol_category(key)
 
-            # Discord
-            content = f"{direction} in {key} at {entry_price}. TP1: {tp1_price} TP2: {tp2_price} TP3: {tp3_price} SL: {sl_price} Link: {png_link}"
-            self.discord.send_to_entry_channel(category, content) 
-
             # My database
             self.local_db.add_doc(
                 {
@@ -222,9 +206,6 @@ class Alerts:
                 COLLECTION,
             )
 
-            # Nk uncle's server
-            self.nk_db.post_to_url({"type": value['type'], "direction": direction, "symbol": key, "tframe": timeframe, "entry": entry_price, "tp1": tp1_price, "tp2": tp2_price, "tp3": tp3_price, "sl": sl_price, "chart_link": png_link, "content": content, "date": formatted_time, "symbol_type": category, "exit_msg": ''})
-
             # Log success
             alert_data_logger.info(f"Successfully sent entry data to all platforms for symbol {key}.")
             return True
@@ -238,8 +219,8 @@ class Alerts:
             self.utils.open_log_tab(self.driver) # Make sure that the Logs tab is open
             alert_boxes = WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[data-name="alert-log-item"]')))
             while alert_boxes:
-                alert = self.get_alert()
-                self.post(alert, screener_visibility)
+                alert_msg = self.get_alert()
+                self.post(alert_msg, screener_visibility)
                 self.utils.open_log_tab(self.driver) # Make sure that the Logs tab is open
                 alert_boxes = WebDriverWait(self.driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[data-name="alert-log-item"]')))
         except TimeoutException:
@@ -305,49 +286,6 @@ class Alerts:
         except Exception as e:
             alert_data_logger.exception('Error in reading the alert. Error:')
             return loads('{}')
-
-    def get_exit_alert(self, alert_name, symbol):
-        '''This waits for 20 secs for an alert from the Get Exits indicator to come and returns it's message'''
-        start_time = time()
-        while True:
-            # only wait for an alert for a couple seconds
-            current_time = time()
-            if current_time - start_time > 20: 
-                return loads('{}')  
-
-            try:
-                alert_msg = self.get_exit_alert_msg(alert_name, symbol)
-                if alert_msg != None:
-                    return loads(alert_msg) # the alert message is jsonified
-                else:
-                    continue
-
-            except Exception as e:
-                alert_data_logger.exception('Error in reading the alert. Error:')
-
-    def get_exit_alert_msg(self, alert_name, symbol):
-        '''Returns the alert message that comes from the alert called `alert_name` and the symbol `symbol`. If there is no alert, it waits for one. Also, it restarts all the inactive alerts periodically. If something goes wrong, `None` gets returned'''
-        try:
-            # restart all the inactive alerts every INTERVAL_MINUTES minutes (this is also done in get_alert_data.py in the method get_alert_box_and_msg())
-            if time() - self.last_run > self.interval_seconds:
-                self.restart_inactive_alerts()
-                self.last_run = time()
-
-            self.utils.open_log_tab(self.driver) # Make sure that the Logs tab is open
-
-            alert_box = self.driver.find_element(By.CSS_SELECTOR, 'div[class="widgetbar-page active"] div[data-name="alert-log-item"]')
-            first_alert_name = alert_box.find_element(By.CSS_SELECTOR, 'div[class="name-PQUvhamm"]').text
-            first_alert_msg = alert_box.find_element(By.CSS_SELECTOR, 'div[class="message-PQUvhamm"]').text
-            first_alert_symbol = alert_box.find_element(By.CSS_SELECTOR, 'span[class="attribute-PQUvhamm ticker-PQUvhamm"]').text
-            if first_alert_name == alert_name and symbol in first_alert_symbol:
-                return first_alert_msg
-            return None
-        except TimeoutException:
-            alert_data_logger.error('TimeoutException occured while waiting for a Get Exit alert.')
-            return None
-        except Exception as e:
-            alert_data_logger.exception('Error in getting the Get Exit\'s alert message. Error:')
-            return None
 
     def get_alert_box_and_msg(self):
         '''Returns the last alert box and its message if there is an alert. If there is no alert, it waits for one. Also, it restarts all the inactive alerts periodically. If something goes wrong, `None, None` gets returned'''

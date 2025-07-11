@@ -249,60 +249,6 @@ class Browser:
 
     return True
 
-  def re_setup(self):
-    '''This resets the setup of TradingView so that the entries can get posted and `self.alerts.post_entries` can run smoothly'''
-    # change to the screener layout (if we are on any other layout)
-    if not self.change_layout(LAYOUT_NAME):
-      self.change_layout(LAYOUT_NAME) # try once more
-      if self.current_layout() != LAYOUT_NAME:
-        open_tv_logger.error(f'Cannot change the layout to {LAYOUT_NAME}. Exiting function')
-        return False
-      
-    # save the layout if it's the screener layout
-    if not self.save_layout():
-      if not self.save_layout(): # try once more
-        open_tv_logger.warning(f'Cannot save the current layout {LAYOUT_NAME}. Exiting function')
-        return False
-    
-    # verify that all required indicators are present on the chart
-    screener_ob_check = self.get_indicator(self.screener_ob_short)
-    screener_nw_check = self.get_indicator(self.screener_nw_short)
-    screener_sb_check = self.get_indicator(self.screener_sb_short)
-    drawer_check = self.get_indicator(self.drawer_shorttitle)
-
-    if screener_ob_check is None: # try once more to find the Order Block screener
-      screener_ob_check = self.get_indicator(self.screener_ob_short)
-
-    if screener_nw_check is None: # try once more to find the Nadaraya Watson screener
-      screener_nw_check = self.get_indicator(self.screener_nw_short)
-
-    if screener_sb_check is None: # try once more to find the Structure break screener
-      screener_sb_check = self.get_indicator(self.screener_sb_short)
-
-    if drawer_check is None: # try once more to find the trade drawer
-      drawer_check = self.get_indicator(self.drawer_shorttitle)
-
-    if (screener_ob_check is None or screener_nw_check is None or 
-        screener_sb_check is None or drawer_check is None):
-      open_tv_logger.error(f'One or more indicators not found. Exiting function. Order Block: {screener_ob_check}, Nadaraya Watson: {screener_nw_check}, Structure break: {screener_sb_check}, Trade Drawer: {drawer_check}')
-      return False
-
-    # make the Trade Drawer indicator visible
-    if not self.indicator_visibility(True, self.drawer_shorttitle):
-      self.indicator_visibility(True, self.drawer_shorttitle)
-      if self.is_visible(self.drawer_shorttitle) == False:
-        open_tv_logger.warning('Failed to make the Trade Drawer indicator visible. The function will still continue on without exiting as this is not crucial.')
-        
-		# Change the candle type to a line
-    candle_type = 'Line'
-    if not self.change_candles_type(candle_type):
-      open_tv_logger.warning(f'Failed to change the candle type to {candle_type}. Application will still continue on without exiting as this is not crucial.')
-    
-    #give it some time to rest
-    sleep(2) 
-
-    return True
-
   def set_bulk_alerts(self):
     '''
     This goes over every sublist in `symbol_sublists`. Each sublist has symbols. It opens a chart with the symbol as `symbol_sublist[0]`. 

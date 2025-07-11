@@ -19,7 +19,7 @@ class OpenChart:
   def __init__(self, driver) -> None:
     self.driver = driver
     
-  def change_indicator_settings(self, drawer_shorttitle, entry_time, entry_price, sl_price, tp1_price, tp2_price, tp3_price):
+  def change_indicator_settings(self, drawer_shorttitle, screener_type, entry_object):
     try:
       # double click on the indicator so that the settings can open 
       i = 1
@@ -45,23 +45,15 @@ class OpenChart:
       for i in range(len(inputs)):
         val = 0
         if i == 0:
-          val = entry_time
+          val = screener_type
         elif i == 1:
-          val = entry_price
-        elif i == 2:
-          val = sl_price
-        elif i == 3:
-          val = tp1_price
-        elif i == 4:
-          val = tp2_price
-        elif i == 5:
-          val = tp3_price
+          val = entry_object
 
         ActionChains(self.driver).key_down(Keys.CONTROL, inputs[i]).send_keys('a').perform()
         inputs[i].send_keys(Keys.DELETE)
         inputs[i].send_keys(val)
 
-      entry_chart_logger.info(f'Trade Drawer\'s settings changed. Inputs: entry_time - {entry_time}, entry_price - {entry_price}, sl_price - {sl_price}, tp1_price - {tp1_price}, tp2_price - {tp2_price}, tp3_price - {tp3_price}')
+      entry_chart_logger.info(f'Trade Drawer\'s settings changed. Inputs: screener_type - {screener_type}, entry_object - {entry_object}')
 
       # click on submit
       self.driver.find_element(By.CSS_SELECTOR, 'button[name="submit"]').click()
@@ -84,60 +76,6 @@ class OpenChart:
         return False
     except Exception as e:
       entry_chart_logger.exception('Failed to change the Trade Drawer\'s settings. Error:')
-      return False
-
-  def change_get_exit_settings(self, get_exits_shorttitle, entry_time, entry_price, entry_type, sl_price, tp1_price, tp2_price, tp3_price):
-    '''This double clicks on the Get Exits indicator to open its settings and changes its inputs'''
-    try:
-      # double click on the indicator so that the settings can open 
-      i = 1
-      while i <= 3:
-        try:
-          get_exits_indicator = self.get_indicator(get_exits_shorttitle)
-          ActionChains(self.driver).move_to_element(get_exits_indicator).perform()
-          ActionChains(self.driver).double_click(get_exits_indicator).perform()
-          settings = WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="indicator-properties-dialog"]')))
-          break
-        except Exception as e:
-          entry_chart_logger.exception('Failed to open the Trade Drawer\'s settings. Error:')
-          i += 1
-          if i == 4:
-            entry_chart_logger.error('Trade Drawer indicator\'s settings failed to open. Could not change the settings. Exiting function.')
-            return False
-        
-      # when the settings come up, click on the Inputs tab (just in case we’re on some other tab)
-      settings.find_element(By.CSS_SELECTOR, 'div[class="tabs-vwgPOHG8"] button[id="inputs"]').click()
-
-      # fill up the settings
-      inputs = settings.find_elements(By.CSS_SELECTOR, '.cell-tBgV1m0B input')
-      for i in range(len(inputs)):
-        val = 0
-        if i == 0:
-          val = entry_time
-        elif i == 1:
-          val = entry_price
-        elif i == 2:
-          val = entry_type
-        elif i == 3:
-          val = sl_price
-        elif i == 4:
-          val = tp1_price
-        elif i == 5:
-          val = tp2_price
-        elif i == 6:
-          val = tp3_price
-
-        ActionChains(self.driver).key_down(Keys.CONTROL, inputs[i]).send_keys('a').perform()
-        inputs[i].send_keys(Keys.DELETE)
-        inputs[i].send_keys(val)
-
-      entry_chart_logger.info(f'Get Exits\'s settings changed. Inputs: entry_time - {entry_time}, entry_price - {entry_price}, entry_type - {entry_type}, sl_price - {sl_price}, tp1_price - {tp1_price}, tp2_price - {tp2_price}, tp3_price - {tp3_price}')
-
-      # click on submit
-      self.driver.find_element(By.CSS_SELECTOR, 'button[name="submit"]').click()
-      return True
-    except Exception as e:
-      entry_chart_logger.exception('Failed to change the Get Exits\'s settings. Error:')
       return False
 
   def change_symbol(self, symbol):
@@ -188,33 +126,7 @@ class OpenChart:
     except Exception as e:
       entry_chart_logger.exception(f'Failed to change the timeframe of the chart to {timeframe}. Error:')
       return False
-
-  def get_exit_snapshot(self, get_exits_shorttitle):
-    '''This waits for the indicator to load, take's a snapshot of the chart and returns links '''
-    try:
-      # wait for the indicator to fully load so that a snapshot can be taken
-      start_time = time()
-      timeout = 15  # 15 seconds
-      check = False
-      sleep(2)
-      while time() - start_time <= timeout:
-        get_exits_indicator = self.get_indicator(get_exits_shorttitle)
-        class_attr = get_exits_indicator.get_attribute('class')
-        if 'Loading' not in class_attr:
-          check = True
-          entry_chart_logger.info('Get Exits indicator fully loaded!')
-          break
-        else:
-          continue
-      if check == False:
-        entry_chart_logger.error('Get Exits indicator did not fully load.')
-        return False
-
-      # Take a snapshot of the exit
-      return self.save_chart_img() 
-    except Exception as e:
-      entry_chart_logger.exception('Error in posting an entry. Error:')
-                                            
+                                      
   def save_chart_img(self):
     '''Clicks on the camera icon to take a snapshot of the chart and opens it in a new tab. The link of the tab and image are returned in a dictionary. If an error occurs, an empty string is returned.
     
