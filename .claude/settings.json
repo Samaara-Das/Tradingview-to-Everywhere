@@ -1,0 +1,27 @@
+{
+    "hooks": {
+      "Stop": [
+        {
+          "matcher": "",
+          "hooks": [
+            {
+              "type": "command",
+              "command": "curl -X POST \"https://discord.com/api/webhooks/1392085158881923112/rtLorVPuwWOHXXvuvGlXl3l1CT0GLCCgK09-Q__NE08zHJJ1KwDEgeE3i3F2boLDNVC2\" -H \"Content-Type: application/json\" -d \"{\\\"content\\\": \\\"Claude Code responded at $(date).\\\"}\""
+            }
+          ]
+        }
+      ],
+
+      "Notification": [
+        {
+          "matcher": "",
+          "hooks": [
+            {
+              "type": "command",
+              "command": "curl -X POST \"https://discord.com/api/webhooks/1392085158881923112/rtLorVPuwWOHXXvuvGlXl3l1CT0GLCCgK09-Q__NE08zHJJ1KwDEgeE3i3F2boLDNVC2\" -H \"Content-Type: application/json\" -d \"{\\\"content\\\": \\\"Claude Code needs your input at $(date).\\\"}\""
+            }
+          ]
+        }
+      ],
+    }
+}
