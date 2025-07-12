@@ -163,12 +163,6 @@ class Browser:
       if self.current_layout() != LAYOUT_NAME:
         open_tv_logger.error(f'Cannot change the layout to {LAYOUT_NAME}. Exiting function')
         return False
-      
-    # save the layout
-    if not self.save_layout():
-      if not self.save_layout(): # try once more
-        open_tv_logger.warning(f'Cannot save the current layout {LAYOUT_NAME}. Exiting function')
-        return False
 
     # set the timeframe to the correct timeframe
     if not self.open_chart.change_tframe(CHART_TIMEFRAME):
@@ -223,26 +217,31 @@ class Browser:
       if self.is_visible(self.drawer_shorttitle) == False:
         open_tv_logger.warning('Failed to make the Trade Drawer indicator visible. The function will still continue on without exiting as this is not crucial.')
     
-    # hide all 3 screener indicators
-    if not self.indicator_visibility(False, self.screener_ob_short):
-      self.indicator_visibility(False, self.screener_ob_short)
-      if self.is_visible(self.screener_ob_short) == True:
-        open_tv_logger.warning('Failed to hide the Order Block screener indicator. The function will still continue on without exiting as this is not crucial.')
+    # make all 3 screener indicators visible for TTE to see errors in any screener indicator
+    if not self.indicator_visibility(True, self.screener_ob_short):
+      self.indicator_visibility(True, self.screener_ob_short)
+      if self.is_visible(self.screener_ob_short) == False:
+        open_tv_logger.warning('Failed to make the Order Block screener indicator visible. The function will still continue on without exiting as this is not crucial.')
 
-    if not self.indicator_visibility(False, self.screener_nw_short):
-      self.indicator_visibility(False, self.screener_nw_short)
-      if self.is_visible(self.screener_nw_short) == True:
-        open_tv_logger.warning('Failed to hide the Nadaraya Watson screener indicator. The function will still continue on without exiting as this is not crucial.')
+    if not self.indicator_visibility(True, self.screener_nw_short):
+      self.indicator_visibility(True, self.screener_nw_short)
+      if self.is_visible(self.screener_nw_short) == False:
+        open_tv_logger.warning('Failed to make the Nadaraya Watson screener indicator visible. The function will still continue on without exiting as this is not crucial.')
 
-    if not self.indicator_visibility(False, self.screener_sb_short):
-      self.indicator_visibility(False, self.screener_sb_short)
-      if self.is_visible(self.screener_sb_short) == True:
-        open_tv_logger.warning('Failed to hide the Structure break screener indicator. The function will still continue on without exiting as this is not crucial.')
+    if not self.indicator_visibility(True, self.screener_sb_short):
+      self.indicator_visibility(True, self.screener_sb_short)
+      if self.is_visible(self.screener_sb_short) == False:
+        open_tv_logger.warning('Failed to make the Structure break screener indicator visible. The function will still continue on without exiting as this is not crucial.')
     
     # Change the candle type to a line
     candle_type = 'Line'
     if not self.change_candles_type(candle_type):
       open_tv_logger.warning(f'Failed to change the candle type to {candle_type}. Application will still continue on without exiting as this is not crucial.')
+
+    # save the layout
+    if not self.save_layout():
+      if not self.save_layout(): # try once more
+        open_tv_logger.warning(f'Cannot save the current layout {LAYOUT_NAME}. The function will still continue on without exiting as this is not crucial.')
 
     #give it some time to rest
     sleep(2) 
@@ -596,12 +595,19 @@ class Browser:
             all_success = False
             continue
        
+        # Click on the screener indicator first to select it
+        indicator.click()
+        open_tv_logger.info(f'Clicked on screener {shorttitle} to select it for alert creation')
+        
         # set the alert for the screener
         if not self.click_create_alert(shorttitle, name):
           if self.reupload_indicator(indicator, name, shorttitle): # Reuploading the screener
             # Re-initialize the screener indicator after re-uploading (to prevent StaleElementReferenceException)
             indicator = self._reinitialize_screener_indicator(shorttitle)
             if self.change_settings(symbols, shorttitle):
+              # Click the screener again before retry
+              indicator.click()
+              open_tv_logger.info(f'Clicked on screener {shorttitle} again for retry')
               if not self.click_create_alert(shorttitle, name):
                 all_success = False
             else:
@@ -616,66 +622,56 @@ class Browser:
     return all_success
 
   def click_create_alert(self, shorttitle, alert_name=''):
-    '''This clicks the + button to create an alert for the indicator with the shorttitle of `shorttitle`, names the alert to `alert_name` if it's not an empty string otherwise no name will be given and the default alert name will be used. Then, "Create" gets clicked. This returns `True` if the alert was created otherwise `False`. If something goes wrong, the "Create Alert" popup will be closed (if it was open) and `False` will be returned.'''
+    '''This clicks the + button to create an alert for the pre-selected indicator, then clicks "Create". 
+    The indicator must be selected before calling this method. This returns `True` if the alert was created otherwise `False`. 
+    If something goes wrong, the "Create Alert" popup will be closed (if it was open) and `False` will be returned.'''
     try:
       self.utils.open_alert_tab(self.driver) # Make sure that the Alerts tab is open
 
       # click on the + button
       plus_button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-name="set-alert-button"]')))
       plus_button.click()
+      open_tv_logger.info('Clicked on the + button to create alert')
         
-      # wait for the create alert popup to show and click the dropdown 
+      # wait for the create alert popup to show
       popup = None
       try:
         popup = WebDriverWait(self.driver, 5).until(EC.visibility_of_element_located((By.CSS_SELECTOR, 'div[data-name="alerts-create-edit-dialog"]')))
+        open_tv_logger.info('Alert creation popup appeared')
       except TimeoutException:
-        self.driver.get(self.driver.current_url) # If the popup doesn't show up within 5 seconds, refresh the page and try again. I can't use self.driver.refresh() because that might trigger a Google popup asking you if you want to refresh the page. I don't think PYthon can control Google popups
+        self.driver.get(self.driver.current_url) # If the popup doesn't show up within 5 seconds, refresh the page and try again
         sleep(3) # wait for the page to load after refreshing
         open_tv_logger.error('Popup did not show up within 5 seconds. Page refreshed. Trying to create alert again.')
         plus_button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-name="set-alert-button"]')))
         plus_button.click()
+        popup = WebDriverWait(self.driver, 5).until(EC.visibility_of_element_located((By.CSS_SELECTOR, 'div[data-name="alerts-create-edit-dialog"]')))
       
-      WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'span[data-qa-id="ui-kit-disclosure-control main-series-select"]'))).click()
-    
-      # choose the indicator
-      indicator_found = False
-      for el in self.driver.find_elements(By.CSS_SELECTOR, 'div[data-name="menu-inner"] div[role="option"]'):
-        if shorttitle in el.text:
-          indicator_found = True
-          el.click()
-          break    
+      # click on submit directly (no need to select indicator since it's pre-selected)
+      self.driver.find_element(By.CSS_SELECTOR, 'button[data-name="submit"]').click()
+      open_tv_logger.info('Clicked on "Create"!')
 
-      if not indicator_found: # if the indicator is not found, close the "Create Alert" popup and exit
-        open_tv_logger.error(f'Failed to create alert. {shorttitle} is unavailable in the dropdown. Closing popup and exiting.')
-        popup.find_element(By.CSS_SELECTOR, 'button[data-name="close"]').click()
+      # wait for the alert to be created
+      try:
+        WebDriverWait(self.driver, 2.5).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alerts-create-edit-dialog"] div[data-name="error-hint"]')))
+      except:
+        open_tv_logger.info('No error occurred while saving alert!')
+        return True
+      else:
+        open_tv_logger.error('Alert failed to get saved. Clicking on "Cancel".')
+        self.driver.find_element(By.CSS_SELECTOR, 'div[data-name="alerts-create-edit-dialog"] button[data-name="cancel"]').click()
         return False
-   
-      # click on submit if the indicator was available in the dropdown and was selected
-      if indicator_found:
-        self.driver.find_element(By.CSS_SELECTOR, 'button[data-name="submit"]').click()
-        open_tv_logger.info('Clicked on "Create"!')
-
-        # wait for the alert to be created
-        try:
-          WebDriverWait(self.driver, 2.5).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alerts-create-edit-dialog"] div[data-name="error-hint"]')))
-        except:
-          open_tv_logger.info('No error occured while saving alert!')
-          return True
-        else:
-          open_tv_logger.error('Alert failed to get saved. Clicking on "Cancel".')
-          self.driver.find_element(By.CSS_SELECTOR, 'div[data-name="alerts-create-edit-dialog"] button[data-name="cancel"]').click()
-          return False
         
     except Exception as e:
       # close the "Create Alert" popup if an alert fails to get created
-      popup = WebDriverWait(self.driver, 3).until(EC.visibility_of_element_located((By.CSS_SELECTOR, 'div[data-name="alerts-create-edit-dialog"]')))
-      if popup: 
-        if popup.find_elements(By.CSS_SELECTOR, 'button[data-name="close"]'):
-          popup.find_element(By.CSS_SELECTOR, 'button[data-name="close"]').click()
+      try:
+        popup = self.driver.find_element(By.CSS_SELECTOR, 'div[data-name="alerts-create-edit-dialog"]')
+        if popup: 
+          if popup.find_elements(By.CSS_SELECTOR, 'button[data-name="close"]'):
+            popup.find_element(By.CSS_SELECTOR, 'button[data-name="close"]').click()
+      except:
+        pass
       open_tv_logger.exception('Error occurred when setting up alert. Exiting function. Error:')
       return False
-    
-    return False
   
   def indicator_visibility(self, make_visible: bool, shorttitle: str):
     '''Makes `shorttitle` indicator visible or hidden by clicking on the indicator's 👁️ button'''
@@ -740,6 +736,11 @@ class Browser:
       # find the indicator - always get fresh reference to avoid stale element
       indicator = self._safe_indicator_access(shorttitle)
 
+      # ensure the indicator is visible before checking for errors
+      if indicator and not self.is_visible(shorttitle):
+        open_tv_logger.info(f'Making {shorttitle} visible before checking for errors')
+        self.indicator_visibility(True, shorttitle)
+
       # if there is no error
       if indicator and indicator.find_elements(By.CSS_SELECTOR, '.statusItem-Lgtz1OtS.small-Lgtz1OtS.dataProblemLow-Lgtz1OtS') == []:
         open_tv_logger.info(f'There is no error in {shorttitle}!')
@@ -751,6 +752,11 @@ class Browser:
       open_tv_logger.warning(f'Stale element when checking error for {shorttitle}, trying to get fresh reference')
       try:
         indicator = self._get_fresh_indicator(shorttitle)
+        # ensure the indicator is visible before checking for errors in retry
+        if indicator and not self.is_visible(shorttitle):
+          open_tv_logger.info(f'Making {shorttitle} visible before checking for errors (retry)')
+          self.indicator_visibility(True, shorttitle)
+        
         if indicator and indicator.find_elements(By.CSS_SELECTOR, '.statusItem-Lgtz1OtS.small-Lgtz1OtS.dataProblemLow-Lgtz1OtS') == []:
           open_tv_logger.info(f'There is no error in {shorttitle}!')
           return True
