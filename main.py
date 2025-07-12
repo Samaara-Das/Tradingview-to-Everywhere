@@ -68,6 +68,26 @@ TIMEFRAME_ID_MAP = {
     "6 months": "item_6M"
 }
 
+# Timeframe input mapping dictionary for screener settings
+# Maps timeframe names to their corresponding input values (without "item_" prefix)
+TIMEFRAME_INPUT_MAP = {
+    "1 minute": "1",
+    "5 minutes": "5",
+    "10 minutes": "10",
+    "15 minutes": "15",
+    "30 minutes": "30",
+    "1 hour": "60",
+    "2 hours": "120",
+    "3 hours": "180",
+    "4 hours": "240",
+    "8 hours": "480",
+    "1 day": "1D",
+    "1 week": "1W",
+    "1 month": "1M",
+    "3 months": "3M",
+    "6 months": "6M"
+}
+
 # Convert the interval to seconds
 interval_seconds = INTERVAL_MINUTES * 60
 
