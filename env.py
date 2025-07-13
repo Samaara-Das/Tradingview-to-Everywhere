@@ -7,7 +7,7 @@ load_dotenv()
 PROFILE = 'Profile 2'
 
 # Collection name for storing trading signals
-COLLECTION = "Entries"
+COLLECTION = "Point Capitalis signals"
 
 # Twitter API credentials
 X_API_KEY = os.getenv('X_API_KEY')

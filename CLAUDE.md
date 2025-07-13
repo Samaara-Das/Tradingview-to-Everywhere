@@ -23,12 +23,6 @@ python main.py
 python gui.py
 ```
 
-### Testing
-```bash
-# Test Firebase connection
-python database/test_firebase.py
-```
-
 ## High-level Architecture
 
 ### Core Application Flow
@@ -37,23 +31,23 @@ python database/test_firebase.py
 3. **Chart Management** (`open_entry_chart.py`): Takes screenshots of trades
 4. **Exit Monitoring** (`exits.py`): Tracks trade exits and captures exit screenshots
 5. **Distribution** (`send_to_socials/`): Sends formatted data to social platforms
-6. **Database** (`database/firebase_db.py`): Stores entries/exits in Firebase Firestore
+6. **Database** (`database/local_db.py`): Stores entries/exits in MongoDB
 
 ### Key Inter-Module Dependencies
 - `main.py` orchestrates the entire flow, calling functions from other modules
 - `env.py` centralizes configuration constants (COLLECTION, PROFILE, etc.)
-- `handle_alerts.py` and `exits.py` both rely on `database/firebase_db.py` for storage
+- `handle_alerts.py` and `exits.py` both rely on `database/local_db.py` for storage
 - Social media modules depend on environment variables for API credentials
 
 ### Database Architecture
-- **Firebase Firestore** is used for persistent storage
+- **MongoDB** is used for persistent storage
 - Main collection: "Entries" (configured in `env.py`)
 - Document structure includes: direction, symbol, timeframe, prices (entry/tp/sl), timestamps, snapshots, hit status
-- Indexes exist on: category, unixTime fields for efficient querying
+- Indexes recommended on: category, unixTime fields for efficient querying
 
 ### Authentication Strategy
 - **TradingView**: Uses Chrome profile with saved login (no 2FA allowed)
-- **Firebase**: Service account credentials via JSON file
+- **MongoDB**: Connection via environment variables (MONGODB_URI or MONGODB_PWD)
 - **Social APIs**: Environment variables store webhooks, API keys, and tokens
 
 ### Important Configuration
@@ -74,7 +68,7 @@ python database/test_firebase.py
 - `open_tv.py`: Browser automation and TradingView interaction
 - `handle_alerts.py`: Alert processing and entry detection
 - `exits.py`: Exit monitoring and processing
-- `database/firebase_db.py`: Firebase database operations
+- `database/local_db.py`: MongoDB database operations
 - `env.py`: Central configuration constants
 - `resources/symbol_settings.py`: Trading symbol categories and settings
 
