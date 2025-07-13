@@ -39,6 +39,7 @@ from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.keys import Keys
 from selenium.common.exceptions import TimeoutException, StaleElementReferenceException
 from json import loads
 from env import COLLECTION
@@ -111,7 +112,6 @@ class Alerts:
                         )
                         continue
 
-                    continue
                     # Take a snapshot of it and send it to social media
                     if not self.send_everywhere(
                         direction=direction,
@@ -313,12 +313,18 @@ class Alerts:
             return loads('{}'), loads('{}')
 
     def remove_alert(self, alert_box):
-        '''Removes the alert from the Alert log'''
+        '''Removes the alert from the Alert log by clicking on the alert message and using Shift+Delete'''
         try:
             self.utils.open_log_tab(self.driver) # Make sure that the Logs tab is open
-            ActionChains(self.driver).move_to_element(alert_box).perform()
-            remove_button = alert_box.find_element(By.CSS_SELECTOR, 'div[data-name="event-delete-button"]')
-            remove_button.click()
+            
+            # Click on the alert message to select it
+            alert_box.click()
+            
+            # Use Shift+Delete keyboard shortcut to remove the alert
+            ActionChains(self.driver).key_down(Keys.SHIFT).send_keys(Keys.DELETE).key_up(Keys.SHIFT).perform()
+            sleep(0.5)
+
+            alert_data_logger.info('Successfully removed alert using Shift+Delete')
             return True
         except Exception as e:
             alert_data_logger.exception('Error in removing the alert from the Alert log. Error:')
@@ -328,6 +334,7 @@ class Alerts:
         '''This scrolls to the given alert'''
         try:
             self.driver.execute_script("arguments[0].scrollIntoView();", alert)
+            sleep(0.7)
             return True
         except Exception as e:
             alert_data_logger.exception('Error in scrolling to the alert. Error:')
