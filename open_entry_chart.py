@@ -41,13 +41,13 @@ class OpenChart:
       settings.find_element(By.CSS_SELECTOR, 'div[class="tabs-vwgPOHG8"] button[id="inputs"]').click()
 
       # fill up the settings
-      inputs = settings.find_elements(By.CSS_SELECTOR, '.cell-tBgV1m0B input')
+      inputs = settings.find_elements(By.CSS_SELECTOR, '.cell-tBgV1m0B input')[:2]
       for i in range(len(inputs)):
         val = 0
         if i == 0:
           val = screener_type
         elif i == 1:
-          val = entry_object
+          val = str(entry_object)
 
         ActionChains(self.driver).key_down(Keys.CONTROL, inputs[i]).send_keys('a').perform()
         inputs[i].send_keys(Keys.DELETE)
