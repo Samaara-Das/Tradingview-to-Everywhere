@@ -33,7 +33,7 @@ from datetime import datetime
 from resources.symbol_settings import symbol_category
 import send_to_socials.discord as discord
 import database.nk_db as nk_db
-import database.firebase_db as db
+import database.local_db as db
 from time import sleep, time
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -42,7 +42,6 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.keys import Keys
 from selenium.common.exceptions import TimeoutException, StaleElementReferenceException
 from json import loads
-from env import COLLECTION
 
 # Set up logger for this file
 alert_data_logger = logger_setup.setup_logger(__name__, logger_setup.INFO)
@@ -59,7 +58,7 @@ class Alerts:
         interval_seconds,
     ) -> None:
         self.driver = driver
-        self.local_db = db.Database("")
+        self.local_db = db.Database()
         self.nk_db = nk_db.Post()
         self.chart = open_entry_chart.OpenChart(self.driver)
         self.discord = discord.Discord()
@@ -96,6 +95,7 @@ class Alerts:
                             f"Error in changing the symbol to {symbol}. Going to next symbol."
                         )
                         continue
+
                     if not self.chart.change_tframe(timeframe):
                         alert_data_logger.error(
                             f"Error in changing the timeframe to {timeframe}. Going to next symbol."
@@ -114,17 +114,12 @@ class Alerts:
 
                     # Take a snapshot of it and send it to social media
                     if not self.send_everywhere(
-                        direction=direction,
-                        key=symbol,
+                        symbol=symbol,
                         timeframe=timeframe,
-                        entry_price=entry_price,
-                        tp1_price=tp1_price,
-                        tp2_price=tp2_price,
-                        tp3_price=tp3_price,
-                        sl_price=sl_price,
-                        entry_time=entry_time,
-                        formatted_time=formatted_time,
-                        value=value,
+                        direction=entry_object.get("direction"),
+                        screener=entry_object.get("screener"),
+                        timestamp=entry_object.get("timestamp"),
+                        info=entry_object.get("info")
                     ):
                         alert_data_logger.error(
                             f"Error in sending the entry to all platforms. Going to next symbol."
@@ -144,70 +139,41 @@ class Alerts:
 
     def send_everywhere(self, **kwargs):
         """
-        This sends posts to Discord, my database and Nk uncle's API.
-
-        Args:
-            kwargs (dict): A dictionary of arguments containing:
-                direction (str): Direction of the trade (buy/sell).
-                key (str): Symbol of the trade.
-                timeframe (str): Timeframe of the trade.
-                entry_price (float): Entry price of the trade.
-                tp1_price (float): First take profit price.
-                tp2_price (float): Second take profit price.
-                tp3_price (float): Third take profit price.
-                sl_price (float): Stop loss price.
-                entry_time (int): Unix timestamp of the entry time.
-                formatted_time (str): Formatted entry time.
-                value (dict): Additional information for Nk uncle's API.
+        This sends posts to a MongoDB database.
         """
         try:
             # Extracting necessary parameters from kwargs
-            direction = kwargs.get('direction')
-            key = kwargs.get('key')
+            symbol = kwargs.get('symbol')
             timeframe = kwargs.get('timeframe')
-            entry_price = kwargs.get('entry_price')
-            tp1_price = kwargs.get('tp1_price')
-            tp2_price = kwargs.get('tp2_price')
-            tp3_price = kwargs.get('tp3_price')
-            sl_price = kwargs.get('sl_price')
-            entry_time = kwargs.get('entry_time')
-            formatted_time = kwargs.get('formatted_time')
-            value = kwargs.get('value')
-
+            direction = kwargs.get('direction')
+            screener = kwargs.get('screener')
+            timestamp = kwargs.get('timestamp')
+            info = kwargs.get('info')
+            
             png_link, tv_link = '', ''
             links = self.chart.save_chart_img() 
             if links:
                 png_link, tv_link = links['png'], links['tv'] 
-            category = symbol_category(key)
+
+            category = symbol_category(symbol)
 
             # My database
             self.local_db.add_doc(
                 {
                     "direction": direction,
-                    "symbol": key,
+                    "symbol": symbol,
                     "timeframe": timeframe,
-                    "entryPrice": entry_price,
-                    "tp1Price": tp1_price,
-                    "tp2Price": tp2_price,
-                    "tp3Price": tp3_price,
-                    "slPrice": sl_price,
+                    "screener": screener,
+                    "timestamp": timestamp,
+                    "info": info,
                     "tvEntrySnapshot": tv_link,
                     "pngEntrySnapshot": png_link,
-                    "content": content,
-                    "unixTime": entry_time,
                     "category": category,
-                    "isSlHit": False,
-                    "isTp1Hit": False,
-                    "isTp2Hit": False,
-                    "isTp3Hit": False,
-                    "tvExitSnapshot": "",
-                    "pngExitSnapshot": "",
-                },
-                COLLECTION,
+                }
             )
 
             # Log success
-            alert_data_logger.info(f"Successfully sent entry data to all platforms for symbol {key}.")
+            alert_data_logger.info(f"Successfully sent entry data to all platforms for symbol {symbol}.")
             return True
         except Exception as e:
             alert_data_logger.error(f"Error sending entry data: {e}")
