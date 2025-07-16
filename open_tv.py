@@ -581,7 +581,6 @@ class Browser:
         
         # set the alert for the screener
         if not self.click_create_alert(shorttitle, name):
-          return False # The SB and OB indicators will have probably errors so alerts can't be created for them. Prevent re-uploading the indicators again to save time.
           if self.reupload_indicator(indicator, name, shorttitle): # Reuploading the screener
             # Re-initialize the screener indicator after re-uploading (to prevent StaleElementReferenceException)
             indicator = self._reinitialize_screener_indicator(shorttitle)
