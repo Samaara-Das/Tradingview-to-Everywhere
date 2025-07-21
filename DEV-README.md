@@ -120,6 +120,8 @@ Note: The indices category is not used anywhere because papa told me to remove i
 
 1. Ensure that the `MONGODB_PWD` user environment variable is set to the password of the mongodb database. To edit that password, sign in to MongoDb and go to Database Access on the left. Click on the user (i.e. sammy) and edit the password.
 
+2. When the symbols in the database are added/updated/removed, ensure that TTE creates new alerts so that the updated symbols can be used. This is necessary so that Stock Buddy can get signals for the symbols that TTE is actually using. 
+
 ### For exits.py
 
 1. `COLLECTION_NAME` is supposed to be the name of the MongoDB collection where all entries are stored.

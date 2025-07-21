@@ -40,9 +40,8 @@ class Database:
                 if pwd:
                     mongo_uri = f"mongodb+srv://sammy:{pwd}@cluster1.565lfln.mongodb.net/?retryWrites=true&w=majority"
                 else:
-                    # Use local connection as fallback
-                    mongo_uri = "mongodb://127.0.0.1:27017/?directConnection=true&serverSelectionTimeoutMS=2000"
-                    local_db_logger.warning("No MongoDB credentials found in environment, using local connection")
+                    local_db_logger.warning("No MongoDB credentials found in environment, returning False")
+                    return
             
             self.client = MongoClient(mongo_uri)
             
@@ -55,8 +54,8 @@ class Database:
             self.db = self.client[db_name]
             
         except Exception as e:
-            local_db_logger.exception(f'Failed to connect to MongoDB database. Error:')
-            raise
+            local_db_logger.exception(f'Failed to connect to MongoDB database. Error: {e}')
+            return
         
         # Delete all documents in the collection if requested
         if delete:
