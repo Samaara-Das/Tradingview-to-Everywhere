@@ -41,12 +41,12 @@ SCREENER_SB_SHORT = "Structure break Screener"  # short title of the Structure b
 SCREENER_SB_NAME = "Structure break Screener"  # name of the Structure break Screener
 REMOVE_LOG = True # remove the content of the log file (to clean it up)
 INTERVAL_MINUTES = 10 # number of mins to wait until inactive alerts get reactivated and for the browser to refresh (refreshing will hopefully prevent the browser and this application from freezing)
-START_FRESH = True
+START_FRESH = False
 
 # Timeframe constants for screeners
-SCREENER_TIMEFRAME_1 = "1 minute"  # First timeframe for screeners
-SCREENER_TIMEFRAME_2 = "5 minutes"  # Second timeframe for screeners  
-SCREENER_TIMEFRAME_3 = "15 minutes"  # Third timeframe for screeners
+SCREENER_TIMEFRAME_1 = "240"  # First timeframe for screeners
+SCREENER_TIMEFRAME_2 = "D"  # Second timeframe for screeners  
+SCREENER_TIMEFRAME_3 = "W"  # Third timeframe for screeners
 
 # Timeframe ID mapping dictionary for TradingView dropdown
 # Now using partial IDs (last 2 words) to handle dynamic ID changes
