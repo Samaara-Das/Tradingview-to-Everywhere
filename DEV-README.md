@@ -28,11 +28,10 @@
 1. No popups or clicks should happen manually
 2. In the alert settings, "On site Pop up" is unticked
 3. the "Alerts log" must be maximized (although it doesn't have to be FULLY maximized) and not minimized.
-4. There must be a saved layout named "Screener" which has the following setup:
+4. There must be a saved layout named "PointCapital" which has the following setup:
    - The bars are medium sized and the chart is a 100 bars from the right
-   - Premium Screener indicator & Trade Drawer indicator should be on the chart
-5. There must be a saved layout named "Exits" and the Get Exits indicator should be on it.
-6. The Premium Screener and the Get Exits indicators on Tradingview must to be starred (so that they can appear in the Favorites dropdown)
+   - Order Block Screener, Nadaraya Watson Screener and Structure break Screener & Trade Drawer indicators should be on the chart
+5. The screeners and Trade Drawer indicators on Tradingview must to be starred (so that they can appear in the Favorites dropdown)
 
 
 ## Some errors which might happen on Tradingview

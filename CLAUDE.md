@@ -4,124 +4,145 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-TradingView to Everywhere (TTE) is an automated trading signals distribution system that bridges TradingView alerts with multiple social media platforms. It monitors TradingView for trading signals, captures and processes them, and distributes formatted trade information to Discord, Facebook, Twitter (X), and Firebase.
+TradingView to Everywhere (TTE) is an automated trading signals distribution system that bridges TradingView alerts with multiple social media platforms. It monitors TradingView for trading signals, captures and processes them, and distributes formatted trade information to Discord, Facebook, Twitter/X, and MongoDB.
 
-## Common Development Commands
+## Common Development Tasks
 
-### Environment Setup
+### Running the Application
+
 ```bash
-# Install dependencies using pipenv
-pipenv install
-
-# Activate virtual environment
+# Activate the virtual environment
 pipenv shell
 
-# Run the application
+# Run the main application
 python main.py
 
-# Run with GUI
+# Run the GUI version
 python gui.py
 ```
 
-## High-level Architecture
+### Managing Dependencies
 
-### Core Application Flow
-1. **Browser Automation** (`open_tv.py`): Controls Chrome/Selenium to interact with TradingView
-2. **Alert Processing** (`handle_alerts.py`): Captures and parses TradingView alerts
-3. **Chart Management** (`open_entry_chart.py`): Takes screenshots of trades
-4. **Exit Monitoring** (`exits.py`): Tracks trade exits and captures exit screenshots
-5. **Distribution** (`send_to_socials/`): Sends formatted data to social platforms
-6. **Database** (`database/local_db.py`): Stores entries/exits in MongoDB
+```bash
+# Install all dependencies
+pipenv install
 
-### Key Inter-Module Dependencies
-- `main.py` orchestrates the entire flow, calling functions from other modules
-- `env.py` centralizes configuration constants (COLLECTION, PROFILE, etc.)
-- `handle_alerts.py` and `exits.py` both rely on `database/local_db.py` for storage
-- Social media modules depend on environment variables for API credentials
+# Add a new dependency
+pipenv install <package-name>
 
-### Database Architecture
-- **MongoDB** is used for persistent storage
-- Main collection: "Entries" (configured in `env.py`)
-- Document structure includes: direction, symbol, timeframe, prices (entry/tp/sl), timestamps, snapshots, hit status
-- Indexes recommended on: category, unixTime fields for efficient querying
+# Sync dependencies from Pipfile
+pipenv sync
+```
 
-### Authentication Strategy
-- **TradingView**: Uses Chrome profile with saved login (no 2FA allowed)
-- **MongoDB**: Connection via environment variables (MONGODB_URI or MONGODB_PWD)
-- **Social APIs**: Environment variables store webhooks, API keys, and tokens
+## Architecture Overview
 
-### Important Configuration
-- **Chrome Profile**: Must be set in `env.py` (PROFILE constant)
-- **TradingView Layouts**: "Screener" and "Exits" layouts must exist
-- **Indicators**: Premium Screener, Trade Drawer, Get Exits must be installed and starred
-- **Environment Variables**: See `.env` file for Discord webhooks, Twitter API keys, etc.
+### Core Components
 
-### Critical Constraints
-- TradingView account must have 2FA disabled
-- Chrome browser must be closed before running
-- Selenium browser must not be manually interacted with during execution
-- Maximum 5 symbols can be processed per screener alert
+1. **Browser Controller** (`open_tv.py`): Manages Selenium browser automation and TradingView interaction
+2. **Alert Handler** (`handle_alerts.py`): Processes alert messages and extracts trade information
+3. **Chart Manager** (`open_entry_chart.py`): Navigates charts and captures screenshots
+4. **Exit Monitor** (`exits.py`): Tracks trade exits and distributes exit information
+5. **Social Distributors** (`send_to_socials/`): Distributes to Discord, Twitter, Facebook
+6. **Database Manager** (`database/`): MongoDB integration for trade storage
 
-## Key Files Reference
+### Key Files
 
-- `main.py`: Entry point and main orchestration logic
-- `open_tv.py`: Browser automation and TradingView interaction
-- `handle_alerts.py`: Alert processing and entry detection
-- `exits.py`: Exit monitoring and processing
-- `database/local_db.py`: MongoDB database operations
-- `env.py`: Central configuration constants
-- `resources/symbol_settings.py`: Trading symbol categories and settings
+- `main.py`: Entry point with main trading loop
+- `gui.py`: Tkinter-based GUI interface
+- `env.py`: Environment configuration
+- `logger_setup.py`: Centralized logging configuration
+- `resources/symbol_settings.py`: Trading symbol categories and configurations
 
-## Accessing Screener Indicators in open_tv.py
+### Data Flow
 
-Due to TradingView's dynamic DOM updates, screener indicators must be accessed using safe methods to prevent StaleElementReferenceException errors.
+1. TradingView generates alerts based on technical analysis
+2. TTE captures alert messages via Selenium
+3. TTE navigates to relevant chart/timeframe
+4. Screenshots taken with trade information overlay
+5. Distribution to multiple platforms
+6. Exit monitoring and notification
 
-### Methods to Use:
+## Important Configuration
 
-1. **`_safe_indicator_access(shorttitle)`** - RECOMMENDED
-   - Primary method for safely accessing any indicator
-   - Automatically handles stale element errors with retry logic
-   - Returns `None` if indicator not found
-   ```python
-   # Get a screener indicator safely
-   screener_ob = self._safe_indicator_access(self.screener_ob_short)
-   screener_nw = self._safe_indicator_access(self.screener_nw_short)
-   screener_sb = self._safe_indicator_access(self.screener_sb_short)
-   drawer = self._safe_indicator_access(self.drawer_shorttitle)
-   ```
+### Environment Variables Required
 
-2. **`_get_fresh_indicator(shorttitle)`**
-   - Simple wrapper that calls `get_indicator()`
-   - Use when you want a fresh reference without retry logic
+- `CHROME_PROFILES_PATH`: Path to Chrome user data folder
+- `TRADINGVIEW_EMAIL`: TradingView login email (2FA must be disabled)
+- `TRADINGVIEW_PASSWORD`: TradingView login password
+- `MONGODB_PWD`: MongoDB database password
+- Discord webhook URLs (in `.env` file)
+- Twitter API keys (in `.env` file)
 
-3. **`get_indicator(shorttitle)`**
-   - Base method that searches the DOM
-   - Use when implementing custom error handling
+### Chrome Profile Setup
 
-### Available Screener Properties:
-- `self.screener_ob_short` - Order Block screener
-- `self.screener_nw_short` - Nadaraya Watson screener
-- `self.screener_sb_short` - Structure Break screener
-- `self.drawer_shorttitle` - Trade Drawer indicator
+1. Create a `TTE` folder in Chrome user data directory
+2. Configure the `PROFILE` constant in `env.py`
+3. Ensure no other Chrome instances are running during execution
 
-### Important Notes:
-- **Never store indicator references** as instance variables (no `self.screener_ob_indicator`)
-- **Always get fresh references** when needed
-- **Check for `None`** before using returned indicators
-- **DOM changes** during alert creation invalidate stored references
+### TradingView Requirements
 
-### Example Usage:
-```python
-def some_method(self):
-    # Get the Order Block screener safely
-    ob_screener = self._safe_indicator_access(self.screener_ob_short)
-    if ob_screener:
-        ob_screener.click()
-        
-    # Get all screeners at once
-    screeners = {
-        'ob': self._safe_indicator_access(self.screener_ob_short),
-        'nw': self._safe_indicator_access(self.screener_nw_short),
-        'sb': self._safe_indicator_access(self.screener_sb_short)
-    }
+1. Disable two-factor authentication
+2. No linked social accounts
+3. Saved layout named "Screener" with Premium Screener and Trade Drawer indicators
+4. Saved layout named "Exits" with Get Exits indicator
+5. Indicators must be starred/favorited
+
+## Key Constants
+
+### main.py
+- `SCREENER_SHORT`: 'Screener' (screener short title)
+- `DRAWER_SHORT`: 'Trade Drawer 2' (indicator short title)
+- `INTERVAL_MINUTES`: 10 (refresh and restart interval)
+- `START_FRESH`: True (delete and recreate alerts)
+- `SCREENER_TIMEFRAME_1/2/3`: Configured timeframes for screeners
+
+### open_tv.py
+- `SYMBOL_INPUTS`: Number of symbol inputs to fill (currently 5)
+- `CHART_TIMEFRAME`: Trading timeframe for entries
+- `SCREENER_REUPLOAD_TIMEOUT`: Wait time for screener re-upload
+
+## Testing and Debugging
+
+### Logs
+- Main log file: `app_log.log`
+- Continuous log trimming enabled to prevent overflow
+- Comprehensive logging throughout all modules
+
+### Common Issues
+- Browser memory usage - periodic refresh implemented
+- Alert rate limits - automatic restart of inactive alerts
+- TradingView UI changes - may require selector updates
+- MongoDB connection - check password and connection string
+
+## Development Guidelines
+
+1. Maintain modular structure with clear separation of concerns
+2. Use environment variables for all credentials and configurations
+3. Implement comprehensive error handling and logging
+4. Test browser automation thoroughly before deployment
+5. Handle API rate limits appropriately
+6. Never commit credentials or sensitive information
+
+## Critical Notes
+
+- Never manually interact with the Selenium-controlled browser
+- Ensure all Chrome browsers are closed before running
+- The Alerts log must be maximized (not minimized) in TradingView
+- The application will delete existing alerts when `START_FRESH=True`
+- MongoDB symbols must be synced with TradingView alerts
+
+## Troubleshooting Commands
+
+```bash
+# Check Python version (must be 3.11)
+python --version
+
+# List installed packages
+pipenv graph
+
+# Clear log file
+echo "" > app_log.log
+
+# Test MongoDB connection
+python -c "from database.local_db import db; print(db.list_collection_names())"
 ```

@@ -31,7 +31,7 @@ open_tv_logger = logger_setup.setup_logger(__name__, logger_setup.INFO)
 
 # some constants
 SYMBOL_INPUTS = 5 #number of symbol inputs in the screener
-CHART_TIMEFRAME = '1 minute' # the timeframe that the entries are from
+CHART_TIMEFRAME = '4 hours' # the timeframe that the entries are from
 USED_SYMBOLS_INPUT = "Used Symbols" # Name of the Used Symbols input in the Screener
 LAYOUT_NAME = 'PointCapital' # Name of the layout for the screener
 SCREENER_REUPLOAD_TIMEOUT = 15 # seconds to wait for the screener to show up on the chart after re-uploading it
@@ -581,7 +581,6 @@ class Browser:
         
         # set the alert for the screener
         if not self.click_create_alert(shorttitle, name):
-          return False # The SB and OB indicators will have probably errors so alerts can't be created for them. Prevent re-uploading the indicators again to save time.
           if self.reupload_indicator(indicator, name, shorttitle): # Reuploading the screener
             # Re-initialize the screener indicator after re-uploading (to prevent StaleElementReferenceException)
             indicator = self._reinitialize_screener_indicator(shorttitle)
@@ -617,7 +616,7 @@ class Browser:
       # wait for the create alert popup to show
       popup = None
       try:
-        popup = WebDriverWait(self.driver, 5).until(EC.visibility_of_element_located((By.CSS_SELECTOR, 'div[data-name="alerts-create-edit-dialog"]')))
+        popup = WebDriverWait(self.driver, 5).until(EC.visibility_of_element_located((By.CSS_SELECTOR, 'div[data-qa-id="alerts-create-edit-dialog"]')))
         open_tv_logger.info('Alert creation popup appeared')
       except TimeoutException:
         self.driver.get(self.driver.current_url) # If the popup doesn't show up within 5 seconds, refresh the page and try again
@@ -625,27 +624,27 @@ class Browser:
         open_tv_logger.error('Popup did not show up within 5 seconds. Page refreshed. Trying to create alert again.')
         plus_button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-name="set-alert-button"]')))
         plus_button.click()
-        popup = WebDriverWait(self.driver, 5).until(EC.visibility_of_element_located((By.CSS_SELECTOR, 'div[data-name="alerts-create-edit-dialog"]')))
+        popup = WebDriverWait(self.driver, 5).until(EC.visibility_of_element_located((By.CSS_SELECTOR, 'div[data-qa-id="alerts-create-edit-dialog"]')))
       
       # click on submit directly (no need to select indicator since it's pre-selected)
-      self.driver.find_element(By.CSS_SELECTOR, 'button[data-name="submit"]').click()
+      self.driver.find_element(By.CSS_SELECTOR, 'button[data-qa-id="submit"]').click()
       open_tv_logger.info('Clicked on "Create"!')
 
       # wait for the alert to be created
       try:
-        WebDriverWait(self.driver, 2.5).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="alerts-create-edit-dialog"] div[data-name="error-hint"]')))
+        WebDriverWait(self.driver, 2.5).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-qa-id="alerts-create-edit-dialog"] div[data-name="error-hint"]')))
       except:
         open_tv_logger.info('No error occurred while saving alert!')
         return True
       else:
         open_tv_logger.error('Alert failed to get saved. Clicking on "Cancel".')
-        self.driver.find_element(By.CSS_SELECTOR, 'div[data-name="alerts-create-edit-dialog"] button[data-name="cancel"]').click()
+        self.driver.find_element(By.CSS_SELECTOR, 'div[data-qa-id="alerts-create-edit-dialog"] button[data-qa-id="cancel"]').click()
         return False
         
     except Exception as e:
       # close the "Create Alert" popup if an alert fails to get created
       try:
-        popup = self.driver.find_element(By.CSS_SELECTOR, 'div[data-name="alerts-create-edit-dialog"]')
+        popup = self.driver.find_element(By.CSS_SELECTOR, 'div[data-qa-id="alerts-create-edit-dialog"]')
         if popup: 
           if popup.find_elements(By.CSS_SELECTOR, 'button[data-name="close"]'):
             popup.find_element(By.CSS_SELECTOR, 'button[data-name="close"]').click()
