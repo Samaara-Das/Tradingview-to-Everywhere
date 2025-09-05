@@ -17,6 +17,21 @@ MD_PAGE_ID = '252647061266029' # The ID of the Market Davinci Facebook page. To 
 
 graph = fb.GraphAPI(MD_PAGE_ACCESS_TOKEN)
 
+def download_image(img_url: str):
+    '''
+    Downloads an image from a URL and returns it as a file-like object.
+    
+    :param img_url: URL of the image to download
+    :return: BytesIO object containing the image data, or None if download fails
+    '''
+    try:
+        response = requests.get(img_url)
+        response.raise_for_status()
+        return BytesIO(response.content)
+    except Exception as e:
+        fb_logger.error(f"Error downloading image from {img_url}: {e}")
+        return None
+
 def check_token_permissions(token: str) -> None:
     url = f"https://graph.facebook.com/debug_token"
     payload = {
@@ -30,24 +45,6 @@ def check_token_permissions(token: str) -> None:
     else:
         fb_logger.error("Failed to check token.")
         fb_logger.error("Response:", response.json())
-
-def download_image(img_url: str) -> BytesIO:
-    '''
-    Downloads an image from a URL and returns it as a BytesIO object.
-    
-    :param img_url: URL of the image to download
-    :return: BytesIO object containing the image data
-    '''
-    try:
-        response = requests.get(img_url, allow_redirects=True)
-        if response.status_code == 200 and 'image' in response.headers['Content-Type']:
-            return BytesIO(response.content)
-        else:
-            fb_logger.error(f"Failed to download image: Status code {response.status_code}, Content-Type {response.headers['Content-Type']}")
-            return None
-    except Exception as e:
-        fb_logger.error(f"An error occurred while downloading the image: {e}")
-        return None
 
 def post(img_url: str, text: str = ""):
     '''
@@ -73,11 +70,4 @@ def post(img_url: str, text: str = ""):
         fb_logger.error(f"Facebook GraphAPIError: {e}")
     except Exception as e:
         fb_logger.error(f"An error occurred: {e}")
-
-def post_before_after(entry_img: str, exit_img: str, entry_txt: str, exit_txt: str):
-    '''
-    This posts 2 posts. One for an entry and one for an exit.
-    '''
-    post(entry_img, entry_txt)
-    post(exit_img, exit_txt)
 

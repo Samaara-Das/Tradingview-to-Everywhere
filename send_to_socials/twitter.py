@@ -25,14 +25,3 @@ class TwitterClient:
         Makes a tweet with the text and image.
         '''
         self.client.create_tweet(text=txt+'\n'+'Link: '+img)
-
-    def before_after_tweets(self, entry_img: str, exit_img: str, entry_txt: str, exit_txt: str):
-        '''
-        This creates 2 posts: one for the entry and one for the exit.
-        '''
-        try:
-            self.tweet(entry_img, entry_txt)
-            self.tweet(exit_img, exit_txt)
-        except Exception as e:
-            x_logger.info(f'from {__file__}: \n{e}')
-

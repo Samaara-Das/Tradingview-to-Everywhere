@@ -8,7 +8,7 @@ Functionality: This module provides comprehensive alert handling capabilities:
 2. Extracts trading signal information from alert messages (symbol, entry price, timeframe, take profits, stop loss)
 3. Navigates to the relevant chart and applies trade information to the Trade Drawer indicator
 4. Captures screenshots of trade entry points
-5. Distributes trade information and screenshots to multiple platforms (Discord, MongoDB, external APIs)
+5. Distributes trade information and screenshots to multiple platforms (Twitter, Facebook, MongoDB)
 6. Manages alerts, including removing processed alerts and restarting inactive alerts
 7. Provides specialized handling for exit alerts
 
@@ -17,7 +17,8 @@ Dependencies:
 - logger_setup.py: For application logging
 - open_entry_chart.py: For chart navigation and manipulation
 - resources/symbol_settings.py: For symbol categorization
-- send_to_socials/discord.py: For Discord message distribution
+- send_to_socials/twitter.py: For Twitter message distribution
+- send_to_socials/_facebook.py: For Facebook message distribution
 - database modules (local_db.py, nk_db.py): For data storage and retrieval
 - Selenium WebDriver: For browser interaction
 - env.py: For environment variables and configuration
@@ -31,7 +32,8 @@ import logger_setup
 import open_entry_chart
 from datetime import datetime
 from resources.symbol_settings import symbol_category
-import send_to_socials.discord as discord
+import send_to_socials.twitter as twitter
+import send_to_socials._facebook as facebook
 import database.nk_db as nk_db
 import database.local_db as db
 from time import sleep, time
@@ -61,7 +63,7 @@ class Alerts:
         self.local_db = db.Database()
         self.nk_db = nk_db.Post()
         self.chart = open_entry_chart.OpenChart(self.driver)
-        self.discord = discord.Discord()
+        self.twitter = twitter.TwitterClient()
         self.drawer_shorttitle = drawer_shorttitle
         self.utils = Utils()
         self.screener_shorttitles = screener_shorttitles
@@ -139,7 +141,7 @@ class Alerts:
 
     def send_everywhere(self, **kwargs):
         """
-        This sends posts to a MongoDB database.
+        This sends posts to MongoDB database, Twitter, and Facebook.
         """
         try:
             # Extracting necessary parameters from kwargs
@@ -156,6 +158,26 @@ class Alerts:
                 png_link, tv_link = links['png'], links['tv'] 
 
             category = symbol_category(symbol)
+
+            # Create message text for social media
+            message_text = f"🚨 {direction.upper()} Signal\n"
+            message_text += f"Symbol: {symbol}\n"
+            message_text += f"Timeframe: {timeframe}\n"
+            message_text += f"Screener: {screener}\n"
+            message_text += f"Category: {category}"
+
+            # Post to Facebook
+            try:
+                if png_link:
+                    facebook.post(png_link, message_text)
+                    alert_data_logger.info(f"Successfully posted to Facebook for symbol {symbol}")
+                elif tv_link:
+                    facebook.post(tv_link, message_text)
+                    alert_data_logger.info(f"Successfully posted to Facebook for symbol {symbol} using TV link")
+                else:
+                    alert_data_logger.warning(f"No PNG or TV link available for Facebook post for symbol {symbol}")
+            except Exception as e:
+                alert_data_logger.error(f"Error posting to Facebook for symbol {symbol}: {e}")
 
             # My database
             self.local_db.add_doc(
@@ -282,18 +304,22 @@ class Alerts:
         '''Removes the alert from the Alert log by clicking on the alert message and using Shift+Delete'''
         try:
             self.utils.open_log_tab(self.driver) # Make sure that the Logs tab is open
-            
-            # Click on the alert message to select it
-            alert_box.click()
-            
-            # Use Shift+Delete keyboard shortcut to remove the alert
-            ActionChains(self.driver).key_down(Keys.SHIFT).send_keys(Keys.DELETE).key_up(Keys.SHIFT).perform()
-            sleep(0.5)
 
-            alert_data_logger.info('Successfully removed alert using Shift+Delete')
+            # Ensure the alert is visible and selected
+            try:
+                if not alert_box.is_displayed():
+                    self.scroll_to_alert(alert_box)
+            except StaleElementReferenceException:
+                # If it's already gone, treat as success
+                return True
+            
+            ActionChains(self.driver).move_to_element(alert_box).perform() # Ensure the element is properly focused before keyboard shortcuts
+            remove_button = alert_box.find_element(By.CSS_SELECTOR, 'div[data-name="event-delete-button"]')
+            remove_button.click()
             return True
+
         except Exception as e:
-            alert_data_logger.exception('Error in removing the alert from the Alert log. Error:')
+            alert_data_logger.exception(f'Error in removing the alert from the Alert log. Error: {e}')
             return False
 
     def scroll_to_alert(self, alert):
