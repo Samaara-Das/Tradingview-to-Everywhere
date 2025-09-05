@@ -121,11 +121,6 @@ Note: The indices category is not used anywhere because papa told me to remove i
 
 2. When the symbols in the database are added/updated/removed, ensure that TTE creates new alerts so that the updated symbols can be used. This is necessary so that Stock Buddy can get signals for the symbols that TTE is actually using. 
 
-### For exits.py
-
-1. `COLLECTION_NAME` is supposed to be the name of the MongoDB collection where all entries are stored.
-2. The keys in the `self.last_checked_dates` dictionary in the `__init__` function should be the values of the category field in MongoDB documents (i.e. Currencies, US Stocks, Crypto etc...)
-
 ### For main.py
 
 1. `SCREENER_SHORT` is supposed to be the shorttitle of the screener.
