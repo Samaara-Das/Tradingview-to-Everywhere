@@ -1,0 +1,48 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © SamaaraDas
+
+// @description
+// This screener monitors 10 symbols for entry signals. When entry conditions are met,
+// an alert is generated containing signal details.
+
+//@version=5
+indicator("Premium Screener", 'Screener', overlay = true, precision = 5)
+
+////////////
+// INPUTS //
+////////////
+
+// Filler inputs to make the indicator panel longer for Python/Selenium to click
+int f1 = input.int(1000, 'fill1')
+int f2 = input.int(1000, 'fill2')
+int f3 = input.int(1000, 'fill3')
+int f4 = input.int(1000, 'fill4')
+int f5 = input.int(1000, 'fill5')
+
+string TF = timeframe.period
+
+// Symbol inputs
+usedSymbols = input.int(10, title = 'Used Symbols', group = 'Symbols', tooltip = 'The total number of symbols which will be checked for entries')
+s01 = input.symbol('GBPAUD', group='Symbols', inline='s01')
+s02 = input.symbol('AUDJPY', group='Symbols', inline='s02')
+s03 = input.symbol('EURCAD', group='Symbols', inline='s03')
+s04 = input.symbol('EURGBP', group='Symbols', inline='s04')
+s05 = input.symbol('USDCHF', group='Symbols', inline='s05')
+s06 = input.symbol('GBPUSD', group='Symbols', inline='s06')
+s07 = input.symbol('EURUSD', group='Symbols', inline='s07')
+s08 = input.symbol('USDJPY', group='Symbols', inline='s08')
+s09 = input.symbol('AUDUSD', group='Symbols', inline='s09')
+s10 = input.symbol('NZDUSD', group='Symbols', inline='s10')
+s11 = input.symbol('BTCUSDT', group='Symbols', inline='s11')
+s12 = input.symbol('BTCUSDT', group='Symbols', inline='s12')
+s13 = input.symbol('BTCUSDT', group='Symbols', inline='s13')
+s14 = input.symbol('BTCUSDT', group='Symbols', inline='s14')
+s15 = input.symbol('BTCUSDT', group='Symbols', inline='s15')
+s16 = input.symbol('BTCUSDT', group='Symbols', inline='s16')
+s17 = input.symbol('BTCUSDT', group='Symbols', inline='s17')
+s18 = input.symbol('BTCUSDT', group='Symbols', inline='s18')
+s19 = input.symbol('BTCUSDT', group='Symbols', inline='s19')
+s20 = input.symbol('BTCUSDT', group='Symbols', inline='s20')
+
+// Required for valid indicator
+plot(na)

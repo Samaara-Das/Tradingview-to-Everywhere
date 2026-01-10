@@ -1,39 +1,80 @@
 {
-    "hooks": {
-      "Stop": [
-        {
-          "matcher": "",
-          "hooks": [
-            {
-              "type": "command",
-              "command": "curl -X POST \"https://discord.com/api/webhooks/1392085158881923112/rtLorVPuwWOHXXvuvGlXl3l1CT0GLCCgK09-Q__NE08zHJJ1KwDEgeE3i3F2boLDNVC2\" -H \"Content-Type: application/json\" -d \"{\\\"content\\\": \\\"Claude Code responded at $(date).\\\"}\""
-            }
-          ]
-        }
-      ],
-
-      "PostToolUse": [
-        {
-          "matcher": "Write|Edit",
-          "hooks": [
-            {
-              "type": "command",
-              "command": "C:\\Users\\dassa\\AppData\\Roaming\\Python\\Python314\\Scripts\\black.exe --quiet . 2>nul || true"
-            }
-          ]
-        }
-      ],
-
-      "Notification": [
-        {
-          "matcher": "",
-          "hooks": [
-            {
-              "type": "command",
-              "command": "curl -X POST \"https://discord.com/api/webhooks/1392085158881923112/rtLorVPuwWOHXXvuvGlXl3l1CT0GLCCgK09-Q__NE08zHJJ1KwDEgeE3i3F2boLDNVC2\" -H \"Content-Type: application/json\" -d \"{\\\"content\\\": \\\"Claude Code needs your input at $(date).\\\"}\""
-            }
-          ]
-        }
-      ]
-    }
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./secrets/**)",
+      "Read(./config/credentials.json)",
+      "Read(./**/*.pem)",
+      "Read(./**/*.key)",
+      "Read(./**/private*)",
+      "Read(./build)",
+      "Write(./.claude/settings.json)",
+      "Edit(./.claude/settings.json)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git reset --hard:*)",
+      "Bash(git clean -fd:*)",
+      "Bash(git clean -f:*)",
+      "Bash(git checkout -- .:*)",
+      "Bash(git stash drop:*)",
+      "Bash(git stash clear:*)",
+      "Bash(git rebase:*)",
+      "Bash(rm -rf:*)",
+      "Bash(rm -fr:*)",
+      "Bash(rm -r:*)",
+      "Bash(rm *.db:*)",
+      "Bash(rm */*.db:*)",
+      "Bash(rm **/*.db:*)",
+      "Bash(del /s:*)",
+      "Bash(del /q:*)",
+      "Bash(rmdir /s:*)",
+      "Bash(rmdir /q:*)",
+      "Bash(gh repo delete:*)",
+      "Bash(gh release delete:*)",
+      "Bash(git branch -D:*)",
+      "Bash(git tag -d:*)",
+      "Bash(git push --delete:*)",
+      "Bash(git push origin --delete:*)",
+      "Bash(truncate:*)",
+      "Bash(shred:*)",
+      "Bash(> :*)",
+      "mcp__task-master-ai__initialize_task_master"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/notify-response.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python .claude/scripts/update-task-context.py"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cat .claude/task-context.md"
+          }
+        ]
+      }
+    ]
+  },
+  "outputStyle": "default"
 }

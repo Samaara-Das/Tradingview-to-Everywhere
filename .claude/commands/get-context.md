@@ -1,0 +1,1 @@
+Get context about what you did last by reading the @.claude\task-context.md file and the tasks via the task master ai MCP

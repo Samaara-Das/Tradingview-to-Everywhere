@@ -1,0 +1,68 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Get the screener working",
+        "description": "Get the TTE Screener Pine Script indicator fully operational with additional symbols and optimized indicator integrations",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Increase 5 symbols to 10 symbols in the screener",
+            "description": "Modify the TTE Screener to support 10 symbols instead of the current 5 symbols limit",
+            "details": "",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 1
+          },
+          {
+            "id": 2,
+            "title": "Optimize OB & FVG indicator for TTE Screener",
+            "description": "Optimize the OB & FVG.txt indicator so that it can run efficiently within the TTE Screener",
+            "details": "",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 1
+          },
+          {
+            "id": 3,
+            "title": "Optimize Nadaraya Watson Envelope for TTE Screener",
+            "description": "Optimize the Nadaraya Watson Envelope.txt indicator so that it can run efficiently within the TTE Screener",
+            "details": "",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 1
+          },
+          {
+            "id": 4,
+            "title": "Optimize Kernel AO Divergence for TTE Screener",
+            "description": "Optimize the Kernel AO Divergence.txt indicator for the TTE Screener. Only Logic 1 and Logic 2 regular divergences need to be optimized and integrated",
+            "details": "",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 1
+          },
+          {
+            "id": 5,
+            "title": "Optimize Multi Oscillator Swing High Low for TTE Screener",
+            "description": "Optimize the Multi Oscillator_swing high low.txt indicator for the TTE Screener. Only the Same Side regular divergence needs to be optimized and run efficiently",
+            "details": "",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 1
+          }
+        ]
+      }
+    ],
+    "metadata": {
+      "created": "2026-01-10T13:52:23.986Z",
+      "description": "Default tasks context",
+      "updated": "2026-01-10T14:21:10.925Z"
+    }
+  }
+}
