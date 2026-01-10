@@ -4,146 +4,87 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-TradingView to Everywhere (TTE) is an automated trading signals distribution system that bridges TradingView alerts with multiple social media platforms. It monitors TradingView for trading signals, captures and processes them, and distributes formatted trade information to Discord, Facebook, Twitter/X, and MongoDB.
+TradingView to Everywhere (TTE) is an automated trading signals distribution system that bridges TradingView alerts with multiple social media platforms. It monitors TradingView for trading signals via Selenium browser automation, captures and processes them, and distributes formatted trade information to Discord, Facebook, Twitter/X, and Firebase Firestore.
 
-## Common Development Tasks
-
-### Running the Application
+## Commands
 
 ```bash
-# Activate the virtual environment
+# Activate virtual environment
 pipenv shell
 
-# Run the main application
-python main.py
-
-# Run the GUI version
-python gui.py
-```
-
-### Managing Dependencies
-
-```bash
-# Install all dependencies
+# Install dependencies
 pipenv install
 
-# Add a new dependency
-pipenv install <package-name>
+# Run the main application (console mode)
+python main.py
 
-# Sync dependencies from Pipfile
-pipenv sync
+# Run with GUI
+python gui.py
+
+# Test Firebase connection
+python database/test_firebase.py
 ```
 
-## Architecture Overview
-
-### Core Components
-
-1. **Browser Controller** (`open_tv.py`): Manages Selenium browser automation and TradingView interaction
-2. **Alert Handler** (`handle_alerts.py`): Processes alert messages and extracts trade information
-3. **Chart Manager** (`open_entry_chart.py`): Navigates charts and captures screenshots
-4. **Exit Monitor** (`exits.py`): Tracks trade exits and distributes exit information
-5. **Social Distributors** (`send_to_socials/`): Distributes to Discord, Twitter, Facebook
-6. **Database Manager** (`database/`): MongoDB integration for trade storage
-
-### Key Files
-
-- `main.py`: Entry point with main trading loop
-- `gui.py`: Tkinter-based GUI interface
-- `env.py`: Environment configuration
-- `logger_setup.py`: Centralized logging configuration
-- `resources/symbol_settings.py`: Trading symbol categories and configurations
+## Architecture
 
 ### Data Flow
+1. TradingView generates alerts based on Premium Screener indicator
+2. TTE captures alert messages via Selenium (`handle_alerts.py`)
+3. TTE navigates to relevant chart/timeframe (`open_entry_chart.py`)
+4. Trade Drawer indicator draws entry with TP/SL levels
+5. Screenshots captured and distributed to Discord, Twitter/X, Facebook
+6. Entry stored in Firebase Firestore (`database/firebase_db.py`)
+7. Exit monitor (`exits.py`) checks if entries hit TP/SL in last 15 days
+8. Exit notifications distributed to all platforms
 
-1. TradingView generates alerts based on technical analysis
-2. TTE captures alert messages via Selenium
-3. TTE navigates to relevant chart/timeframe
-4. Screenshots taken with trade information overlay
-5. Distribution to multiple platforms
-6. Exit monitoring and notification
+### Core Modules
+- `main.py` - Entry point with main trading loop. Key constants: `SCREENER_SHORT`, `DRAWER_SHORT`, `INTERVAL_MINUTES`, `START_FRESH`
+- `open_tv.py` - Selenium browser automation. Key constants: `SYMBOL_INPUTS`, `CHART_TIMEFRAME`, `LAYOUT_NAME`
+- `handle_alerts.py` - Alert message parsing and entry extraction
+- `exits.py` - Monitors Firebase for entries that hit TP/SL targets
+- `env.py` - Environment configuration. `PROFILE` (Chrome profile), `COLLECTION` (Firestore collection name)
 
-## Important Configuration
+### Database
+Uses Firebase Firestore (migrated from MongoDB). Collection name configured in `env.py` as `COLLECTION`.
 
-### Environment Variables Required
+Document schema:
+- `direction`, `symbol`, `timeframe`, `category`
+- `entryPrice`, `slPrice`, `tp1Price`, `tp2Price`, `tp3Price`
+- `tvEntrySnapshot`, `pngEntrySnapshot`, `tvExitSnapshot`, `pngExitSnapshot`
+- `unixTime`, `content`
+- `isSlHit`, `isTp1Hit`, `isTp2Hit`, `isTp3Hit`
 
-- `CHROME_PROFILES_PATH`: Path to Chrome user data folder
-- `TRADINGVIEW_EMAIL`: TradingView login email (2FA must be disabled)
-- `TRADINGVIEW_PASSWORD`: TradingView login password
-- `MONGODB_PWD`: MongoDB database password
-- Discord webhook URLs (in `.env` file)
-- Twitter API keys (in `.env` file)
+### Social Distribution (`send_to_socials/`)
+- `discord.py` - Webhook-based posting to category-specific channels
+- `twitter.py` - X API integration
+- `_facebook.py` - Facebook posting (prefixed with `_` when inactive)
 
-### Chrome Profile Setup
+## Configuration
 
-1. Create a `TTE` folder in Chrome user data directory
-2. Configure the `PROFILE` constant in `env.py`
-3. Ensure no other Chrome instances are running during execution
+### Required Environment Variables
+- `CHROME_PROFILES_PATH` - Path to Chrome user data folder
+- `TRADINGVIEW_EMAIL` / `TRADINGVIEW_PASSWORD` - TradingView login (2FA must be disabled, no linked social accounts)
+- `FIREBASE_PROJECT_ID` / `FIREBASE_CREDENTIALS_PATH` - Firebase authentication
+- Discord webhook URLs and Twitter API keys in `.env` file
 
-### TradingView Requirements
+### TradingView Setup
+- Saved layout "Screener" with Premium Screener + Trade Drawer indicators
+- Saved layout "Exits" with Get Exits indicator
+- Both indicators must be starred/favorited
+- Alerts log must be visible (not minimized)
 
-1. Disable two-factor authentication
-2. No linked social accounts
-3. Saved layout named "Screener" with Premium Screener and Trade Drawer indicators
-4. Saved layout named "Exits" with Get Exits indicator
-5. Indicators must be starred/favorited
-
-## Key Constants
-
-### main.py
-- `SCREENER_SHORT`: 'Screener' (screener short title)
-- `DRAWER_SHORT`: 'Trade Drawer 2' (indicator short title)
-- `INTERVAL_MINUTES`: 10 (refresh and restart interval)
-- `START_FRESH`: True (delete and recreate alerts)
-- `SCREENER_TIMEFRAME_1/2/3`: Configured timeframes for screeners
-
-### open_tv.py
-- `SYMBOL_INPUTS`: Number of symbol inputs to fill (currently 5)
-- `CHART_TIMEFRAME`: Trading timeframe for entries
-- `SCREENER_REUPLOAD_TIMEOUT`: Wait time for screener re-upload
-
-## Testing and Debugging
-
-### Logs
-- Main log file: `app_log.log`
-- Continuous log trimming enabled to prevent overflow
-- Comprehensive logging throughout all modules
-
-### Common Issues
-- Browser memory usage - periodic refresh implemented
-- Alert rate limits - automatic restart of inactive alerts
-- TradingView UI changes - may require selector updates
-- MongoDB connection - check password and connection string
-
-## Development Guidelines
-
-1. Maintain modular structure with clear separation of concerns
-2. Use environment variables for all credentials and configurations
-3. Implement comprehensive error handling and logging
-4. Test browser automation thoroughly before deployment
-5. Handle API rate limits appropriately
-6. Never commit credentials or sensitive information
+### Symbol Categories
+Configured in `resources/symbol_settings.py`: Currencies, US Stocks, Indian Stocks, Crypto. Each category has separate Discord channels for entries, exits, and before-and-after.
 
 ## Critical Notes
 
-- Never manually interact with the Selenium-controlled browser
-- Ensure all Chrome browsers are closed before running
-- The Alerts log must be maximized (not minimized) in TradingView
-- The application will delete existing alerts when `START_FRESH=True`
-- MongoDB symbols must be synced with TradingView alerts
-- Whenever you make a mistake, write what you learnt from it in @AGENTS.md so that it's never repeated in the future
+- Never interact with the Selenium-controlled browser manually
+- Close all Chrome browsers before running
+- `START_FRESH=True` deletes all existing alerts and creates new ones
+- `START_FRESH=False` keeps existing alerts and reads unread messages
+- Browser refreshes every `INTERVAL_MINUTES` (default: 10) to prevent freezing
+- Log file: `app_log.log` (auto-trimmed to prevent overflow)
 
-## Troubleshooting Commands
+## Lessons Learned
 
-```bash
-# Check Python version (must be 3.11)
-python --version
-
-# List installed packages
-pipenv graph
-
-# Clear log file
-echo "" > app_log.log
-
-# Test MongoDB connection
-python -c "from database.local_db import db; print(db.list_collection_names())"
-```
+When making mistakes, document them in `AGENTS.md` to prevent repetition.

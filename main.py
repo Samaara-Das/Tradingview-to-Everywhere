@@ -30,40 +30,43 @@ import time as time_module
 # Set up logger for this file
 main_logger = logger_setup.setup_logger(__name__, logger_setup.INFO)
 
-SCREENER_SHORT = 'Screener' # short title of the screener
-DRAWER_SHORT = 'Trade' # short title of the trade drawer indicator 
-SCREENER_NAME = 'Premium Screener' # name of the screener
-DRAWER_NAME = 'Trade Drawer' # name of the trade drawer
-REMOVE_LOG = True # remove the content of the log file (to clean it up)
-INTERVAL_MINUTES = 10 # number of mins to wait until inactive alerts get reactivated and for the browser to refresh (refreshing will hopefully prevent the browser and this application from freezing)
+SCREENER_SHORT = "Screener"  # short title of the screener
+DRAWER_SHORT = "Trade"  # short title of the trade drawer indicator
+SCREENER_NAME = "Premium Screener"  # name of the screener
+DRAWER_NAME = "Trade Drawer"  # name of the trade drawer
+REMOVE_LOG = True  # remove the content of the log file (to clean it up)
+INTERVAL_MINUTES = 10  # number of mins to wait until inactive alerts get reactivated and for the browser to refresh (refreshing will hopefully prevent the browser and this application from freezing)
 START_FRESH = True
 
 # Convert the interval to seconds
 interval_seconds = INTERVAL_MINUTES * 60
 
+
 def run_trading_view(on_status_change=None):
     """
     Run the main TradingView monitoring loop.
-    
+
     Args:
         on_status_change: Optional callback function to receive status updates.
                          Will be called with (status_message, is_error)
-    
+
     Returns:
         None
-    
+
     Raises:
         Exception: If initialization fails or any error occurs during execution
     """
     try:
-        logger_setup.start_continuous_trim('app_log.log')
+        logger_setup.start_continuous_trim("app_log.log")
 
         # Just a separator to make the log look readable
-        main_logger.info('Start ***********************************************************************************')
+        main_logger.info(
+            "Start ***********************************************************************************"
+        )
 
         if REMOVE_LOG:
             try:
-                open('app_log.log', 'w', encoding='utf-8').close()
+                open("app_log.log", "w", encoding="utf-8").close()
             except PermissionError:
                 main_logger.warning("Unable to clear log file due to permission error.")
 
@@ -71,7 +74,15 @@ def run_trading_view(on_status_change=None):
             on_status_change("Initializing browser...", False)
 
         # initiate Browser
-        browser = open_tv.Browser(True, SCREENER_SHORT, SCREENER_NAME, DRAWER_SHORT, DRAWER_NAME, INTERVAL_MINUTES, START_FRESH)
+        browser = open_tv.Browser(
+            True,
+            SCREENER_SHORT,
+            SCREENER_NAME,
+            DRAWER_SHORT,
+            DRAWER_NAME,
+            INTERVAL_MINUTES,
+            START_FRESH,
+        )
 
         # setup the indicators, alerts etc.
         setup_check = browser.setup_tv()
@@ -85,7 +96,9 @@ def run_trading_view(on_status_change=None):
                 on_status_change("Running - monitoring for alerts...", False)
 
             last_run = time_module.time()
-            exits = get_exits.Exits(browser.alerts.local_db, browser.open_chart, browser)
+            exits = get_exits.Exits(
+                browser.alerts.local_db, browser.open_chart, browser
+            )
             while True:
                 # restart all the inactive alerts every INTERVAL_MINUTES minutes (this is also done in get_alert_data.py in the method get_alert_box_and_msg()) and refresh browser
                 if time_module.time() - last_run > interval_seconds:
@@ -106,11 +119,12 @@ def run_trading_view(on_status_change=None):
             raise Exception("Failed to initialize TradingView setup")
 
     except Exception as e:
-        main_logger.exception(f'Error in main.py:')
+        main_logger.exception(f"Error in main.py:")
         if on_status_change:
             on_status_change(str(e), True)
         raise
 
+
 # Run main code if script is run directly
-if __name__ == '__main__':
+if __name__ == "__main__":
     run_trading_view()

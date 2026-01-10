@@ -18,7 +18,7 @@
           "hooks": [
             {
               "type": "command",
-              "command": "C:\\Users\\dassa\\AppData\\Roaming\\Python\\Python314\\Scripts\\black.exe . || true"
+              "command": "C:\\Users\\dassa\\AppData\\Roaming\\Python\\Python314\\Scripts\\black.exe --quiet . 2>nul || true"
             }
           ]
         }
