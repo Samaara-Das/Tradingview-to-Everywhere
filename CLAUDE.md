@@ -130,6 +130,7 @@ pipenv sync
 - The Alerts log must be maximized (not minimized) in TradingView
 - The application will delete existing alerts when `START_FRESH=True`
 - MongoDB symbols must be synced with TradingView alerts
+- Whenever you make a mistake, write what you learnt from it in @AGENTS.md so that it's never repeated in the future
 
 ## Troubleshooting Commands
 
