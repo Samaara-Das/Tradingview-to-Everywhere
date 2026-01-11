@@ -44,5 +44,166 @@ s18 = input.symbol('BTCUSDT', group='Symbols', inline='s18')
 s19 = input.symbol('BTCUSDT', group='Symbols', inline='s19')
 s20 = input.symbol('BTCUSDT', group='Symbols', inline='s20')
 
+///////////////////////
+// SIGNAL DETECTION  //
+///////////////////////
+
+// Placeholder function to check for entry signals
+// Returns: [hasSignal, direction, entryPrice, slPrice, tp1Price, tp2Price, tp3Price]
+// Add your indicator logic here
+checkSignal() =>
+    // TODO: Add your indicator calculations here
+    // Example structure:
+    // longCondition = ...
+    // shortCondition = ...
+
+    bool hasSignal = false
+    int direction = 0  // 1 = long, -1 = short, 0 = none
+    float entryPrice = close
+    float slPrice = na
+    float tp1Price = na
+    float tp2Price = na
+    float tp3Price = na
+
+    [hasSignal, direction, entryPrice, slPrice, tp1Price, tp2Price, tp3Price]
+
+////////////////////////////
+// REQUEST SECURITY CALLS //
+////////////////////////////
+
+// Get signals from each symbol using request.security()
+// Pine Script requires explicit calls - cannot use dynamic loops
+
+[sig01, dir01, entry01, sl01, tp1_01, tp2_01, tp3_01] = request.security(s01, TF, checkSignal())
+[sig02, dir02, entry02, sl02, tp1_02, tp2_02, tp3_02] = request.security(s02, TF, checkSignal())
+[sig03, dir03, entry03, sl03, tp1_03, tp2_03, tp3_03] = request.security(s03, TF, checkSignal())
+[sig04, dir04, entry04, sl04, tp1_04, tp2_04, tp3_04] = request.security(s04, TF, checkSignal())
+[sig05, dir05, entry05, sl05, tp1_05, tp2_05, tp3_05] = request.security(s05, TF, checkSignal())
+[sig06, dir06, entry06, sl06, tp1_06, tp2_06, tp3_06] = request.security(s06, TF, checkSignal())
+[sig07, dir07, entry07, sl07, tp1_07, tp2_07, tp3_07] = request.security(s07, TF, checkSignal())
+[sig08, dir08, entry08, sl08, tp1_08, tp2_08, tp3_08] = request.security(s08, TF, checkSignal())
+[sig09, dir09, entry09, sl09, tp1_09, tp2_09, tp3_09] = request.security(s09, TF, checkSignal())
+[sig10, dir10, entry10, sl10, tp1_10, tp2_10, tp3_10] = request.security(s10, TF, checkSignal())
+[sig11, dir11, entry11, sl11, tp1_11, tp2_11, tp3_11] = request.security(s11, TF, checkSignal())
+[sig12, dir12, entry12, sl12, tp1_12, tp2_12, tp3_12] = request.security(s12, TF, checkSignal())
+[sig13, dir13, entry13, sl13, tp1_13, tp2_13, tp3_13] = request.security(s13, TF, checkSignal())
+[sig14, dir14, entry14, sl14, tp1_14, tp2_14, tp3_14] = request.security(s14, TF, checkSignal())
+[sig15, dir15, entry15, sl15, tp1_15, tp2_15, tp3_15] = request.security(s15, TF, checkSignal())
+[sig16, dir16, entry16, sl16, tp1_16, tp2_16, tp3_16] = request.security(s16, TF, checkSignal())
+[sig17, dir17, entry17, sl17, tp1_17, tp2_17, tp3_17] = request.security(s17, TF, checkSignal())
+[sig18, dir18, entry18, sl18, tp1_18, tp2_18, tp3_18] = request.security(s18, TF, checkSignal())
+[sig19, dir19, entry19, sl19, tp1_19, tp2_19, tp3_19] = request.security(s19, TF, checkSignal())
+[sig20, dir20, entry20, sl20, tp1_20, tp2_20, tp3_20] = request.security(s20, TF, checkSignal())
+
+/////////////////////
+// SIGNAL CHECKING //
+/////////////////////
+
+// Check each symbol based on usedSymbols count
+// Only process symbols within the configured range
+
+bool anySignal = false
+string alertMessage = ""
+
+// Helper function to format symbol name (removes exchange prefix)
+getSymbolName(string fullSymbol) =>
+    string result = fullSymbol
+    if str.contains(fullSymbol, ":")
+        result := array.get(str.split(fullSymbol, ":"), 1)
+    result
+
+// Helper function to get direction string
+getDirStr(int dir) =>
+    dir == 1 ? "LONG" : dir == -1 ? "SHORT" : "NONE"
+
+// Check each symbol and build alert message
+if usedSymbols >= 1 and sig01
+    anySignal := true
+    alertMessage += getSymbolName(s01) + "|" + getDirStr(dir01) + "|" + str.tostring(entry01) + "|" + str.tostring(sl01) + "|" + str.tostring(tp1_01) + "|" + str.tostring(tp2_01) + "|" + str.tostring(tp3_01) + "\n"
+
+if usedSymbols >= 2 and sig02
+    anySignal := true
+    alertMessage += getSymbolName(s02) + "|" + getDirStr(dir02) + "|" + str.tostring(entry02) + "|" + str.tostring(sl02) + "|" + str.tostring(tp1_02) + "|" + str.tostring(tp2_02) + "|" + str.tostring(tp3_02) + "\n"
+
+if usedSymbols >= 3 and sig03
+    anySignal := true
+    alertMessage += getSymbolName(s03) + "|" + getDirStr(dir03) + "|" + str.tostring(entry03) + "|" + str.tostring(sl03) + "|" + str.tostring(tp1_03) + "|" + str.tostring(tp2_03) + "|" + str.tostring(tp3_03) + "\n"
+
+if usedSymbols >= 4 and sig04
+    anySignal := true
+    alertMessage += getSymbolName(s04) + "|" + getDirStr(dir04) + "|" + str.tostring(entry04) + "|" + str.tostring(sl04) + "|" + str.tostring(tp1_04) + "|" + str.tostring(tp2_04) + "|" + str.tostring(tp3_04) + "\n"
+
+if usedSymbols >= 5 and sig05
+    anySignal := true
+    alertMessage += getSymbolName(s05) + "|" + getDirStr(dir05) + "|" + str.tostring(entry05) + "|" + str.tostring(sl05) + "|" + str.tostring(tp1_05) + "|" + str.tostring(tp2_05) + "|" + str.tostring(tp3_05) + "\n"
+
+if usedSymbols >= 6 and sig06
+    anySignal := true
+    alertMessage += getSymbolName(s06) + "|" + getDirStr(dir06) + "|" + str.tostring(entry06) + "|" + str.tostring(sl06) + "|" + str.tostring(tp1_06) + "|" + str.tostring(tp2_06) + "|" + str.tostring(tp3_06) + "\n"
+
+if usedSymbols >= 7 and sig07
+    anySignal := true
+    alertMessage += getSymbolName(s07) + "|" + getDirStr(dir07) + "|" + str.tostring(entry07) + "|" + str.tostring(sl07) + "|" + str.tostring(tp1_07) + "|" + str.tostring(tp2_07) + "|" + str.tostring(tp3_07) + "\n"
+
+if usedSymbols >= 8 and sig08
+    anySignal := true
+    alertMessage += getSymbolName(s08) + "|" + getDirStr(dir08) + "|" + str.tostring(entry08) + "|" + str.tostring(sl08) + "|" + str.tostring(tp1_08) + "|" + str.tostring(tp2_08) + "|" + str.tostring(tp3_08) + "\n"
+
+if usedSymbols >= 9 and sig09
+    anySignal := true
+    alertMessage += getSymbolName(s09) + "|" + getDirStr(dir09) + "|" + str.tostring(entry09) + "|" + str.tostring(sl09) + "|" + str.tostring(tp1_09) + "|" + str.tostring(tp2_09) + "|" + str.tostring(tp3_09) + "\n"
+
+if usedSymbols >= 10 and sig10
+    anySignal := true
+    alertMessage += getSymbolName(s10) + "|" + getDirStr(dir10) + "|" + str.tostring(entry10) + "|" + str.tostring(sl10) + "|" + str.tostring(tp1_10) + "|" + str.tostring(tp2_10) + "|" + str.tostring(tp3_10) + "\n"
+
+if usedSymbols >= 11 and sig11
+    anySignal := true
+    alertMessage += getSymbolName(s11) + "|" + getDirStr(dir11) + "|" + str.tostring(entry11) + "|" + str.tostring(sl11) + "|" + str.tostring(tp1_11) + "|" + str.tostring(tp2_11) + "|" + str.tostring(tp3_11) + "\n"
+
+if usedSymbols >= 12 and sig12
+    anySignal := true
+    alertMessage += getSymbolName(s12) + "|" + getDirStr(dir12) + "|" + str.tostring(entry12) + "|" + str.tostring(sl12) + "|" + str.tostring(tp1_12) + "|" + str.tostring(tp2_12) + "|" + str.tostring(tp3_12) + "\n"
+
+if usedSymbols >= 13 and sig13
+    anySignal := true
+    alertMessage += getSymbolName(s13) + "|" + getDirStr(dir13) + "|" + str.tostring(entry13) + "|" + str.tostring(sl13) + "|" + str.tostring(tp1_13) + "|" + str.tostring(tp2_13) + "|" + str.tostring(tp3_13) + "\n"
+
+if usedSymbols >= 14 and sig14
+    anySignal := true
+    alertMessage += getSymbolName(s14) + "|" + getDirStr(dir14) + "|" + str.tostring(entry14) + "|" + str.tostring(sl14) + "|" + str.tostring(tp1_14) + "|" + str.tostring(tp2_14) + "|" + str.tostring(tp3_14) + "\n"
+
+if usedSymbols >= 15 and sig15
+    anySignal := true
+    alertMessage += getSymbolName(s15) + "|" + getDirStr(dir15) + "|" + str.tostring(entry15) + "|" + str.tostring(sl15) + "|" + str.tostring(tp1_15) + "|" + str.tostring(tp2_15) + "|" + str.tostring(tp3_15) + "\n"
+
+if usedSymbols >= 16 and sig16
+    anySignal := true
+    alertMessage += getSymbolName(s16) + "|" + getDirStr(dir16) + "|" + str.tostring(entry16) + "|" + str.tostring(sl16) + "|" + str.tostring(tp1_16) + "|" + str.tostring(tp2_16) + "|" + str.tostring(tp3_16) + "\n"
+
+if usedSymbols >= 17 and sig17
+    anySignal := true
+    alertMessage += getSymbolName(s17) + "|" + getDirStr(dir17) + "|" + str.tostring(entry17) + "|" + str.tostring(sl17) + "|" + str.tostring(tp1_17) + "|" + str.tostring(tp2_17) + "|" + str.tostring(tp3_17) + "\n"
+
+if usedSymbols >= 18 and sig18
+    anySignal := true
+    alertMessage += getSymbolName(s18) + "|" + getDirStr(dir18) + "|" + str.tostring(entry18) + "|" + str.tostring(sl18) + "|" + str.tostring(tp1_18) + "|" + str.tostring(tp2_18) + "|" + str.tostring(tp3_18) + "\n"
+
+if usedSymbols >= 19 and sig19
+    anySignal := true
+    alertMessage += getSymbolName(s19) + "|" + getDirStr(dir19) + "|" + str.tostring(entry19) + "|" + str.tostring(sl19) + "|" + str.tostring(tp1_19) + "|" + str.tostring(tp2_19) + "|" + str.tostring(tp3_19) + "\n"
+
+if usedSymbols >= 20 and sig20
+    anySignal := true
+    alertMessage += getSymbolName(s20) + "|" + getDirStr(dir20) + "|" + str.tostring(entry20) + "|" + str.tostring(sl20) + "|" + str.tostring(tp1_20) + "|" + str.tostring(tp2_20) + "|" + str.tostring(tp3_20) + "\n"
+
+////////////
+// ALERTS //
+////////////
+
+// Trigger alert when any signal is detected
+if anySignal
+    alert(alertMessage, alert.freq_once_per_bar_close)
+
 // Required for valid indicator
 plot(na)
