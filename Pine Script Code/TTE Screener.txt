@@ -2,11 +2,15 @@
 // © SamaaraDas
 
 // @description
-// This screener monitors 10 symbols for entry signals. When entry conditions are met,
-// an alert is generated containing signal details.
+// This screener monitors up to 20 symbols for entry signals using Nadaraya-Watson Envelope.
+// When entry conditions are met, an alert is generated containing signal details.
+// Signals: Long when price closes below lower_near band, Short when price closes above upper_near band.
 
 //@version=5
 indicator("Premium Screener", 'Screener', overlay = true, precision = 5)
+
+// Libraries
+import jdehorty/KernelFunctions/2 as kernels
 
 ////////////
 // INPUTS //
@@ -19,7 +23,9 @@ int f3 = input.int(1000, 'fill3')
 int f4 = input.int(1000, 'fill4')
 int f5 = input.int(1000, 'fill5')
 
-string TF = timeframe.period
+// Timeframes for NWE calculations
+string TF_H4 = "240"    // 4 hour
+string TF_D1 = "D"      // Daily
 
 // Symbol inputs
 usedSymbols = input.int(10, title = 'Used Symbols', group = 'Symbols', tooltip = 'The total number of symbols which will be checked for entries')
@@ -44,66 +50,89 @@ s18 = input.symbol('BTCUSDT', group='Symbols', inline='s18')
 s19 = input.symbol('BTCUSDT', group='Symbols', inline='s19')
 s20 = input.symbol('BTCUSDT', group='Symbols', inline='s20')
 
+// NWE (Nadaraya-Watson Envelope) Settings
+nwe_h = input.int(8, 'NWE Lookback Window', minval=3, maxval=50, group='NWE Settings', tooltip='The number of bars used for the kernel estimation. Recommended: 3-50')
+nwe_alpha = input.float(8., 'NWE Relative Weighting', step=0.25, minval=0.25, maxval=25, group='NWE Settings', tooltip='Relative weighting of time frames. Recommended: 0.25-25')
+nwe_x0 = input.int(25, 'NWE Start Regression Bar', minval=5, maxval=50, group='NWE Settings', tooltip='Bar index to start regression. Recommended: 5-25')
+nwe_atrLen = input.int(60, 'NWE ATR Length', minval=1, group='NWE Settings', tooltip='ATR period for envelope bounds')
+nwe_nearFactor = input.float(1.5, 'NWE Near ATR Factor', minval=0.5, step=0.25, group='NWE Settings', tooltip='Multiplier for near envelope bounds. Recommended: 0.5-2.0')
+nwe_farFactor = input.float(8.0, 'NWE Far ATR Factor', minval=1.0, step=0.25, group='NWE Settings', tooltip='Multiplier for far envelope bounds. Recommended: 6.0-8.0')
+
+/////////////////////
+// HELPER FUNCTIONS //
+/////////////////////
+
+// Kernel ATR calculation using kernel-smoothed high/low/close
+kernel_atr(int length, float _high, float _low, float _close) =>
+    float trueRange = na(_high[1]) ? _high - _low : math.max(math.max(_high - _low, math.abs(_high - _close[1])), math.abs(_low - _close[1]))
+    ta.rma(trueRange, length)
+
+// Calculate NWE envelope bounds
+// Returns: [yhat, upper_near, upper_far, lower_near, lower_far]
+calcNWE(float _close, float _high, float _low, int h, float alpha, int x0, int atrLen, float nearF, float farF) =>
+    // Kernel regression on price
+    float yhat_close = kernels.rationalQuadratic(_close, h, alpha, x0)
+    float yhat_high = kernels.rationalQuadratic(_high, h, alpha, x0)
+    float yhat_low = kernels.rationalQuadratic(_low, h, alpha, x0)
+
+    // Kernel ATR
+    float ktr = kernel_atr(atrLen, yhat_high, yhat_low, yhat_close)
+
+    // Envelope bounds
+    float upper_far = yhat_close + farF * ktr
+    float upper_near = yhat_close + nearF * ktr
+    float lower_near = yhat_close - nearF * ktr
+    float lower_far = yhat_close - farF * ktr
+
+    [yhat_close, upper_near, upper_far, lower_near, lower_far]
+
 ///////////////////////
 // SIGNAL DETECTION  //
 ///////////////////////
 
-// Placeholder function to check for entry signals
-// Returns: [hasSignal, direction, entryPrice, slPrice, tp1Price, tp2Price, tp3Price]
-// Add your indicator logic here
+// DEBUG: Return NWE values for testing
+// Returns: [yhat, upper_far] to verify calculations across symbols
 checkSignal() =>
-    // TODO: Add your indicator calculations here
-    // Example structure:
-    // longCondition = ...
-    // shortCondition = ...
+    // Calculate NWE envelope
+    [yhat, upper_near, upper_far, lower_near, lower_far] = calcNWE(close, high, low, nwe_h, nwe_alpha, nwe_x0, nwe_atrLen, nwe_nearFactor, nwe_farFactor)
 
-    bool hasSignal = false
-    int direction = 0  // 1 = long, -1 = short, 0 = none
-    float entryPrice = close
-    float slPrice = na
-    float tp1Price = na
-    float tp2Price = na
-    float tp3Price = na
-
-    [hasSignal, direction, entryPrice, slPrice, tp1Price, tp2Price, tp3Price]
+    // Return values with [1] offset for non-repainting
+    [yhat[1], upper_far[1]]
 
 ////////////////////////////
 // REQUEST SECURITY CALLS //
 ////////////////////////////
 
-// Get signals from each symbol using request.security()
-// Pine Script requires explicit calls - cannot use dynamic loops
+// DEBUG: Get NWE values from each symbol on H4 and Daily timeframes
+// Returns: [yhat, upper_far] for each symbol/timeframe combination
 
-[sig01, dir01, entry01, sl01, tp1_01, tp2_01, tp3_01] = request.security(s01, TF, checkSignal())
-[sig02, dir02, entry02, sl02, tp1_02, tp2_02, tp3_02] = request.security(s02, TF, checkSignal())
-[sig03, dir03, entry03, sl03, tp1_03, tp2_03, tp3_03] = request.security(s03, TF, checkSignal())
-[sig04, dir04, entry04, sl04, tp1_04, tp2_04, tp3_04] = request.security(s04, TF, checkSignal())
-[sig05, dir05, entry05, sl05, tp1_05, tp2_05, tp3_05] = request.security(s05, TF, checkSignal())
-[sig06, dir06, entry06, sl06, tp1_06, tp2_06, tp3_06] = request.security(s06, TF, checkSignal())
-[sig07, dir07, entry07, sl07, tp1_07, tp2_07, tp3_07] = request.security(s07, TF, checkSignal())
-[sig08, dir08, entry08, sl08, tp1_08, tp2_08, tp3_08] = request.security(s08, TF, checkSignal())
-[sig09, dir09, entry09, sl09, tp1_09, tp2_09, tp3_09] = request.security(s09, TF, checkSignal())
-[sig10, dir10, entry10, sl10, tp1_10, tp2_10, tp3_10] = request.security(s10, TF, checkSignal())
-[sig11, dir11, entry11, sl11, tp1_11, tp2_11, tp3_11] = request.security(s11, TF, checkSignal())
-[sig12, dir12, entry12, sl12, tp1_12, tp2_12, tp3_12] = request.security(s12, TF, checkSignal())
-[sig13, dir13, entry13, sl13, tp1_13, tp2_13, tp3_13] = request.security(s13, TF, checkSignal())
-[sig14, dir14, entry14, sl14, tp1_14, tp2_14, tp3_14] = request.security(s14, TF, checkSignal())
-[sig15, dir15, entry15, sl15, tp1_15, tp2_15, tp3_15] = request.security(s15, TF, checkSignal())
-[sig16, dir16, entry16, sl16, tp1_16, tp2_16, tp3_16] = request.security(s16, TF, checkSignal())
-[sig17, dir17, entry17, sl17, tp1_17, tp2_17, tp3_17] = request.security(s17, TF, checkSignal())
-[sig18, dir18, entry18, sl18, tp1_18, tp2_18, tp3_18] = request.security(s18, TF, checkSignal())
-[sig19, dir19, entry19, sl19, tp1_19, tp2_19, tp3_19] = request.security(s19, TF, checkSignal())
-[sig20, dir20, entry20, sl20, tp1_20, tp2_20, tp3_20] = request.security(s20, TF, checkSignal())
+// H4 timeframe
+[yhat01_h4, uf01_h4] = request.security(s01, TF_H4, checkSignal())
+[yhat02_h4, uf02_h4] = request.security(s02, TF_H4, checkSignal())
+[yhat03_h4, uf03_h4] = request.security(s03, TF_H4, checkSignal())
+[yhat04_h4, uf04_h4] = request.security(s04, TF_H4, checkSignal())
+[yhat05_h4, uf05_h4] = request.security(s05, TF_H4, checkSignal())
+[yhat06_h4, uf06_h4] = request.security(s06, TF_H4, checkSignal())
+[yhat07_h4, uf07_h4] = request.security(s07, TF_H4, checkSignal())
+[yhat08_h4, uf08_h4] = request.security(s08, TF_H4, checkSignal())
+[yhat09_h4, uf09_h4] = request.security(s09, TF_H4, checkSignal())
+[yhat10_h4, uf10_h4] = request.security(s10, TF_H4, checkSignal())
 
-/////////////////////
-// SIGNAL CHECKING //
-/////////////////////
+// Daily timeframe
+[yhat01_d1, uf01_d1] = request.security(s01, TF_D1, checkSignal())
+[yhat02_d1, uf02_d1] = request.security(s02, TF_D1, checkSignal())
+[yhat03_d1, uf03_d1] = request.security(s03, TF_D1, checkSignal())
+[yhat04_d1, uf04_d1] = request.security(s04, TF_D1, checkSignal())
+[yhat05_d1, uf05_d1] = request.security(s05, TF_D1, checkSignal())
+[yhat06_d1, uf06_d1] = request.security(s06, TF_D1, checkSignal())
+[yhat07_d1, uf07_d1] = request.security(s07, TF_D1, checkSignal())
+[yhat08_d1, uf08_d1] = request.security(s08, TF_D1, checkSignal())
+[yhat09_d1, uf09_d1] = request.security(s09, TF_D1, checkSignal())
+[yhat10_d1, uf10_d1] = request.security(s10, TF_D1, checkSignal())
 
-// Check each symbol based on usedSymbols count
-// Only process symbols within the configured range
-
-bool anySignal = false
-string alertMessage = ""
+//////////////////////
+// DEBUG: DISPLAY   //
+//////////////////////
 
 // Helper function to format symbol name (removes exchange prefix)
 getSymbolName(string fullSymbol) =>
@@ -112,98 +141,78 @@ getSymbolName(string fullSymbol) =>
         result := array.get(str.split(fullSymbol, ":"), 1)
     result
 
-// Helper function to get direction string
-getDirStr(int dir) =>
-    dir == 1 ? "LONG" : dir == -1 ? "SHORT" : "NONE"
+// Build debug table to display NWE values for each symbol on H4 and Daily
+var table debugTable = table.new(position.top_right, 6, 12, bgcolor=color.new(color.black, 80), border_width=1)
 
-// Check each symbol and build alert message
-if usedSymbols >= 1 and sig01
-    anySignal := true
-    alertMessage += getSymbolName(s01) + "|" + getDirStr(dir01) + "|" + str.tostring(entry01) + "|" + str.tostring(sl01) + "|" + str.tostring(tp1_01) + "|" + str.tostring(tp2_01) + "|" + str.tostring(tp3_01) + "\n"
+if barstate.islast
+    // Header row
+    table.cell(debugTable, 0, 0, "Symbol", text_color=color.white, text_size=size.small)
+    table.cell(debugTable, 1, 0, "H4 yhat", text_color=color.aqua, text_size=size.small)
+    table.cell(debugTable, 2, 0, "H4 uf", text_color=color.aqua, text_size=size.small)
+    table.cell(debugTable, 3, 0, "D1 yhat", text_color=color.orange, text_size=size.small)
+    table.cell(debugTable, 4, 0, "D1 uf", text_color=color.orange, text_size=size.small)
 
-if usedSymbols >= 2 and sig02
-    anySignal := true
-    alertMessage += getSymbolName(s02) + "|" + getDirStr(dir02) + "|" + str.tostring(entry02) + "|" + str.tostring(sl02) + "|" + str.tostring(tp1_02) + "|" + str.tostring(tp2_02) + "|" + str.tostring(tp3_02) + "\n"
-
-if usedSymbols >= 3 and sig03
-    anySignal := true
-    alertMessage += getSymbolName(s03) + "|" + getDirStr(dir03) + "|" + str.tostring(entry03) + "|" + str.tostring(sl03) + "|" + str.tostring(tp1_03) + "|" + str.tostring(tp2_03) + "|" + str.tostring(tp3_03) + "\n"
-
-if usedSymbols >= 4 and sig04
-    anySignal := true
-    alertMessage += getSymbolName(s04) + "|" + getDirStr(dir04) + "|" + str.tostring(entry04) + "|" + str.tostring(sl04) + "|" + str.tostring(tp1_04) + "|" + str.tostring(tp2_04) + "|" + str.tostring(tp3_04) + "\n"
-
-if usedSymbols >= 5 and sig05
-    anySignal := true
-    alertMessage += getSymbolName(s05) + "|" + getDirStr(dir05) + "|" + str.tostring(entry05) + "|" + str.tostring(sl05) + "|" + str.tostring(tp1_05) + "|" + str.tostring(tp2_05) + "|" + str.tostring(tp3_05) + "\n"
-
-if usedSymbols >= 6 and sig06
-    anySignal := true
-    alertMessage += getSymbolName(s06) + "|" + getDirStr(dir06) + "|" + str.tostring(entry06) + "|" + str.tostring(sl06) + "|" + str.tostring(tp1_06) + "|" + str.tostring(tp2_06) + "|" + str.tostring(tp3_06) + "\n"
-
-if usedSymbols >= 7 and sig07
-    anySignal := true
-    alertMessage += getSymbolName(s07) + "|" + getDirStr(dir07) + "|" + str.tostring(entry07) + "|" + str.tostring(sl07) + "|" + str.tostring(tp1_07) + "|" + str.tostring(tp2_07) + "|" + str.tostring(tp3_07) + "\n"
-
-if usedSymbols >= 8 and sig08
-    anySignal := true
-    alertMessage += getSymbolName(s08) + "|" + getDirStr(dir08) + "|" + str.tostring(entry08) + "|" + str.tostring(sl08) + "|" + str.tostring(tp1_08) + "|" + str.tostring(tp2_08) + "|" + str.tostring(tp3_08) + "\n"
-
-if usedSymbols >= 9 and sig09
-    anySignal := true
-    alertMessage += getSymbolName(s09) + "|" + getDirStr(dir09) + "|" + str.tostring(entry09) + "|" + str.tostring(sl09) + "|" + str.tostring(tp1_09) + "|" + str.tostring(tp2_09) + "|" + str.tostring(tp3_09) + "\n"
-
-if usedSymbols >= 10 and sig10
-    anySignal := true
-    alertMessage += getSymbolName(s10) + "|" + getDirStr(dir10) + "|" + str.tostring(entry10) + "|" + str.tostring(sl10) + "|" + str.tostring(tp1_10) + "|" + str.tostring(tp2_10) + "|" + str.tostring(tp3_10) + "\n"
-
-if usedSymbols >= 11 and sig11
-    anySignal := true
-    alertMessage += getSymbolName(s11) + "|" + getDirStr(dir11) + "|" + str.tostring(entry11) + "|" + str.tostring(sl11) + "|" + str.tostring(tp1_11) + "|" + str.tostring(tp2_11) + "|" + str.tostring(tp3_11) + "\n"
-
-if usedSymbols >= 12 and sig12
-    anySignal := true
-    alertMessage += getSymbolName(s12) + "|" + getDirStr(dir12) + "|" + str.tostring(entry12) + "|" + str.tostring(sl12) + "|" + str.tostring(tp1_12) + "|" + str.tostring(tp2_12) + "|" + str.tostring(tp3_12) + "\n"
-
-if usedSymbols >= 13 and sig13
-    anySignal := true
-    alertMessage += getSymbolName(s13) + "|" + getDirStr(dir13) + "|" + str.tostring(entry13) + "|" + str.tostring(sl13) + "|" + str.tostring(tp1_13) + "|" + str.tostring(tp2_13) + "|" + str.tostring(tp3_13) + "\n"
-
-if usedSymbols >= 14 and sig14
-    anySignal := true
-    alertMessage += getSymbolName(s14) + "|" + getDirStr(dir14) + "|" + str.tostring(entry14) + "|" + str.tostring(sl14) + "|" + str.tostring(tp1_14) + "|" + str.tostring(tp2_14) + "|" + str.tostring(tp3_14) + "\n"
-
-if usedSymbols >= 15 and sig15
-    anySignal := true
-    alertMessage += getSymbolName(s15) + "|" + getDirStr(dir15) + "|" + str.tostring(entry15) + "|" + str.tostring(sl15) + "|" + str.tostring(tp1_15) + "|" + str.tostring(tp2_15) + "|" + str.tostring(tp3_15) + "\n"
-
-if usedSymbols >= 16 and sig16
-    anySignal := true
-    alertMessage += getSymbolName(s16) + "|" + getDirStr(dir16) + "|" + str.tostring(entry16) + "|" + str.tostring(sl16) + "|" + str.tostring(tp1_16) + "|" + str.tostring(tp2_16) + "|" + str.tostring(tp3_16) + "\n"
-
-if usedSymbols >= 17 and sig17
-    anySignal := true
-    alertMessage += getSymbolName(s17) + "|" + getDirStr(dir17) + "|" + str.tostring(entry17) + "|" + str.tostring(sl17) + "|" + str.tostring(tp1_17) + "|" + str.tostring(tp2_17) + "|" + str.tostring(tp3_17) + "\n"
-
-if usedSymbols >= 18 and sig18
-    anySignal := true
-    alertMessage += getSymbolName(s18) + "|" + getDirStr(dir18) + "|" + str.tostring(entry18) + "|" + str.tostring(sl18) + "|" + str.tostring(tp1_18) + "|" + str.tostring(tp2_18) + "|" + str.tostring(tp3_18) + "\n"
-
-if usedSymbols >= 19 and sig19
-    anySignal := true
-    alertMessage += getSymbolName(s19) + "|" + getDirStr(dir19) + "|" + str.tostring(entry19) + "|" + str.tostring(sl19) + "|" + str.tostring(tp1_19) + "|" + str.tostring(tp2_19) + "|" + str.tostring(tp3_19) + "\n"
-
-if usedSymbols >= 20 and sig20
-    anySignal := true
-    alertMessage += getSymbolName(s20) + "|" + getDirStr(dir20) + "|" + str.tostring(entry20) + "|" + str.tostring(sl20) + "|" + str.tostring(tp1_20) + "|" + str.tostring(tp2_20) + "|" + str.tostring(tp3_20) + "\n"
-
-////////////
-// ALERTS //
-////////////
-
-// Trigger alert when any signal is detected
-if anySignal
-    alert(alertMessage, alert.freq_once_per_bar_close)
+    // Symbol rows (only show used symbols)
+    if usedSymbols >= 1
+        table.cell(debugTable, 0, 1, getSymbolName(s01), text_color=color.yellow, text_size=size.small)
+        table.cell(debugTable, 1, 1, str.tostring(yhat01_h4, "#.#####"), text_color=color.lime, text_size=size.small)
+        table.cell(debugTable, 2, 1, str.tostring(uf01_h4, "#.#####"), text_color=color.red, text_size=size.small)
+        table.cell(debugTable, 3, 1, str.tostring(yhat01_d1, "#.#####"), text_color=color.lime, text_size=size.small)
+        table.cell(debugTable, 4, 1, str.tostring(uf01_d1, "#.#####"), text_color=color.red, text_size=size.small)
+    if usedSymbols >= 2
+        table.cell(debugTable, 0, 2, getSymbolName(s02), text_color=color.yellow, text_size=size.small)
+        table.cell(debugTable, 1, 2, str.tostring(yhat02_h4, "#.#####"), text_color=color.lime, text_size=size.small)
+        table.cell(debugTable, 2, 2, str.tostring(uf02_h4, "#.#####"), text_color=color.red, text_size=size.small)
+        table.cell(debugTable, 3, 2, str.tostring(yhat02_d1, "#.#####"), text_color=color.lime, text_size=size.small)
+        table.cell(debugTable, 4, 2, str.tostring(uf02_d1, "#.#####"), text_color=color.red, text_size=size.small)
+    if usedSymbols >= 3
+        table.cell(debugTable, 0, 3, getSymbolName(s03), text_color=color.yellow, text_size=size.small)
+        table.cell(debugTable, 1, 3, str.tostring(yhat03_h4, "#.#####"), text_color=color.lime, text_size=size.small)
+        table.cell(debugTable, 2, 3, str.tostring(uf03_h4, "#.#####"), text_color=color.red, text_size=size.small)
+        table.cell(debugTable, 3, 3, str.tostring(yhat03_d1, "#.#####"), text_color=color.lime, text_size=size.small)
+        table.cell(debugTable, 4, 3, str.tostring(uf03_d1, "#.#####"), text_color=color.red, text_size=size.small)
+    if usedSymbols >= 4
+        table.cell(debugTable, 0, 4, getSymbolName(s04), text_color=color.yellow, text_size=size.small)
+        table.cell(debugTable, 1, 4, str.tostring(yhat04_h4, "#.#####"), text_color=color.lime, text_size=size.small)
+        table.cell(debugTable, 2, 4, str.tostring(uf04_h4, "#.#####"), text_color=color.red, text_size=size.small)
+        table.cell(debugTable, 3, 4, str.tostring(yhat04_d1, "#.#####"), text_color=color.lime, text_size=size.small)
+        table.cell(debugTable, 4, 4, str.tostring(uf04_d1, "#.#####"), text_color=color.red, text_size=size.small)
+    if usedSymbols >= 5
+        table.cell(debugTable, 0, 5, getSymbolName(s05), text_color=color.yellow, text_size=size.small)
+        table.cell(debugTable, 1, 5, str.tostring(yhat05_h4, "#.#####"), text_color=color.lime, text_size=size.small)
+        table.cell(debugTable, 2, 5, str.tostring(uf05_h4, "#.#####"), text_color=color.red, text_size=size.small)
+        table.cell(debugTable, 3, 5, str.tostring(yhat05_d1, "#.#####"), text_color=color.lime, text_size=size.small)
+        table.cell(debugTable, 4, 5, str.tostring(uf05_d1, "#.#####"), text_color=color.red, text_size=size.small)
+    if usedSymbols >= 6
+        table.cell(debugTable, 0, 6, getSymbolName(s06), text_color=color.yellow, text_size=size.small)
+        table.cell(debugTable, 1, 6, str.tostring(yhat06_h4, "#.#####"), text_color=color.lime, text_size=size.small)
+        table.cell(debugTable, 2, 6, str.tostring(uf06_h4, "#.#####"), text_color=color.red, text_size=size.small)
+        table.cell(debugTable, 3, 6, str.tostring(yhat06_d1, "#.#####"), text_color=color.lime, text_size=size.small)
+        table.cell(debugTable, 4, 6, str.tostring(uf06_d1, "#.#####"), text_color=color.red, text_size=size.small)
+    if usedSymbols >= 7
+        table.cell(debugTable, 0, 7, getSymbolName(s07), text_color=color.yellow, text_size=size.small)
+        table.cell(debugTable, 1, 7, str.tostring(yhat07_h4, "#.#####"), text_color=color.lime, text_size=size.small)
+        table.cell(debugTable, 2, 7, str.tostring(uf07_h4, "#.#####"), text_color=color.red, text_size=size.small)
+        table.cell(debugTable, 3, 7, str.tostring(yhat07_d1, "#.#####"), text_color=color.lime, text_size=size.small)
+        table.cell(debugTable, 4, 7, str.tostring(uf07_d1, "#.#####"), text_color=color.red, text_size=size.small)
+    if usedSymbols >= 8
+        table.cell(debugTable, 0, 8, getSymbolName(s08), text_color=color.yellow, text_size=size.small)
+        table.cell(debugTable, 1, 8, str.tostring(yhat08_h4, "#.#####"), text_color=color.lime, text_size=size.small)
+        table.cell(debugTable, 2, 8, str.tostring(uf08_h4, "#.#####"), text_color=color.red, text_size=size.small)
+        table.cell(debugTable, 3, 8, str.tostring(yhat08_d1, "#.#####"), text_color=color.lime, text_size=size.small)
+        table.cell(debugTable, 4, 8, str.tostring(uf08_d1, "#.#####"), text_color=color.red, text_size=size.small)
+    if usedSymbols >= 9
+        table.cell(debugTable, 0, 9, getSymbolName(s09), text_color=color.yellow, text_size=size.small)
+        table.cell(debugTable, 1, 9, str.tostring(yhat09_h4, "#.#####"), text_color=color.lime, text_size=size.small)
+        table.cell(debugTable, 2, 9, str.tostring(uf09_h4, "#.#####"), text_color=color.red, text_size=size.small)
+        table.cell(debugTable, 3, 9, str.tostring(yhat09_d1, "#.#####"), text_color=color.lime, text_size=size.small)
+        table.cell(debugTable, 4, 9, str.tostring(uf09_d1, "#.#####"), text_color=color.red, text_size=size.small)
+    if usedSymbols >= 10
+        table.cell(debugTable, 0, 10, getSymbolName(s10), text_color=color.yellow, text_size=size.small)
+        table.cell(debugTable, 1, 10, str.tostring(yhat10_h4, "#.#####"), text_color=color.lime, text_size=size.small)
+        table.cell(debugTable, 2, 10, str.tostring(uf10_h4, "#.#####"), text_color=color.red, text_size=size.small)
+        table.cell(debugTable, 3, 10, str.tostring(yhat10_d1, "#.#####"), text_color=color.lime, text_size=size.small)
+        table.cell(debugTable, 4, 10, str.tostring(uf10_d1, "#.#####"), text_color=color.red, text_size=size.small)
 
 // Required for valid indicator
 plot(na)
