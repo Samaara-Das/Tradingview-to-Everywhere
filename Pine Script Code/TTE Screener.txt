@@ -2,9 +2,10 @@
 // © SamaaraDas
 
 // @description
-// This screener monitors up to 20 symbols for entry signals using Nadaraya-Watson Envelope.
+// This screener monitors up to 10 symbols for entry signals using:
+// - Nadaraya-Watson Envelope (NWE) on H4 and Daily
+// - Order Block & FVG detection on H4, Daily, and Weekly
 // When entry conditions are met, an alert is generated containing signal details.
-// Signals: Long when price closes below lower_near band, Short when price closes above upper_near band.
 
 //@version=5
 indicator("Premium Screener", 'Screener', overlay = true, precision = 5)
@@ -23,9 +24,10 @@ int f3 = input.int(1000, 'fill3')
 int f4 = input.int(1000, 'fill4')
 int f5 = input.int(1000, 'fill5')
 
-// Timeframes for NWE calculations
+// Timeframes for calculations
 string TF_H4 = "240"    // 4 hour
 string TF_D1 = "D"      // Daily
+string TF_W1 = "W"      // Weekly
 
 // Symbol inputs
 usedSymbols = input.int(10, title = 'Used Symbols', group = 'Symbols', tooltip = 'The total number of symbols which will be checked for entries')
@@ -58,6 +60,9 @@ nwe_atrLen = input.int(60, 'NWE ATR Length', minval=1, group='NWE Settings', too
 nwe_nearFactor = input.float(1.5, 'NWE Near ATR Factor', minval=0.5, step=0.25, group='NWE Settings', tooltip='Multiplier for near envelope bounds. Recommended: 0.5-2.0')
 nwe_farFactor = input.float(8.0, 'NWE Far ATR Factor', minval=1.0, step=0.25, group='NWE Settings', tooltip='Multiplier for far envelope bounds. Recommended: 6.0-8.0')
 
+// OB & FVG Settings
+ob_testPercent = input.float(30.0, "OB Test Percentage", minval=1, maxval=100, step=1, group='OB & FVG Settings', tooltip='Percentage price must wick into OB zone to be considered mitigated/tested')
+
 /////////////////////
 // HELPER FUNCTIONS //
 /////////////////////
@@ -86,49 +91,271 @@ calcNWE(float _close, float _high, float _low, int h, float alpha, int x0, int a
 
     [yhat_close, upper_near, upper_far, lower_near, lower_far]
 
+//////////////////////////
+// OB & FVG DETECTION   //
+//////////////////////////
+
+// Scan 100 bars for Order Blocks in 4 categories:
+// 1. Unmitigated Bullish OB: formed with gap+sweep, not broken since (valid demand zone)
+// 2. Unmitigated Bearish OB: formed with gap+sweep, not broken since (valid supply zone)
+// 3. Breaker Resistance: Bullish OB where close broke below OB's low (broken demand → resistance)
+// 4. Breaker Support: Bearish OB where close broke above OB's high (broken supply → support)
+//
+// Returns: [unmitBullBar, unmitBearBar, brkResBar, brkSupBar]
+// Each value = bars ago of nearest OB in that category (0 = none found)
+//
+// OB FORMATION (from OB & FVG.txt):
+// An OB forms when TWO conditions are met at the same time:
+// 1. SWEEP: The OB candle swept liquidity (lows for bullish, highs for bearish)
+// 2. GAP: There's a gap between OB candle and validation candle (2 bars later)
+//
+// Bar structure at formation:
+//   bar[i]   = OB candle (where sweep happened)
+//   bar[i-1] = intermediate candle
+//   bar[i-2] = validation candle (creates the gap)
+//
+// OB VALIDITY:
+// - An OB stays valid until price CLOSES through its level
+// - Bullish OB invalid when: any close < OB's low (becomes breaker resistance)
+// - Bearish OB invalid when: any close > OB's high (becomes breaker support)
+// - FVG fill is SEPARATE from OB validity (gap can close but OB still valid)
+
+// Main scan function (non-repainting, uses confirmed bars)
+// Returns: [unmitBullBar, unmitBearBar, mitBullBar, mitBearBar, brkResBar, brkSupBar]
+// - unmitBullBar: Unmitigated bullish OB (pristine, never touched)
+// - unmitBearBar: Unmitigated bearish OB (pristine, never touched)
+// - mitBullBar: Mitigated bullish OB (tested but not broken)
+// - mitBearBar: Mitigated bearish OB (tested but not broken)
+// - brkResBar: Breaker resistance (bullish OB broken down)
+// - brkSupBar: Breaker support (bearish OB broken up)
+scanOBRange() =>
+    int unmitBullBar = 0
+    int unmitBearBar = 0
+    int mitBullBar = 0
+    int mitBearBar = 0
+    int brkResBar = 0
+    int brkSupBar = 0
+
+    // Start at 4 to have room for:
+    // - bar[i+1] for sweep check (older adjacent bar)
+    // - bar[i-3] for bar[3] gap pattern validation
+    // Scan up to 100 bars back
+    for i = 4 to 100
+        //////////////////////////////////////////
+        // BULLISH OB DETECTION (Demand Zone)
+        //////////////////////////////////////////
+
+        // Step 1: Check SWEEP - OB candle swept lows of adjacent bars
+        bool bullSweep = low[i] < low[i-1] and low[i] < low[i+1]
+
+        // Step 2: Check GAP AT FORMATION
+        // Original indicator checks both bar[2] and bar[3] patterns:
+        // - bar[2] pattern: validation bar is 2 bars after OB → high[i] < low[i-2]
+        // - bar[3] pattern: validation bar is 3 bars after OB → high[i] < low[i-3]
+        bool bullGap2 = high[i] < low[i-2]  // bar[2] formation pattern
+        bool bullGap3 = high[i] < low[i-3]  // bar[3] formation pattern
+        bool bullGapAtFormation = bullGap2 or bullGap3
+
+        // OB formed if BOTH sweep AND gap conditions were true
+        bool bullOBFormed = bullSweep and bullGapAtFormation
+
+        if bullOBFormed
+            float obHigh = high[i]
+            float obLow = low[i]
+
+            // Calculate test price (30% into OB from high)
+            float testPrice = obHigh - ((obHigh - obLow) * ob_testPercent / 100)
+
+            // Step 3: Check OB lifecycle - Active → Mitigated → Breaker → Reversed
+            // Loop from formation to current bar, tracking state changes
+            bool isBroken = false
+            bool isReversed = false
+            bool hasReachedTestLevel = false
+            bool isTested = false
+            int startBar = bullGap3 ? i - 4 : i - 3  // Start after validation bar
+            int j = startBar
+            while j >= 1
+                if not isBroken
+                    // Check if became BREAKER (close below OB's low)
+                    if close[j] < obLow
+                        isBroken := true
+                    else
+                        // Check mitigation (two-step process from original indicator)
+                        // Step 1: Price reaches test level (dipped into OB zone)
+                        if not hasReachedTestLevel and low[j] <= testPrice
+                            hasReachedTestLevel := true
+                        // Step 2: After reaching test level, check if price returns/bounces
+                        if hasReachedTestLevel and not isTested
+                            if low[j] >= obLow or (low[j] < obLow and high[j] >= obLow)
+                                isTested := true
+                else if not isReversed
+                    // Check if became REVERSED (close back above OB's high)
+                    if close[j] > obHigh
+                        isReversed := true
+                j := j - 1
+
+            // Categorize based on final state (priority: reversed > broken > mitigated > unmitigated)
+            if isReversed
+                // Skip - reversed OBs are no longer valid
+                na(close)  // no-op: skip reversed OBs
+            else if isBroken
+                // It's a BREAKER RESISTANCE (demand zone that failed)
+                if brkResBar == 0
+                    brkResBar := i
+            else if isTested
+                // It's MITIGATED (tested but not broken)
+                if mitBullBar == 0
+                    mitBullBar := i
+            else
+                // It's still UNMITIGATED (pristine demand zone)
+                if unmitBullBar == 0
+                    unmitBullBar := i
+
+        //////////////////////////////////////////
+        // BEARISH OB DETECTION (Supply Zone)
+        //////////////////////////////////////////
+
+        // Step 1: Check SWEEP - OB candle swept highs of adjacent bars
+        bool bearSweep = high[i] > high[i-1] and high[i] > high[i+1]
+
+        // Step 2: Check GAP AT FORMATION (both bar[2] and bar[3] patterns)
+        bool bearGap2 = low[i] > high[i-2]  // bar[2] formation pattern
+        bool bearGap3 = low[i] > high[i-3]  // bar[3] formation pattern
+        bool bearGapAtFormation = bearGap2 or bearGap3
+
+        // OB formed if BOTH sweep AND gap conditions were true
+        bool bearOBFormed = bearSweep and bearGapAtFormation
+
+        if bearOBFormed
+            float obHigh = high[i]
+            float obLow = low[i]
+
+            // Calculate test price (30% into OB from low)
+            float testPrice = obLow + ((obHigh - obLow) * ob_testPercent / 100)
+
+            // Step 3: Check OB lifecycle - Active → Mitigated → Breaker → Reversed
+            bool isBroken = false
+            bool isReversed = false
+            bool hasReachedTestLevel = false
+            bool isTested = false
+            int startBar = bearGap3 ? i - 4 : i - 3
+            int j = startBar
+            while j >= 1
+                if not isBroken
+                    // Check if became BREAKER (close above OB's high)
+                    if close[j] > obHigh
+                        isBroken := true
+                    else
+                        // Check mitigation (two-step process from original indicator)
+                        // Step 1: Price reaches test level (wicked into OB zone)
+                        if not hasReachedTestLevel and high[j] >= testPrice
+                            hasReachedTestLevel := true
+                        // Step 2: After reaching test level, check if price returns/bounces
+                        if hasReachedTestLevel and not isTested
+                            if high[j] <= obHigh or (high[j] > obHigh and low[j] <= obHigh)
+                                isTested := true
+                else if not isReversed
+                    // Check if became REVERSED (close back below OB's low)
+                    if close[j] < obLow
+                        isReversed := true
+                j := j - 1
+
+            // Categorize based on final state (priority: reversed > broken > mitigated > unmitigated)
+            if isReversed
+                // Skip - reversed OBs are no longer valid
+                na(close)  // no-op: skip reversed OBs
+            else if isBroken
+                // It's a BREAKER SUPPORT (supply zone that failed)
+                if brkSupBar == 0
+                    brkSupBar := i
+            else if isTested
+                // It's MITIGATED (tested but not broken)
+                if mitBearBar == 0
+                    mitBearBar := i
+            else
+                // It's still UNMITIGATED (pristine supply zone)
+                if unmitBearBar == 0
+                    unmitBearBar := i
+
+    [unmitBullBar, unmitBearBar, mitBullBar, mitBearBar, brkResBar, brkSupBar]
+
 ///////////////////////
 // SIGNAL DETECTION  //
 ///////////////////////
 
-// DEBUG: Return NWE values for testing
-// Returns: [yhat, upper_far] to verify calculations across symbols
-checkSignal() =>
-    // Calculate NWE envelope
+// Combined NWE + OB scan for H4 and D1 timeframes
+// Returns: [yhat, upper_far, unmitBullBar, unmitBearBar, mitBullBar, mitBearBar, brkResBar, brkSupBar]
+// Total: 8 values
+checkSignalWithOB() =>
+    // Calculate NWE envelope (kept for future signal use)
     [yhat, upper_near, upper_far, lower_near, lower_far] = calcNWE(close, high, low, nwe_h, nwe_alpha, nwe_x0, nwe_atrLen, nwe_nearFactor, nwe_farFactor)
 
-    // Return values with [1] offset for non-repainting
-    [yhat[1], upper_far[1]]
+    // Scan 100 bars for OBs in 6 categories
+    [unmitBullBar, unmitBearBar, mitBullBar, mitBearBar, brkResBar, brkSupBar] = scanOBRange()
+
+    // Return NWE + OB data (using [1] offset for non-repainting NWE values)
+    [yhat[1], upper_far[1], unmitBullBar, unmitBearBar, mitBullBar, mitBearBar, brkResBar, brkSupBar]
+
+// OB scan only (for Weekly timeframe - no NWE)
+// Returns: [unmitBullBar, unmitBearBar, mitBullBar, mitBearBar, brkResBar, brkSupBar]
+// Total: 6 values
+checkOBOnly() =>
+    [unmitBullBar, unmitBearBar, mitBullBar, mitBearBar, brkResBar, brkSupBar] = scanOBRange()
+    [unmitBullBar, unmitBearBar, mitBullBar, mitBearBar, brkResBar, brkSupBar]
 
 ////////////////////////////
 // REQUEST SECURITY CALLS //
 ////////////////////////////
 
-// DEBUG: Get NWE values from each symbol on H4 and Daily timeframes
-// Returns: [yhat, upper_far] for each symbol/timeframe combination
+// Combined NWE + OB scan from each symbol on H4 and Daily timeframes
+// Returns: [yhat, upper_far, unmitBullBar, unmitBearBar, mitBullBar, mitBearBar, brkResBar, brkSupBar]
+// - unmitBullBar: Unmitigated bullish OB (pristine, never touched)
+// - unmitBearBar: Unmitigated bearish OB (pristine, never touched)
+// - mitBullBar: Mitigated bullish OB (tested but not broken)
+// - mitBearBar: Mitigated bearish OB (tested but not broken)
+// - brkResBar: Breaker resistance (bullish OB broken down)
+// - brkSupBar: Breaker support (bearish OB broken up)
+// Total: 20 calls (10 symbols × 2 TFs)
 
-// H4 timeframe
-[yhat01_h4, uf01_h4] = request.security(s01, TF_H4, checkSignal())
-[yhat02_h4, uf02_h4] = request.security(s02, TF_H4, checkSignal())
-[yhat03_h4, uf03_h4] = request.security(s03, TF_H4, checkSignal())
-[yhat04_h4, uf04_h4] = request.security(s04, TF_H4, checkSignal())
-[yhat05_h4, uf05_h4] = request.security(s05, TF_H4, checkSignal())
-[yhat06_h4, uf06_h4] = request.security(s06, TF_H4, checkSignal())
-[yhat07_h4, uf07_h4] = request.security(s07, TF_H4, checkSignal())
-[yhat08_h4, uf08_h4] = request.security(s08, TF_H4, checkSignal())
-[yhat09_h4, uf09_h4] = request.security(s09, TF_H4, checkSignal())
-[yhat10_h4, uf10_h4] = request.security(s10, TF_H4, checkSignal())
+// H4 timeframe - Combined NWE + OB categories
+[yhat01_h4, uf01_h4, unmitBull01_h4, unmitBear01_h4, mitBull01_h4, mitBear01_h4, brkRes01_h4, brkSup01_h4] = request.security(s01, TF_H4, checkSignalWithOB())
+[yhat02_h4, uf02_h4, unmitBull02_h4, unmitBear02_h4, mitBull02_h4, mitBear02_h4, brkRes02_h4, brkSup02_h4] = request.security(s02, TF_H4, checkSignalWithOB())
+[yhat03_h4, uf03_h4, unmitBull03_h4, unmitBear03_h4, mitBull03_h4, mitBear03_h4, brkRes03_h4, brkSup03_h4] = request.security(s03, TF_H4, checkSignalWithOB())
+[yhat04_h4, uf04_h4, unmitBull04_h4, unmitBear04_h4, mitBull04_h4, mitBear04_h4, brkRes04_h4, brkSup04_h4] = request.security(s04, TF_H4, checkSignalWithOB())
+[yhat05_h4, uf05_h4, unmitBull05_h4, unmitBear05_h4, mitBull05_h4, mitBear05_h4, brkRes05_h4, brkSup05_h4] = request.security(s05, TF_H4, checkSignalWithOB())
+[yhat06_h4, uf06_h4, unmitBull06_h4, unmitBear06_h4, mitBull06_h4, mitBear06_h4, brkRes06_h4, brkSup06_h4] = request.security(s06, TF_H4, checkSignalWithOB())
+[yhat07_h4, uf07_h4, unmitBull07_h4, unmitBear07_h4, mitBull07_h4, mitBear07_h4, brkRes07_h4, brkSup07_h4] = request.security(s07, TF_H4, checkSignalWithOB())
+[yhat08_h4, uf08_h4, unmitBull08_h4, unmitBear08_h4, mitBull08_h4, mitBear08_h4, brkRes08_h4, brkSup08_h4] = request.security(s08, TF_H4, checkSignalWithOB())
+[yhat09_h4, uf09_h4, unmitBull09_h4, unmitBear09_h4, mitBull09_h4, mitBear09_h4, brkRes09_h4, brkSup09_h4] = request.security(s09, TF_H4, checkSignalWithOB())
+[yhat10_h4, uf10_h4, unmitBull10_h4, unmitBear10_h4, mitBull10_h4, mitBear10_h4, brkRes10_h4, brkSup10_h4] = request.security(s10, TF_H4, checkSignalWithOB())
 
-// Daily timeframe
-[yhat01_d1, uf01_d1] = request.security(s01, TF_D1, checkSignal())
-[yhat02_d1, uf02_d1] = request.security(s02, TF_D1, checkSignal())
-[yhat03_d1, uf03_d1] = request.security(s03, TF_D1, checkSignal())
-[yhat04_d1, uf04_d1] = request.security(s04, TF_D1, checkSignal())
-[yhat05_d1, uf05_d1] = request.security(s05, TF_D1, checkSignal())
-[yhat06_d1, uf06_d1] = request.security(s06, TF_D1, checkSignal())
-[yhat07_d1, uf07_d1] = request.security(s07, TF_D1, checkSignal())
-[yhat08_d1, uf08_d1] = request.security(s08, TF_D1, checkSignal())
-[yhat09_d1, uf09_d1] = request.security(s09, TF_D1, checkSignal())
-[yhat10_d1, uf10_d1] = request.security(s10, TF_D1, checkSignal())
+// Daily timeframe - Combined NWE + OB categories
+[yhat01_d1, uf01_d1, unmitBull01_d1, unmitBear01_d1, mitBull01_d1, mitBear01_d1, brkRes01_d1, brkSup01_d1] = request.security(s01, TF_D1, checkSignalWithOB())
+[yhat02_d1, uf02_d1, unmitBull02_d1, unmitBear02_d1, mitBull02_d1, mitBear02_d1, brkRes02_d1, brkSup02_d1] = request.security(s02, TF_D1, checkSignalWithOB())
+[yhat03_d1, uf03_d1, unmitBull03_d1, unmitBear03_d1, mitBull03_d1, mitBear03_d1, brkRes03_d1, brkSup03_d1] = request.security(s03, TF_D1, checkSignalWithOB())
+[yhat04_d1, uf04_d1, unmitBull04_d1, unmitBear04_d1, mitBull04_d1, mitBear04_d1, brkRes04_d1, brkSup04_d1] = request.security(s04, TF_D1, checkSignalWithOB())
+[yhat05_d1, uf05_d1, unmitBull05_d1, unmitBear05_d1, mitBull05_d1, mitBear05_d1, brkRes05_d1, brkSup05_d1] = request.security(s05, TF_D1, checkSignalWithOB())
+[yhat06_d1, uf06_d1, unmitBull06_d1, unmitBear06_d1, mitBull06_d1, mitBear06_d1, brkRes06_d1, brkSup06_d1] = request.security(s06, TF_D1, checkSignalWithOB())
+[yhat07_d1, uf07_d1, unmitBull07_d1, unmitBear07_d1, mitBull07_d1, mitBear07_d1, brkRes07_d1, brkSup07_d1] = request.security(s07, TF_D1, checkSignalWithOB())
+[yhat08_d1, uf08_d1, unmitBull08_d1, unmitBear08_d1, mitBull08_d1, mitBear08_d1, brkRes08_d1, brkSup08_d1] = request.security(s08, TF_D1, checkSignalWithOB())
+[yhat09_d1, uf09_d1, unmitBull09_d1, unmitBear09_d1, mitBull09_d1, mitBear09_d1, brkRes09_d1, brkSup09_d1] = request.security(s09, TF_D1, checkSignalWithOB())
+[yhat10_d1, uf10_d1, unmitBull10_d1, unmitBear10_d1, mitBull10_d1, mitBear10_d1, brkRes10_d1, brkSup10_d1] = request.security(s10, TF_D1, checkSignalWithOB())
+
+// Weekly timeframe - OB categories only (no NWE)
+// Returns: [unmitBullBar, unmitBearBar, mitBullBar, mitBearBar, brkResBar, brkSupBar]
+// Total: 10 calls (10 symbols × 1 TF)
+[unmitBull01_w1, unmitBear01_w1, mitBull01_w1, mitBear01_w1, brkRes01_w1, brkSup01_w1] = request.security(s01, TF_W1, checkOBOnly())
+[unmitBull02_w1, unmitBear02_w1, mitBull02_w1, mitBear02_w1, brkRes02_w1, brkSup02_w1] = request.security(s02, TF_W1, checkOBOnly())
+[unmitBull03_w1, unmitBear03_w1, mitBull03_w1, mitBear03_w1, brkRes03_w1, brkSup03_w1] = request.security(s03, TF_W1, checkOBOnly())
+[unmitBull04_w1, unmitBear04_w1, mitBull04_w1, mitBear04_w1, brkRes04_w1, brkSup04_w1] = request.security(s04, TF_W1, checkOBOnly())
+[unmitBull05_w1, unmitBear05_w1, mitBull05_w1, mitBear05_w1, brkRes05_w1, brkSup05_w1] = request.security(s05, TF_W1, checkOBOnly())
+[unmitBull06_w1, unmitBear06_w1, mitBull06_w1, mitBear06_w1, brkRes06_w1, brkSup06_w1] = request.security(s06, TF_W1, checkOBOnly())
+[unmitBull07_w1, unmitBear07_w1, mitBull07_w1, mitBear07_w1, brkRes07_w1, brkSup07_w1] = request.security(s07, TF_W1, checkOBOnly())
+[unmitBull08_w1, unmitBear08_w1, mitBull08_w1, mitBear08_w1, brkRes08_w1, brkSup08_w1] = request.security(s08, TF_W1, checkOBOnly())
+[unmitBull09_w1, unmitBear09_w1, mitBull09_w1, mitBear09_w1, brkRes09_w1, brkSup09_w1] = request.security(s09, TF_W1, checkOBOnly())
+[unmitBull10_w1, unmitBear10_w1, mitBull10_w1, mitBear10_w1, brkRes10_w1, brkSup10_w1] = request.security(s10, TF_W1, checkOBOnly())
+
+// Total request.security() calls: 30 (under 40 limit)
 
 //////////////////////
 // DEBUG: DISPLAY   //
@@ -141,78 +368,281 @@ getSymbolName(string fullSymbol) =>
         result := array.get(str.split(fullSymbol, ":"), 1)
     result
 
-// Build debug table to display NWE values for each symbol on H4 and Daily
-var table debugTable = table.new(position.top_right, 6, 12, bgcolor=color.new(color.black, 80), border_width=1)
+// Helper function to format unmitigated OB pair as "B:x S:y"
+// B = Bullish (demand), S = Bearish (supply)
+// Shows bar index or "-" if none found
+getUnmitPair(int bullBar, int bearBar) =>
+    string bull = bullBar > 0 ? str.tostring(int(bullBar)) : "-"
+    string bear = bearBar > 0 ? str.tostring(int(bearBar)) : "-"
+    "B:" + bull + " S:" + bear
+
+// Helper function to format breaker OB pair as "R:x S:y"
+// R = Resistance (broken bull), S = Support (broken bear)
+// Shows bar index or "-" if none found
+getBrkPair(int resBar, int supBar) =>
+    string res = resBar > 0 ? str.tostring(int(resBar)) : "-"
+    string sup = supBar > 0 ? str.tostring(int(supBar)) : "-"
+    "R:" + res + " S:" + sup
+
+// Helper function to get color based on whether any OBs found
+getUnmitColor(int bullBar, int bearBar) =>
+    if bullBar > 0 and bearBar > 0
+        color.lime          // Both found - green
+    else if bullBar > 0 or bearBar > 0
+        color.yellow        // One found - yellow
+    else
+        color.gray          // None found - gray
+
+getBrkColor(int resBar, int supBar) =>
+    if resBar > 0 and supBar > 0
+        color.orange        // Both breakers found
+    else if resBar > 0 or supBar > 0
+        color.new(color.orange, 50)  // One breaker found
+    else
+        color.gray          // None found
+
+// Helper function to format mitigated OB pair as "B:x S:y"
+// Same format as unmit - shows bar index or "-" if none found
+getMitPair(int bullBar, int bearBar) =>
+    string bull = bullBar > 0 ? str.tostring(int(bullBar)) : "-"
+    string bear = bearBar > 0 ? str.tostring(int(bearBar)) : "-"
+    "B:" + bull + " S:" + bear
+
+getMitColor(int bullBar, int bearBar) =>
+    if bullBar > 0 and bearBar > 0
+        color.aqua          // Both mitigated found
+    else if bullBar > 0 or bearBar > 0
+        color.new(color.aqua, 50)  // One mitigated found
+    else
+        color.gray          // None found
+
+// Build debug table to display OB categories for each symbol
+// Columns: Symbol | H4 Unmit | H4 Mit | H4 Brk | D1 Unmit | D1 Mit | D1 Brk | W1 Unmit | W1 Mit | W1 Brk
+// Unmit cells show: "B:x S:y" (Bullish demand bar, Bearish supply bar)
+// Mit cells show: "B:x S:y" (Mitigated/tested OBs)
+// Brk cells show: "R:x S:y" (Resistance bar, Support bar)
+var table debugTable = table.new(position.top_right, 11, 12, bgcolor=color.new(color.black, 80), border_width=1)
 
 if barstate.islast
     // Header row
     table.cell(debugTable, 0, 0, "Symbol", text_color=color.white, text_size=size.small)
-    table.cell(debugTable, 1, 0, "H4 yhat", text_color=color.aqua, text_size=size.small)
-    table.cell(debugTable, 2, 0, "H4 uf", text_color=color.aqua, text_size=size.small)
-    table.cell(debugTable, 3, 0, "D1 yhat", text_color=color.orange, text_size=size.small)
-    table.cell(debugTable, 4, 0, "D1 uf", text_color=color.orange, text_size=size.small)
+    table.cell(debugTable, 1, 0, "H4 Unmit", text_color=color.lime, text_size=size.small)
+    table.cell(debugTable, 2, 0, "H4 Mit", text_color=color.aqua, text_size=size.small)
+    table.cell(debugTable, 3, 0, "H4 Brk", text_color=color.orange, text_size=size.small)
+    table.cell(debugTable, 4, 0, "D1 Unmit", text_color=color.lime, text_size=size.small)
+    table.cell(debugTable, 5, 0, "D1 Mit", text_color=color.aqua, text_size=size.small)
+    table.cell(debugTable, 6, 0, "D1 Brk", text_color=color.orange, text_size=size.small)
+    table.cell(debugTable, 7, 0, "W1 Unmit", text_color=color.lime, text_size=size.small)
+    table.cell(debugTable, 8, 0, "W1 Mit", text_color=color.aqua, text_size=size.small)
+    table.cell(debugTable, 9, 0, "W1 Brk", text_color=color.orange, text_size=size.small)
 
-    // Symbol rows (only show used symbols)
+    // Symbol rows
     if usedSymbols >= 1
         table.cell(debugTable, 0, 1, getSymbolName(s01), text_color=color.yellow, text_size=size.small)
-        table.cell(debugTable, 1, 1, str.tostring(yhat01_h4, "#.#####"), text_color=color.lime, text_size=size.small)
-        table.cell(debugTable, 2, 1, str.tostring(uf01_h4, "#.#####"), text_color=color.red, text_size=size.small)
-        table.cell(debugTable, 3, 1, str.tostring(yhat01_d1, "#.#####"), text_color=color.lime, text_size=size.small)
-        table.cell(debugTable, 4, 1, str.tostring(uf01_d1, "#.#####"), text_color=color.red, text_size=size.small)
+        table.cell(debugTable, 1, 1, getUnmitPair(int(unmitBull01_h4), int(unmitBear01_h4)), text_color=getUnmitColor(int(unmitBull01_h4), int(unmitBear01_h4)), text_size=size.small)
+        table.cell(debugTable, 2, 1, getMitPair(int(mitBull01_h4), int(mitBear01_h4)), text_color=getMitColor(int(mitBull01_h4), int(mitBear01_h4)), text_size=size.small)
+        table.cell(debugTable, 3, 1, getBrkPair(int(brkRes01_h4), int(brkSup01_h4)), text_color=getBrkColor(int(brkRes01_h4), int(brkSup01_h4)), text_size=size.small)
+        table.cell(debugTable, 4, 1, getUnmitPair(int(unmitBull01_d1), int(unmitBear01_d1)), text_color=getUnmitColor(int(unmitBull01_d1), int(unmitBear01_d1)), text_size=size.small)
+        table.cell(debugTable, 5, 1, getMitPair(int(mitBull01_d1), int(mitBear01_d1)), text_color=getMitColor(int(mitBull01_d1), int(mitBear01_d1)), text_size=size.small)
+        table.cell(debugTable, 6, 1, getBrkPair(int(brkRes01_d1), int(brkSup01_d1)), text_color=getBrkColor(int(brkRes01_d1), int(brkSup01_d1)), text_size=size.small)
+        table.cell(debugTable, 7, 1, getUnmitPair(int(unmitBull01_w1), int(unmitBear01_w1)), text_color=getUnmitColor(int(unmitBull01_w1), int(unmitBear01_w1)), text_size=size.small)
+        table.cell(debugTable, 8, 1, getMitPair(int(mitBull01_w1), int(mitBear01_w1)), text_color=getMitColor(int(mitBull01_w1), int(mitBear01_w1)), text_size=size.small)
+        table.cell(debugTable, 9, 1, getBrkPair(int(brkRes01_w1), int(brkSup01_w1)), text_color=getBrkColor(int(brkRes01_w1), int(brkSup01_w1)), text_size=size.small)
+
     if usedSymbols >= 2
         table.cell(debugTable, 0, 2, getSymbolName(s02), text_color=color.yellow, text_size=size.small)
-        table.cell(debugTable, 1, 2, str.tostring(yhat02_h4, "#.#####"), text_color=color.lime, text_size=size.small)
-        table.cell(debugTable, 2, 2, str.tostring(uf02_h4, "#.#####"), text_color=color.red, text_size=size.small)
-        table.cell(debugTable, 3, 2, str.tostring(yhat02_d1, "#.#####"), text_color=color.lime, text_size=size.small)
-        table.cell(debugTable, 4, 2, str.tostring(uf02_d1, "#.#####"), text_color=color.red, text_size=size.small)
+        table.cell(debugTable, 1, 2, getUnmitPair(int(unmitBull02_h4), int(unmitBear02_h4)), text_color=getUnmitColor(int(unmitBull02_h4), int(unmitBear02_h4)), text_size=size.small)
+        table.cell(debugTable, 2, 2, getMitPair(int(mitBull02_h4), int(mitBear02_h4)), text_color=getMitColor(int(mitBull02_h4), int(mitBear02_h4)), text_size=size.small)
+        table.cell(debugTable, 3, 2, getBrkPair(int(brkRes02_h4), int(brkSup02_h4)), text_color=getBrkColor(int(brkRes02_h4), int(brkSup02_h4)), text_size=size.small)
+        table.cell(debugTable, 4, 2, getUnmitPair(int(unmitBull02_d1), int(unmitBear02_d1)), text_color=getUnmitColor(int(unmitBull02_d1), int(unmitBear02_d1)), text_size=size.small)
+        table.cell(debugTable, 5, 2, getMitPair(int(mitBull02_d1), int(mitBear02_d1)), text_color=getMitColor(int(mitBull02_d1), int(mitBear02_d1)), text_size=size.small)
+        table.cell(debugTable, 6, 2, getBrkPair(int(brkRes02_d1), int(brkSup02_d1)), text_color=getBrkColor(int(brkRes02_d1), int(brkSup02_d1)), text_size=size.small)
+        table.cell(debugTable, 7, 2, getUnmitPair(int(unmitBull02_w1), int(unmitBear02_w1)), text_color=getUnmitColor(int(unmitBull02_w1), int(unmitBear02_w1)), text_size=size.small)
+        table.cell(debugTable, 8, 2, getMitPair(int(mitBull02_w1), int(mitBear02_w1)), text_color=getMitColor(int(mitBull02_w1), int(mitBear02_w1)), text_size=size.small)
+        table.cell(debugTable, 9, 2, getBrkPair(int(brkRes02_w1), int(brkSup02_w1)), text_color=getBrkColor(int(brkRes02_w1), int(brkSup02_w1)), text_size=size.small)
+
     if usedSymbols >= 3
         table.cell(debugTable, 0, 3, getSymbolName(s03), text_color=color.yellow, text_size=size.small)
-        table.cell(debugTable, 1, 3, str.tostring(yhat03_h4, "#.#####"), text_color=color.lime, text_size=size.small)
-        table.cell(debugTable, 2, 3, str.tostring(uf03_h4, "#.#####"), text_color=color.red, text_size=size.small)
-        table.cell(debugTable, 3, 3, str.tostring(yhat03_d1, "#.#####"), text_color=color.lime, text_size=size.small)
-        table.cell(debugTable, 4, 3, str.tostring(uf03_d1, "#.#####"), text_color=color.red, text_size=size.small)
+        table.cell(debugTable, 1, 3, getUnmitPair(int(unmitBull03_h4), int(unmitBear03_h4)), text_color=getUnmitColor(int(unmitBull03_h4), int(unmitBear03_h4)), text_size=size.small)
+        table.cell(debugTable, 2, 3, getMitPair(int(mitBull03_h4), int(mitBear03_h4)), text_color=getMitColor(int(mitBull03_h4), int(mitBear03_h4)), text_size=size.small)
+        table.cell(debugTable, 3, 3, getBrkPair(int(brkRes03_h4), int(brkSup03_h4)), text_color=getBrkColor(int(brkRes03_h4), int(brkSup03_h4)), text_size=size.small)
+        table.cell(debugTable, 4, 3, getUnmitPair(int(unmitBull03_d1), int(unmitBear03_d1)), text_color=getUnmitColor(int(unmitBull03_d1), int(unmitBear03_d1)), text_size=size.small)
+        table.cell(debugTable, 5, 3, getMitPair(int(mitBull03_d1), int(mitBear03_d1)), text_color=getMitColor(int(mitBull03_d1), int(mitBear03_d1)), text_size=size.small)
+        table.cell(debugTable, 6, 3, getBrkPair(int(brkRes03_d1), int(brkSup03_d1)), text_color=getBrkColor(int(brkRes03_d1), int(brkSup03_d1)), text_size=size.small)
+        table.cell(debugTable, 7, 3, getUnmitPair(int(unmitBull03_w1), int(unmitBear03_w1)), text_color=getUnmitColor(int(unmitBull03_w1), int(unmitBear03_w1)), text_size=size.small)
+        table.cell(debugTable, 8, 3, getMitPair(int(mitBull03_w1), int(mitBear03_w1)), text_color=getMitColor(int(mitBull03_w1), int(mitBear03_w1)), text_size=size.small)
+        table.cell(debugTable, 9, 3, getBrkPair(int(brkRes03_w1), int(brkSup03_w1)), text_color=getBrkColor(int(brkRes03_w1), int(brkSup03_w1)), text_size=size.small)
+
     if usedSymbols >= 4
         table.cell(debugTable, 0, 4, getSymbolName(s04), text_color=color.yellow, text_size=size.small)
-        table.cell(debugTable, 1, 4, str.tostring(yhat04_h4, "#.#####"), text_color=color.lime, text_size=size.small)
-        table.cell(debugTable, 2, 4, str.tostring(uf04_h4, "#.#####"), text_color=color.red, text_size=size.small)
-        table.cell(debugTable, 3, 4, str.tostring(yhat04_d1, "#.#####"), text_color=color.lime, text_size=size.small)
-        table.cell(debugTable, 4, 4, str.tostring(uf04_d1, "#.#####"), text_color=color.red, text_size=size.small)
+        table.cell(debugTable, 1, 4, getUnmitPair(int(unmitBull04_h4), int(unmitBear04_h4)), text_color=getUnmitColor(int(unmitBull04_h4), int(unmitBear04_h4)), text_size=size.small)
+        table.cell(debugTable, 2, 4, getMitPair(int(mitBull04_h4), int(mitBear04_h4)), text_color=getMitColor(int(mitBull04_h4), int(mitBear04_h4)), text_size=size.small)
+        table.cell(debugTable, 3, 4, getBrkPair(int(brkRes04_h4), int(brkSup04_h4)), text_color=getBrkColor(int(brkRes04_h4), int(brkSup04_h4)), text_size=size.small)
+        table.cell(debugTable, 4, 4, getUnmitPair(int(unmitBull04_d1), int(unmitBear04_d1)), text_color=getUnmitColor(int(unmitBull04_d1), int(unmitBear04_d1)), text_size=size.small)
+        table.cell(debugTable, 5, 4, getMitPair(int(mitBull04_d1), int(mitBear04_d1)), text_color=getMitColor(int(mitBull04_d1), int(mitBear04_d1)), text_size=size.small)
+        table.cell(debugTable, 6, 4, getBrkPair(int(brkRes04_d1), int(brkSup04_d1)), text_color=getBrkColor(int(brkRes04_d1), int(brkSup04_d1)), text_size=size.small)
+        table.cell(debugTable, 7, 4, getUnmitPair(int(unmitBull04_w1), int(unmitBear04_w1)), text_color=getUnmitColor(int(unmitBull04_w1), int(unmitBear04_w1)), text_size=size.small)
+        table.cell(debugTable, 8, 4, getMitPair(int(mitBull04_w1), int(mitBear04_w1)), text_color=getMitColor(int(mitBull04_w1), int(mitBear04_w1)), text_size=size.small)
+        table.cell(debugTable, 9, 4, getBrkPair(int(brkRes04_w1), int(brkSup04_w1)), text_color=getBrkColor(int(brkRes04_w1), int(brkSup04_w1)), text_size=size.small)
+
     if usedSymbols >= 5
         table.cell(debugTable, 0, 5, getSymbolName(s05), text_color=color.yellow, text_size=size.small)
-        table.cell(debugTable, 1, 5, str.tostring(yhat05_h4, "#.#####"), text_color=color.lime, text_size=size.small)
-        table.cell(debugTable, 2, 5, str.tostring(uf05_h4, "#.#####"), text_color=color.red, text_size=size.small)
-        table.cell(debugTable, 3, 5, str.tostring(yhat05_d1, "#.#####"), text_color=color.lime, text_size=size.small)
-        table.cell(debugTable, 4, 5, str.tostring(uf05_d1, "#.#####"), text_color=color.red, text_size=size.small)
+        table.cell(debugTable, 1, 5, getUnmitPair(int(unmitBull05_h4), int(unmitBear05_h4)), text_color=getUnmitColor(int(unmitBull05_h4), int(unmitBear05_h4)), text_size=size.small)
+        table.cell(debugTable, 2, 5, getMitPair(int(mitBull05_h4), int(mitBear05_h4)), text_color=getMitColor(int(mitBull05_h4), int(mitBear05_h4)), text_size=size.small)
+        table.cell(debugTable, 3, 5, getBrkPair(int(brkRes05_h4), int(brkSup05_h4)), text_color=getBrkColor(int(brkRes05_h4), int(brkSup05_h4)), text_size=size.small)
+        table.cell(debugTable, 4, 5, getUnmitPair(int(unmitBull05_d1), int(unmitBear05_d1)), text_color=getUnmitColor(int(unmitBull05_d1), int(unmitBear05_d1)), text_size=size.small)
+        table.cell(debugTable, 5, 5, getMitPair(int(mitBull05_d1), int(mitBear05_d1)), text_color=getMitColor(int(mitBull05_d1), int(mitBear05_d1)), text_size=size.small)
+        table.cell(debugTable, 6, 5, getBrkPair(int(brkRes05_d1), int(brkSup05_d1)), text_color=getBrkColor(int(brkRes05_d1), int(brkSup05_d1)), text_size=size.small)
+        table.cell(debugTable, 7, 5, getUnmitPair(int(unmitBull05_w1), int(unmitBear05_w1)), text_color=getUnmitColor(int(unmitBull05_w1), int(unmitBear05_w1)), text_size=size.small)
+        table.cell(debugTable, 8, 5, getMitPair(int(mitBull05_w1), int(mitBear05_w1)), text_color=getMitColor(int(mitBull05_w1), int(mitBear05_w1)), text_size=size.small)
+        table.cell(debugTable, 9, 5, getBrkPair(int(brkRes05_w1), int(brkSup05_w1)), text_color=getBrkColor(int(brkRes05_w1), int(brkSup05_w1)), text_size=size.small)
+
     if usedSymbols >= 6
         table.cell(debugTable, 0, 6, getSymbolName(s06), text_color=color.yellow, text_size=size.small)
-        table.cell(debugTable, 1, 6, str.tostring(yhat06_h4, "#.#####"), text_color=color.lime, text_size=size.small)
-        table.cell(debugTable, 2, 6, str.tostring(uf06_h4, "#.#####"), text_color=color.red, text_size=size.small)
-        table.cell(debugTable, 3, 6, str.tostring(yhat06_d1, "#.#####"), text_color=color.lime, text_size=size.small)
-        table.cell(debugTable, 4, 6, str.tostring(uf06_d1, "#.#####"), text_color=color.red, text_size=size.small)
+        table.cell(debugTable, 1, 6, getUnmitPair(int(unmitBull06_h4), int(unmitBear06_h4)), text_color=getUnmitColor(int(unmitBull06_h4), int(unmitBear06_h4)), text_size=size.small)
+        table.cell(debugTable, 2, 6, getMitPair(int(mitBull06_h4), int(mitBear06_h4)), text_color=getMitColor(int(mitBull06_h4), int(mitBear06_h4)), text_size=size.small)
+        table.cell(debugTable, 3, 6, getBrkPair(int(brkRes06_h4), int(brkSup06_h4)), text_color=getBrkColor(int(brkRes06_h4), int(brkSup06_h4)), text_size=size.small)
+        table.cell(debugTable, 4, 6, getUnmitPair(int(unmitBull06_d1), int(unmitBear06_d1)), text_color=getUnmitColor(int(unmitBull06_d1), int(unmitBear06_d1)), text_size=size.small)
+        table.cell(debugTable, 5, 6, getMitPair(int(mitBull06_d1), int(mitBear06_d1)), text_color=getMitColor(int(mitBull06_d1), int(mitBear06_d1)), text_size=size.small)
+        table.cell(debugTable, 6, 6, getBrkPair(int(brkRes06_d1), int(brkSup06_d1)), text_color=getBrkColor(int(brkRes06_d1), int(brkSup06_d1)), text_size=size.small)
+        table.cell(debugTable, 7, 6, getUnmitPair(int(unmitBull06_w1), int(unmitBear06_w1)), text_color=getUnmitColor(int(unmitBull06_w1), int(unmitBear06_w1)), text_size=size.small)
+        table.cell(debugTable, 8, 6, getMitPair(int(mitBull06_w1), int(mitBear06_w1)), text_color=getMitColor(int(mitBull06_w1), int(mitBear06_w1)), text_size=size.small)
+        table.cell(debugTable, 9, 6, getBrkPair(int(brkRes06_w1), int(brkSup06_w1)), text_color=getBrkColor(int(brkRes06_w1), int(brkSup06_w1)), text_size=size.small)
+
     if usedSymbols >= 7
         table.cell(debugTable, 0, 7, getSymbolName(s07), text_color=color.yellow, text_size=size.small)
-        table.cell(debugTable, 1, 7, str.tostring(yhat07_h4, "#.#####"), text_color=color.lime, text_size=size.small)
-        table.cell(debugTable, 2, 7, str.tostring(uf07_h4, "#.#####"), text_color=color.red, text_size=size.small)
-        table.cell(debugTable, 3, 7, str.tostring(yhat07_d1, "#.#####"), text_color=color.lime, text_size=size.small)
-        table.cell(debugTable, 4, 7, str.tostring(uf07_d1, "#.#####"), text_color=color.red, text_size=size.small)
+        table.cell(debugTable, 1, 7, getUnmitPair(int(unmitBull07_h4), int(unmitBear07_h4)), text_color=getUnmitColor(int(unmitBull07_h4), int(unmitBear07_h4)), text_size=size.small)
+        table.cell(debugTable, 2, 7, getMitPair(int(mitBull07_h4), int(mitBear07_h4)), text_color=getMitColor(int(mitBull07_h4), int(mitBear07_h4)), text_size=size.small)
+        table.cell(debugTable, 3, 7, getBrkPair(int(brkRes07_h4), int(brkSup07_h4)), text_color=getBrkColor(int(brkRes07_h4), int(brkSup07_h4)), text_size=size.small)
+        table.cell(debugTable, 4, 7, getUnmitPair(int(unmitBull07_d1), int(unmitBear07_d1)), text_color=getUnmitColor(int(unmitBull07_d1), int(unmitBear07_d1)), text_size=size.small)
+        table.cell(debugTable, 5, 7, getMitPair(int(mitBull07_d1), int(mitBear07_d1)), text_color=getMitColor(int(mitBull07_d1), int(mitBear07_d1)), text_size=size.small)
+        table.cell(debugTable, 6, 7, getBrkPair(int(brkRes07_d1), int(brkSup07_d1)), text_color=getBrkColor(int(brkRes07_d1), int(brkSup07_d1)), text_size=size.small)
+        table.cell(debugTable, 7, 7, getUnmitPair(int(unmitBull07_w1), int(unmitBear07_w1)), text_color=getUnmitColor(int(unmitBull07_w1), int(unmitBear07_w1)), text_size=size.small)
+        table.cell(debugTable, 8, 7, getMitPair(int(mitBull07_w1), int(mitBear07_w1)), text_color=getMitColor(int(mitBull07_w1), int(mitBear07_w1)), text_size=size.small)
+        table.cell(debugTable, 9, 7, getBrkPair(int(brkRes07_w1), int(brkSup07_w1)), text_color=getBrkColor(int(brkRes07_w1), int(brkSup07_w1)), text_size=size.small)
+
     if usedSymbols >= 8
         table.cell(debugTable, 0, 8, getSymbolName(s08), text_color=color.yellow, text_size=size.small)
-        table.cell(debugTable, 1, 8, str.tostring(yhat08_h4, "#.#####"), text_color=color.lime, text_size=size.small)
-        table.cell(debugTable, 2, 8, str.tostring(uf08_h4, "#.#####"), text_color=color.red, text_size=size.small)
-        table.cell(debugTable, 3, 8, str.tostring(yhat08_d1, "#.#####"), text_color=color.lime, text_size=size.small)
-        table.cell(debugTable, 4, 8, str.tostring(uf08_d1, "#.#####"), text_color=color.red, text_size=size.small)
+        table.cell(debugTable, 1, 8, getUnmitPair(int(unmitBull08_h4), int(unmitBear08_h4)), text_color=getUnmitColor(int(unmitBull08_h4), int(unmitBear08_h4)), text_size=size.small)
+        table.cell(debugTable, 2, 8, getMitPair(int(mitBull08_h4), int(mitBear08_h4)), text_color=getMitColor(int(mitBull08_h4), int(mitBear08_h4)), text_size=size.small)
+        table.cell(debugTable, 3, 8, getBrkPair(int(brkRes08_h4), int(brkSup08_h4)), text_color=getBrkColor(int(brkRes08_h4), int(brkSup08_h4)), text_size=size.small)
+        table.cell(debugTable, 4, 8, getUnmitPair(int(unmitBull08_d1), int(unmitBear08_d1)), text_color=getUnmitColor(int(unmitBull08_d1), int(unmitBear08_d1)), text_size=size.small)
+        table.cell(debugTable, 5, 8, getMitPair(int(mitBull08_d1), int(mitBear08_d1)), text_color=getMitColor(int(mitBull08_d1), int(mitBear08_d1)), text_size=size.small)
+        table.cell(debugTable, 6, 8, getBrkPair(int(brkRes08_d1), int(brkSup08_d1)), text_color=getBrkColor(int(brkRes08_d1), int(brkSup08_d1)), text_size=size.small)
+        table.cell(debugTable, 7, 8, getUnmitPair(int(unmitBull08_w1), int(unmitBear08_w1)), text_color=getUnmitColor(int(unmitBull08_w1), int(unmitBear08_w1)), text_size=size.small)
+        table.cell(debugTable, 8, 8, getMitPair(int(mitBull08_w1), int(mitBear08_w1)), text_color=getMitColor(int(mitBull08_w1), int(mitBear08_w1)), text_size=size.small)
+        table.cell(debugTable, 9, 8, getBrkPair(int(brkRes08_w1), int(brkSup08_w1)), text_color=getBrkColor(int(brkRes08_w1), int(brkSup08_w1)), text_size=size.small)
+
     if usedSymbols >= 9
         table.cell(debugTable, 0, 9, getSymbolName(s09), text_color=color.yellow, text_size=size.small)
-        table.cell(debugTable, 1, 9, str.tostring(yhat09_h4, "#.#####"), text_color=color.lime, text_size=size.small)
-        table.cell(debugTable, 2, 9, str.tostring(uf09_h4, "#.#####"), text_color=color.red, text_size=size.small)
-        table.cell(debugTable, 3, 9, str.tostring(yhat09_d1, "#.#####"), text_color=color.lime, text_size=size.small)
-        table.cell(debugTable, 4, 9, str.tostring(uf09_d1, "#.#####"), text_color=color.red, text_size=size.small)
+        table.cell(debugTable, 1, 9, getUnmitPair(int(unmitBull09_h4), int(unmitBear09_h4)), text_color=getUnmitColor(int(unmitBull09_h4), int(unmitBear09_h4)), text_size=size.small)
+        table.cell(debugTable, 2, 9, getMitPair(int(mitBull09_h4), int(mitBear09_h4)), text_color=getMitColor(int(mitBull09_h4), int(mitBear09_h4)), text_size=size.small)
+        table.cell(debugTable, 3, 9, getBrkPair(int(brkRes09_h4), int(brkSup09_h4)), text_color=getBrkColor(int(brkRes09_h4), int(brkSup09_h4)), text_size=size.small)
+        table.cell(debugTable, 4, 9, getUnmitPair(int(unmitBull09_d1), int(unmitBear09_d1)), text_color=getUnmitColor(int(unmitBull09_d1), int(unmitBear09_d1)), text_size=size.small)
+        table.cell(debugTable, 5, 9, getMitPair(int(mitBull09_d1), int(mitBear09_d1)), text_color=getMitColor(int(mitBull09_d1), int(mitBear09_d1)), text_size=size.small)
+        table.cell(debugTable, 6, 9, getBrkPair(int(brkRes09_d1), int(brkSup09_d1)), text_color=getBrkColor(int(brkRes09_d1), int(brkSup09_d1)), text_size=size.small)
+        table.cell(debugTable, 7, 9, getUnmitPair(int(unmitBull09_w1), int(unmitBear09_w1)), text_color=getUnmitColor(int(unmitBull09_w1), int(unmitBear09_w1)), text_size=size.small)
+        table.cell(debugTable, 8, 9, getMitPair(int(mitBull09_w1), int(mitBear09_w1)), text_color=getMitColor(int(mitBull09_w1), int(mitBear09_w1)), text_size=size.small)
+        table.cell(debugTable, 9, 9, getBrkPair(int(brkRes09_w1), int(brkSup09_w1)), text_color=getBrkColor(int(brkRes09_w1), int(brkSup09_w1)), text_size=size.small)
+
     if usedSymbols >= 10
         table.cell(debugTable, 0, 10, getSymbolName(s10), text_color=color.yellow, text_size=size.small)
-        table.cell(debugTable, 1, 10, str.tostring(yhat10_h4, "#.#####"), text_color=color.lime, text_size=size.small)
-        table.cell(debugTable, 2, 10, str.tostring(uf10_h4, "#.#####"), text_color=color.red, text_size=size.small)
-        table.cell(debugTable, 3, 10, str.tostring(yhat10_d1, "#.#####"), text_color=color.lime, text_size=size.small)
-        table.cell(debugTable, 4, 10, str.tostring(uf10_d1, "#.#####"), text_color=color.red, text_size=size.small)
+        table.cell(debugTable, 1, 10, getUnmitPair(int(unmitBull10_h4), int(unmitBear10_h4)), text_color=getUnmitColor(int(unmitBull10_h4), int(unmitBear10_h4)), text_size=size.small)
+        table.cell(debugTable, 2, 10, getMitPair(int(mitBull10_h4), int(mitBear10_h4)), text_color=getMitColor(int(mitBull10_h4), int(mitBear10_h4)), text_size=size.small)
+        table.cell(debugTable, 3, 10, getBrkPair(int(brkRes10_h4), int(brkSup10_h4)), text_color=getBrkColor(int(brkRes10_h4), int(brkSup10_h4)), text_size=size.small)
+        table.cell(debugTable, 4, 10, getUnmitPair(int(unmitBull10_d1), int(unmitBear10_d1)), text_color=getUnmitColor(int(unmitBull10_d1), int(unmitBear10_d1)), text_size=size.small)
+        table.cell(debugTable, 5, 10, getMitPair(int(mitBull10_d1), int(mitBear10_d1)), text_color=getMitColor(int(mitBull10_d1), int(mitBear10_d1)), text_size=size.small)
+        table.cell(debugTable, 6, 10, getBrkPair(int(brkRes10_d1), int(brkSup10_d1)), text_color=getBrkColor(int(brkRes10_d1), int(brkSup10_d1)), text_size=size.small)
+        table.cell(debugTable, 7, 10, getUnmitPair(int(unmitBull10_w1), int(unmitBear10_w1)), text_color=getUnmitColor(int(unmitBull10_w1), int(unmitBear10_w1)), text_size=size.small)
+        table.cell(debugTable, 8, 10, getMitPair(int(mitBull10_w1), int(mitBear10_w1)), text_color=getMitColor(int(mitBull10_w1), int(mitBear10_w1)), text_size=size.small)
+        table.cell(debugTable, 9, 10, getBrkPair(int(brkRes10_w1), int(brkSup10_w1)), text_color=getBrkColor(int(brkRes10_w1), int(brkSup10_w1)), text_size=size.small)
+
+//////////////////////////////////////////
+// DEBUG: Pine Logs - Detailed OB Analysis
+//////////////////////////////////////////
+// This runs on the CURRENT CHART's symbol/timeframe
+// To debug GBPAUD H4: open GBPAUD on H4 timeframe
+
+// Only log on last confirmed bar to prevent spam
+if barstate.islast and barstate.isconfirmed
+    log.info("=== OB DEBUG: {0} {1} ===", syminfo.ticker, timeframe.period)
+    log.info("Current bar: close={0,number,#.#####} low={1,number,#.#####} high={2,number,#.#####}", close, low, high)
+    log.info("Test Percentage: {0}%", ob_testPercent)
+
+    // Track what we find using the CORRECT logic
+    int firstUnmitBull = 0
+    int firstMitBull = 0
+    int firstBrkRes = 0
+
+    // Scan bars 4-30 and log OB candidates with full lifecycle check
+    log.warning("--- BULLISH OB CANDIDATES (bars 4-30) ---")
+    for i = 4 to 30
+        // Step 1: Check SWEEP
+        bool bullSweep = low[i] < low[i-1] and low[i] < low[i+1]
+
+        // Step 2: Check GAP AT FORMATION (both bar[2] and bar[3] patterns)
+        bool bullGap2 = high[i] < low[i-2]
+        bool bullGap3 = high[i] < low[i-3]
+        bool bullGapAtFormation = bullGap2 or bullGap3
+
+        // OB formed if BOTH conditions were true
+        bool bullOBFormed = bullSweep and bullGapAtFormation
+
+        if bullOBFormed
+            float obHigh = high[i]
+            float obLow = low[i]
+            string gapPattern = bullGap2 ? "bar[2]" : "bar[3]"
+
+            // Calculate test price (30% into OB from high)
+            float testPrice = obHigh - ((obHigh - obLow) * ob_testPercent / 100)
+
+            // Step 3: Check lifecycle - Active → Mitigated → Breaker → Reversed
+            bool isBroken = false
+            bool isReversed = false
+            bool hasReachedTestLevel = false
+            bool isTested = false
+            int startBar = bullGap3 ? i - 4 : i - 3
+            int j = startBar
+            while j >= 1
+                if not isBroken
+                    if close[j] < obLow
+                        isBroken := true
+                    else
+                        // Check mitigation (two-step process)
+                        if not hasReachedTestLevel and low[j] <= testPrice
+                            hasReachedTestLevel := true
+                        if hasReachedTestLevel and not isTested
+                            if low[j] >= obLow or (low[j] < obLow and high[j] >= obLow)
+                                isTested := true
+                else if not isReversed
+                    if close[j] > obHigh
+                        isReversed := true
+                j := j - 1
+
+            // Determine category
+            string category = isReversed ? "REVERSED" : (isBroken ? "BREAKER_RES" : (isTested ? "MIT_BULL" : "UNMIT_BULL"))
+            if not isReversed
+                if isBroken and firstBrkRes == 0
+                    firstBrkRes := i
+                else if isTested and firstMitBull == 0
+                    firstMitBull := i
+                else if not isBroken and not isTested and firstUnmitBull == 0
+                    firstUnmitBull := i
+
+            // Log this OB with all details
+            log.info("Bar[{0}]: FORMED ({1}) | obHigh={2,number,#.#####} obLow={3,number,#.#####} testPrice={4,number,#.#####}", i, gapPattern, obHigh, obLow, testPrice)
+            log.info("  Lifecycle: tested={0} broken={1} reversed={2} => {3}", isTested, isBroken, isReversed, category)
+
+    // Summary
+    log.warning("--- SUMMARY ---")
+    log.info("First Unmit Bull: bar {0}", firstUnmitBull)
+    log.info("First Mit Bull: bar {0}", firstMitBull)
+    log.info("First Breaker Res: bar {0}", firstBrkRes)
+
+    // Also log what the actual scan function returned for comparison
+    [scanUnmitBull, scanUnmitBear, scanMitBull, scanMitBear, scanBrkRes, scanBrkSup] = scanOBRange()
+    log.warning("--- ACTUAL scanOBRange() RESULTS ---")
+    log.info("unmitBullBar={0} unmitBearBar={1} mitBullBar={2} mitBearBar={3} brkResBar={4} brkSupBar={5}", scanUnmitBull, scanUnmitBear, scanMitBull, scanMitBear, scanBrkRes, scanBrkSup)
 
 // Required for valid indicator
 plot(na)
