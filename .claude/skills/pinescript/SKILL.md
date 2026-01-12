@@ -327,6 +327,247 @@ For screeners with multiple symbols:
 4. Test performance with target symbol count
 5. Each `request.security()` call adds ~50-100ms overhead
 
+## Debugging Techniques
+
+### Pine Logs (Primary Method)
+Pine Logs are the recommended debugging tool. They work from any scope, support filtering, and provide interactive navigation.
+
+```pinescript
+// Three severity levels with distinct colors
+log.info("Value: {0,number,#.####}", someFloat)    // Gray - general info
+log.warning("Condition triggered at bar {0}", bar_index)  // Orange - warnings
+log.error("Division by zero detected")              // Red - errors
+
+// Multiple values in one log
+log.info("open: {0}, high: {1}, low: {2}, close: {3}", open, high, low, close)
+```
+
+**Key characteristics:**
+- Work from global AND local scopes (unlike plot functions)
+- Survive rollback (logs persist even when realtime bar reverts)
+- Support filtering by level, date range, and regex patterns
+- Click logs to navigate to source code or chart location
+- Store ~10,000 historical logs maximum
+
+**Limitations:**
+- Only personal scripts can use Pine Logs (published scripts cannot)
+- Opening/closing Pine Logs pane triggers full script reload
+
+**Prevent log spam on realtime bars:**
+```pinescript
+if barstate.isconfirmed
+    log.info("Bar {0} confirmed: close={1}", bar_index, close)
+```
+
+### Labels for Visual Debugging
+Labels display text directly on the chart with tooltips for detailed info.
+
+```pinescript
+// Simple debug label
+label.new(bar_index, high, "Debug: " + str.tostring(value))
+
+// With tooltip for detailed data (hover to see)
+label.new(bar_index, high, "!", tooltip =
+    "close: " + str.tostring(close) +
+    "\nvolume: " + str.tostring(volume))
+
+// Force overlay on non-overlay indicators
+label.new(bar_index, high, "Signal", force_overlay = true)
+```
+
+**Restrict to visible chart range (for earlier bar debugging):**
+```pinescript
+if time >= chart.left_visible_bar_time and time <= chart.right_visible_bar_time
+    label.new(bar_index, high, "Visible range debug")
+```
+
+**Limitations:** Max 500 labels per script; oldest removed when exceeded.
+
+### Tables for Fixed-Position Display
+Tables stay in one screen position - ideal for summary info.
+
+```pinescript
+// Create table once with var
+var table debugTable = table.new(position.top_right, 2, 5, bgcolor = color.black)
+
+// Update on last bar only
+if barstate.islast
+    table.cell(debugTable, 0, 0, "Variable", text_color = color.white)
+    table.cell(debugTable, 1, 0, str.tostring(myVar), text_color = color.yellow)
+    table.cell(debugTable, 0, 1, "Condition", text_color = color.white)
+    table.cell(debugTable, 1, 1, str.tostring(myCondition), text_color = color.green)
+```
+
+### Plot Functions for Series Debugging
+Plots show values in chart pane, status line, Data Window, and price scale.
+
+```pinescript
+// Basic series plot
+plot(debugValue, "Debug Value", color.orange, 2)
+
+// Plot condition as 1/0
+plot(condition ? 1 : 0, "Condition Active")
+
+// Exclude from chart pane (show only in Data Window)
+plot(value, "Hidden Debug", display = display.data_window)
+
+// Visual condition markers
+plotshape(condition, "Event", shape.circle, location.top, color.red)
+bgcolor(condition ? color.new(color.red, 80) : na)
+```
+
+**Limitations:** Max 64 plots per script; cannot access local scope data.
+
+### Decomposing Complex Expressions
+Break apart nested expressions to inspect intermediate values:
+
+```pinescript
+// BEFORE - hard to debug
+float result = ta.ema(math.avg(ta.change(diff1), ta.change(diff2)), length)
+
+// AFTER - each step visible
+float change1 = ta.change(diff1)
+float change2 = ta.change(diff2)
+float avgChange = math.avg(change1, change2)
+float result = ta.ema(avgChange, length)
+
+log.info("change1: {0}, change2: {1}, avg: {2}, result: {3}",
+    change1, change2, avgChange, result)
+```
+
+### Extracting Local Scope Data
+Functions cannot call `plot()` or `log.*()`. Extract data via returns or reference types.
+
+**Method 1: Tuple returns**
+```pinescript
+myFunction() =>
+    localValue1 = someCalculation()
+    localValue2 = anotherCalculation()
+    result = localValue1 + localValue2
+    [result, localValue1, localValue2]  // Return debug values too
+
+[output, dbg1, dbg2] = myFunction()
+plot(dbg1, "Debug Local 1")
+plot(dbg2, "Debug Local 2")
+```
+
+**Method 2: Reference type (map/array) updates**
+```pinescript
+var map<string, float> debugData = map.new<string, float>()
+
+myFunction() =>
+    value1 = calculate()
+    debugData.put("value1", value1)  // Functions CAN modify reference type contents
+    value2 = calculate()
+    debugData.put("value2", value2)
+    value1 + value2
+
+result = myFunction()
+log.info("value1: {0}, value2: {1}", debugData.get("value1"), debugData.get("value2"))
+```
+
+### Debugging Collections
+
+**Arrays and matrices:**
+```pinescript
+log.info("Array: {0}", str.tostring(myArray))
+log.info("Size: {0}, First: {1}, Last: {2}",
+    array.size(myArray), array.first(myArray), array.last(myArray))
+
+// Iterate with index
+for [index, element] in myArray
+    log.info("Index {0}: {1,number,#.####}", index, element)
+```
+
+**Inspect all labels/lines/boxes:**
+```pinescript
+if barstate.islast
+    for [i, lbl] in label.all
+        log.info("Label {0}: x={1}, y={2}, text={3}",
+            i, lbl.get_x(), lbl.get_y(), lbl.get_text())
+```
+
+### Debugging Loops
+
+```pinescript
+log.warning("=== LOOP START ===")
+for i = 1 to length
+    value = calculate(i)
+    log.info("Iteration {0}: value={1,number,#.####}", i, value)
+    if skipCondition
+        log.warning("CONTINUE triggered at {0}", i)
+        continue
+    result += value
+log.warning("=== LOOP END: result={0} ===", result)
+```
+
+### Debugging User-Defined Types
+
+```pinescript
+type MyData
+    array<float> values
+    float threshold
+    int counter
+
+var MyData data = MyData.new(array.new<float>(), 0.5, 0)
+
+// Log individual fields
+log.info("threshold: {0}, counter: {1}, values: {2}",
+    data.threshold, data.counter, str.tostring(data.values))
+
+// Plot numeric fields
+plot(data.threshold, "Threshold")
+plot(array.size(data.values), "Values Count")
+```
+
+### String Formatting Reference
+
+```pinescript
+// Number formatting
+log.info("Integer: {0,number,#}", intValue)           // No decimals
+log.info("Float: {0,number,#.####}", floatValue)      // 4 decimals
+log.info("Float: {0,number,#.########}", floatValue)  // 8 decimals (max precision)
+
+// Multi-line output
+log.info("Line1: {0}\nLine2: {1}\nLine3: {2}", val1, val2, val3)
+
+// Conditional string building
+string status = condition ? "ACTIVE" : "INACTIVE"
+log.info("Status: {0}", status)
+```
+
+### Custom Debug Filtering
+
+```pinescript
+var bool debugEnabled = input.bool(true, "Enable Debug Logs")
+var int debugStartTime = input.time(0, "Debug Start Time")
+var int debugEndTime = input.time(0, "Debug End Time")
+
+shouldLog() =>
+    if not debugEnabled
+        false
+    else if debugStartTime == 0 and debugEndTime == 0
+        true
+    else
+        time >= debugStartTime and time <= debugEndTime
+
+if shouldLog() and barstate.isconfirmed
+    log.info("Debug: {0}", someValue)
+```
+
+### Debugging Best Practices
+
+1. **Use Pine Logs as primary tool** - most flexible, works everywhere
+2. **Always guard with `barstate.isconfirmed`** - prevents log spam on realtime ticks
+3. **Decompose complex expressions** - inspect each calculation step
+4. **Use tables for summary data** - fixed position, doesn't clutter chart
+5. **Use labels with tooltips** - hover for details without visual clutter
+6. **Extract local scope data via returns** - functions can't log directly
+7. **Filter logs by time range** - focus on specific bars
+8. **Use severity levels meaningfully** - info for data, warning for flow, error for problems
+9. **Remember Pine Logs survive rollback** - realtime logs persist even when bar reverts
+10. **Clean up debug code before publishing** - Pine Logs don't work in published scripts
+
 ## Code Review Checklist
 
 Before finalizing any Pine Script code, verify:
@@ -338,3 +579,4 @@ Before finalizing any Pine Script code, verify:
 - [ ] Alert frequency set to `alert.freq_once_per_bar_close`
 - [ ] No `timenow` usage
 - [ ] Functions don't try to plot or modify globals
+- [ ] Debug code removed or disabled before publishing
