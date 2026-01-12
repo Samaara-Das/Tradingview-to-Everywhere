@@ -4,7 +4,7 @@ argument-hint: [what to update]
 allowed-tools: Read, Write, Edit
 ---
 
-You are updating the task context file to maintain session continuity.
+You are updating the task context file to maintain session continuity. Carefully read the user's latest messages and your messages to understand the context, what was done, what is pending, what bugs are to be fixed etc.
 
 Update instructions: $ARGUMENTS
 

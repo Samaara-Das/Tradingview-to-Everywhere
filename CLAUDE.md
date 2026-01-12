@@ -93,3 +93,5 @@ When making mistakes, ALWAYS document them in `AGENTS.md` to prevent repetition.
 
 Pine Script guidelines are in `.claude/skills/pinescript/`. The skill auto-applies when working on Pine Script tasks.
 
+Unless explicitly stated, use shift 0 when working in Pine Script
+

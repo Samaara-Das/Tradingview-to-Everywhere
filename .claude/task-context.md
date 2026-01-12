@@ -2,7 +2,7 @@
 
 This file is automatically updated by Claude Code hooks to maintain context across sessions.
 
-**Last Updated**: 2026-01-12 13:41:31
+**Last Updated**: 2026-01-12 19:45:00
 
 **Current Task Master Task**: Get the TTE Screener working
 
@@ -15,109 +15,100 @@ This file is automatically updated by Claude Code hooks to maintain context acro
 - 1.2: Added NWE indicator to screener (H4 + Daily timeframes, 10 symbols)
 - 1.3: Added OB & FVG indicator to screener (H4, Daily, Weekly timeframes)
 - 1.3.1: Fixed OB & FVG detection logic (gap at formation + broken-since check)
+- 1.3.2: Added mitigated OB detection with two-step test percentage logic
+- 1.3.3: OB detection tested and verified across all timeframes and symbols
 
 ### In Progress
-- 1.3.2: Testing fixed OB/FVG detection against original indicator
+- 1.3.4: **FVG detection needs to be tested** before task 1.3 is fully complete
 
 ### Pending Subtasks (in order)
-- 1.3.3: Add overlap checking (does current price overlap any OB zone?)
+- 1.3.5: Add overlap checking (does current price overlap any OB/FVG zone?)
 - 1.4: Add Kernel AO regular divergences (Logic 1 & 2) to screener and test
 - 1.5: Add Multi Oscillator same side divergence to screener and test
 
 ---
 
-## Bug Fixed: Wrong OB Detection Logic
+## Recent Accomplishments
 
-### The Problem
-The screener was using `high[i] < currLow` as an ongoing "FVG unfilled" check. This is WRONG because:
-- It checked if gap STILL EXISTS NOW (ongoing)
-- Original indicator checks gap AT FORMATION TIME (once)
-- An OB stays valid until price CLOSES through it, regardless of gap status
+### Mitigated OB Detection Added (2026-01-12)
+Successfully implemented two-step mitigation detection matching the original OB & FVG indicator:
 
-### The Fix Applied
-Rewrote `scanOBRange()` with correct 3-step logic:
+1. **Test Percentage Input**: Added `ob_testPercent` input (default 30%)
+2. **Two-Step Mitigation Logic**:
+   - Step 1: Price wicks into OB zone by test percentage
+   - Step 2: Price returns/bounces from the zone
+3. **Updated scanOBRange()**: Now returns 6 categories:
+   - `unmitBullBar` / `unmitBearBar` - Pristine OBs (never touched)
+   - `mitBullBar` / `mitBearBar` - Mitigated OBs (tested but not broken)
+   - `brkResBar` / `brkSupBar` - Breaker OBs (broken through)
+4. **Updated Debug Table**: 10 columns showing Unmit/Mit/Brk for H4/D1/W1
+5. **Updated Pine Logs**: Shows mitigation state in lifecycle output
 
+### Commit Pushed
+```
+f4ef525 Add OB detection with mitigated state and multi-timeframe support
+```
+
+---
+
+## IMPORTANT: FVGs Still Need Testing
+
+**Before task 1.3 can be marked complete**, FVG detection must be tested:
+- The screener currently detects OBs but the FVG portion needs verification
+- Compare screener's FVG detection against original OB & FVG indicator
+- Ensure FVG fill detection works correctly
+
+---
+
+## OB Detection Logic (Final Implementation)
+
+### Formation Detection
 ```pinescript
-// Step 1: Check SWEEP - OB candle swept lows of adjacent bars
+// Bullish OB: Sweep + Gap (bar[2] or bar[3] pattern)
 bool bullSweep = low[i] < low[i-1] and low[i] < low[i+1]
-
-// Step 2: Check GAP AT FORMATION - OB's high was below validation bar's low
-// Validation bar is at i-2 (the bar that completed the 3-bar pattern)
-bool bullGapAtFormation = high[i] < low[i-2]
-
-// Step 3: Check if OB has been BROKEN since formation
-// Loop from validation bar to current, check if any close < OB's low
-bool isBroken = false
-int j = i - 3
-while j >= 1 and not isBroken
-    if close[j] < low[i]
-        isBroken := true
-    j := j - 1
+bool bullGap2 = high[i] < low[i-2]  // bar[2] pattern
+bool bullGap3 = high[i] < low[i-3]  // bar[3] pattern
+bool bullOBFormed = bullSweep and (bullGap2 or bullGap3)
 ```
 
-### Bar Structure at Formation
-```
-bar[i]   = OB candle (where sweep happened)
-bar[i-1] = intermediate candle
-bar[i-2] = validation candle (creates the gap)
-```
-
-### Key Insight
-- Gap check happens ONCE at formation time
-- OB validity is determined by whether price CLOSED through the level since formation
-- FVG fill status is SEPARATE from OB validity
-
----
-
-## Code Changes Made
-
-### `Pine Script Code/TTE Screener.txt`
-1. Replaced `scanOBRange_Current()` and `scanOBRange_Confirmed()` with single correct `scanOBRange()`
-2. Removed `checkOBDebug()` function (no longer needed)
-3. Removed debug request.security calls for current vs confirmed comparison
-4. Removed debug comparison table (bottom right)
-5. Updated Pine Logs debug section to use correct formation + broken logic
-
----
-
-## Still Needed: Overlap Checking
-
-The signal logic needs to know "does current price overlap any OB zone":
+### Lifecycle Tracking
+OB states: **Active → Mitigated → Breaker → Reversed**
 
 ```pinescript
-// Price overlaps with OB zone when current bar's range intersects OB's range
-bool priceInZone = low <= ob.high AND high >= ob.low
-```
+// Test price calculation (30% into OB from high for bullish)
+float testPrice = obHigh - ((obHigh - obLow) * ob_testPercent / 100)
 
-This is a SEPARATE concern from OB detection. Current screener returns bar index of nearest OB; signal logic needs boolean "is price at zone now".
+// Two-step mitigation check
+if not hasReachedTestLevel and low[j] <= testPrice
+    hasReachedTestLevel := true
+if hasReachedTestLevel and not isTested
+    if low[j] >= obLow or (low[j] < obLow and high[j] >= obLow)
+        isTested := true
+```
 
 ---
 
-## Alert Message Structure Required
+## Debug Table Structure
 
-```json
-{
-  "OB & FVG": {
-    "zonetype": "FVG or OB",
-    "type": "bullish | bearish | breaker support | breaker resistance",
-    "zoneTimestamp": "[timestamp of when the OB or FVG started]",
-    "overlapTimestamp": "[timestamp of when price overlapped the zone]",
-    "timeframe": "H4 or Daily or Weekly"
-  }
-}
-```
+| Symbol | H4 Unmit | H4 Mit | H4 Brk | D1 Unmit | D1 Mit | D1 Brk | W1 Unmit | W1 Mit | W1 Brk |
+|--------|----------|--------|--------|----------|--------|--------|----------|--------|--------|
+| GBPAUD | B:x S:y  | B:x S:y| R:x S:y| B:x S:y  | B:x S:y| R:x S:y| B:x S:y  | B:x S:y| R:x S:y|
+
+- **Unmit**: Pristine OBs (lime/yellow)
+- **Mit**: Mitigated/tested OBs (aqua)
+- **Brk**: Breaker OBs (orange)
 
 ---
 
 ## Next Steps
 
-1. **Test fixed OB detection** - Compare screener output with original indicator on same chart
-2. **Add overlap checking** - Change output from bar index to boolean "price overlaps zone"
+1. **Test FVG detection** - Compare screener FVG output with original indicator
+2. **Add overlap checking** - Boolean "is price at zone now" for signal logic
 3. **Continue to subtask 1.4** - Add Kernel AO divergences
 
 ---
 
 ## Files Referenced
-- `Pine Script Code/TTE Screener.txt` - Main screener (detection logic fixed)
+- `Pine Script Code/TTE Screener.txt` - Main screener (OB detection complete, FVG pending test)
 - `Pine Script Code/OB & FVG.txt` - Original indicator logic (reference)
 - `Pine Script Code/logic/Regime 1 Reversal logic for SB.md` - Signal requirements
