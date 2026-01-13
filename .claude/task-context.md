@@ -2,7 +2,7 @@
 
 This file is automatically updated by Claude Code hooks to maintain context across sessions.
 
-**Last Updated**: 2026-01-12 19:45:00
+**Last Updated**: 2026-01-13 12:17:21
 
 **Current Task Master Task**: Get the TTE Screener working
 
@@ -17,12 +17,12 @@ This file is automatically updated by Claude Code hooks to maintain context acro
 - 1.3.1: Fixed OB & FVG detection logic (gap at formation + broken-since check)
 - 1.3.2: Added mitigated OB detection with two-step test percentage logic
 - 1.3.3: OB detection tested and verified across all timeframes and symbols
+- 1.3.4: **FVG detection implemented** with fill tracking and overlap detection
 
 ### In Progress
-- 1.3.4: **FVG detection needs to be tested** before task 1.3 is fully complete
+- 1.3.5: FVG detection needs to be tested in TradingView
 
 ### Pending Subtasks (in order)
-- 1.3.5: Add overlap checking (does current price overlap any OB/FVG zone?)
 - 1.4: Add Kernel AO regular divergences (Logic 1 & 2) to screener and test
 - 1.5: Add Multi Oscillator same side divergence to screener and test
 
@@ -30,85 +30,88 @@ This file is automatically updated by Claude Code hooks to maintain context acro
 
 ## Recent Accomplishments
 
-### Mitigated OB Detection Added (2026-01-12)
-Successfully implemented two-step mitigation detection matching the original OB & FVG indicator:
+### FVG Detection Added (2026-01-12)
+Successfully implemented FVG detection matching the original OB & FVG indicator:
 
-1. **Test Percentage Input**: Added `ob_testPercent` input (default 30%)
-2. **Two-Step Mitigation Logic**:
-   - Step 1: Price wicks into OB zone by test percentage
-   - Step 2: Price returns/bounces from the zone
-3. **Updated scanOBRange()**: Now returns 6 categories:
-   - `unmitBullBar` / `unmitBearBar` - Pristine OBs (never touched)
-   - `mitBullBar` / `mitBearBar` - Mitigated OBs (tested but not broken)
-   - `brkResBar` / `brkSupBar` - Breaker OBs (broken through)
-4. **Updated Debug Table**: 10 columns showing Unmit/Mit/Brk for H4/D1/W1
-5. **Updated Pine Logs**: Shows mitigation state in lifecycle output
-
-### Commit Pushed
-```
-f4ef525 Add OB detection with mitigated state and multi-timeframe support
-```
-
----
-
-## IMPORTANT: FVGs Still Need Testing
-
-**Before task 1.3 can be marked complete**, FVG detection must be tested:
-- The screener currently detects OBs but the FVG portion needs verification
-- Compare screener's FVG detection against original OB & FVG indicator
-- Ensure FVG fill detection works correctly
+1. **New Input**: Added `fvg_fillPercent` input (default 50%) for FVG fill detection
+2. **FVG Zone Tracking**: Each OB now tracks its associated FVG zone
+   - Bullish FVG: gap between OB candle high and validation bar's low
+   - Bearish FVG: gap between validation bar's high and OB candle low
+3. **FVG Fill Detection**: Checks if price wicks into FVG by fill percentage
+   - Bullish: `low[j] <= fillLevel` (price wicks down into gap)
+   - Bearish: `high[j] >= fillLevel` (price wicks up into gap)
+4. **Overlap Detection**: Returns bar index if current price overlaps an unfilled FVG
+5. **Updated scanOBRange()**: Now returns 8 values:
+   - OBs: `unmitBullBar`, `unmitBearBar`, `mitBullBar`, `mitBearBar`, `brkResBar`, `brkSupBar`
+   - FVGs: `bullFVGOverlap`, `bearFVGOverlap`
+6. **Updated Debug Table**: Added "FVG@" column showing overlap status
+   - Shows "B:Y S:Y" where Y=price overlaps unfilled FVG, -=no overlap
+   - Fuchsia color when overlap exists
 
 ---
 
-## OB Detection Logic (Final Implementation)
+## FVG Detection Logic (Final Implementation)
 
-### Formation Detection
+### FVG Zone Calculation
 ```pinescript
-// Bullish OB: Sweep + Gap (bar[2] or bar[3] pattern)
-bool bullSweep = low[i] < low[i-1] and low[i] < low[i+1]
-bool bullGap2 = high[i] < low[i-2]  // bar[2] pattern
-bool bullGap3 = high[i] < low[i-3]  // bar[3] pattern
-bool bullOBFormed = bullSweep and (bullGap2 or bullGap3)
+// Bullish FVG zone (gap above OB candle)
+float gapLevel = bullGap3 ? low[i-3] : low[i-2]  // validation bar's low
+float fvgTop = gapLevel
+float fvgBottom = obHigh
+float fvgHeight = fvgTop - fvgBottom
+
+// Bearish FVG zone (gap below OB candle)
+float gapLevel = bearGap3 ? high[i-3] : high[i-2]  // validation bar's high
+float fvgTop = obLow
+float fvgBottom = gapLevel
+float fvgHeight = fvgTop - fvgBottom
 ```
 
-### Lifecycle Tracking
-OB states: **Active → Mitigated → Breaker → Reversed**
-
+### FVG Fill Detection
 ```pinescript
-// Test price calculation (30% into OB from high for bullish)
-float testPrice = obHigh - ((obHigh - obLow) * ob_testPercent / 100)
+// Bullish FVG filled when price wicks down by fill%
+float fillLevel = fvgTop - (fvgHeight * fvg_fillPercent / 100)
+if low[j] <= fillLevel
+    isFVGFilled := true
 
-// Two-step mitigation check
-if not hasReachedTestLevel and low[j] <= testPrice
-    hasReachedTestLevel := true
-if hasReachedTestLevel and not isTested
-    if low[j] >= obLow or (low[j] < obLow and high[j] >= obLow)
-        isTested := true
+// Bearish FVG filled when price wicks up by fill%
+float fillLevel = fvgBottom + (fvgHeight * fvg_fillPercent / 100)
+if high[j] >= fillLevel
+    isFVGFilled := true
+```
+
+### FVG Overlap Check
+```pinescript
+// Only check unfilled FVGs (not broken/reversed OBs)
+if not isFVGFilled and not isBroken and not isReversed and bullFVGOverlap == 0
+    // Bullish FVG overlap: price touches zone between obHigh and gapLevel
+    if low <= fvgTop and high >= fvgBottom
+        bullFVGOverlap := i
 ```
 
 ---
 
-## Debug Table Structure
+## Debug Table Structure (Updated)
 
-| Symbol | H4 Unmit | H4 Mit | H4 Brk | D1 Unmit | D1 Mit | D1 Brk | W1 Unmit | W1 Mit | W1 Brk |
-|--------|----------|--------|--------|----------|--------|--------|----------|--------|--------|
-| GBPAUD | B:x S:y  | B:x S:y| R:x S:y| B:x S:y  | B:x S:y| R:x S:y| B:x S:y  | B:x S:y| R:x S:y|
+| Symbol | H4 Unmit | H4 Mit | H4 Brk | D1 Unmit | D1 Mit | D1 Brk | W1 Unmit | W1 Mit | W1 Brk | FVG@ |
+|--------|----------|--------|--------|----------|--------|--------|----------|--------|--------|------|
+| GBPAUD | B:x S:y  | B:x S:y| R:x S:y| B:x S:y  | B:x S:y| R:x S:y| B:x S:y  | B:x S:y| R:x S:y| B:Y S:-|
 
 - **Unmit**: Pristine OBs (lime/yellow)
 - **Mit**: Mitigated/tested OBs (aqua)
 - **Brk**: Breaker OBs (orange)
+- **FVG@**: Price overlaps unfilled FVG? (fuchsia when Y)
 
 ---
 
 ## Next Steps
 
-1. **Test FVG detection** - Compare screener FVG output with original indicator
-2. **Add overlap checking** - Boolean "is price at zone now" for signal logic
-3. **Continue to subtask 1.4** - Add Kernel AO divergences
+1. **Test FVG detection in TradingView** - Verify overlap detection works correctly
+2. **Continue to subtask 1.4** - Add Kernel AO divergences
 
 ---
 
 ## Files Referenced
-- `Pine Script Code/TTE Screener.txt` - Main screener (OB detection complete, FVG pending test)
+- `Pine Script Code/TTE Screener.txt` - Main screener (OB + FVG detection complete)
 - `Pine Script Code/OB & FVG.txt` - Original indicator logic (reference)
 - `Pine Script Code/logic/Regime 1 Reversal logic for SB.md` - Signal requirements
