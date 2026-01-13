@@ -145,11 +145,69 @@ scanOBRange() =>
     int bullFVGBar = 0
     int bearFVGBar = 0
 
-    // Start at 4 to have room for:
-    // - bar[i+1] for sweep check (older adjacent bar)
-    // - bar[i-3] for bar[3] gap pattern validation
-    // Scan up to 100 bars back
-    for i = 4 to 100
+    // ==========================================
+    // HANDLE i=2 SEPARATELY (only bar[2] pattern)
+    // ==========================================
+    // At i=2, we cannot check bar[3] pattern (would access low[-1])
+    // So we handle it separately with only bar[2] pattern check
+
+    // BULLISH OB at shift 2
+    bool bullSweep2 = low[2] < low[1] and low[2] < low[3]
+    bool bullGap2_at2 = high[2] < low[0]  // bar[2] pattern only
+    if bullSweep2 and bullGap2_at2
+        float obHigh2 = high[2]
+        float obLow2 = low[2]
+        float gapLevel2 = low[0]
+        float fvgTop2 = gapLevel2
+        float fvgBottom2 = obHigh2
+        float fvgHeight2 = fvgTop2 - fvgBottom2
+        float testPrice2 = obHigh2 - ((obHigh2 - obLow2) * ob_testPercent / 100)
+
+        bool isBroken2 = false
+        bool isReversed2 = false
+        bool hasReachedTestLevel2 = false
+        bool isTested2 = false
+        bool isFVGFilled2 = false
+        int j2 = -1  // Start after validation bar (bar[0] is validation, so start at current forming bar which doesn't exist yet)
+        // No lifecycle loop needed - OB just formed, check current bar only
+        // Actually for i=2, startBar = i - 3 = -1, so no bars to check yet
+
+        // Categorize (newly formed = unmitigated)
+        if unmitBullBar == 0
+            unmitBullBar := 2
+        if not isFVGFilled2 and bullFVGBar == 0
+            bullFVGBar := 2
+
+    // BEARISH OB at shift 2
+    bool bearSweep2 = high[2] > high[1] and high[2] > high[3]
+    bool bearGap2_at2 = low[2] > high[0]  // bar[2] pattern only
+    if bearSweep2 and bearGap2_at2
+        float obHigh2b = high[2]
+        float obLow2b = low[2]
+        float gapLevel2b = high[0]
+        float fvgTop2b = obLow2b
+        float fvgBottom2b = gapLevel2b
+        float fvgHeight2b = fvgTop2b - fvgBottom2b
+        float testPrice2b = obLow2b + ((obHigh2b - obLow2b) * ob_testPercent / 100)
+
+        bool isBroken2b = false
+        bool isReversed2b = false
+        bool hasReachedTestLevel2b = false
+        bool isTested2b = false
+        bool isFVGFilled2b = false
+        // No lifecycle loop needed - OB just formed
+
+        // Categorize (newly formed = unmitigated)
+        if unmitBearBar == 0
+            unmitBearBar := 2
+        if not isFVGFilled2b and bearFVGBar == 0
+            bearFVGBar := 2
+
+    // ==========================================
+    // MAIN LOOP: i=3 to 100 (bar[3] pattern safe)
+    // ==========================================
+    // Now i is always >= 3, so low[i-3] is always valid (minimum low[0])
+    for i = 3 to 100
         //////////////////////////////////////////
         // BULLISH OB DETECTION (Demand Zone)
         //////////////////////////////////////////
@@ -162,7 +220,7 @@ scanOBRange() =>
         // - bar[2] pattern: validation bar is 2 bars after OB → high[i] < low[i-2]
         // - bar[3] pattern: validation bar is 3 bars after OB → high[i] < low[i-3]
         bool bullGap2 = high[i] < low[i-2]  // bar[2] formation pattern
-        bool bullGap3 = high[i] < low[i-3]  // bar[3] formation pattern
+        bool bullGap3 = high[i] < low[i-3]  // bar[3] formation pattern (safe: i >= 3 in this loop)
         bool bullGapAtFormation = bullGap2 or bullGap3
 
         // OB formed if BOTH sweep AND gap conditions were true
@@ -192,7 +250,7 @@ scanOBRange() =>
             bool isFVGFilled = false
             int startBar = bullGap3 ? i - 4 : i - 3  // Start after validation bar
             int j = startBar
-            while j >= 1
+            while j >= 0
                 if not isBroken
                     // Check if became BREAKER (close below OB's low)
                     if close[j] < obLow
@@ -251,7 +309,7 @@ scanOBRange() =>
 
         // Step 2: Check GAP AT FORMATION (both bar[2] and bar[3] patterns)
         bool bearGap2 = low[i] > high[i-2]  // bar[2] formation pattern
-        bool bearGap3 = low[i] > high[i-3]  // bar[3] formation pattern
+        bool bearGap3 = low[i] > high[i-3]  // bar[3] formation pattern (safe: i >= 3 in this loop)
         bool bearGapAtFormation = bearGap2 or bearGap3
 
         // OB formed if BOTH sweep AND gap conditions were true
@@ -280,7 +338,7 @@ scanOBRange() =>
             bool isFVGFilled = false
             int startBar = bearGap3 ? i - 4 : i - 3
             int j = startBar
-            while j >= 1
+            while j >= 0
                 if not isBroken
                     // Check if became BREAKER (close above OB's high)
                     if close[j] > obHigh
@@ -436,112 +494,145 @@ getColor(int bullBar, int bearBar, color bothColor, color oneColor) =>
     else
         color.gray
 
-// Build debug table to display OB and FVG for each symbol
-// Columns: Symbol | H4 OB | H4 FVG | D1 OB | D1 FVG | W1 OB | W1 FVG
-// OB cells show: "B:x S:y" (Bullish demand bar, Bearish supply bar)
-// FVG cells show: "B:x S:y" (Bullish FVG bar, Bearish FVG bar)
-var table debugTable = table.new(position.top_right, 8, 12, bgcolor=color.new(color.black, 80), border_width=1)
+// Build debug table to display all OB types for each symbol
+// Columns: Symbol | H4 Unmit | H4 Mit | H4 Brk | D1 Unmit | D1 Mit | D1 Brk | W1 Unmit | W1 Mit | W1 Brk
+// Each cell shows: "B:x S:y" (Bullish bar, Bearish/Supply bar)
+// Unmit = Unmitigated (lime), Mit = Mitigated (aqua), Brk = Breaker (orange)
+var table debugTable = table.new(position.top_right, 11, 12, bgcolor=color.new(color.black, 80), border_width=1)
 
 if barstate.islast
     // Header row
     table.cell(debugTable, 0, 0, "Symbol", text_color=color.white, text_size=size.small)
-    table.cell(debugTable, 1, 0, "H4 OB", text_color=color.lime, text_size=size.small)
-    table.cell(debugTable, 2, 0, "H4 FVG", text_color=color.fuchsia, text_size=size.small)
-    table.cell(debugTable, 3, 0, "D1 OB", text_color=color.lime, text_size=size.small)
-    table.cell(debugTable, 4, 0, "D1 FVG", text_color=color.fuchsia, text_size=size.small)
-    table.cell(debugTable, 5, 0, "W1 OB", text_color=color.lime, text_size=size.small)
-    table.cell(debugTable, 6, 0, "W1 FVG", text_color=color.fuchsia, text_size=size.small)
+    table.cell(debugTable, 1, 0, "H4 Unmit", text_color=color.lime, text_size=size.small)
+    table.cell(debugTable, 2, 0, "H4 Mit", text_color=color.aqua, text_size=size.small)
+    table.cell(debugTable, 3, 0, "H4 Brk", text_color=color.orange, text_size=size.small)
+    table.cell(debugTable, 4, 0, "D1 Unmit", text_color=color.lime, text_size=size.small)
+    table.cell(debugTable, 5, 0, "D1 Mit", text_color=color.aqua, text_size=size.small)
+    table.cell(debugTable, 6, 0, "D1 Brk", text_color=color.orange, text_size=size.small)
+    table.cell(debugTable, 7, 0, "W1 Unmit", text_color=color.lime, text_size=size.small)
+    table.cell(debugTable, 8, 0, "W1 Mit", text_color=color.aqua, text_size=size.small)
+    table.cell(debugTable, 9, 0, "W1 Brk", text_color=color.orange, text_size=size.small)
 
     // Symbol rows
     if usedSymbols >= 1
         table.cell(debugTable, 0, 1, getSymbolName(s01), text_color=color.yellow, text_size=size.small)
         table.cell(debugTable, 1, 1, formatPair(int(unmitBull01_h4), int(unmitBear01_h4)), text_color=getColor(int(unmitBull01_h4), int(unmitBear01_h4), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 2, 1, formatPair(int(bullFVG01_h4), int(bearFVG01_h4)), text_color=getColor(int(bullFVG01_h4), int(bearFVG01_h4), color.fuchsia, color.new(color.fuchsia, 50)), text_size=size.small)
-        table.cell(debugTable, 3, 1, formatPair(int(unmitBull01_d1), int(unmitBear01_d1)), text_color=getColor(int(unmitBull01_d1), int(unmitBear01_d1), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 4, 1, formatPair(int(bullFVG01_d1), int(bearFVG01_d1)), text_color=getColor(int(bullFVG01_d1), int(bearFVG01_d1), color.fuchsia, color.new(color.fuchsia, 50)), text_size=size.small)
-        table.cell(debugTable, 5, 1, formatPair(int(unmitBull01_w1), int(unmitBear01_w1)), text_color=getColor(int(unmitBull01_w1), int(unmitBear01_w1), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 6, 1, formatPair(int(bullFVG01_w1), int(bearFVG01_w1)), text_color=getColor(int(bullFVG01_w1), int(bearFVG01_w1), color.fuchsia, color.new(color.fuchsia, 50)), text_size=size.small)
+        table.cell(debugTable, 2, 1, formatPair(int(mitBull01_h4), int(mitBear01_h4)), text_color=getColor(int(mitBull01_h4), int(mitBear01_h4), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
+        table.cell(debugTable, 3, 1, formatPair(int(brkRes01_h4), int(brkSup01_h4)), text_color=getColor(int(brkRes01_h4), int(brkSup01_h4), color.orange, color.new(color.orange, 50)), text_size=size.small)
+        table.cell(debugTable, 4, 1, formatPair(int(unmitBull01_d1), int(unmitBear01_d1)), text_color=getColor(int(unmitBull01_d1), int(unmitBear01_d1), color.lime, color.yellow), text_size=size.small)
+        table.cell(debugTable, 5, 1, formatPair(int(mitBull01_d1), int(mitBear01_d1)), text_color=getColor(int(mitBull01_d1), int(mitBear01_d1), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
+        table.cell(debugTable, 6, 1, formatPair(int(brkRes01_d1), int(brkSup01_d1)), text_color=getColor(int(brkRes01_d1), int(brkSup01_d1), color.orange, color.new(color.orange, 50)), text_size=size.small)
+        table.cell(debugTable, 7, 1, formatPair(int(unmitBull01_w1), int(unmitBear01_w1)), text_color=getColor(int(unmitBull01_w1), int(unmitBear01_w1), color.lime, color.yellow), text_size=size.small)
+        table.cell(debugTable, 8, 1, formatPair(int(mitBull01_w1), int(mitBear01_w1)), text_color=getColor(int(mitBull01_w1), int(mitBear01_w1), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
+        table.cell(debugTable, 9, 1, formatPair(int(brkRes01_w1), int(brkSup01_w1)), text_color=getColor(int(brkRes01_w1), int(brkSup01_w1), color.orange, color.new(color.orange, 50)), text_size=size.small)
 
     if usedSymbols >= 2
         table.cell(debugTable, 0, 2, getSymbolName(s02), text_color=color.yellow, text_size=size.small)
         table.cell(debugTable, 1, 2, formatPair(int(unmitBull02_h4), int(unmitBear02_h4)), text_color=getColor(int(unmitBull02_h4), int(unmitBear02_h4), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 2, 2, formatPair(int(bullFVG02_h4), int(bearFVG02_h4)), text_color=getColor(int(bullFVG02_h4), int(bearFVG02_h4), color.fuchsia, color.new(color.fuchsia, 50)), text_size=size.small)
-        table.cell(debugTable, 3, 2, formatPair(int(unmitBull02_d1), int(unmitBear02_d1)), text_color=getColor(int(unmitBull02_d1), int(unmitBear02_d1), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 4, 2, formatPair(int(bullFVG02_d1), int(bearFVG02_d1)), text_color=getColor(int(bullFVG02_d1), int(bearFVG02_d1), color.fuchsia, color.new(color.fuchsia, 50)), text_size=size.small)
-        table.cell(debugTable, 5, 2, formatPair(int(unmitBull02_w1), int(unmitBear02_w1)), text_color=getColor(int(unmitBull02_w1), int(unmitBear02_w1), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 6, 2, formatPair(int(bullFVG02_w1), int(bearFVG02_w1)), text_color=getColor(int(bullFVG02_w1), int(bearFVG02_w1), color.fuchsia, color.new(color.fuchsia, 50)), text_size=size.small)
+        table.cell(debugTable, 2, 2, formatPair(int(mitBull02_h4), int(mitBear02_h4)), text_color=getColor(int(mitBull02_h4), int(mitBear02_h4), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
+        table.cell(debugTable, 3, 2, formatPair(int(brkRes02_h4), int(brkSup02_h4)), text_color=getColor(int(brkRes02_h4), int(brkSup02_h4), color.orange, color.new(color.orange, 50)), text_size=size.small)
+        table.cell(debugTable, 4, 2, formatPair(int(unmitBull02_d1), int(unmitBear02_d1)), text_color=getColor(int(unmitBull02_d1), int(unmitBear02_d1), color.lime, color.yellow), text_size=size.small)
+        table.cell(debugTable, 5, 2, formatPair(int(mitBull02_d1), int(mitBear02_d1)), text_color=getColor(int(mitBull02_d1), int(mitBear02_d1), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
+        table.cell(debugTable, 6, 2, formatPair(int(brkRes02_d1), int(brkSup02_d1)), text_color=getColor(int(brkRes02_d1), int(brkSup02_d1), color.orange, color.new(color.orange, 50)), text_size=size.small)
+        table.cell(debugTable, 7, 2, formatPair(int(unmitBull02_w1), int(unmitBear02_w1)), text_color=getColor(int(unmitBull02_w1), int(unmitBear02_w1), color.lime, color.yellow), text_size=size.small)
+        table.cell(debugTable, 8, 2, formatPair(int(mitBull02_w1), int(mitBear02_w1)), text_color=getColor(int(mitBull02_w1), int(mitBear02_w1), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
+        table.cell(debugTable, 9, 2, formatPair(int(brkRes02_w1), int(brkSup02_w1)), text_color=getColor(int(brkRes02_w1), int(brkSup02_w1), color.orange, color.new(color.orange, 50)), text_size=size.small)
 
     if usedSymbols >= 3
         table.cell(debugTable, 0, 3, getSymbolName(s03), text_color=color.yellow, text_size=size.small)
         table.cell(debugTable, 1, 3, formatPair(int(unmitBull03_h4), int(unmitBear03_h4)), text_color=getColor(int(unmitBull03_h4), int(unmitBear03_h4), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 2, 3, formatPair(int(bullFVG03_h4), int(bearFVG03_h4)), text_color=getColor(int(bullFVG03_h4), int(bearFVG03_h4), color.fuchsia, color.new(color.fuchsia, 50)), text_size=size.small)
-        table.cell(debugTable, 3, 3, formatPair(int(unmitBull03_d1), int(unmitBear03_d1)), text_color=getColor(int(unmitBull03_d1), int(unmitBear03_d1), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 4, 3, formatPair(int(bullFVG03_d1), int(bearFVG03_d1)), text_color=getColor(int(bullFVG03_d1), int(bearFVG03_d1), color.fuchsia, color.new(color.fuchsia, 50)), text_size=size.small)
-        table.cell(debugTable, 5, 3, formatPair(int(unmitBull03_w1), int(unmitBear03_w1)), text_color=getColor(int(unmitBull03_w1), int(unmitBear03_w1), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 6, 3, formatPair(int(bullFVG03_w1), int(bearFVG03_w1)), text_color=getColor(int(bullFVG03_w1), int(bearFVG03_w1), color.fuchsia, color.new(color.fuchsia, 50)), text_size=size.small)
+        table.cell(debugTable, 2, 3, formatPair(int(mitBull03_h4), int(mitBear03_h4)), text_color=getColor(int(mitBull03_h4), int(mitBear03_h4), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
+        table.cell(debugTable, 3, 3, formatPair(int(brkRes03_h4), int(brkSup03_h4)), text_color=getColor(int(brkRes03_h4), int(brkSup03_h4), color.orange, color.new(color.orange, 50)), text_size=size.small)
+        table.cell(debugTable, 4, 3, formatPair(int(unmitBull03_d1), int(unmitBear03_d1)), text_color=getColor(int(unmitBull03_d1), int(unmitBear03_d1), color.lime, color.yellow), text_size=size.small)
+        table.cell(debugTable, 5, 3, formatPair(int(mitBull03_d1), int(mitBear03_d1)), text_color=getColor(int(mitBull03_d1), int(mitBear03_d1), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
+        table.cell(debugTable, 6, 3, formatPair(int(brkRes03_d1), int(brkSup03_d1)), text_color=getColor(int(brkRes03_d1), int(brkSup03_d1), color.orange, color.new(color.orange, 50)), text_size=size.small)
+        table.cell(debugTable, 7, 3, formatPair(int(unmitBull03_w1), int(unmitBear03_w1)), text_color=getColor(int(unmitBull03_w1), int(unmitBear03_w1), color.lime, color.yellow), text_size=size.small)
+        table.cell(debugTable, 8, 3, formatPair(int(mitBull03_w1), int(mitBear03_w1)), text_color=getColor(int(mitBull03_w1), int(mitBear03_w1), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
+        table.cell(debugTable, 9, 3, formatPair(int(brkRes03_w1), int(brkSup03_w1)), text_color=getColor(int(brkRes03_w1), int(brkSup03_w1), color.orange, color.new(color.orange, 50)), text_size=size.small)
 
     if usedSymbols >= 4
         table.cell(debugTable, 0, 4, getSymbolName(s04), text_color=color.yellow, text_size=size.small)
         table.cell(debugTable, 1, 4, formatPair(int(unmitBull04_h4), int(unmitBear04_h4)), text_color=getColor(int(unmitBull04_h4), int(unmitBear04_h4), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 2, 4, formatPair(int(bullFVG04_h4), int(bearFVG04_h4)), text_color=getColor(int(bullFVG04_h4), int(bearFVG04_h4), color.fuchsia, color.new(color.fuchsia, 50)), text_size=size.small)
-        table.cell(debugTable, 3, 4, formatPair(int(unmitBull04_d1), int(unmitBear04_d1)), text_color=getColor(int(unmitBull04_d1), int(unmitBear04_d1), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 4, 4, formatPair(int(bullFVG04_d1), int(bearFVG04_d1)), text_color=getColor(int(bullFVG04_d1), int(bearFVG04_d1), color.fuchsia, color.new(color.fuchsia, 50)), text_size=size.small)
-        table.cell(debugTable, 5, 4, formatPair(int(unmitBull04_w1), int(unmitBear04_w1)), text_color=getColor(int(unmitBull04_w1), int(unmitBear04_w1), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 6, 4, formatPair(int(bullFVG04_w1), int(bearFVG04_w1)), text_color=getColor(int(bullFVG04_w1), int(bearFVG04_w1), color.fuchsia, color.new(color.fuchsia, 50)), text_size=size.small)
+        table.cell(debugTable, 2, 4, formatPair(int(mitBull04_h4), int(mitBear04_h4)), text_color=getColor(int(mitBull04_h4), int(mitBear04_h4), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
+        table.cell(debugTable, 3, 4, formatPair(int(brkRes04_h4), int(brkSup04_h4)), text_color=getColor(int(brkRes04_h4), int(brkSup04_h4), color.orange, color.new(color.orange, 50)), text_size=size.small)
+        table.cell(debugTable, 4, 4, formatPair(int(unmitBull04_d1), int(unmitBear04_d1)), text_color=getColor(int(unmitBull04_d1), int(unmitBear04_d1), color.lime, color.yellow), text_size=size.small)
+        table.cell(debugTable, 5, 4, formatPair(int(mitBull04_d1), int(mitBear04_d1)), text_color=getColor(int(mitBull04_d1), int(mitBear04_d1), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
+        table.cell(debugTable, 6, 4, formatPair(int(brkRes04_d1), int(brkSup04_d1)), text_color=getColor(int(brkRes04_d1), int(brkSup04_d1), color.orange, color.new(color.orange, 50)), text_size=size.small)
+        table.cell(debugTable, 7, 4, formatPair(int(unmitBull04_w1), int(unmitBear04_w1)), text_color=getColor(int(unmitBull04_w1), int(unmitBear04_w1), color.lime, color.yellow), text_size=size.small)
+        table.cell(debugTable, 8, 4, formatPair(int(mitBull04_w1), int(mitBear04_w1)), text_color=getColor(int(mitBull04_w1), int(mitBear04_w1), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
+        table.cell(debugTable, 9, 4, formatPair(int(brkRes04_w1), int(brkSup04_w1)), text_color=getColor(int(brkRes04_w1), int(brkSup04_w1), color.orange, color.new(color.orange, 50)), text_size=size.small)
 
     if usedSymbols >= 5
         table.cell(debugTable, 0, 5, getSymbolName(s05), text_color=color.yellow, text_size=size.small)
         table.cell(debugTable, 1, 5, formatPair(int(unmitBull05_h4), int(unmitBear05_h4)), text_color=getColor(int(unmitBull05_h4), int(unmitBear05_h4), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 2, 5, formatPair(int(bullFVG05_h4), int(bearFVG05_h4)), text_color=getColor(int(bullFVG05_h4), int(bearFVG05_h4), color.fuchsia, color.new(color.fuchsia, 50)), text_size=size.small)
-        table.cell(debugTable, 3, 5, formatPair(int(unmitBull05_d1), int(unmitBear05_d1)), text_color=getColor(int(unmitBull05_d1), int(unmitBear05_d1), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 4, 5, formatPair(int(bullFVG05_d1), int(bearFVG05_d1)), text_color=getColor(int(bullFVG05_d1), int(bearFVG05_d1), color.fuchsia, color.new(color.fuchsia, 50)), text_size=size.small)
-        table.cell(debugTable, 5, 5, formatPair(int(unmitBull05_w1), int(unmitBear05_w1)), text_color=getColor(int(unmitBull05_w1), int(unmitBear05_w1), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 6, 5, formatPair(int(bullFVG05_w1), int(bearFVG05_w1)), text_color=getColor(int(bullFVG05_w1), int(bearFVG05_w1), color.fuchsia, color.new(color.fuchsia, 50)), text_size=size.small)
+        table.cell(debugTable, 2, 5, formatPair(int(mitBull05_h4), int(mitBear05_h4)), text_color=getColor(int(mitBull05_h4), int(mitBear05_h4), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
+        table.cell(debugTable, 3, 5, formatPair(int(brkRes05_h4), int(brkSup05_h4)), text_color=getColor(int(brkRes05_h4), int(brkSup05_h4), color.orange, color.new(color.orange, 50)), text_size=size.small)
+        table.cell(debugTable, 4, 5, formatPair(int(unmitBull05_d1), int(unmitBear05_d1)), text_color=getColor(int(unmitBull05_d1), int(unmitBear05_d1), color.lime, color.yellow), text_size=size.small)
+        table.cell(debugTable, 5, 5, formatPair(int(mitBull05_d1), int(mitBear05_d1)), text_color=getColor(int(mitBull05_d1), int(mitBear05_d1), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
+        table.cell(debugTable, 6, 5, formatPair(int(brkRes05_d1), int(brkSup05_d1)), text_color=getColor(int(brkRes05_d1), int(brkSup05_d1), color.orange, color.new(color.orange, 50)), text_size=size.small)
+        table.cell(debugTable, 7, 5, formatPair(int(unmitBull05_w1), int(unmitBear05_w1)), text_color=getColor(int(unmitBull05_w1), int(unmitBear05_w1), color.lime, color.yellow), text_size=size.small)
+        table.cell(debugTable, 8, 5, formatPair(int(mitBull05_w1), int(mitBear05_w1)), text_color=getColor(int(mitBull05_w1), int(mitBear05_w1), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
+        table.cell(debugTable, 9, 5, formatPair(int(brkRes05_w1), int(brkSup05_w1)), text_color=getColor(int(brkRes05_w1), int(brkSup05_w1), color.orange, color.new(color.orange, 50)), text_size=size.small)
 
     if usedSymbols >= 6
         table.cell(debugTable, 0, 6, getSymbolName(s06), text_color=color.yellow, text_size=size.small)
         table.cell(debugTable, 1, 6, formatPair(int(unmitBull06_h4), int(unmitBear06_h4)), text_color=getColor(int(unmitBull06_h4), int(unmitBear06_h4), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 2, 6, formatPair(int(bullFVG06_h4), int(bearFVG06_h4)), text_color=getColor(int(bullFVG06_h4), int(bearFVG06_h4), color.fuchsia, color.new(color.fuchsia, 50)), text_size=size.small)
-        table.cell(debugTable, 3, 6, formatPair(int(unmitBull06_d1), int(unmitBear06_d1)), text_color=getColor(int(unmitBull06_d1), int(unmitBear06_d1), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 4, 6, formatPair(int(bullFVG06_d1), int(bearFVG06_d1)), text_color=getColor(int(bullFVG06_d1), int(bearFVG06_d1), color.fuchsia, color.new(color.fuchsia, 50)), text_size=size.small)
-        table.cell(debugTable, 5, 6, formatPair(int(unmitBull06_w1), int(unmitBear06_w1)), text_color=getColor(int(unmitBull06_w1), int(unmitBear06_w1), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 6, 6, formatPair(int(bullFVG06_w1), int(bearFVG06_w1)), text_color=getColor(int(bullFVG06_w1), int(bearFVG06_w1), color.fuchsia, color.new(color.fuchsia, 50)), text_size=size.small)
+        table.cell(debugTable, 2, 6, formatPair(int(mitBull06_h4), int(mitBear06_h4)), text_color=getColor(int(mitBull06_h4), int(mitBear06_h4), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
+        table.cell(debugTable, 3, 6, formatPair(int(brkRes06_h4), int(brkSup06_h4)), text_color=getColor(int(brkRes06_h4), int(brkSup06_h4), color.orange, color.new(color.orange, 50)), text_size=size.small)
+        table.cell(debugTable, 4, 6, formatPair(int(unmitBull06_d1), int(unmitBear06_d1)), text_color=getColor(int(unmitBull06_d1), int(unmitBear06_d1), color.lime, color.yellow), text_size=size.small)
+        table.cell(debugTable, 5, 6, formatPair(int(mitBull06_d1), int(mitBear06_d1)), text_color=getColor(int(mitBull06_d1), int(mitBear06_d1), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
+        table.cell(debugTable, 6, 6, formatPair(int(brkRes06_d1), int(brkSup06_d1)), text_color=getColor(int(brkRes06_d1), int(brkSup06_d1), color.orange, color.new(color.orange, 50)), text_size=size.small)
+        table.cell(debugTable, 7, 6, formatPair(int(unmitBull06_w1), int(unmitBear06_w1)), text_color=getColor(int(unmitBull06_w1), int(unmitBear06_w1), color.lime, color.yellow), text_size=size.small)
+        table.cell(debugTable, 8, 6, formatPair(int(mitBull06_w1), int(mitBear06_w1)), text_color=getColor(int(mitBull06_w1), int(mitBear06_w1), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
+        table.cell(debugTable, 9, 6, formatPair(int(brkRes06_w1), int(brkSup06_w1)), text_color=getColor(int(brkRes06_w1), int(brkSup06_w1), color.orange, color.new(color.orange, 50)), text_size=size.small)
 
     if usedSymbols >= 7
         table.cell(debugTable, 0, 7, getSymbolName(s07), text_color=color.yellow, text_size=size.small)
         table.cell(debugTable, 1, 7, formatPair(int(unmitBull07_h4), int(unmitBear07_h4)), text_color=getColor(int(unmitBull07_h4), int(unmitBear07_h4), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 2, 7, formatPair(int(bullFVG07_h4), int(bearFVG07_h4)), text_color=getColor(int(bullFVG07_h4), int(bearFVG07_h4), color.fuchsia, color.new(color.fuchsia, 50)), text_size=size.small)
-        table.cell(debugTable, 3, 7, formatPair(int(unmitBull07_d1), int(unmitBear07_d1)), text_color=getColor(int(unmitBull07_d1), int(unmitBear07_d1), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 4, 7, formatPair(int(bullFVG07_d1), int(bearFVG07_d1)), text_color=getColor(int(bullFVG07_d1), int(bearFVG07_d1), color.fuchsia, color.new(color.fuchsia, 50)), text_size=size.small)
-        table.cell(debugTable, 5, 7, formatPair(int(unmitBull07_w1), int(unmitBear07_w1)), text_color=getColor(int(unmitBull07_w1), int(unmitBear07_w1), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 6, 7, formatPair(int(bullFVG07_w1), int(bearFVG07_w1)), text_color=getColor(int(bullFVG07_w1), int(bearFVG07_w1), color.fuchsia, color.new(color.fuchsia, 50)), text_size=size.small)
+        table.cell(debugTable, 2, 7, formatPair(int(mitBull07_h4), int(mitBear07_h4)), text_color=getColor(int(mitBull07_h4), int(mitBear07_h4), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
+        table.cell(debugTable, 3, 7, formatPair(int(brkRes07_h4), int(brkSup07_h4)), text_color=getColor(int(brkRes07_h4), int(brkSup07_h4), color.orange, color.new(color.orange, 50)), text_size=size.small)
+        table.cell(debugTable, 4, 7, formatPair(int(unmitBull07_d1), int(unmitBear07_d1)), text_color=getColor(int(unmitBull07_d1), int(unmitBear07_d1), color.lime, color.yellow), text_size=size.small)
+        table.cell(debugTable, 5, 7, formatPair(int(mitBull07_d1), int(mitBear07_d1)), text_color=getColor(int(mitBull07_d1), int(mitBear07_d1), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
+        table.cell(debugTable, 6, 7, formatPair(int(brkRes07_d1), int(brkSup07_d1)), text_color=getColor(int(brkRes07_d1), int(brkSup07_d1), color.orange, color.new(color.orange, 50)), text_size=size.small)
+        table.cell(debugTable, 7, 7, formatPair(int(unmitBull07_w1), int(unmitBear07_w1)), text_color=getColor(int(unmitBull07_w1), int(unmitBear07_w1), color.lime, color.yellow), text_size=size.small)
+        table.cell(debugTable, 8, 7, formatPair(int(mitBull07_w1), int(mitBear07_w1)), text_color=getColor(int(mitBull07_w1), int(mitBear07_w1), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
+        table.cell(debugTable, 9, 7, formatPair(int(brkRes07_w1), int(brkSup07_w1)), text_color=getColor(int(brkRes07_w1), int(brkSup07_w1), color.orange, color.new(color.orange, 50)), text_size=size.small)
 
     if usedSymbols >= 8
         table.cell(debugTable, 0, 8, getSymbolName(s08), text_color=color.yellow, text_size=size.small)
         table.cell(debugTable, 1, 8, formatPair(int(unmitBull08_h4), int(unmitBear08_h4)), text_color=getColor(int(unmitBull08_h4), int(unmitBear08_h4), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 2, 8, formatPair(int(bullFVG08_h4), int(bearFVG08_h4)), text_color=getColor(int(bullFVG08_h4), int(bearFVG08_h4), color.fuchsia, color.new(color.fuchsia, 50)), text_size=size.small)
-        table.cell(debugTable, 3, 8, formatPair(int(unmitBull08_d1), int(unmitBear08_d1)), text_color=getColor(int(unmitBull08_d1), int(unmitBear08_d1), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 4, 8, formatPair(int(bullFVG08_d1), int(bearFVG08_d1)), text_color=getColor(int(bullFVG08_d1), int(bearFVG08_d1), color.fuchsia, color.new(color.fuchsia, 50)), text_size=size.small)
-        table.cell(debugTable, 5, 8, formatPair(int(unmitBull08_w1), int(unmitBear08_w1)), text_color=getColor(int(unmitBull08_w1), int(unmitBear08_w1), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 6, 8, formatPair(int(bullFVG08_w1), int(bearFVG08_w1)), text_color=getColor(int(bullFVG08_w1), int(bearFVG08_w1), color.fuchsia, color.new(color.fuchsia, 50)), text_size=size.small)
+        table.cell(debugTable, 2, 8, formatPair(int(mitBull08_h4), int(mitBear08_h4)), text_color=getColor(int(mitBull08_h4), int(mitBear08_h4), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
+        table.cell(debugTable, 3, 8, formatPair(int(brkRes08_h4), int(brkSup08_h4)), text_color=getColor(int(brkRes08_h4), int(brkSup08_h4), color.orange, color.new(color.orange, 50)), text_size=size.small)
+        table.cell(debugTable, 4, 8, formatPair(int(unmitBull08_d1), int(unmitBear08_d1)), text_color=getColor(int(unmitBull08_d1), int(unmitBear08_d1), color.lime, color.yellow), text_size=size.small)
+        table.cell(debugTable, 5, 8, formatPair(int(mitBull08_d1), int(mitBear08_d1)), text_color=getColor(int(mitBull08_d1), int(mitBear08_d1), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
+        table.cell(debugTable, 6, 8, formatPair(int(brkRes08_d1), int(brkSup08_d1)), text_color=getColor(int(brkRes08_d1), int(brkSup08_d1), color.orange, color.new(color.orange, 50)), text_size=size.small)
+        table.cell(debugTable, 7, 8, formatPair(int(unmitBull08_w1), int(unmitBear08_w1)), text_color=getColor(int(unmitBull08_w1), int(unmitBear08_w1), color.lime, color.yellow), text_size=size.small)
+        table.cell(debugTable, 8, 8, formatPair(int(mitBull08_w1), int(mitBear08_w1)), text_color=getColor(int(mitBull08_w1), int(mitBear08_w1), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
+        table.cell(debugTable, 9, 8, formatPair(int(brkRes08_w1), int(brkSup08_w1)), text_color=getColor(int(brkRes08_w1), int(brkSup08_w1), color.orange, color.new(color.orange, 50)), text_size=size.small)
 
     if usedSymbols >= 9
         table.cell(debugTable, 0, 9, getSymbolName(s09), text_color=color.yellow, text_size=size.small)
         table.cell(debugTable, 1, 9, formatPair(int(unmitBull09_h4), int(unmitBear09_h4)), text_color=getColor(int(unmitBull09_h4), int(unmitBear09_h4), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 2, 9, formatPair(int(bullFVG09_h4), int(bearFVG09_h4)), text_color=getColor(int(bullFVG09_h4), int(bearFVG09_h4), color.fuchsia, color.new(color.fuchsia, 50)), text_size=size.small)
-        table.cell(debugTable, 3, 9, formatPair(int(unmitBull09_d1), int(unmitBear09_d1)), text_color=getColor(int(unmitBull09_d1), int(unmitBear09_d1), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 4, 9, formatPair(int(bullFVG09_d1), int(bearFVG09_d1)), text_color=getColor(int(bullFVG09_d1), int(bearFVG09_d1), color.fuchsia, color.new(color.fuchsia, 50)), text_size=size.small)
-        table.cell(debugTable, 5, 9, formatPair(int(unmitBull09_w1), int(unmitBear09_w1)), text_color=getColor(int(unmitBull09_w1), int(unmitBear09_w1), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 6, 9, formatPair(int(bullFVG09_w1), int(bearFVG09_w1)), text_color=getColor(int(bullFVG09_w1), int(bearFVG09_w1), color.fuchsia, color.new(color.fuchsia, 50)), text_size=size.small)
+        table.cell(debugTable, 2, 9, formatPair(int(mitBull09_h4), int(mitBear09_h4)), text_color=getColor(int(mitBull09_h4), int(mitBear09_h4), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
+        table.cell(debugTable, 3, 9, formatPair(int(brkRes09_h4), int(brkSup09_h4)), text_color=getColor(int(brkRes09_h4), int(brkSup09_h4), color.orange, color.new(color.orange, 50)), text_size=size.small)
+        table.cell(debugTable, 4, 9, formatPair(int(unmitBull09_d1), int(unmitBear09_d1)), text_color=getColor(int(unmitBull09_d1), int(unmitBear09_d1), color.lime, color.yellow), text_size=size.small)
+        table.cell(debugTable, 5, 9, formatPair(int(mitBull09_d1), int(mitBear09_d1)), text_color=getColor(int(mitBull09_d1), int(mitBear09_d1), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
+        table.cell(debugTable, 6, 9, formatPair(int(brkRes09_d1), int(brkSup09_d1)), text_color=getColor(int(brkRes09_d1), int(brkSup09_d1), color.orange, color.new(color.orange, 50)), text_size=size.small)
+        table.cell(debugTable, 7, 9, formatPair(int(unmitBull09_w1), int(unmitBear09_w1)), text_color=getColor(int(unmitBull09_w1), int(unmitBear09_w1), color.lime, color.yellow), text_size=size.small)
+        table.cell(debugTable, 8, 9, formatPair(int(mitBull09_w1), int(mitBear09_w1)), text_color=getColor(int(mitBull09_w1), int(mitBear09_w1), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
+        table.cell(debugTable, 9, 9, formatPair(int(brkRes09_w1), int(brkSup09_w1)), text_color=getColor(int(brkRes09_w1), int(brkSup09_w1), color.orange, color.new(color.orange, 50)), text_size=size.small)
 
     if usedSymbols >= 10
         table.cell(debugTable, 0, 10, getSymbolName(s10), text_color=color.yellow, text_size=size.small)
         table.cell(debugTable, 1, 10, formatPair(int(unmitBull10_h4), int(unmitBear10_h4)), text_color=getColor(int(unmitBull10_h4), int(unmitBear10_h4), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 2, 10, formatPair(int(bullFVG10_h4), int(bearFVG10_h4)), text_color=getColor(int(bullFVG10_h4), int(bearFVG10_h4), color.fuchsia, color.new(color.fuchsia, 50)), text_size=size.small)
-        table.cell(debugTable, 3, 10, formatPair(int(unmitBull10_d1), int(unmitBear10_d1)), text_color=getColor(int(unmitBull10_d1), int(unmitBear10_d1), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 4, 10, formatPair(int(bullFVG10_d1), int(bearFVG10_d1)), text_color=getColor(int(bullFVG10_d1), int(bearFVG10_d1), color.fuchsia, color.new(color.fuchsia, 50)), text_size=size.small)
-        table.cell(debugTable, 5, 10, formatPair(int(unmitBull10_w1), int(unmitBear10_w1)), text_color=getColor(int(unmitBull10_w1), int(unmitBear10_w1), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 6, 10, formatPair(int(bullFVG10_w1), int(bearFVG10_w1)), text_color=getColor(int(bullFVG10_w1), int(bearFVG10_w1), color.fuchsia, color.new(color.fuchsia, 50)), text_size=size.small)
+        table.cell(debugTable, 2, 10, formatPair(int(mitBull10_h4), int(mitBear10_h4)), text_color=getColor(int(mitBull10_h4), int(mitBear10_h4), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
+        table.cell(debugTable, 3, 10, formatPair(int(brkRes10_h4), int(brkSup10_h4)), text_color=getColor(int(brkRes10_h4), int(brkSup10_h4), color.orange, color.new(color.orange, 50)), text_size=size.small)
+        table.cell(debugTable, 4, 10, formatPair(int(unmitBull10_d1), int(unmitBear10_d1)), text_color=getColor(int(unmitBull10_d1), int(unmitBear10_d1), color.lime, color.yellow), text_size=size.small)
+        table.cell(debugTable, 5, 10, formatPair(int(mitBull10_d1), int(mitBear10_d1)), text_color=getColor(int(mitBull10_d1), int(mitBear10_d1), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
+        table.cell(debugTable, 6, 10, formatPair(int(brkRes10_d1), int(brkSup10_d1)), text_color=getColor(int(brkRes10_d1), int(brkSup10_d1), color.orange, color.new(color.orange, 50)), text_size=size.small)
+        table.cell(debugTable, 7, 10, formatPair(int(unmitBull10_w1), int(unmitBear10_w1)), text_color=getColor(int(unmitBull10_w1), int(unmitBear10_w1), color.lime, color.yellow), text_size=size.small)
+        table.cell(debugTable, 8, 10, formatPair(int(mitBull10_w1), int(mitBear10_w1)), text_color=getColor(int(mitBull10_w1), int(mitBear10_w1), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
+        table.cell(debugTable, 9, 10, formatPair(int(brkRes10_w1), int(brkSup10_w1)), text_color=getColor(int(brkRes10_w1), int(brkSup10_w1), color.orange, color.new(color.orange, 50)), text_size=size.small)
 
 // Required for valid indicator
 plot(na)
