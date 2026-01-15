@@ -63,6 +63,8 @@ nwe_farFactor = input.float(8.0, 'NWE Far ATR Factor', minval=1.0, step=0.25, gr
 // OB & FVG Settings
 ob_testPercent = input.float(30.0, "OB Test Percentage", minval=1, maxval=100, step=1, group='OB & FVG Settings', tooltip='Percentage price must wick into OB zone to be considered mitigated/tested')
 fvg_fillPercent = input.float(50.0, "FVG Fill Percentage", minval=1, maxval=100, step=1, group='OB & FVG Settings', tooltip='Percentage price must wick into FVG zone to be considered filled')
+ob_scanDepth = input.int(50, "OB Scan Depth (bars)", minval=10, maxval=100, step=10, group='OB & FVG Settings', tooltip='Number of bars to scan for OBs. Lower = faster loading. Default: 50')
+ob_lifecycleDepth = input.int(50, "OB Lifecycle Check Depth", minval=10, maxval=100, step=10, group='OB & FVG Settings', tooltip='Max bars to check for OB state changes (broken/mitigated). Lower = faster. Default: 50')
 
 /////////////////////
 // HELPER FUNCTIONS //
@@ -96,373 +98,341 @@ calcNWE(float _close, float _high, float _low, int h, float alpha, int x0, int a
 // OB & FVG DETECTION   //
 //////////////////////////
 
-// Scan 100 bars for Order Blocks in 4 categories:
-// 1. Unmitigated Bullish OB: formed with gap+sweep, not broken since (valid demand zone)
-// 2. Unmitigated Bearish OB: formed with gap+sweep, not broken since (valid supply zone)
-// 3. Mitigated Bullish OB: tested but not broken (demand zone that was touched)
-// 4. Mitigated Bearish OB: tested but not broken (supply zone that was touched)
-// 5. Breaker Resistance: Bullish OB where close broke below OB's low (broken demand → resistance)
-// 6. Breaker Support: Bearish OB where close broke above OB's high (broken supply → support)
+// Scan up to ob_scanDepth bars (100) for zones where CURRENT PRICE (shift 0) OVERLAPS
 //
-// Returns: [unmitBullBar, unmitBearBar, mitBullBar, mitBearBar, brkResBar, brkSupBar, bullFVGBar, bearFVGBar]
-// Each value = bars ago of nearest OB/FVG in that category (0 = none found)
+// For BULLISH conditions, we look for zones price can bounce from:
+// - Unmitigated Bullish OB: pristine demand zone (not yet tested)
+// - Unfilled Bullish FVG: gap that acts as support
+// - Breaker Support: former supply that became support after breaking
 //
-// OB FORMATION (from OB & FVG.txt):
-// An OB forms when TWO conditions are met at the same time:
-// 1. SWEEP: The OB candle swept liquidity (lows for bullish, highs for bearish)
-// 2. GAP: There's a gap between OB candle and validation candle (2 bars later)
+// For BEARISH conditions, we look for zones price can reject from:
+// - Unmitigated Bearish OB: pristine supply zone (not yet tested)
+// - Unfilled Bearish FVG: gap that acts as resistance
+// - Breaker Resistance: former demand that became resistance after breaking
 //
-// Bar structure at formation:
-//   bar[i]   = OB candle (where sweep happened)
-//   bar[i-1] = intermediate candle
-//   bar[i-2] = validation candle (creates the gap)
+// Returns: [bullFound, bullZoneType, bullType, bullZoneTime, bearFound, bearZoneType, bearType, bearZoneTime]
+// - bullFound/bearFound: 1 if overlap found, 0 otherwise
+// - bullZoneType/bearZoneType: 1=OB, 2=FVG
+// - bullType: 1=unmit OB, 3=breaker support, 4=unfilled bullish FVG
+// - bearType: 1=unmit OB, 3=breaker resistance, 4=unfilled bearish FVG
+// - bullZoneTime/bearZoneTime: timestamp of zone formation bar
 //
-// OB VALIDITY:
-// - An OB stays valid until price CLOSES through its level
-// - Bullish OB invalid when: any close < OB's low (becomes breaker resistance)
-// - Bearish OB invalid when: any close > OB's high (becomes breaker support)
-// - FVG fill is SEPARATE from OB validity (gap can close but OB still valid)
+// Price overlap check: current bar (shift 0) low <= zone_high AND high >= zone_low
 
-// Main scan function (non-repainting, uses confirmed bars)
-// Returns: [unmitBullBar, unmitBearBar, mitBullBar, mitBearBar, brkResBar, brkSupBar, bullFVGBar, bearFVGBar]
-// OB categories:
-// - unmitBullBar: Unmitigated bullish OB (pristine, never touched)
-// - unmitBearBar: Unmitigated bearish OB (pristine, never touched)
-// - mitBullBar: Mitigated bullish OB (tested but not broken)
-// - mitBearBar: Mitigated bearish OB (tested but not broken)
-// - brkResBar: Breaker resistance (broken bullish OB)
-// - brkSupBar: Breaker support (broken bearish OB)
-// FVG (nearest unfilled FVG from valid OBs):
-// - bullFVGBar: Bar index of nearest unfilled bullish FVG (0 if none)
-// - bearFVGBar: Bar index of nearest unfilled bearish FVG (0 if none)
 scanOBRange() =>
-    int unmitBullBar = 0
-    int unmitBearBar = 0
-    int mitBullBar = 0
-    int mitBearBar = 0
-    int brkResBar = 0
-    int brkSupBar = 0
-    int bullFVGBar = 0
-    int bearFVGBar = 0
+    // Bullish overlap info (zones for bullish signals: bullish OB, breaker support, bullish FVG)
+    int bullFound = 0
+    int bullZoneType = 0      // 1=OB, 2=FVG
+    int bullType = 0          // 1=unmit OB, 2=mit OB, 3=breaker support, 4=bullish FVG
+    int bullZoneTime = 0
+    float bullZoneHigh = 0.0
+    float bullZoneLow = 0.0
+
+    // Bearish overlap info (zones for bearish signals: bearish OB, breaker resistance, bearish FVG)
+    int bearFound = 0
+    int bearZoneType = 0      // 1=OB, 2=FVG
+    int bearType = 0          // 1=unmit OB, 2=mit OB, 3=breaker resistance, 4=bearish FVG
+    int bearZoneTime = 0
+    float bearZoneHigh = 0.0
+    float bearZoneLow = 0.0
+
+    // Current bar price range for overlap check
+    float currHigh = high
+    float currLow = low
 
     // ==========================================
     // HANDLE i=2 SEPARATELY (only bar[2] pattern)
     // ==========================================
     // At i=2, we cannot check bar[3] pattern (would access low[-1])
-    // So we handle it separately with only bar[2] pattern check
 
-    // BULLISH OB at shift 2
-    bool bullSweep2 = low[2] < low[1] and low[2] < low[3]
-    bool bullGap2_at2 = high[2] < low[0]  // bar[2] pattern only
-    if bullSweep2 and bullGap2_at2
-        float obHigh2 = high[2]
-        float obLow2 = low[2]
-        float gapLevel2 = low[0]
-        float fvgTop2 = gapLevel2
-        float fvgBottom2 = obHigh2
-        float fvgHeight2 = fvgTop2 - fvgBottom2
-        float testPrice2 = obHigh2 - ((obHigh2 - obLow2) * ob_testPercent / 100)
+    // BULLISH OB at shift 2 - NO overlap check (shift 0 is part of formation)
+    // Gap uses low[0], so current bar is part of zone definition
+    // bool bullSweep2 = low[2] < low[1] and low[2] < low[3]
+    // bool bullGap2_at2 = high[2] < low[0]  // <-- uses shift 0!
+    // Overlap check skipped for i=2
 
-        bool isBroken2 = false
-        bool isReversed2 = false
-        bool hasReachedTestLevel2 = false
-        bool isTested2 = false
-        bool isFVGFilled2 = false
-        int j2 = -1  // Start after validation bar (bar[0] is validation, so start at current forming bar which doesn't exist yet)
-        // No lifecycle loop needed - OB just formed, check current bar only
-        // Actually for i=2, startBar = i - 3 = -1, so no bars to check yet
-
-        // Categorize (newly formed = unmitigated)
-        if unmitBullBar == 0
-            unmitBullBar := 2
-        if not isFVGFilled2 and bullFVGBar == 0
-            bullFVGBar := 2
-
-    // BEARISH OB at shift 2
-    bool bearSweep2 = high[2] > high[1] and high[2] > high[3]
-    bool bearGap2_at2 = low[2] > high[0]  // bar[2] pattern only
-    if bearSweep2 and bearGap2_at2
-        float obHigh2b = high[2]
-        float obLow2b = low[2]
-        float gapLevel2b = high[0]
-        float fvgTop2b = obLow2b
-        float fvgBottom2b = gapLevel2b
-        float fvgHeight2b = fvgTop2b - fvgBottom2b
-        float testPrice2b = obLow2b + ((obHigh2b - obLow2b) * ob_testPercent / 100)
-
-        bool isBroken2b = false
-        bool isReversed2b = false
-        bool hasReachedTestLevel2b = false
-        bool isTested2b = false
-        bool isFVGFilled2b = false
-        // No lifecycle loop needed - OB just formed
-
-        // Categorize (newly formed = unmitigated)
-        if unmitBearBar == 0
-            unmitBearBar := 2
-        if not isFVGFilled2b and bearFVGBar == 0
-            bearFVGBar := 2
+    // BEARISH OB at shift 2 - NO overlap check (shift 0 is part of formation)
+    // Gap uses high[0], so current bar is part of zone definition
+    // bool bearSweep2 = high[2] > high[1] and high[2] > high[3]
+    // bool bearGap2_at2 = low[2] > high[0]  // <-- uses shift 0!
+    // Overlap check skipped for i=2
 
     // ==========================================
-    // MAIN LOOP: i=3 to 100 (bar[3] pattern safe)
+    // MAIN LOOP: i=3 to ob_scanDepth
     // ==========================================
-    // Now i is always >= 3, so low[i-3] is always valid (minimum low[0])
-    for i = 3 to 100
+    for i = 3 to ob_scanDepth
+        // Early exit if both overlaps found
+        if bullFound > 0 and bearFound > 0
+            break
+
         //////////////////////////////////////////
         // BULLISH OB DETECTION (Demand Zone)
         //////////////////////////////////////////
-
-        // Step 1: Check SWEEP - OB candle swept lows of adjacent bars
         bool bullSweep = low[i] < low[i-1] and low[i] < low[i+1]
-
-        // Step 2: Check GAP AT FORMATION
-        // Original indicator checks both bar[2] and bar[3] patterns:
-        // - bar[2] pattern: validation bar is 2 bars after OB → high[i] < low[i-2]
-        // - bar[3] pattern: validation bar is 3 bars after OB → high[i] < low[i-3]
-        bool bullGap2 = high[i] < low[i-2]  // bar[2] formation pattern
-        bool bullGap3 = high[i] < low[i-3]  // bar[3] formation pattern (safe: i >= 3 in this loop)
+        bool bullGap2 = high[i] < low[i-2]
+        bool bullGap3 = high[i] < low[i-3]
         bool bullGapAtFormation = bullGap2 or bullGap3
-
-        // OB formed if BOTH sweep AND gap conditions were true
         bool bullOBFormed = bullSweep and bullGapAtFormation
 
         if bullOBFormed
             float obHigh = high[i]
             float obLow = low[i]
-
-            // FVG zone: gap between OB candle high and validation bar's low
-            // Bullish FVG: top = gapLevel (validation bar's low), bottom = obHigh
             float gapLevel = bullGap3 ? low[i-3] : low[i-2]
             float fvgTop = gapLevel
             float fvgBottom = obHigh
             float fvgHeight = fvgTop - fvgBottom
-
-            // Calculate test price (30% into OB from high)
             float testPrice = obHigh - ((obHigh - obLow) * ob_testPercent / 100)
 
-            // Step 3: Check OB lifecycle - Active → Mitigated → Breaker → Reversed
-            // Also track FVG fill status
-            // Loop from formation to current bar, tracking state changes
+            // Check OB lifecycle
             bool isBroken = false
             bool isReversed = false
             bool hasReachedTestLevel = false
             bool isTested = false
             bool isFVGFilled = false
-            int startBar = bullGap3 ? i - 4 : i - 3  // Start after validation bar
+            int startBar = bullGap3 ? i - 4 : i - 3
+            int endBar = math.max(0, startBar - ob_lifecycleDepth)
             int j = startBar
-            while j >= 0
+            while j >= endBar
                 if not isBroken
-                    // Check if became BREAKER (close below OB's low)
                     if close[j] < obLow
                         isBroken := true
                     else
-                        // Check mitigation (two-step process from original indicator)
-                        // Step 1: Price reaches test level (dipped into OB zone)
                         if not hasReachedTestLevel and low[j] <= testPrice
                             hasReachedTestLevel := true
-                        // Step 2: After reaching test level, check if price returns/bounces
                         if hasReachedTestLevel and not isTested
                             if low[j] >= obLow or (low[j] < obLow and high[j] >= obLow)
                                 isTested := true
                 else if not isReversed
-                    // Check if became REVERSED (close back above OB's high)
                     if close[j] > obHigh
                         isReversed := true
-
-                // Check FVG fill (separate from OB lifecycle)
-                // Bullish FVG filled when price wicks down into gap by fill%
-                // fillLevel = gapLevel - (fvgHeight * fillPercent / 100)
                 if not isFVGFilled and fvgHeight > 0
                     float fillLevel = fvgTop - (fvgHeight * fvg_fillPercent / 100)
                     if low[j] <= fillLevel
                         isFVGFilled := true
-
                 j := j - 1
 
-            // Categorize based on final state (priority: reversed > broken > mitigated > unmitigated)
-            if isReversed
-                // Skip - reversed OBs are no longer valid
-                na(close)  // no-op
-            else if isBroken
-                // It's a BREAKER RESISTANCE (demand zone that failed)
-                if brkResBar == 0
-                    brkResBar := i
-            else if isTested
-                // It's MITIGATED (tested but not broken)
-                if mitBullBar == 0
-                    mitBullBar := i
-            else
-                // It's still UNMITIGATED (pristine demand zone)
-                if unmitBullBar == 0
-                    unmitBullBar := i
+            // If we detected a breaker but stopped early, continue checking for reversal
+            // Bullish OB breaker (resistance) reverses when close > obHigh
+            if isBroken and not isReversed and endBar > 0
+                int k = endBar - 1
+                while k >= 0
+                    if close[k] > obHigh
+                        isReversed := true
+                        break
+                    k := k - 1
 
-            // Track nearest unfilled FVG from valid OBs (not broken/reversed)
-            if not isFVGFilled and not isBroken and not isReversed and bullFVGBar == 0
-                bullFVGBar := i
+            // Check overlap for BULLISH zones:
+            // - Unmitigated bullish OB (not tested)
+            // - Unfilled bullish FVG
+            // NOT breaker resistance - that's a bearish zone!
+            // NOTE: Only check overlap for i >= 4 (zones at i=2,3 use shift 0 in formation)
+            if i >= 4 and not isReversed and bullFound == 0
+                bool obOverlaps = currLow <= obHigh and currHigh >= obLow
+                bool fvgOverlaps = not isFVGFilled and fvgHeight > 0 and currLow <= fvgTop and currHigh >= fvgBottom
+
+                if not isBroken and not isTested
+                    // Unmitigated bullish OB - check overlap
+                    if obOverlaps
+                        bullFound := 1
+                        bullZoneType := 1  // OB
+                        bullType := 1      // unmit OB
+                        bullZoneTime := time[i]
+                        bullZoneHigh := obHigh
+                        bullZoneLow := obLow
+
+                // Unfilled bullish FVG - check overlap (regardless of OB state)
+                if bullFound == 0 and fvgOverlaps
+                    bullFound := 1
+                    bullZoneType := 2  // FVG
+                    bullType := 4      // bullish FVG
+                    bullZoneTime := time[i]
+                    bullZoneHigh := fvgTop
+                    bullZoneLow := fvgBottom
+
+            // Check for BREAKER RESISTANCE (broken bullish OB = bearish zone)
+            // NOTE: Only check overlap for i >= 4
+            if i >= 4 and isBroken and not isReversed and bearFound == 0
+                bool brkOverlaps = currLow <= obHigh and currHigh >= obLow
+                if brkOverlaps
+                    bearFound := 1
+                    bearZoneType := 1  // OB (breaker)
+                    bearType := 3      // breaker resistance
+                    bearZoneTime := time[i]
+                    bearZoneHigh := obHigh
+                    bearZoneLow := obLow
 
         //////////////////////////////////////////
         // BEARISH OB DETECTION (Supply Zone)
         //////////////////////////////////////////
-
-        // Step 1: Check SWEEP - OB candle swept highs of adjacent bars
         bool bearSweep = high[i] > high[i-1] and high[i] > high[i+1]
-
-        // Step 2: Check GAP AT FORMATION (both bar[2] and bar[3] patterns)
-        bool bearGap2 = low[i] > high[i-2]  // bar[2] formation pattern
-        bool bearGap3 = low[i] > high[i-3]  // bar[3] formation pattern (safe: i >= 3 in this loop)
+        bool bearGap2 = low[i] > high[i-2]
+        bool bearGap3 = low[i] > high[i-3]
         bool bearGapAtFormation = bearGap2 or bearGap3
-
-        // OB formed if BOTH sweep AND gap conditions were true
         bool bearOBFormed = bearSweep and bearGapAtFormation
 
         if bearOBFormed
             float obHigh = high[i]
             float obLow = low[i]
-
-            // FVG zone: gap between validation bar's high and OB candle low
-            // Bearish FVG: top = obLow, bottom = gapLevel (validation bar's high)
             float gapLevel = bearGap3 ? high[i-3] : high[i-2]
             float fvgTop = obLow
             float fvgBottom = gapLevel
             float fvgHeight = fvgTop - fvgBottom
-
-            // Calculate test price (30% into OB from low)
             float testPrice = obLow + ((obHigh - obLow) * ob_testPercent / 100)
 
-            // Step 3: Check OB lifecycle - Active → Mitigated → Breaker → Reversed
-            // Also track FVG fill status
+            // Check OB lifecycle
             bool isBroken = false
             bool isReversed = false
             bool hasReachedTestLevel = false
             bool isTested = false
             bool isFVGFilled = false
             int startBar = bearGap3 ? i - 4 : i - 3
+            int endBar = math.max(0, startBar - ob_lifecycleDepth)
             int j = startBar
-            while j >= 0
+            while j >= endBar
                 if not isBroken
-                    // Check if became BREAKER (close above OB's high)
                     if close[j] > obHigh
                         isBroken := true
                     else
-                        // Check mitigation (two-step process from original indicator)
-                        // Step 1: Price reaches test level (wicked into OB zone)
                         if not hasReachedTestLevel and high[j] >= testPrice
                             hasReachedTestLevel := true
-                        // Step 2: After reaching test level, check if price returns/bounces
                         if hasReachedTestLevel and not isTested
                             if high[j] <= obHigh or (high[j] > obHigh and low[j] <= obHigh)
                                 isTested := true
                 else if not isReversed
-                    // Check if became REVERSED (close back below OB's low)
                     if close[j] < obLow
                         isReversed := true
-
-                // Check FVG fill (separate from OB lifecycle)
-                // Bearish FVG filled when price wicks up into gap by fill%
-                // fillLevel = gapLevel + (fvgHeight * fillPercent / 100)
                 if not isFVGFilled and fvgHeight > 0
                     float fillLevel = fvgBottom + (fvgHeight * fvg_fillPercent / 100)
                     if high[j] >= fillLevel
                         isFVGFilled := true
-
                 j := j - 1
 
-            // Categorize based on final state (priority: reversed > broken > mitigated > unmitigated)
-            if isReversed
-                // Skip - reversed OBs are no longer valid
-                na(close)  // no-op
-            else if isBroken
-                // It's a BREAKER SUPPORT (supply zone that failed)
-                if brkSupBar == 0
-                    brkSupBar := i
-            else if isTested
-                // It's MITIGATED (tested but not broken)
-                if mitBearBar == 0
-                    mitBearBar := i
-            else
-                // It's still UNMITIGATED (pristine supply zone)
-                if unmitBearBar == 0
-                    unmitBearBar := i
+            // If we detected a breaker but stopped early, continue checking for reversal
+            // Bearish OB breaker (support) reverses when close < obLow
+            if isBroken and not isReversed and endBar > 0
+                int k = endBar - 1
+                while k >= 0
+                    if close[k] < obLow
+                        isReversed := true
+                        break
+                    k := k - 1
 
-            // Track nearest unfilled FVG from valid OBs (not broken/reversed)
-            if not isFVGFilled and not isBroken and not isReversed and bearFVGBar == 0
-                bearFVGBar := i
+            // Check overlap for BEARISH zones:
+            // - Unmitigated bearish OB (not tested)
+            // - Unfilled bearish FVG
+            // NOT breaker support - that's a bullish zone!
+            // NOTE: Only check overlap for i >= 4 (zones at i=2,3 use shift 0 in formation)
+            if i >= 4 and not isReversed and bearFound == 0
+                bool obOverlaps = currLow <= obHigh and currHigh >= obLow
+                bool fvgOverlaps = not isFVGFilled and fvgHeight > 0 and currLow <= fvgTop and currHigh >= fvgBottom
 
-    [unmitBullBar, unmitBearBar, mitBullBar, mitBearBar, brkResBar, brkSupBar, bullFVGBar, bearFVGBar]
+                if not isBroken and not isTested
+                    // Unmitigated bearish OB - check overlap
+                    if obOverlaps
+                        bearFound := 1
+                        bearZoneType := 1  // OB
+                        bearType := 1      // unmit OB
+                        bearZoneTime := time[i]
+                        bearZoneHigh := obHigh
+                        bearZoneLow := obLow
+
+                // Unfilled bearish FVG - check overlap (regardless of OB state)
+                if bearFound == 0 and fvgOverlaps
+                    bearFound := 1
+                    bearZoneType := 2  // FVG
+                    bearType := 4      // bearish FVG
+                    bearZoneTime := time[i]
+                    bearZoneHigh := fvgTop
+                    bearZoneLow := fvgBottom
+
+            // Check for BREAKER SUPPORT (broken bearish OB = bullish zone)
+            // NOTE: Only check overlap for i >= 4
+            if i >= 4 and isBroken and not isReversed and bullFound == 0
+                bool brkOverlaps = currLow <= obHigh and currHigh >= obLow
+                if brkOverlaps
+                    bullFound := 1
+                    bullZoneType := 1  // OB (breaker)
+                    bullType := 3      // breaker support
+                    bullZoneTime := time[i]
+                    bullZoneHigh := obHigh
+                    bullZoneLow := obLow
+
+    [bullFound, bullZoneType, bullType, bullZoneTime, bearFound, bearZoneType, bearType, bearZoneTime]
 
 ///////////////////////
 // SIGNAL DETECTION  //
 ///////////////////////
 
-// Combined NWE + OB + FVG scan for H4 and D1 timeframes
-// Returns: [yhat, upper_far, unmitBullBar, unmitBearBar, mitBullBar, mitBearBar, brkResBar, brkSupBar, bullFVGBar, bearFVGBar]
-// Total: 10 values (2 NWE + 8 OB/FVG)
+// Combined NWE + OB overlap scan for H4 and D1 timeframes
+// Returns: [yhat, upper_far, bullFound, bullZoneType, bullType, bullZoneTime, bearFound, bearZoneType, bearType, bearZoneTime]
+// Total: 10 values (2 NWE + 8 OB overlap info)
 checkSignalWithOB() =>
     // Calculate NWE envelope (kept for future signal use)
     [yhat, upper_near, upper_far, lower_near, lower_far] = calcNWE(close, high, low, nwe_h, nwe_alpha, nwe_x0, nwe_atrLen, nwe_nearFactor, nwe_farFactor)
 
-    // Scan 100 bars for OBs and FVGs
-    [unmitBullBar, unmitBearBar, mitBullBar, mitBearBar, brkResBar, brkSupBar, bullFVGBar, bearFVGBar] = scanOBRange()
+    // Scan for OB/FVG overlap with current price
+    [bullFound, bullZoneType, bullType, bullZoneTime, bearFound, bearZoneType, bearType, bearZoneTime] = scanOBRange()
 
-    // Return NWE + OB + FVG data (using [1] offset for non-repainting NWE values)
-    [yhat[1], upper_far[1], unmitBullBar, unmitBearBar, mitBullBar, mitBearBar, brkResBar, brkSupBar, bullFVGBar, bearFVGBar]
+    // Return NWE + OB overlap data (using [1] offset for non-repainting NWE values)
+    [yhat[1], upper_far[1], bullFound, bullZoneType, bullType, bullZoneTime, bearFound, bearZoneType, bearType, bearZoneTime]
 
-// OB + FVG scan only (for Weekly timeframe - no NWE)
-// Returns: [unmitBullBar, unmitBearBar, mitBullBar, mitBearBar, brkResBar, brkSupBar, bullFVGBar, bearFVGBar]
+// OB overlap scan only (for Weekly timeframe - no NWE)
+// Returns: [bullFound, bullZoneType, bullType, bullZoneTime, bearFound, bearZoneType, bearType, bearZoneTime]
 // Total: 8 values
 checkOBOnly() =>
-    [unmitBullBar, unmitBearBar, mitBullBar, mitBearBar, brkResBar, brkSupBar, bullFVGBar, bearFVGBar] = scanOBRange()
-    [unmitBullBar, unmitBearBar, mitBullBar, mitBearBar, brkResBar, brkSupBar, bullFVGBar, bearFVGBar]
+    [bullFound, bullZoneType, bullType, bullZoneTime, bearFound, bearZoneType, bearType, bearZoneTime] = scanOBRange()
+    [bullFound, bullZoneType, bullType, bullZoneTime, bearFound, bearZoneType, bearType, bearZoneTime]
 
 ////////////////////////////
 // REQUEST SECURITY CALLS //
 ////////////////////////////
 
-// Combined NWE + OB + FVG scan from each symbol on H4 and Daily timeframes
-// Returns: [yhat, upper_far, unmitBullBar, unmitBearBar, mitBullBar, mitBearBar, brkResBar, brkSupBar, bullFVGBar, bearFVGBar]
-// - unmitBullBar/unmitBearBar: Nearest unmitigated OB bar index
-// - mitBullBar/mitBearBar: Nearest mitigated OB bar index
-// - brkResBar/brkSupBar: Nearest breaker OB bar index
-// - bullFVGBar/bearFVGBar: Nearest unfilled FVG bar index
+// Combined NWE + OB overlap scan from each symbol on H4 and Daily timeframes
+// Returns: [yhat, upper_far, bullFound, bullZoneType, bullType, bullZoneTime, bearFound, bearZoneType, bearType, bearZoneTime]
+// - bullFound/bearFound: 1 if price overlaps a bullish/bearish zone, 0 otherwise
+// - bullZoneType/bearZoneType: 1=OB, 2=FVG
+// - bullType: 1=unmit OB, 2=mit OB, 3=breaker support, 4=bullish FVG
+// - bearType: 1=unmit OB, 2=mit OB, 3=breaker resistance, 4=bearish FVG
+// - bullZoneTime/bearZoneTime: timestamp of zone formation
 // Total: 20 calls (10 symbols × 2 TFs)
 
-// H4 timeframe - Combined NWE + OB + FVG
-[yhat01_h4, uf01_h4, unmitBull01_h4, unmitBear01_h4, mitBull01_h4, mitBear01_h4, brkRes01_h4, brkSup01_h4, bullFVG01_h4, bearFVG01_h4] = request.security(s01, TF_H4, checkSignalWithOB())
-[yhat02_h4, uf02_h4, unmitBull02_h4, unmitBear02_h4, mitBull02_h4, mitBear02_h4, brkRes02_h4, brkSup02_h4, bullFVG02_h4, bearFVG02_h4] = request.security(s02, TF_H4, checkSignalWithOB())
-[yhat03_h4, uf03_h4, unmitBull03_h4, unmitBear03_h4, mitBull03_h4, mitBear03_h4, brkRes03_h4, brkSup03_h4, bullFVG03_h4, bearFVG03_h4] = request.security(s03, TF_H4, checkSignalWithOB())
-[yhat04_h4, uf04_h4, unmitBull04_h4, unmitBear04_h4, mitBull04_h4, mitBear04_h4, brkRes04_h4, brkSup04_h4, bullFVG04_h4, bearFVG04_h4] = request.security(s04, TF_H4, checkSignalWithOB())
-[yhat05_h4, uf05_h4, unmitBull05_h4, unmitBear05_h4, mitBull05_h4, mitBear05_h4, brkRes05_h4, brkSup05_h4, bullFVG05_h4, bearFVG05_h4] = request.security(s05, TF_H4, checkSignalWithOB())
-[yhat06_h4, uf06_h4, unmitBull06_h4, unmitBear06_h4, mitBull06_h4, mitBear06_h4, brkRes06_h4, brkSup06_h4, bullFVG06_h4, bearFVG06_h4] = request.security(s06, TF_H4, checkSignalWithOB())
-[yhat07_h4, uf07_h4, unmitBull07_h4, unmitBear07_h4, mitBull07_h4, mitBear07_h4, brkRes07_h4, brkSup07_h4, bullFVG07_h4, bearFVG07_h4] = request.security(s07, TF_H4, checkSignalWithOB())
-[yhat08_h4, uf08_h4, unmitBull08_h4, unmitBear08_h4, mitBull08_h4, mitBear08_h4, brkRes08_h4, brkSup08_h4, bullFVG08_h4, bearFVG08_h4] = request.security(s08, TF_H4, checkSignalWithOB())
-[yhat09_h4, uf09_h4, unmitBull09_h4, unmitBear09_h4, mitBull09_h4, mitBear09_h4, brkRes09_h4, brkSup09_h4, bullFVG09_h4, bearFVG09_h4] = request.security(s09, TF_H4, checkSignalWithOB())
-[yhat10_h4, uf10_h4, unmitBull10_h4, unmitBear10_h4, mitBull10_h4, mitBear10_h4, brkRes10_h4, brkSup10_h4, bullFVG10_h4, bearFVG10_h4] = request.security(s10, TF_H4, checkSignalWithOB())
+// H4 timeframe - Combined NWE + OB overlap
+[yhat01_h4, uf01_h4, bullF01_h4, bullZT01_h4, bullT01_h4, bullTm01_h4, bearF01_h4, bearZT01_h4, bearT01_h4, bearTm01_h4] = request.security(s01, TF_H4, checkSignalWithOB())
+[yhat02_h4, uf02_h4, bullF02_h4, bullZT02_h4, bullT02_h4, bullTm02_h4, bearF02_h4, bearZT02_h4, bearT02_h4, bearTm02_h4] = request.security(s02, TF_H4, checkSignalWithOB())
+[yhat03_h4, uf03_h4, bullF03_h4, bullZT03_h4, bullT03_h4, bullTm03_h4, bearF03_h4, bearZT03_h4, bearT03_h4, bearTm03_h4] = request.security(s03, TF_H4, checkSignalWithOB())
+[yhat04_h4, uf04_h4, bullF04_h4, bullZT04_h4, bullT04_h4, bullTm04_h4, bearF04_h4, bearZT04_h4, bearT04_h4, bearTm04_h4] = request.security(s04, TF_H4, checkSignalWithOB())
+[yhat05_h4, uf05_h4, bullF05_h4, bullZT05_h4, bullT05_h4, bullTm05_h4, bearF05_h4, bearZT05_h4, bearT05_h4, bearTm05_h4] = request.security(s05, TF_H4, checkSignalWithOB())
+[yhat06_h4, uf06_h4, bullF06_h4, bullZT06_h4, bullT06_h4, bullTm06_h4, bearF06_h4, bearZT06_h4, bearT06_h4, bearTm06_h4] = request.security(s06, TF_H4, checkSignalWithOB())
+[yhat07_h4, uf07_h4, bullF07_h4, bullZT07_h4, bullT07_h4, bullTm07_h4, bearF07_h4, bearZT07_h4, bearT07_h4, bearTm07_h4] = request.security(s07, TF_H4, checkSignalWithOB())
+[yhat08_h4, uf08_h4, bullF08_h4, bullZT08_h4, bullT08_h4, bullTm08_h4, bearF08_h4, bearZT08_h4, bearT08_h4, bearTm08_h4] = request.security(s08, TF_H4, checkSignalWithOB())
+[yhat09_h4, uf09_h4, bullF09_h4, bullZT09_h4, bullT09_h4, bullTm09_h4, bearF09_h4, bearZT09_h4, bearT09_h4, bearTm09_h4] = request.security(s09, TF_H4, checkSignalWithOB())
+[yhat10_h4, uf10_h4, bullF10_h4, bullZT10_h4, bullT10_h4, bullTm10_h4, bearF10_h4, bearZT10_h4, bearT10_h4, bearTm10_h4] = request.security(s10, TF_H4, checkSignalWithOB())
 
-// Daily timeframe - Combined NWE + OB + FVG
-[yhat01_d1, uf01_d1, unmitBull01_d1, unmitBear01_d1, mitBull01_d1, mitBear01_d1, brkRes01_d1, brkSup01_d1, bullFVG01_d1, bearFVG01_d1] = request.security(s01, TF_D1, checkSignalWithOB())
-[yhat02_d1, uf02_d1, unmitBull02_d1, unmitBear02_d1, mitBull02_d1, mitBear02_d1, brkRes02_d1, brkSup02_d1, bullFVG02_d1, bearFVG02_d1] = request.security(s02, TF_D1, checkSignalWithOB())
-[yhat03_d1, uf03_d1, unmitBull03_d1, unmitBear03_d1, mitBull03_d1, mitBear03_d1, brkRes03_d1, brkSup03_d1, bullFVG03_d1, bearFVG03_d1] = request.security(s03, TF_D1, checkSignalWithOB())
-[yhat04_d1, uf04_d1, unmitBull04_d1, unmitBear04_d1, mitBull04_d1, mitBear04_d1, brkRes04_d1, brkSup04_d1, bullFVG04_d1, bearFVG04_d1] = request.security(s04, TF_D1, checkSignalWithOB())
-[yhat05_d1, uf05_d1, unmitBull05_d1, unmitBear05_d1, mitBull05_d1, mitBear05_d1, brkRes05_d1, brkSup05_d1, bullFVG05_d1, bearFVG05_d1] = request.security(s05, TF_D1, checkSignalWithOB())
-[yhat06_d1, uf06_d1, unmitBull06_d1, unmitBear06_d1, mitBull06_d1, mitBear06_d1, brkRes06_d1, brkSup06_d1, bullFVG06_d1, bearFVG06_d1] = request.security(s06, TF_D1, checkSignalWithOB())
-[yhat07_d1, uf07_d1, unmitBull07_d1, unmitBear07_d1, mitBull07_d1, mitBear07_d1, brkRes07_d1, brkSup07_d1, bullFVG07_d1, bearFVG07_d1] = request.security(s07, TF_D1, checkSignalWithOB())
-[yhat08_d1, uf08_d1, unmitBull08_d1, unmitBear08_d1, mitBull08_d1, mitBear08_d1, brkRes08_d1, brkSup08_d1, bullFVG08_d1, bearFVG08_d1] = request.security(s08, TF_D1, checkSignalWithOB())
-[yhat09_d1, uf09_d1, unmitBull09_d1, unmitBear09_d1, mitBull09_d1, mitBear09_d1, brkRes09_d1, brkSup09_d1, bullFVG09_d1, bearFVG09_d1] = request.security(s09, TF_D1, checkSignalWithOB())
-[yhat10_d1, uf10_d1, unmitBull10_d1, unmitBear10_d1, mitBull10_d1, mitBear10_d1, brkRes10_d1, brkSup10_d1, bullFVG10_d1, bearFVG10_d1] = request.security(s10, TF_D1, checkSignalWithOB())
+// Daily timeframe - Combined NWE + OB overlap
+[yhat01_d1, uf01_d1, bullF01_d1, bullZT01_d1, bullT01_d1, bullTm01_d1, bearF01_d1, bearZT01_d1, bearT01_d1, bearTm01_d1] = request.security(s01, TF_D1, checkSignalWithOB())
+[yhat02_d1, uf02_d1, bullF02_d1, bullZT02_d1, bullT02_d1, bullTm02_d1, bearF02_d1, bearZT02_d1, bearT02_d1, bearTm02_d1] = request.security(s02, TF_D1, checkSignalWithOB())
+[yhat03_d1, uf03_d1, bullF03_d1, bullZT03_d1, bullT03_d1, bullTm03_d1, bearF03_d1, bearZT03_d1, bearT03_d1, bearTm03_d1] = request.security(s03, TF_D1, checkSignalWithOB())
+[yhat04_d1, uf04_d1, bullF04_d1, bullZT04_d1, bullT04_d1, bullTm04_d1, bearF04_d1, bearZT04_d1, bearT04_d1, bearTm04_d1] = request.security(s04, TF_D1, checkSignalWithOB())
+[yhat05_d1, uf05_d1, bullF05_d1, bullZT05_d1, bullT05_d1, bullTm05_d1, bearF05_d1, bearZT05_d1, bearT05_d1, bearTm05_d1] = request.security(s05, TF_D1, checkSignalWithOB())
+[yhat06_d1, uf06_d1, bullF06_d1, bullZT06_d1, bullT06_d1, bullTm06_d1, bearF06_d1, bearZT06_d1, bearT06_d1, bearTm06_d1] = request.security(s06, TF_D1, checkSignalWithOB())
+[yhat07_d1, uf07_d1, bullF07_d1, bullZT07_d1, bullT07_d1, bullTm07_d1, bearF07_d1, bearZT07_d1, bearT07_d1, bearTm07_d1] = request.security(s07, TF_D1, checkSignalWithOB())
+[yhat08_d1, uf08_d1, bullF08_d1, bullZT08_d1, bullT08_d1, bullTm08_d1, bearF08_d1, bearZT08_d1, bearT08_d1, bearTm08_d1] = request.security(s08, TF_D1, checkSignalWithOB())
+[yhat09_d1, uf09_d1, bullF09_d1, bullZT09_d1, bullT09_d1, bullTm09_d1, bearF09_d1, bearZT09_d1, bearT09_d1, bearTm09_d1] = request.security(s09, TF_D1, checkSignalWithOB())
+[yhat10_d1, uf10_d1, bullF10_d1, bullZT10_d1, bullT10_d1, bullTm10_d1, bearF10_d1, bearZT10_d1, bearT10_d1, bearTm10_d1] = request.security(s10, TF_D1, checkSignalWithOB())
 
-// Weekly timeframe - OB + FVG only (no NWE)
-// Returns: [unmitBullBar, unmitBearBar, mitBullBar, mitBearBar, brkResBar, brkSupBar, bullFVGBar, bearFVGBar]
+// Weekly timeframe - OB overlap only (no NWE)
+// Returns: [bullFound, bullZoneType, bullType, bullZoneTime, bearFound, bearZoneType, bearType, bearZoneTime]
 // Total: 10 calls (10 symbols × 1 TF)
-[unmitBull01_w1, unmitBear01_w1, mitBull01_w1, mitBear01_w1, brkRes01_w1, brkSup01_w1, bullFVG01_w1, bearFVG01_w1] = request.security(s01, TF_W1, checkOBOnly())
-[unmitBull02_w1, unmitBear02_w1, mitBull02_w1, mitBear02_w1, brkRes02_w1, brkSup02_w1, bullFVG02_w1, bearFVG02_w1] = request.security(s02, TF_W1, checkOBOnly())
-[unmitBull03_w1, unmitBear03_w1, mitBull03_w1, mitBear03_w1, brkRes03_w1, brkSup03_w1, bullFVG03_w1, bearFVG03_w1] = request.security(s03, TF_W1, checkOBOnly())
-[unmitBull04_w1, unmitBear04_w1, mitBull04_w1, mitBear04_w1, brkRes04_w1, brkSup04_w1, bullFVG04_w1, bearFVG04_w1] = request.security(s04, TF_W1, checkOBOnly())
-[unmitBull05_w1, unmitBear05_w1, mitBull05_w1, mitBear05_w1, brkRes05_w1, brkSup05_w1, bullFVG05_w1, bearFVG05_w1] = request.security(s05, TF_W1, checkOBOnly())
-[unmitBull06_w1, unmitBear06_w1, mitBull06_w1, mitBear06_w1, brkRes06_w1, brkSup06_w1, bullFVG06_w1, bearFVG06_w1] = request.security(s06, TF_W1, checkOBOnly())
-[unmitBull07_w1, unmitBear07_w1, mitBull07_w1, mitBear07_w1, brkRes07_w1, brkSup07_w1, bullFVG07_w1, bearFVG07_w1] = request.security(s07, TF_W1, checkOBOnly())
-[unmitBull08_w1, unmitBear08_w1, mitBull08_w1, mitBear08_w1, brkRes08_w1, brkSup08_w1, bullFVG08_w1, bearFVG08_w1] = request.security(s08, TF_W1, checkOBOnly())
-[unmitBull09_w1, unmitBear09_w1, mitBull09_w1, mitBear09_w1, brkRes09_w1, brkSup09_w1, bullFVG09_w1, bearFVG09_w1] = request.security(s09, TF_W1, checkOBOnly())
-[unmitBull10_w1, unmitBear10_w1, mitBull10_w1, mitBear10_w1, brkRes10_w1, brkSup10_w1, bullFVG10_w1, bearFVG10_w1] = request.security(s10, TF_W1, checkOBOnly())
+[bullF01_w1, bullZT01_w1, bullT01_w1, bullTm01_w1, bearF01_w1, bearZT01_w1, bearT01_w1, bearTm01_w1] = request.security(s01, TF_W1, checkOBOnly())
+[bullF02_w1, bullZT02_w1, bullT02_w1, bullTm02_w1, bearF02_w1, bearZT02_w1, bearT02_w1, bearTm02_w1] = request.security(s02, TF_W1, checkOBOnly())
+[bullF03_w1, bullZT03_w1, bullT03_w1, bullTm03_w1, bearF03_w1, bearZT03_w1, bearT03_w1, bearTm03_w1] = request.security(s03, TF_W1, checkOBOnly())
+[bullF04_w1, bullZT04_w1, bullT04_w1, bullTm04_w1, bearF04_w1, bearZT04_w1, bearT04_w1, bearTm04_w1] = request.security(s04, TF_W1, checkOBOnly())
+[bullF05_w1, bullZT05_w1, bullT05_w1, bullTm05_w1, bearF05_w1, bearZT05_w1, bearT05_w1, bearTm05_w1] = request.security(s05, TF_W1, checkOBOnly())
+[bullF06_w1, bullZT06_w1, bullT06_w1, bullTm06_w1, bearF06_w1, bearZT06_w1, bearT06_w1, bearTm06_w1] = request.security(s06, TF_W1, checkOBOnly())
+[bullF07_w1, bullZT07_w1, bullT07_w1, bullTm07_w1, bearF07_w1, bearZT07_w1, bearT07_w1, bearTm07_w1] = request.security(s07, TF_W1, checkOBOnly())
+[bullF08_w1, bullZT08_w1, bullT08_w1, bullTm08_w1, bearF08_w1, bearZT08_w1, bearT08_w1, bearTm08_w1] = request.security(s08, TF_W1, checkOBOnly())
+[bullF09_w1, bullZT09_w1, bullT09_w1, bullTm09_w1, bearF09_w1, bearZT09_w1, bearT09_w1, bearTm09_w1] = request.security(s09, TF_W1, checkOBOnly())
+[bullF10_w1, bullZT10_w1, bullT10_w1, bullTm10_w1, bearF10_w1, bearZT10_w1, bearT10_w1, bearTm10_w1] = request.security(s10, TF_W1, checkOBOnly())
 
 // Total request.security() calls: 30 (under 40 limit)
 
@@ -477,162 +447,154 @@ getSymbolName(string fullSymbol) =>
         result := array.get(str.split(fullSymbol, ":"), 1)
     result
 
-// Helper function to format bar pair as "B:x S:y"
-// B = Bullish, S = Bearish (Supply)
-// Shows bar index or "-" if none found
-formatPair(int bullBar, int bearBar) =>
-    string bull = bullBar > 0 ? str.tostring(int(bullBar)) : "-"
-    string bear = bearBar > 0 ? str.tostring(int(bearBar)) : "-"
-    "B:" + bull + " S:" + bear
+// Helper function to get zone type string from code
+// zoneType: 1=OB, 2=FVG
+getZoneTypeStr(int zoneType) =>
+    zoneType == 1 ? "OB" : zoneType == 2 ? "FVG" : "-"
 
-// Helper function to get color based on whether any items found
-getColor(int bullBar, int bearBar, color bothColor, color oneColor) =>
-    if bullBar > 0 and bearBar > 0
-        bothColor
-    else if bullBar > 0 or bearBar > 0
-        oneColor
+// Helper function to get zone subtype string from code
+// bullType: 1=unmit OB, 3=breaker support, 4=unfilled bullish FVG
+// bearType: 1=unmit OB, 3=breaker resistance, 4=unfilled bearish FVG
+getZoneSubtypeStr(int zoneType, bool isBull) =>
+    if zoneType == 1
+        "Unmit OB"
+    else if zoneType == 3
+        isBull ? "Brk Sup" : "Brk Res"
+    else if zoneType == 4
+        isBull ? "Bull FVG" : "Bear FVG"
+    else
+        "-"
+
+// Helper function to format overlap cell text
+// Shows checkmark if found, X if not
+formatOverlapText(int found) =>
+    found == 1 ? "Y" : "-"
+
+// Helper function to get overlap cell color
+getOverlapColor(int found, bool isBull) =>
+    if found == 1
+        isBull ? color.lime : color.red
     else
         color.gray
 
-// Build debug table to display all OB types for each symbol
-// Columns: Symbol | H4 Unmit | H4 Mit | H4 Brk | D1 Unmit | D1 Mit | D1 Brk | W1 Unmit | W1 Mit | W1 Brk
-// Each cell shows: "B:x S:y" (Bullish bar, Bearish/Supply bar)
-// Unmit = Unmitigated (lime), Mit = Mitigated (aqua), Brk = Breaker (orange)
-var table debugTable = table.new(position.top_right, 11, 12, bgcolor=color.new(color.black, 80), border_width=1)
+// Helper function to build tooltip with zone info
+buildTooltip(int found, int zoneType, int subType, int zoneTime, bool isBull) =>
+    if found != 1
+        "No overlap"
+    else
+        string zt = getZoneTypeStr(zoneType)
+        string st = getZoneSubtypeStr(subType, isBull)
+        string ts = str.format_time(zoneTime, "MM-dd HH:mm", "UTC+5:30")
+        zt + " (" + st + ")\n" + ts
+
+// Build debug table to display OB overlap status for each symbol
+// Columns: Symbol | H4 Bull | H4 Bear | D1 Bull | D1 Bear | W1 Bull | W1 Bear
+// Each cell shows: Y (overlap found) or - (no overlap)
+// Tooltip shows zone type, subtype, and timestamp
+var table debugTable = table.new(position.top_right, 8, 12, bgcolor=color.new(color.black, 80), border_width=1)
 
 if barstate.islast
     // Header row
     table.cell(debugTable, 0, 0, "Symbol", text_color=color.white, text_size=size.small)
-    table.cell(debugTable, 1, 0, "H4 Unmit", text_color=color.lime, text_size=size.small)
-    table.cell(debugTable, 2, 0, "H4 Mit", text_color=color.aqua, text_size=size.small)
-    table.cell(debugTable, 3, 0, "H4 Brk", text_color=color.orange, text_size=size.small)
-    table.cell(debugTable, 4, 0, "D1 Unmit", text_color=color.lime, text_size=size.small)
-    table.cell(debugTable, 5, 0, "D1 Mit", text_color=color.aqua, text_size=size.small)
-    table.cell(debugTable, 6, 0, "D1 Brk", text_color=color.orange, text_size=size.small)
-    table.cell(debugTable, 7, 0, "W1 Unmit", text_color=color.lime, text_size=size.small)
-    table.cell(debugTable, 8, 0, "W1 Mit", text_color=color.aqua, text_size=size.small)
-    table.cell(debugTable, 9, 0, "W1 Brk", text_color=color.orange, text_size=size.small)
+    table.cell(debugTable, 1, 0, "H4 B", text_color=color.lime, text_size=size.small, tooltip="H4 Bullish Overlap")
+    table.cell(debugTable, 2, 0, "H4 S", text_color=color.red, text_size=size.small, tooltip="H4 Bearish Overlap")
+    table.cell(debugTable, 3, 0, "D1 B", text_color=color.lime, text_size=size.small, tooltip="D1 Bullish Overlap")
+    table.cell(debugTable, 4, 0, "D1 S", text_color=color.red, text_size=size.small, tooltip="D1 Bearish Overlap")
+    table.cell(debugTable, 5, 0, "W1 B", text_color=color.lime, text_size=size.small, tooltip="W1 Bullish Overlap")
+    table.cell(debugTable, 6, 0, "W1 S", text_color=color.red, text_size=size.small, tooltip="W1 Bearish Overlap")
 
-    // Symbol rows
+    // Symbol rows - each row shows overlap status for H4/D1/W1 Bull/Bear
+    // Cell shows: Y (overlap found) or - (no overlap)
+    // Tooltip shows zone type, subtype, and timestamp when hovering
     if usedSymbols >= 1
         table.cell(debugTable, 0, 1, getSymbolName(s01), text_color=color.yellow, text_size=size.small)
-        table.cell(debugTable, 1, 1, formatPair(int(unmitBull01_h4), int(unmitBear01_h4)), text_color=getColor(int(unmitBull01_h4), int(unmitBear01_h4), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 2, 1, formatPair(int(mitBull01_h4), int(mitBear01_h4)), text_color=getColor(int(mitBull01_h4), int(mitBear01_h4), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
-        table.cell(debugTable, 3, 1, formatPair(int(brkRes01_h4), int(brkSup01_h4)), text_color=getColor(int(brkRes01_h4), int(brkSup01_h4), color.orange, color.new(color.orange, 50)), text_size=size.small)
-        table.cell(debugTable, 4, 1, formatPair(int(unmitBull01_d1), int(unmitBear01_d1)), text_color=getColor(int(unmitBull01_d1), int(unmitBear01_d1), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 5, 1, formatPair(int(mitBull01_d1), int(mitBear01_d1)), text_color=getColor(int(mitBull01_d1), int(mitBear01_d1), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
-        table.cell(debugTable, 6, 1, formatPair(int(brkRes01_d1), int(brkSup01_d1)), text_color=getColor(int(brkRes01_d1), int(brkSup01_d1), color.orange, color.new(color.orange, 50)), text_size=size.small)
-        table.cell(debugTable, 7, 1, formatPair(int(unmitBull01_w1), int(unmitBear01_w1)), text_color=getColor(int(unmitBull01_w1), int(unmitBear01_w1), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 8, 1, formatPair(int(mitBull01_w1), int(mitBear01_w1)), text_color=getColor(int(mitBull01_w1), int(mitBear01_w1), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
-        table.cell(debugTable, 9, 1, formatPair(int(brkRes01_w1), int(brkSup01_w1)), text_color=getColor(int(brkRes01_w1), int(brkSup01_w1), color.orange, color.new(color.orange, 50)), text_size=size.small)
+        table.cell(debugTable, 1, 1, formatOverlapText(int(bullF01_h4)), text_color=getOverlapColor(int(bullF01_h4), true), text_size=size.small, tooltip=buildTooltip(int(bullF01_h4), int(bullZT01_h4), int(bullT01_h4), int(bullTm01_h4), true))
+        table.cell(debugTable, 2, 1, formatOverlapText(int(bearF01_h4)), text_color=getOverlapColor(int(bearF01_h4), false), text_size=size.small, tooltip=buildTooltip(int(bearF01_h4), int(bearZT01_h4), int(bearT01_h4), int(bearTm01_h4), false))
+        table.cell(debugTable, 3, 1, formatOverlapText(int(bullF01_d1)), text_color=getOverlapColor(int(bullF01_d1), true), text_size=size.small, tooltip=buildTooltip(int(bullF01_d1), int(bullZT01_d1), int(bullT01_d1), int(bullTm01_d1), true))
+        table.cell(debugTable, 4, 1, formatOverlapText(int(bearF01_d1)), text_color=getOverlapColor(int(bearF01_d1), false), text_size=size.small, tooltip=buildTooltip(int(bearF01_d1), int(bearZT01_d1), int(bearT01_d1), int(bearTm01_d1), false))
+        table.cell(debugTable, 5, 1, formatOverlapText(int(bullF01_w1)), text_color=getOverlapColor(int(bullF01_w1), true), text_size=size.small, tooltip=buildTooltip(int(bullF01_w1), int(bullZT01_w1), int(bullT01_w1), int(bullTm01_w1), true))
+        table.cell(debugTable, 6, 1, formatOverlapText(int(bearF01_w1)), text_color=getOverlapColor(int(bearF01_w1), false), text_size=size.small, tooltip=buildTooltip(int(bearF01_w1), int(bearZT01_w1), int(bearT01_w1), int(bearTm01_w1), false))
 
     if usedSymbols >= 2
         table.cell(debugTable, 0, 2, getSymbolName(s02), text_color=color.yellow, text_size=size.small)
-        table.cell(debugTable, 1, 2, formatPair(int(unmitBull02_h4), int(unmitBear02_h4)), text_color=getColor(int(unmitBull02_h4), int(unmitBear02_h4), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 2, 2, formatPair(int(mitBull02_h4), int(mitBear02_h4)), text_color=getColor(int(mitBull02_h4), int(mitBear02_h4), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
-        table.cell(debugTable, 3, 2, formatPair(int(brkRes02_h4), int(brkSup02_h4)), text_color=getColor(int(brkRes02_h4), int(brkSup02_h4), color.orange, color.new(color.orange, 50)), text_size=size.small)
-        table.cell(debugTable, 4, 2, formatPair(int(unmitBull02_d1), int(unmitBear02_d1)), text_color=getColor(int(unmitBull02_d1), int(unmitBear02_d1), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 5, 2, formatPair(int(mitBull02_d1), int(mitBear02_d1)), text_color=getColor(int(mitBull02_d1), int(mitBear02_d1), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
-        table.cell(debugTable, 6, 2, formatPair(int(brkRes02_d1), int(brkSup02_d1)), text_color=getColor(int(brkRes02_d1), int(brkSup02_d1), color.orange, color.new(color.orange, 50)), text_size=size.small)
-        table.cell(debugTable, 7, 2, formatPair(int(unmitBull02_w1), int(unmitBear02_w1)), text_color=getColor(int(unmitBull02_w1), int(unmitBear02_w1), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 8, 2, formatPair(int(mitBull02_w1), int(mitBear02_w1)), text_color=getColor(int(mitBull02_w1), int(mitBear02_w1), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
-        table.cell(debugTable, 9, 2, formatPair(int(brkRes02_w1), int(brkSup02_w1)), text_color=getColor(int(brkRes02_w1), int(brkSup02_w1), color.orange, color.new(color.orange, 50)), text_size=size.small)
+        table.cell(debugTable, 1, 2, formatOverlapText(int(bullF02_h4)), text_color=getOverlapColor(int(bullF02_h4), true), text_size=size.small, tooltip=buildTooltip(int(bullF02_h4), int(bullZT02_h4), int(bullT02_h4), int(bullTm02_h4), true))
+        table.cell(debugTable, 2, 2, formatOverlapText(int(bearF02_h4)), text_color=getOverlapColor(int(bearF02_h4), false), text_size=size.small, tooltip=buildTooltip(int(bearF02_h4), int(bearZT02_h4), int(bearT02_h4), int(bearTm02_h4), false))
+        table.cell(debugTable, 3, 2, formatOverlapText(int(bullF02_d1)), text_color=getOverlapColor(int(bullF02_d1), true), text_size=size.small, tooltip=buildTooltip(int(bullF02_d1), int(bullZT02_d1), int(bullT02_d1), int(bullTm02_d1), true))
+        table.cell(debugTable, 4, 2, formatOverlapText(int(bearF02_d1)), text_color=getOverlapColor(int(bearF02_d1), false), text_size=size.small, tooltip=buildTooltip(int(bearF02_d1), int(bearZT02_d1), int(bearT02_d1), int(bearTm02_d1), false))
+        table.cell(debugTable, 5, 2, formatOverlapText(int(bullF02_w1)), text_color=getOverlapColor(int(bullF02_w1), true), text_size=size.small, tooltip=buildTooltip(int(bullF02_w1), int(bullZT02_w1), int(bullT02_w1), int(bullTm02_w1), true))
+        table.cell(debugTable, 6, 2, formatOverlapText(int(bearF02_w1)), text_color=getOverlapColor(int(bearF02_w1), false), text_size=size.small, tooltip=buildTooltip(int(bearF02_w1), int(bearZT02_w1), int(bearT02_w1), int(bearTm02_w1), false))
 
     if usedSymbols >= 3
         table.cell(debugTable, 0, 3, getSymbolName(s03), text_color=color.yellow, text_size=size.small)
-        table.cell(debugTable, 1, 3, formatPair(int(unmitBull03_h4), int(unmitBear03_h4)), text_color=getColor(int(unmitBull03_h4), int(unmitBear03_h4), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 2, 3, formatPair(int(mitBull03_h4), int(mitBear03_h4)), text_color=getColor(int(mitBull03_h4), int(mitBear03_h4), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
-        table.cell(debugTable, 3, 3, formatPair(int(brkRes03_h4), int(brkSup03_h4)), text_color=getColor(int(brkRes03_h4), int(brkSup03_h4), color.orange, color.new(color.orange, 50)), text_size=size.small)
-        table.cell(debugTable, 4, 3, formatPair(int(unmitBull03_d1), int(unmitBear03_d1)), text_color=getColor(int(unmitBull03_d1), int(unmitBear03_d1), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 5, 3, formatPair(int(mitBull03_d1), int(mitBear03_d1)), text_color=getColor(int(mitBull03_d1), int(mitBear03_d1), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
-        table.cell(debugTable, 6, 3, formatPair(int(brkRes03_d1), int(brkSup03_d1)), text_color=getColor(int(brkRes03_d1), int(brkSup03_d1), color.orange, color.new(color.orange, 50)), text_size=size.small)
-        table.cell(debugTable, 7, 3, formatPair(int(unmitBull03_w1), int(unmitBear03_w1)), text_color=getColor(int(unmitBull03_w1), int(unmitBear03_w1), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 8, 3, formatPair(int(mitBull03_w1), int(mitBear03_w1)), text_color=getColor(int(mitBull03_w1), int(mitBear03_w1), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
-        table.cell(debugTable, 9, 3, formatPair(int(brkRes03_w1), int(brkSup03_w1)), text_color=getColor(int(brkRes03_w1), int(brkSup03_w1), color.orange, color.new(color.orange, 50)), text_size=size.small)
+        table.cell(debugTable, 1, 3, formatOverlapText(int(bullF03_h4)), text_color=getOverlapColor(int(bullF03_h4), true), text_size=size.small, tooltip=buildTooltip(int(bullF03_h4), int(bullZT03_h4), int(bullT03_h4), int(bullTm03_h4), true))
+        table.cell(debugTable, 2, 3, formatOverlapText(int(bearF03_h4)), text_color=getOverlapColor(int(bearF03_h4), false), text_size=size.small, tooltip=buildTooltip(int(bearF03_h4), int(bearZT03_h4), int(bearT03_h4), int(bearTm03_h4), false))
+        table.cell(debugTable, 3, 3, formatOverlapText(int(bullF03_d1)), text_color=getOverlapColor(int(bullF03_d1), true), text_size=size.small, tooltip=buildTooltip(int(bullF03_d1), int(bullZT03_d1), int(bullT03_d1), int(bullTm03_d1), true))
+        table.cell(debugTable, 4, 3, formatOverlapText(int(bearF03_d1)), text_color=getOverlapColor(int(bearF03_d1), false), text_size=size.small, tooltip=buildTooltip(int(bearF03_d1), int(bearZT03_d1), int(bearT03_d1), int(bearTm03_d1), false))
+        table.cell(debugTable, 5, 3, formatOverlapText(int(bullF03_w1)), text_color=getOverlapColor(int(bullF03_w1), true), text_size=size.small, tooltip=buildTooltip(int(bullF03_w1), int(bullZT03_w1), int(bullT03_w1), int(bullTm03_w1), true))
+        table.cell(debugTable, 6, 3, formatOverlapText(int(bearF03_w1)), text_color=getOverlapColor(int(bearF03_w1), false), text_size=size.small, tooltip=buildTooltip(int(bearF03_w1), int(bearZT03_w1), int(bearT03_w1), int(bearTm03_w1), false))
 
     if usedSymbols >= 4
         table.cell(debugTable, 0, 4, getSymbolName(s04), text_color=color.yellow, text_size=size.small)
-        table.cell(debugTable, 1, 4, formatPair(int(unmitBull04_h4), int(unmitBear04_h4)), text_color=getColor(int(unmitBull04_h4), int(unmitBear04_h4), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 2, 4, formatPair(int(mitBull04_h4), int(mitBear04_h4)), text_color=getColor(int(mitBull04_h4), int(mitBear04_h4), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
-        table.cell(debugTable, 3, 4, formatPair(int(brkRes04_h4), int(brkSup04_h4)), text_color=getColor(int(brkRes04_h4), int(brkSup04_h4), color.orange, color.new(color.orange, 50)), text_size=size.small)
-        table.cell(debugTable, 4, 4, formatPair(int(unmitBull04_d1), int(unmitBear04_d1)), text_color=getColor(int(unmitBull04_d1), int(unmitBear04_d1), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 5, 4, formatPair(int(mitBull04_d1), int(mitBear04_d1)), text_color=getColor(int(mitBull04_d1), int(mitBear04_d1), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
-        table.cell(debugTable, 6, 4, formatPair(int(brkRes04_d1), int(brkSup04_d1)), text_color=getColor(int(brkRes04_d1), int(brkSup04_d1), color.orange, color.new(color.orange, 50)), text_size=size.small)
-        table.cell(debugTable, 7, 4, formatPair(int(unmitBull04_w1), int(unmitBear04_w1)), text_color=getColor(int(unmitBull04_w1), int(unmitBear04_w1), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 8, 4, formatPair(int(mitBull04_w1), int(mitBear04_w1)), text_color=getColor(int(mitBull04_w1), int(mitBear04_w1), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
-        table.cell(debugTable, 9, 4, formatPair(int(brkRes04_w1), int(brkSup04_w1)), text_color=getColor(int(brkRes04_w1), int(brkSup04_w1), color.orange, color.new(color.orange, 50)), text_size=size.small)
+        table.cell(debugTable, 1, 4, formatOverlapText(int(bullF04_h4)), text_color=getOverlapColor(int(bullF04_h4), true), text_size=size.small, tooltip=buildTooltip(int(bullF04_h4), int(bullZT04_h4), int(bullT04_h4), int(bullTm04_h4), true))
+        table.cell(debugTable, 2, 4, formatOverlapText(int(bearF04_h4)), text_color=getOverlapColor(int(bearF04_h4), false), text_size=size.small, tooltip=buildTooltip(int(bearF04_h4), int(bearZT04_h4), int(bearT04_h4), int(bearTm04_h4), false))
+        table.cell(debugTable, 3, 4, formatOverlapText(int(bullF04_d1)), text_color=getOverlapColor(int(bullF04_d1), true), text_size=size.small, tooltip=buildTooltip(int(bullF04_d1), int(bullZT04_d1), int(bullT04_d1), int(bullTm04_d1), true))
+        table.cell(debugTable, 4, 4, formatOverlapText(int(bearF04_d1)), text_color=getOverlapColor(int(bearF04_d1), false), text_size=size.small, tooltip=buildTooltip(int(bearF04_d1), int(bearZT04_d1), int(bearT04_d1), int(bearTm04_d1), false))
+        table.cell(debugTable, 5, 4, formatOverlapText(int(bullF04_w1)), text_color=getOverlapColor(int(bullF04_w1), true), text_size=size.small, tooltip=buildTooltip(int(bullF04_w1), int(bullZT04_w1), int(bullT04_w1), int(bullTm04_w1), true))
+        table.cell(debugTable, 6, 4, formatOverlapText(int(bearF04_w1)), text_color=getOverlapColor(int(bearF04_w1), false), text_size=size.small, tooltip=buildTooltip(int(bearF04_w1), int(bearZT04_w1), int(bearT04_w1), int(bearTm04_w1), false))
 
     if usedSymbols >= 5
         table.cell(debugTable, 0, 5, getSymbolName(s05), text_color=color.yellow, text_size=size.small)
-        table.cell(debugTable, 1, 5, formatPair(int(unmitBull05_h4), int(unmitBear05_h4)), text_color=getColor(int(unmitBull05_h4), int(unmitBear05_h4), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 2, 5, formatPair(int(mitBull05_h4), int(mitBear05_h4)), text_color=getColor(int(mitBull05_h4), int(mitBear05_h4), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
-        table.cell(debugTable, 3, 5, formatPair(int(brkRes05_h4), int(brkSup05_h4)), text_color=getColor(int(brkRes05_h4), int(brkSup05_h4), color.orange, color.new(color.orange, 50)), text_size=size.small)
-        table.cell(debugTable, 4, 5, formatPair(int(unmitBull05_d1), int(unmitBear05_d1)), text_color=getColor(int(unmitBull05_d1), int(unmitBear05_d1), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 5, 5, formatPair(int(mitBull05_d1), int(mitBear05_d1)), text_color=getColor(int(mitBull05_d1), int(mitBear05_d1), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
-        table.cell(debugTable, 6, 5, formatPair(int(brkRes05_d1), int(brkSup05_d1)), text_color=getColor(int(brkRes05_d1), int(brkSup05_d1), color.orange, color.new(color.orange, 50)), text_size=size.small)
-        table.cell(debugTable, 7, 5, formatPair(int(unmitBull05_w1), int(unmitBear05_w1)), text_color=getColor(int(unmitBull05_w1), int(unmitBear05_w1), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 8, 5, formatPair(int(mitBull05_w1), int(mitBear05_w1)), text_color=getColor(int(mitBull05_w1), int(mitBear05_w1), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
-        table.cell(debugTable, 9, 5, formatPair(int(brkRes05_w1), int(brkSup05_w1)), text_color=getColor(int(brkRes05_w1), int(brkSup05_w1), color.orange, color.new(color.orange, 50)), text_size=size.small)
+        table.cell(debugTable, 1, 5, formatOverlapText(int(bullF05_h4)), text_color=getOverlapColor(int(bullF05_h4), true), text_size=size.small, tooltip=buildTooltip(int(bullF05_h4), int(bullZT05_h4), int(bullT05_h4), int(bullTm05_h4), true))
+        table.cell(debugTable, 2, 5, formatOverlapText(int(bearF05_h4)), text_color=getOverlapColor(int(bearF05_h4), false), text_size=size.small, tooltip=buildTooltip(int(bearF05_h4), int(bearZT05_h4), int(bearT05_h4), int(bearTm05_h4), false))
+        table.cell(debugTable, 3, 5, formatOverlapText(int(bullF05_d1)), text_color=getOverlapColor(int(bullF05_d1), true), text_size=size.small, tooltip=buildTooltip(int(bullF05_d1), int(bullZT05_d1), int(bullT05_d1), int(bullTm05_d1), true))
+        table.cell(debugTable, 4, 5, formatOverlapText(int(bearF05_d1)), text_color=getOverlapColor(int(bearF05_d1), false), text_size=size.small, tooltip=buildTooltip(int(bearF05_d1), int(bearZT05_d1), int(bearT05_d1), int(bearTm05_d1), false))
+        table.cell(debugTable, 5, 5, formatOverlapText(int(bullF05_w1)), text_color=getOverlapColor(int(bullF05_w1), true), text_size=size.small, tooltip=buildTooltip(int(bullF05_w1), int(bullZT05_w1), int(bullT05_w1), int(bullTm05_w1), true))
+        table.cell(debugTable, 6, 5, formatOverlapText(int(bearF05_w1)), text_color=getOverlapColor(int(bearF05_w1), false), text_size=size.small, tooltip=buildTooltip(int(bearF05_w1), int(bearZT05_w1), int(bearT05_w1), int(bearTm05_w1), false))
 
     if usedSymbols >= 6
         table.cell(debugTable, 0, 6, getSymbolName(s06), text_color=color.yellow, text_size=size.small)
-        table.cell(debugTable, 1, 6, formatPair(int(unmitBull06_h4), int(unmitBear06_h4)), text_color=getColor(int(unmitBull06_h4), int(unmitBear06_h4), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 2, 6, formatPair(int(mitBull06_h4), int(mitBear06_h4)), text_color=getColor(int(mitBull06_h4), int(mitBear06_h4), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
-        table.cell(debugTable, 3, 6, formatPair(int(brkRes06_h4), int(brkSup06_h4)), text_color=getColor(int(brkRes06_h4), int(brkSup06_h4), color.orange, color.new(color.orange, 50)), text_size=size.small)
-        table.cell(debugTable, 4, 6, formatPair(int(unmitBull06_d1), int(unmitBear06_d1)), text_color=getColor(int(unmitBull06_d1), int(unmitBear06_d1), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 5, 6, formatPair(int(mitBull06_d1), int(mitBear06_d1)), text_color=getColor(int(mitBull06_d1), int(mitBear06_d1), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
-        table.cell(debugTable, 6, 6, formatPair(int(brkRes06_d1), int(brkSup06_d1)), text_color=getColor(int(brkRes06_d1), int(brkSup06_d1), color.orange, color.new(color.orange, 50)), text_size=size.small)
-        table.cell(debugTable, 7, 6, formatPair(int(unmitBull06_w1), int(unmitBear06_w1)), text_color=getColor(int(unmitBull06_w1), int(unmitBear06_w1), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 8, 6, formatPair(int(mitBull06_w1), int(mitBear06_w1)), text_color=getColor(int(mitBull06_w1), int(mitBear06_w1), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
-        table.cell(debugTable, 9, 6, formatPair(int(brkRes06_w1), int(brkSup06_w1)), text_color=getColor(int(brkRes06_w1), int(brkSup06_w1), color.orange, color.new(color.orange, 50)), text_size=size.small)
+        table.cell(debugTable, 1, 6, formatOverlapText(int(bullF06_h4)), text_color=getOverlapColor(int(bullF06_h4), true), text_size=size.small, tooltip=buildTooltip(int(bullF06_h4), int(bullZT06_h4), int(bullT06_h4), int(bullTm06_h4), true))
+        table.cell(debugTable, 2, 6, formatOverlapText(int(bearF06_h4)), text_color=getOverlapColor(int(bearF06_h4), false), text_size=size.small, tooltip=buildTooltip(int(bearF06_h4), int(bearZT06_h4), int(bearT06_h4), int(bearTm06_h4), false))
+        table.cell(debugTable, 3, 6, formatOverlapText(int(bullF06_d1)), text_color=getOverlapColor(int(bullF06_d1), true), text_size=size.small, tooltip=buildTooltip(int(bullF06_d1), int(bullZT06_d1), int(bullT06_d1), int(bullTm06_d1), true))
+        table.cell(debugTable, 4, 6, formatOverlapText(int(bearF06_d1)), text_color=getOverlapColor(int(bearF06_d1), false), text_size=size.small, tooltip=buildTooltip(int(bearF06_d1), int(bearZT06_d1), int(bearT06_d1), int(bearTm06_d1), false))
+        table.cell(debugTable, 5, 6, formatOverlapText(int(bullF06_w1)), text_color=getOverlapColor(int(bullF06_w1), true), text_size=size.small, tooltip=buildTooltip(int(bullF06_w1), int(bullZT06_w1), int(bullT06_w1), int(bullTm06_w1), true))
+        table.cell(debugTable, 6, 6, formatOverlapText(int(bearF06_w1)), text_color=getOverlapColor(int(bearF06_w1), false), text_size=size.small, tooltip=buildTooltip(int(bearF06_w1), int(bearZT06_w1), int(bearT06_w1), int(bearTm06_w1), false))
 
     if usedSymbols >= 7
         table.cell(debugTable, 0, 7, getSymbolName(s07), text_color=color.yellow, text_size=size.small)
-        table.cell(debugTable, 1, 7, formatPair(int(unmitBull07_h4), int(unmitBear07_h4)), text_color=getColor(int(unmitBull07_h4), int(unmitBear07_h4), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 2, 7, formatPair(int(mitBull07_h4), int(mitBear07_h4)), text_color=getColor(int(mitBull07_h4), int(mitBear07_h4), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
-        table.cell(debugTable, 3, 7, formatPair(int(brkRes07_h4), int(brkSup07_h4)), text_color=getColor(int(brkRes07_h4), int(brkSup07_h4), color.orange, color.new(color.orange, 50)), text_size=size.small)
-        table.cell(debugTable, 4, 7, formatPair(int(unmitBull07_d1), int(unmitBear07_d1)), text_color=getColor(int(unmitBull07_d1), int(unmitBear07_d1), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 5, 7, formatPair(int(mitBull07_d1), int(mitBear07_d1)), text_color=getColor(int(mitBull07_d1), int(mitBear07_d1), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
-        table.cell(debugTable, 6, 7, formatPair(int(brkRes07_d1), int(brkSup07_d1)), text_color=getColor(int(brkRes07_d1), int(brkSup07_d1), color.orange, color.new(color.orange, 50)), text_size=size.small)
-        table.cell(debugTable, 7, 7, formatPair(int(unmitBull07_w1), int(unmitBear07_w1)), text_color=getColor(int(unmitBull07_w1), int(unmitBear07_w1), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 8, 7, formatPair(int(mitBull07_w1), int(mitBear07_w1)), text_color=getColor(int(mitBull07_w1), int(mitBear07_w1), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
-        table.cell(debugTable, 9, 7, formatPair(int(brkRes07_w1), int(brkSup07_w1)), text_color=getColor(int(brkRes07_w1), int(brkSup07_w1), color.orange, color.new(color.orange, 50)), text_size=size.small)
+        table.cell(debugTable, 1, 7, formatOverlapText(int(bullF07_h4)), text_color=getOverlapColor(int(bullF07_h4), true), text_size=size.small, tooltip=buildTooltip(int(bullF07_h4), int(bullZT07_h4), int(bullT07_h4), int(bullTm07_h4), true))
+        table.cell(debugTable, 2, 7, formatOverlapText(int(bearF07_h4)), text_color=getOverlapColor(int(bearF07_h4), false), text_size=size.small, tooltip=buildTooltip(int(bearF07_h4), int(bearZT07_h4), int(bearT07_h4), int(bearTm07_h4), false))
+        table.cell(debugTable, 3, 7, formatOverlapText(int(bullF07_d1)), text_color=getOverlapColor(int(bullF07_d1), true), text_size=size.small, tooltip=buildTooltip(int(bullF07_d1), int(bullZT07_d1), int(bullT07_d1), int(bullTm07_d1), true))
+        table.cell(debugTable, 4, 7, formatOverlapText(int(bearF07_d1)), text_color=getOverlapColor(int(bearF07_d1), false), text_size=size.small, tooltip=buildTooltip(int(bearF07_d1), int(bearZT07_d1), int(bearT07_d1), int(bearTm07_d1), false))
+        table.cell(debugTable, 5, 7, formatOverlapText(int(bullF07_w1)), text_color=getOverlapColor(int(bullF07_w1), true), text_size=size.small, tooltip=buildTooltip(int(bullF07_w1), int(bullZT07_w1), int(bullT07_w1), int(bullTm07_w1), true))
+        table.cell(debugTable, 6, 7, formatOverlapText(int(bearF07_w1)), text_color=getOverlapColor(int(bearF07_w1), false), text_size=size.small, tooltip=buildTooltip(int(bearF07_w1), int(bearZT07_w1), int(bearT07_w1), int(bearTm07_w1), false))
 
     if usedSymbols >= 8
         table.cell(debugTable, 0, 8, getSymbolName(s08), text_color=color.yellow, text_size=size.small)
-        table.cell(debugTable, 1, 8, formatPair(int(unmitBull08_h4), int(unmitBear08_h4)), text_color=getColor(int(unmitBull08_h4), int(unmitBear08_h4), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 2, 8, formatPair(int(mitBull08_h4), int(mitBear08_h4)), text_color=getColor(int(mitBull08_h4), int(mitBear08_h4), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
-        table.cell(debugTable, 3, 8, formatPair(int(brkRes08_h4), int(brkSup08_h4)), text_color=getColor(int(brkRes08_h4), int(brkSup08_h4), color.orange, color.new(color.orange, 50)), text_size=size.small)
-        table.cell(debugTable, 4, 8, formatPair(int(unmitBull08_d1), int(unmitBear08_d1)), text_color=getColor(int(unmitBull08_d1), int(unmitBear08_d1), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 5, 8, formatPair(int(mitBull08_d1), int(mitBear08_d1)), text_color=getColor(int(mitBull08_d1), int(mitBear08_d1), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
-        table.cell(debugTable, 6, 8, formatPair(int(brkRes08_d1), int(brkSup08_d1)), text_color=getColor(int(brkRes08_d1), int(brkSup08_d1), color.orange, color.new(color.orange, 50)), text_size=size.small)
-        table.cell(debugTable, 7, 8, formatPair(int(unmitBull08_w1), int(unmitBear08_w1)), text_color=getColor(int(unmitBull08_w1), int(unmitBear08_w1), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 8, 8, formatPair(int(mitBull08_w1), int(mitBear08_w1)), text_color=getColor(int(mitBull08_w1), int(mitBear08_w1), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
-        table.cell(debugTable, 9, 8, formatPair(int(brkRes08_w1), int(brkSup08_w1)), text_color=getColor(int(brkRes08_w1), int(brkSup08_w1), color.orange, color.new(color.orange, 50)), text_size=size.small)
+        table.cell(debugTable, 1, 8, formatOverlapText(int(bullF08_h4)), text_color=getOverlapColor(int(bullF08_h4), true), text_size=size.small, tooltip=buildTooltip(int(bullF08_h4), int(bullZT08_h4), int(bullT08_h4), int(bullTm08_h4), true))
+        table.cell(debugTable, 2, 8, formatOverlapText(int(bearF08_h4)), text_color=getOverlapColor(int(bearF08_h4), false), text_size=size.small, tooltip=buildTooltip(int(bearF08_h4), int(bearZT08_h4), int(bearT08_h4), int(bearTm08_h4), false))
+        table.cell(debugTable, 3, 8, formatOverlapText(int(bullF08_d1)), text_color=getOverlapColor(int(bullF08_d1), true), text_size=size.small, tooltip=buildTooltip(int(bullF08_d1), int(bullZT08_d1), int(bullT08_d1), int(bullTm08_d1), true))
+        table.cell(debugTable, 4, 8, formatOverlapText(int(bearF08_d1)), text_color=getOverlapColor(int(bearF08_d1), false), text_size=size.small, tooltip=buildTooltip(int(bearF08_d1), int(bearZT08_d1), int(bearT08_d1), int(bearTm08_d1), false))
+        table.cell(debugTable, 5, 8, formatOverlapText(int(bullF08_w1)), text_color=getOverlapColor(int(bullF08_w1), true), text_size=size.small, tooltip=buildTooltip(int(bullF08_w1), int(bullZT08_w1), int(bullT08_w1), int(bullTm08_w1), true))
+        table.cell(debugTable, 6, 8, formatOverlapText(int(bearF08_w1)), text_color=getOverlapColor(int(bearF08_w1), false), text_size=size.small, tooltip=buildTooltip(int(bearF08_w1), int(bearZT08_w1), int(bearT08_w1), int(bearTm08_w1), false))
 
     if usedSymbols >= 9
         table.cell(debugTable, 0, 9, getSymbolName(s09), text_color=color.yellow, text_size=size.small)
-        table.cell(debugTable, 1, 9, formatPair(int(unmitBull09_h4), int(unmitBear09_h4)), text_color=getColor(int(unmitBull09_h4), int(unmitBear09_h4), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 2, 9, formatPair(int(mitBull09_h4), int(mitBear09_h4)), text_color=getColor(int(mitBull09_h4), int(mitBear09_h4), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
-        table.cell(debugTable, 3, 9, formatPair(int(brkRes09_h4), int(brkSup09_h4)), text_color=getColor(int(brkRes09_h4), int(brkSup09_h4), color.orange, color.new(color.orange, 50)), text_size=size.small)
-        table.cell(debugTable, 4, 9, formatPair(int(unmitBull09_d1), int(unmitBear09_d1)), text_color=getColor(int(unmitBull09_d1), int(unmitBear09_d1), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 5, 9, formatPair(int(mitBull09_d1), int(mitBear09_d1)), text_color=getColor(int(mitBull09_d1), int(mitBear09_d1), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
-        table.cell(debugTable, 6, 9, formatPair(int(brkRes09_d1), int(brkSup09_d1)), text_color=getColor(int(brkRes09_d1), int(brkSup09_d1), color.orange, color.new(color.orange, 50)), text_size=size.small)
-        table.cell(debugTable, 7, 9, formatPair(int(unmitBull09_w1), int(unmitBear09_w1)), text_color=getColor(int(unmitBull09_w1), int(unmitBear09_w1), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 8, 9, formatPair(int(mitBull09_w1), int(mitBear09_w1)), text_color=getColor(int(mitBull09_w1), int(mitBear09_w1), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
-        table.cell(debugTable, 9, 9, formatPair(int(brkRes09_w1), int(brkSup09_w1)), text_color=getColor(int(brkRes09_w1), int(brkSup09_w1), color.orange, color.new(color.orange, 50)), text_size=size.small)
+        table.cell(debugTable, 1, 9, formatOverlapText(int(bullF09_h4)), text_color=getOverlapColor(int(bullF09_h4), true), text_size=size.small, tooltip=buildTooltip(int(bullF09_h4), int(bullZT09_h4), int(bullT09_h4), int(bullTm09_h4), true))
+        table.cell(debugTable, 2, 9, formatOverlapText(int(bearF09_h4)), text_color=getOverlapColor(int(bearF09_h4), false), text_size=size.small, tooltip=buildTooltip(int(bearF09_h4), int(bearZT09_h4), int(bearT09_h4), int(bearTm09_h4), false))
+        table.cell(debugTable, 3, 9, formatOverlapText(int(bullF09_d1)), text_color=getOverlapColor(int(bullF09_d1), true), text_size=size.small, tooltip=buildTooltip(int(bullF09_d1), int(bullZT09_d1), int(bullT09_d1), int(bullTm09_d1), true))
+        table.cell(debugTable, 4, 9, formatOverlapText(int(bearF09_d1)), text_color=getOverlapColor(int(bearF09_d1), false), text_size=size.small, tooltip=buildTooltip(int(bearF09_d1), int(bearZT09_d1), int(bearT09_d1), int(bearTm09_d1), false))
+        table.cell(debugTable, 5, 9, formatOverlapText(int(bullF09_w1)), text_color=getOverlapColor(int(bullF09_w1), true), text_size=size.small, tooltip=buildTooltip(int(bullF09_w1), int(bullZT09_w1), int(bullT09_w1), int(bullTm09_w1), true))
+        table.cell(debugTable, 6, 9, formatOverlapText(int(bearF09_w1)), text_color=getOverlapColor(int(bearF09_w1), false), text_size=size.small, tooltip=buildTooltip(int(bearF09_w1), int(bearZT09_w1), int(bearT09_w1), int(bearTm09_w1), false))
 
     if usedSymbols >= 10
         table.cell(debugTable, 0, 10, getSymbolName(s10), text_color=color.yellow, text_size=size.small)
-        table.cell(debugTable, 1, 10, formatPair(int(unmitBull10_h4), int(unmitBear10_h4)), text_color=getColor(int(unmitBull10_h4), int(unmitBear10_h4), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 2, 10, formatPair(int(mitBull10_h4), int(mitBear10_h4)), text_color=getColor(int(mitBull10_h4), int(mitBear10_h4), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
-        table.cell(debugTable, 3, 10, formatPair(int(brkRes10_h4), int(brkSup10_h4)), text_color=getColor(int(brkRes10_h4), int(brkSup10_h4), color.orange, color.new(color.orange, 50)), text_size=size.small)
-        table.cell(debugTable, 4, 10, formatPair(int(unmitBull10_d1), int(unmitBear10_d1)), text_color=getColor(int(unmitBull10_d1), int(unmitBear10_d1), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 5, 10, formatPair(int(mitBull10_d1), int(mitBear10_d1)), text_color=getColor(int(mitBull10_d1), int(mitBear10_d1), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
-        table.cell(debugTable, 6, 10, formatPair(int(brkRes10_d1), int(brkSup10_d1)), text_color=getColor(int(brkRes10_d1), int(brkSup10_d1), color.orange, color.new(color.orange, 50)), text_size=size.small)
-        table.cell(debugTable, 7, 10, formatPair(int(unmitBull10_w1), int(unmitBear10_w1)), text_color=getColor(int(unmitBull10_w1), int(unmitBear10_w1), color.lime, color.yellow), text_size=size.small)
-        table.cell(debugTable, 8, 10, formatPair(int(mitBull10_w1), int(mitBear10_w1)), text_color=getColor(int(mitBull10_w1), int(mitBear10_w1), color.aqua, color.new(color.aqua, 50)), text_size=size.small)
-        table.cell(debugTable, 9, 10, formatPair(int(brkRes10_w1), int(brkSup10_w1)), text_color=getColor(int(brkRes10_w1), int(brkSup10_w1), color.orange, color.new(color.orange, 50)), text_size=size.small)
+        table.cell(debugTable, 1, 10, formatOverlapText(int(bullF10_h4)), text_color=getOverlapColor(int(bullF10_h4), true), text_size=size.small, tooltip=buildTooltip(int(bullF10_h4), int(bullZT10_h4), int(bullT10_h4), int(bullTm10_h4), true))
+        table.cell(debugTable, 2, 10, formatOverlapText(int(bearF10_h4)), text_color=getOverlapColor(int(bearF10_h4), false), text_size=size.small, tooltip=buildTooltip(int(bearF10_h4), int(bearZT10_h4), int(bearT10_h4), int(bearTm10_h4), false))
+        table.cell(debugTable, 3, 10, formatOverlapText(int(bullF10_d1)), text_color=getOverlapColor(int(bullF10_d1), true), text_size=size.small, tooltip=buildTooltip(int(bullF10_d1), int(bullZT10_d1), int(bullT10_d1), int(bullTm10_d1), true))
+        table.cell(debugTable, 4, 10, formatOverlapText(int(bearF10_d1)), text_color=getOverlapColor(int(bearF10_d1), false), text_size=size.small, tooltip=buildTooltip(int(bearF10_d1), int(bearZT10_d1), int(bearT10_d1), int(bearTm10_d1), false))
+        table.cell(debugTable, 5, 10, formatOverlapText(int(bullF10_w1)), text_color=getOverlapColor(int(bullF10_w1), true), text_size=size.small, tooltip=buildTooltip(int(bullF10_w1), int(bullZT10_w1), int(bullT10_w1), int(bullTm10_w1), true))
+        table.cell(debugTable, 6, 10, formatOverlapText(int(bearF10_w1)), text_color=getOverlapColor(int(bearF10_w1), false), text_size=size.small, tooltip=buildTooltip(int(bearF10_w1), int(bearZT10_w1), int(bearT10_w1), int(bearTm10_w1), false))
 
 // Required for valid indicator
 plot(na)
