@@ -1,1 +1,1 @@
-Get context about what you did last by reading the @.claude\task-context.md file and the tasks via the task master ai MCP
+Get context about what you did last by reading the @.claude\task-context.md file and the tasks via the task master ai MCP. Also, get more info about what happened last by reading the current git status and latest 2 git commits.

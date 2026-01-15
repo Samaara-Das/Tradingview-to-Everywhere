@@ -34,7 +34,7 @@
             "title": "Add OB & FVG indicator to screener and test",
             "description": "Add OB & FVG indicator from Pine Script Code/OB & FVG.txt to the TTE Screener and test if it works across all symbols",
             "details": "",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 1
           },
@@ -42,6 +42,15 @@
             "id": 4,
             "title": "Add Kernel AO regular divergences to screener and test",
             "description": "Add only regular divergences (Logic 1 and Logic 2) from Pine Script Code/Kernel AO Divergence.txt to the TTE Screener and test if it works across all symbols",
+            "details": "",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 1
+          },
+          {
+            "id": 6,
+            "title": "Add Kernel AO regular divergences Logic 2 to screener and test",
+            "description": "Add Logic 2 regular divergence detection from Pine Script Code/Kernel AO Divergence.txt. Logic 2 uses oscillator range tracking (isKernelBullDiv, isKernelBearDiv functions) comparing AO values between swing points.",
             "details": "",
             "status": "pending",
             "dependencies": [],
@@ -57,12 +66,34 @@
             "parentTaskId": 1
           }
         ]
+      },
+      {
+        "id": 2,
+        "title": "Optimize the screener to make it load faster",
+        "description": "Optimize the TTE Screener Pine Script indicator to improve loading performance and reduce computation time",
+        "details": "",
+        "testStrategy": "",
+        "status": "in-progress",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": 3,
+        "title": "Optimize the TTE Screener to load faster",
+        "description": "Research and implement optimizations to make the TTE Screener Pine Script load faster while maintaining all functionality",
+        "details": "",
+        "testStrategy": "",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": []
       }
     ],
     "metadata": {
       "created": "2026-01-10T13:52:23.986Z",
       "description": "Default tasks context",
-      "updated": "2026-01-11T11:27:15.774Z"
+      "updated": "2026-01-15T05:53:23.136Z"
     }
   }
 }
