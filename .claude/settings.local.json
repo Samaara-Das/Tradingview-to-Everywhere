@@ -6,7 +6,8 @@
       "Bash(git commit -m \"$\\(cat <<''EOF''\nAdd Pine Script skill with comprehensive guidelines and patterns\n\nCreate dedicated Pine Script skill in .claude/skills/pinescript/ with:\n- SKILL.md: v6 syntax rules, execution model, function limitations,\n  repainting causes table, request.security\\(\\) best practices, alert\n  rules, time handling, and 10 common mistakes to avoid\n- patterns.md: 16 reusable code patterns including non-repainting\n  wrappers, session checking, timeframe detection, safe arrays/matrices\n\nMove Pine Script documentation from CLAUDE.md to the skill for\nauto-application when working on Pine Script tasks.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Skill(pinescript)",
       "Skill(commit-push)",
-      "mcp__task-master-ai__get_task"
+      "mcp__task-master-ai__get_task",
+      "mcp__task-master-ai__get_tasks"
     ]
   },
   "enabledPlugins": {

@@ -646,11 +646,13 @@ drawSwings(float osc, color lineColor, int lineWidth, bool isRsi = false) =>
     if osc < 0 and osc[1] > 0 and not isRsi
         negativeStart := bar_index
         lowestVal := low
+        log.info("=== NEW NEGATIVE RANGE STARTED === bar_index={0}, starting lowestVal={1,number,#.#####}", bar_index, low)
     //
 
     if osc > 0 and osc[1] < 0 and not isRsi
         positiveStart := bar_index
         highestVal := high
+        log.info("=== NEW POSITIVE RANGE STARTED === bar_index={0}, starting highestVal={1,number,#.#####}", bar_index, high)
     //
 
 
@@ -660,12 +662,14 @@ drawSwings(float osc, color lineColor, int lineWidth, bool isRsi = false) =>
         if low <= lowestVal
             lowestVal := low
             lowestBar := bar_index
+            log.info("NEG RANGE: New swing low found - price={0,number,#.#####} @ bar_index={1}, negativeStart={2}", low, bar_index, negativeStart)
     //
 
     if (osc > 0 and na(osc[1]) == false and not isRsi) or (isRsi and isBullRange)
         if high >= highestVal
             highestVal := high
             highestBar := bar_index
+            log.info("POS RANGE: New swing high found - price={0,number,#.#####} @ bar_index={1}, positiveStart={2}", high, bar_index, positiveStart)
     //
 
 
@@ -694,16 +698,18 @@ drawSwings(float osc, color lineColor, int lineWidth, bool isRsi = false) =>
 
     // to get the latest 2 lows
     currentLow := lowestBar
-    if lowestBar >= highestBar and previousLow != lowestBar[1] and previousLowHigh != highestBar 
+    if lowestBar >= highestBar and previousLow != lowestBar[1] and previousLowHigh != highestBar
         previousLow := lowestBar[1]
         previousLowHigh := highestBar
+        log.info("SWING LOWS UPDATED: prevLow bar_index={0} (price={1,number,#.#####}) | currLow bar_index={2} (price={3,number,#.#####})", previousLow, low[bar_index - previousLow], currentLow, low[bar_index - currentLow])
     //
 
     // to get the latest 2 highs
     currentHigh := highestBar
-    if highestBar >= lowestBar and previousHigh != highestBar[1] and previousHighLow != lowestBar 
+    if highestBar >= lowestBar and previousHigh != highestBar[1] and previousHighLow != lowestBar
         previousHigh := highestBar[1]
-        previousHighLow := lowestBar 
+        previousHighLow := lowestBar
+        log.info("SWING HIGHS UPDATED: prevHigh bar_index={0} (price={1,number,#.#####}) | currHigh bar_index={2} (price={3,number,#.#####})", previousHigh, high[bar_index - previousHigh], currentHigh, high[bar_index - currentHigh])
     //
 
 
@@ -739,14 +745,20 @@ isKernelBullDiv(int currHighBar, int prevHighBar, int currLowBar, int prevLowBar
     // if they are, get the ao ranges between the lows and the highs (the upleg) and get the lowest low in each range
     float lowest1 = aoDiv.findLowestAo(currHighBar, osc, prevLow)
     float lowest2 = aoDiv.findLowestAo(rangeStart, osc, 0)
-    log.info(str.format('start = {0}, _end = {1}', bar_index-rangeStart, 0))
 
     // check if there are lower lows and we have a downleg (for reg divergence)
     if low[currLow] < low[prevLow] and currLowBar >= currHighBar and not isHidden
-        
+
         // check if there are higher lows in the ao ranges
         if lowest1 < lowest2
             isDivergence := true
+            log.info("=== BULLISH DIVERGENCE DETECTED (Logic 2) ===")
+            log.info("PRICE: prevLow={0,number,#.#####} @ shift {1} | currLow={2,number,#.#####} @ shift {3}", low[prevLow], prevLow, low[currLow], currLow)
+            log.info("Price made LOWER LOW: {0,number,#.#####} < {1,number,#.#####}", low[currLow], low[prevLow])
+            log.info("OSCILLATOR: prevDownleg lowest AO={0,number,#.####} | currDownleg lowest AO={1,number,#.####}", lowest1, lowest2)
+            log.info("AO made HIGHER LOW: {0,number,#.####} > {1,number,#.####} (less negative)", lowest2, lowest1)
+            log.info("Ranges: prevDownleg from currHigh(shift {0}) to prevLow(shift {1}) | currDownleg from rangeStart(shift {2}) to now", currHigh, prevLow, bar_index - rangeStart)
+            log.info("Leg check: currLowBar({0}) >= currHighBar({1}) = {2} (in downleg)", currLowBar, currHighBar, currLowBar >= currHighBar)
             if prevLowBar == regLineStart
                 line.delete(regLine)
             //
@@ -799,10 +811,17 @@ isKernelBearDiv(int currHighBar, int prevHighBar, int currLowBar, int prevLowBar
 
     // check if there are higher highs and we have a downleg (for a reg divergence)
     if high[currHigh] > high[prevHigh] and currLowBar < currHighBar and not isHidden
-        
+
         // check if there are lower highs in the ao ranges
         if highest1 > highest2
             isDivergence := true
+            log.info("=== BEARISH DIVERGENCE DETECTED (Logic 2) ===")
+            log.info("PRICE: prevHigh={0,number,#.#####} @ shift {1} | currHigh={2,number,#.#####} @ shift {3}", high[prevHigh], prevHigh, high[currHigh], currHigh)
+            log.info("Price made HIGHER HIGH: {0,number,#.#####} > {1,number,#.#####}", high[currHigh], high[prevHigh])
+            log.info("OSCILLATOR: prevUpleg highest AO={0,number,#.####} | currUpleg highest AO={1,number,#.####}", highest1, highest2)
+            log.info("AO made LOWER HIGH: {0,number,#.####} < {1,number,#.####}", highest2, highest1)
+            log.info("Ranges: prevUpleg from currLow(shift {0}) to prevHigh(shift {1}) | currUpleg from rangeStart(shift {2}) to now", currLow, prevHigh, bar_index - rangeStart)
+            log.info("Leg check: currLowBar({0}) < currHighBar({1}) = {2} (in upleg)", currLowBar, currHighBar, currLowBar < currHighBar)
             if prevHighBar == regLineStart
                 line.delete(regLine)
             //

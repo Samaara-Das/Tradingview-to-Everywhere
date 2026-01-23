@@ -43,7 +43,7 @@
             "title": "Add Kernel AO regular divergences to screener and test",
             "description": "Add only regular divergences (Logic 1 and Logic 2) from Pine Script Code/Kernel AO Divergence.txt to the TTE Screener and test if it works across all symbols",
             "details": "",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 1
           },
@@ -52,7 +52,7 @@
             "title": "Add Kernel AO regular divergences Logic 2 to screener and test",
             "description": "Add Logic 2 regular divergence detection from Pine Script Code/Kernel AO Divergence.txt. Logic 2 uses oscillator range tracking (isKernelBullDiv, isKernelBearDiv functions) comparing AO values between swing points.",
             "details": "",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 1
           },
@@ -60,6 +60,15 @@
             "id": 5,
             "title": "Add Multi Oscillator same side divergence to screener and test",
             "description": "Add only regular same side divergence from Pine Script Code/Multi Oscillator_swing high low.txt to the TTE Screener and test if it works across all symbols",
+            "details": "",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 1
+          },
+          {
+            "id": 7,
+            "title": "Test Logic 2 divergence matches original Kernel AO Divergence indicator",
+            "description": "Verify the screener's Logic 2 divergence detection matches the original Kernel AO Divergence indicator. Add both indicators to the same chart, enable 'Show Kernel Reg Divergence with logic 2?' in the original, and compare divergence signals on H4 and D1 timeframes across multiple symbols.",
             "details": "",
             "status": "pending",
             "dependencies": [],
@@ -93,7 +102,7 @@
     "metadata": {
       "created": "2026-01-10T13:52:23.986Z",
       "description": "Default tasks context",
-      "updated": "2026-01-15T05:53:23.136Z"
+      "updated": "2026-01-15T15:06:14.235Z"
     }
   }
 }

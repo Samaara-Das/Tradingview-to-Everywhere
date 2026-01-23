@@ -8,7 +8,11 @@
 // When entry conditions are met, an alert is generated containing signal details.
 
 //@version=5
-indicator("Premium Screener", 'Screener', overlay = true, precision = 5)
+indicator("Premium Screener", 'Screener', overlay = true, precision = 5, max_bars_back = 500)
+
+// DEBUG: Test that logging works
+if barstate.islast
+    log.info("=== SCREENER DEBUG START === Symbol: {0}, TF: {1}", syminfo.ticker, timeframe.period)
 
 // Libraries
 import jdehorty/KernelFunctions/2 as kernels
@@ -93,6 +97,281 @@ calcNWE(float _close, float _high, float _low, int h, float alpha, int x0, int a
     float lower_far = yhat_close - farF * ktr
 
     [yhat_close, upper_near, upper_far, lower_near, lower_far]
+
+//////////////////////////
+// KERNEL AO DIVERGENCE //
+//////////////////////////
+
+// Calculate Kernel AO Oscillator (matches original Kernel AO Divergence indicator settings)
+// Fast kernel: h=5, alpha=8, x0=25, SMA(4) smoothing
+// Slow kernel: h=34, alpha=3, x0=120, SMA(40) smoothing
+calcKernelOsc() =>
+    float kernelFast = kernels.rationalQuadratic(close, 5, 8, 25)
+    kernelFast := ta.sma(kernelFast, 4)
+
+    float kernelSlow = kernels.rationalQuadratic(close, 34, 3, 120)
+    kernelSlow := ta.sma(kernelSlow, 40)
+
+    kernelFast - kernelSlow
+
+// Find lowest AO value in a range (for downlegs)
+// startShift = older/left side (larger shift)
+// endShift = newer/right side (smaller shift, usually 0)
+findLowestAoInRange(float osc, int startShift, int endShift) =>
+    float lowest = 0.0
+    for i = endShift to startShift
+        if not na(osc[i]) and osc[i] < lowest
+            lowest := osc[i]
+    lowest
+
+// Find highest AO value in a range (for uplegs)
+// startShift = older/left side (larger shift)
+// endShift = newer/right side (smaller shift, usually 0)
+findHighestAoInRange(float osc, int startShift, int endShift) =>
+    float highest = 0.0
+    for i = endShift to startShift
+        if not na(osc[i]) and osc[i] > highest
+            highest := osc[i]
+    highest
+
+// Track swing points from the latest 2 AO ranges of each type
+// Scans backwards from shift 0 to find:
+// - 2 most recent negative ranges → gives prevLow and currLow (swing lows)
+// - 2 most recent positive ranges → gives prevHigh and currHigh (swing highs)
+// Returns: [prevHighShift, currHighShift, prevLowShift, currLowShift, negRangeStartShift, posRangeStartShift]
+trackSwingPoints(float osc, int maxLookback) =>
+    // Find first valid (non-NaN) oscillator bar
+    int validStart = 0
+    for i = 0 to maxLookback
+        if not na(osc[i])
+            validStart := i
+            break
+
+    // Track negative ranges for swing lows
+    int negRange1StartShift = 0    // Current/most recent negative range start
+    int negRange1LowShift = 0      // Lowest price shift in range 1
+    float negRange1LowPrice = 10e10
+    int negRange2LowShift = 0      // Lowest price shift in range 2 (previous)
+    float negRange2LowPrice = 10e10
+    int negRangesFound = 0
+
+    // Track positive ranges for swing highs
+    int posRange1StartShift = 0    // Current/most recent positive range start
+    int posRange1HighShift = 0     // Highest price shift in range 1
+    float posRange1HighPrice = 0.0
+    int posRange2HighShift = 0     // Highest price shift in range 2 (previous)
+    float posRange2HighPrice = 0.0
+    int posRangesFound = 0
+
+    // Current state
+    bool inNegRange = false
+    bool inPosRange = false
+    bool wasInNegRange = false
+    bool wasInPosRange = false
+
+    // Initialize state from shift 0
+    if not na(osc[validStart])
+        inNegRange := osc[validStart] < 0
+        inPosRange := osc[validStart] > 0
+        // DEBUG: Log initial state
+        if barstate.islast
+            log.info("=== trackSwingPoints START ===")
+            log.info("validStart={0}, osc[validStart]={1,number,#.####}", validStart, osc[validStart])
+            log.info("Initial state: inNegRange={0}, inPosRange={1}", inNegRange, inPosRange)
+
+    // Scan backwards to find the latest 2 ranges of each type
+    for i = validStart to maxLookback
+        if na(osc[i])
+            continue
+
+        float oscVal = osc[i]
+        bool currNeg = oscVal < 0
+        bool currPos = oscVal > 0
+
+        // Detect range transitions
+        bool justEnteredNeg = currNeg and not inNegRange
+        bool justEnteredPos = currPos and not inPosRange
+        bool justLeftNeg = not currNeg and inNegRange
+        bool justLeftPos = not currPos and inPosRange
+
+        // DEBUG: Log range transitions
+        if barstate.islast and (justLeftNeg or justLeftPos)
+            log.info("TRANSITION @ shift {0}: justLeftNeg={1}, justLeftPos={2}, osc={3,number,#.####}", i, justLeftNeg, justLeftPos, oscVal)
+
+        // When we leave a negative range (entering positive), finalize the neg range
+        if justLeftNeg and negRangesFound < 2
+            // DEBUG: Log before incrementing
+            if barstate.islast
+                log.info("  LEFT NEG: negRangesFound was {0}, negRange1LowShift={1}, negRange1LowPrice={2,number,#.#####}", negRangesFound, negRange1LowShift, negRange1LowPrice)
+
+            negRangesFound := negRangesFound + 1
+            if negRangesFound == 1
+                // This is the most recent completed negative range
+                // (but we're scanning backwards, so it's actually the 2nd most recent)
+                negRange2LowShift := negRange1LowShift
+                negRange2LowPrice := negRange1LowPrice
+                if barstate.islast
+                    log.info("  -> Copied to negRange2: shift={0}, price={1,number,#.#####}", negRange2LowShift, negRange2LowPrice)
+            // Reset for potential next range
+            negRange1LowPrice := 10e10
+            if barstate.islast
+                log.info("  -> Reset negRange1LowPrice, negRangesFound now={0}", negRangesFound)
+
+        // When we leave a positive range (entering negative), finalize the pos range
+        if justLeftPos and posRangesFound < 2
+            // DEBUG: Log before incrementing
+            if barstate.islast
+                log.info("  LEFT POS: posRangesFound was {0}, posRange1HighShift={1}, posRange1HighPrice={2,number,#.#####}", posRangesFound, posRange1HighShift, posRange1HighPrice)
+
+            posRangesFound := posRangesFound + 1
+            if posRangesFound == 1
+                posRange2HighShift := posRange1HighShift
+                posRange2HighPrice := posRange1HighPrice
+                if barstate.islast
+                    log.info("  -> Copied to posRange2: shift={0}, price={1,number,#.#####}", posRange2HighShift, posRange2HighPrice)
+            // Reset for potential next range
+            posRange1HighPrice := 0.0
+            if barstate.islast
+                log.info("  -> Reset posRange1HighPrice, posRangesFound now={0}", posRangesFound)
+
+        // Track extremes within current range (only while we still need that range type)
+        if currNeg and negRangesFound < 2
+            if negRangesFound == 0
+                negRange1StartShift := i
+            if low[i] < negRange1LowPrice
+                negRange1LowPrice := low[i]
+                negRange1LowShift := i
+
+        if currPos and posRangesFound < 2
+            if posRangesFound == 0
+                posRange1StartShift := i
+            if high[i] > posRange1HighPrice
+                posRange1HighPrice := high[i]
+                posRange1HighShift := i
+
+        // Update state
+        wasInNegRange := inNegRange
+        wasInPosRange := inPosRange
+        inNegRange := currNeg
+        inPosRange := currPos
+
+        // Exit early if we have enough data
+        if negRangesFound >= 2 and posRangesFound >= 2
+            if barstate.islast
+                log.info("EARLY EXIT @ shift {0}: found 2 neg ranges and 2 pos ranges", i)
+            break
+
+    // Note: Due to backwards scanning:
+    // negRange2 = MORE RECENT completed negative range (closer to shift 0) = currLow
+    // negRange1 = OLDER completed negative range (farther from shift 0) = prevLow
+    // Same for positive ranges
+
+    // DEBUG: Log swing point discovery
+    if barstate.islast
+        log.info("trackSwingPoints: validStart={0}, negRangesFound={1}, posRangesFound={2}", validStart, negRangesFound, posRangesFound)
+        log.info("  negRange2(curr) @ shift {0}, price={1,number,#.#####}", negRange2LowShift, low[negRange2LowShift])
+        log.info("  negRange1(prev) @ shift {0}, price={1,number,#.#####}", negRange1LowShift, low[negRange1LowShift])
+        log.info("  posRange2(curr) @ shift {0}, price={1,number,#.#####}", posRange2HighShift, high[posRange2HighShift])
+        log.info("  posRange1(prev) @ shift {0}, price={1,number,#.#####}", posRange1HighShift, high[posRange1HighShift])
+        log.info("  negRange1StartShift={0}, posRange1StartShift={1}", negRange1StartShift, posRange1StartShift)
+
+    // Return order: [prevHigh, currHigh, prevLow, currLow, negStart, posStart]
+    // prevHigh/prevLow = older (larger shifts), currHigh/currLow = more recent (smaller shifts)
+    [posRange1HighShift, posRange2HighShift, negRange1LowShift, negRange2LowShift, negRange1StartShift, posRange1StartShift]
+
+// Get swing point timestamps for debugging
+// Returns: [prevLowTime, currLowTime, prevHighTime, currHighTime]
+getSwingPointTimes(float osc, int maxLookback) =>
+    [prevHighShift, currHighShift, prevLowShift, currLowShift, negStartShift, posStartShift] = trackSwingPoints(osc, maxLookback)
+
+    int prevLowTime = prevLowShift > 0 ? time[prevLowShift] : 0
+    int currLowTime = currLowShift > 0 ? time[currLowShift] : 0
+    int prevHighTime = prevHighShift > 0 ? time[prevHighShift] : 0
+    int currHighTime = currHighShift > 0 ? time[currHighShift] : 0
+
+    [prevLowTime, currLowTime, prevHighTime, currHighTime]
+
+// Detect bullish divergence (Logic 2)
+// Returns timestamp if divergence found, 0 otherwise
+detectBullishDiv(float osc, int maxLookback) =>
+    [prevHighShift, currHighShift, prevLowShift, currLowShift, negStartShift, posStartShift] = trackSwingPoints(osc, maxLookback)
+
+    int result = 0
+
+    // Must be in a downleg: currLow is more recent (smaller shift) than or equal to currHigh
+    bool inDownleg = currLowShift <= currHighShift
+
+    // Price made lower low
+    bool lowerLow = prevLowShift > 0 and low[currLowShift] < low[prevLowShift]
+
+    // DEBUG: Log bullish divergence conditions
+    if barstate.islast
+        log.info("detectBullishDiv: prevHigh={0}, currHigh={1}, prevLow={2}, currLow={3}", prevHighShift, currHighShift, prevLowShift, currLowShift)
+        log.info("  inDownleg={0} (currLowShift {1} <= currHighShift {2})", inDownleg, currLowShift, currHighShift)
+        log.info("  lowerLow={0} (prevLowShift>0={1}, low[curr]={2,number,#.#####} < low[prev]={3,number,#.#####})", lowerLow, prevLowShift > 0, low[currLowShift], low[prevLowShift])
+
+    if inDownleg and lowerLow
+        // Compare AO in the two downlegs
+        // prevDownleg: from currHigh back to prevLow
+        float prevDownlegAO = findLowestAoInRange(osc, prevLowShift, currHighShift)
+        // currDownleg: from negStart (current negative range) to now (shift 0)
+        float currDownlegAO = findLowestAoInRange(osc, negStartShift, 0)
+
+        // DEBUG: Log AO comparison
+        if barstate.islast
+            log.info("  PASSED inDownleg AND lowerLow")
+            log.info("  prevDownlegAO={0,number,#.####} (range: {1} to {2})", prevDownlegAO, prevLowShift, currHighShift)
+            log.info("  currDownlegAO={0,number,#.####} (range: {1} to 0)", currDownlegAO, negStartShift)
+            log.info("  Div condition: prevAO<-0.0001={0}, currAO>prevAO={1}", prevDownlegAO < -0.0001, currDownlegAO > prevDownlegAO)
+
+        // Higher AO low (less negative) = bullish divergence
+        if prevDownlegAO < -0.0001 and currDownlegAO > prevDownlegAO
+            result := time[currLowShift]
+            if barstate.islast
+                log.info("  >>> BULLISH DIVERGENCE DETECTED! time={0}", result)
+
+    result
+
+// Detect bearish divergence (Logic 2)
+// Returns timestamp if divergence found, 0 otherwise
+detectBearishDiv(float osc, int maxLookback) =>
+    [prevHighShift, currHighShift, prevLowShift, currLowShift, negStartShift, posStartShift] = trackSwingPoints(osc, maxLookback)
+
+    int result = 0
+
+    // Must be in an upleg: currHigh is more recent (smaller shift) than currLow
+    bool inUpleg = currHighShift < currLowShift
+
+    // Price made higher high
+    bool higherHigh = prevHighShift > 0 and high[currHighShift] > high[prevHighShift]
+
+    // DEBUG: Log bearish divergence conditions
+    if barstate.islast
+        log.info("detectBearishDiv: prevHigh={0}, currHigh={1}, prevLow={2}, currLow={3}", prevHighShift, currHighShift, prevLowShift, currLowShift)
+        log.info("  inUpleg={0} (currHighShift {1} < currLowShift {2})", inUpleg, currHighShift, currLowShift)
+        log.info("  higherHigh={0} (prevHighShift>0={1}, high[curr]={2,number,#.#####} > high[prev]={3,number,#.#####})", higherHigh, prevHighShift > 0, high[currHighShift], high[prevHighShift])
+
+    if inUpleg and higherHigh
+        // Compare AO in the two uplegs
+        // prevUpleg: from currLow back to prevHigh
+        float prevUplegAO = findHighestAoInRange(osc, prevHighShift, currLowShift)
+        // currUpleg: from posStart (current positive range) to now (shift 0)
+        float currUplegAO = findHighestAoInRange(osc, posStartShift, 0)
+
+        // DEBUG: Log AO comparison
+        if barstate.islast
+            log.info("  PASSED inUpleg AND higherHigh")
+            log.info("  prevUplegAO={0,number,#.####} (range: {1} to {2})", prevUplegAO, prevHighShift, currLowShift)
+            log.info("  currUplegAO={0,number,#.####} (range: {1} to 0)", currUplegAO, posStartShift)
+            log.info("  Div condition: prevAO>0.0001={0}, currAO<prevAO={1}", prevUplegAO > 0.0001, currUplegAO < prevUplegAO)
+
+        // Lower AO high = bearish divergence
+        if prevUplegAO > 0.0001 and currUplegAO < prevUplegAO
+            result := time[currHighShift]
+            if barstate.islast
+                log.info("  >>> BEARISH DIVERGENCE DETECTED! time={0}", result)
+
+    result
 
 //////////////////////////
 // OB & FVG DETECTION   //
@@ -363,9 +642,10 @@ scanOBRange() =>
 // SIGNAL DETECTION  //
 ///////////////////////
 
-// Combined NWE + OB overlap scan for H4 and D1 timeframes
-// Returns: [yhat, upper_far, bullFound, bullZoneType, bullType, bullZoneTime, bearFound, bearZoneType, bearType, bearZoneTime]
-// Total: 10 values (2 NWE + 8 OB overlap info)
+// Combined NWE + OB overlap + Divergence scan for H4 and D1 timeframes
+// Returns: [yhat, upper_far, bullFound, bullZoneType, bullType, bullZoneTime,
+//           bearFound, bearZoneType, bearType, bearZoneTime, bullDivTime, bearDivTime]
+// Total: 12 values (2 NWE + 8 OB overlap info + 2 divergence timestamps)
 checkSignalWithOB() =>
     // Calculate NWE envelope (kept for future signal use)
     [yhat, upper_near, upper_far, lower_near, lower_far] = calcNWE(close, high, low, nwe_h, nwe_alpha, nwe_x0, nwe_atrLen, nwe_nearFactor, nwe_farFactor)
@@ -373,8 +653,15 @@ checkSignalWithOB() =>
     // Scan for OB/FVG overlap with current price
     [bullFound, bullZoneType, bullType, bullZoneTime, bearFound, bearZoneType, bearType, bearZoneTime] = scanOBRange()
 
-    // Return NWE + OB overlap data (using [1] offset for non-repainting NWE values)
-    [yhat[1], upper_far[1], bullFound, bullZoneType, bullType, bullZoneTime, bearFound, bearZoneType, bearType, bearZoneTime]
+    // Divergence detection (Logic 2)
+    float osc = calcKernelOsc()
+    int maxLookback = 300
+
+    int bullDivTime = detectBullishDiv(osc, maxLookback)
+    int bearDivTime = detectBearishDiv(osc, maxLookback)
+
+    // Return NWE + OB overlap + divergence data (using [1] offset for non-repainting NWE values)
+    [yhat[1], upper_far[1], bullFound, bullZoneType, bullType, bullZoneTime, bearFound, bearZoneType, bearType, bearZoneTime, bullDivTime, bearDivTime]
 
 // OB overlap scan only (for Weekly timeframe - no NWE)
 // Returns: [bullFound, bullZoneType, bullType, bullZoneTime, bearFound, bearZoneType, bearType, bearZoneTime]
@@ -387,38 +674,40 @@ checkOBOnly() =>
 // REQUEST SECURITY CALLS //
 ////////////////////////////
 
-// Combined NWE + OB overlap scan from each symbol on H4 and Daily timeframes
-// Returns: [yhat, upper_far, bullFound, bullZoneType, bullType, bullZoneTime, bearFound, bearZoneType, bearType, bearZoneTime]
+// Combined NWE + OB overlap + Divergence scan from each symbol on H4 and Daily timeframes
+// Returns: [yhat, upper_far, bullFound, bullZoneType, bullType, bullZoneTime,
+//           bearFound, bearZoneType, bearType, bearZoneTime, bullDivTime, bearDivTime]
 // - bullFound/bearFound: 1 if price overlaps a bullish/bearish zone, 0 otherwise
 // - bullZoneType/bearZoneType: 1=OB, 2=FVG
 // - bullType: 1=unmit OB, 2=mit OB, 3=breaker support, 4=bullish FVG
 // - bearType: 1=unmit OB, 2=mit OB, 3=breaker resistance, 4=bearish FVG
 // - bullZoneTime/bearZoneTime: timestamp of zone formation
+// - bullDivTime/bearDivTime: timestamp of divergence (0 if none)
 // Total: 20 calls (10 symbols × 2 TFs)
 
-// H4 timeframe - Combined NWE + OB overlap
-[yhat01_h4, uf01_h4, bullF01_h4, bullZT01_h4, bullT01_h4, bullTm01_h4, bearF01_h4, bearZT01_h4, bearT01_h4, bearTm01_h4] = request.security(s01, TF_H4, checkSignalWithOB())
-[yhat02_h4, uf02_h4, bullF02_h4, bullZT02_h4, bullT02_h4, bullTm02_h4, bearF02_h4, bearZT02_h4, bearT02_h4, bearTm02_h4] = request.security(s02, TF_H4, checkSignalWithOB())
-[yhat03_h4, uf03_h4, bullF03_h4, bullZT03_h4, bullT03_h4, bullTm03_h4, bearF03_h4, bearZT03_h4, bearT03_h4, bearTm03_h4] = request.security(s03, TF_H4, checkSignalWithOB())
-[yhat04_h4, uf04_h4, bullF04_h4, bullZT04_h4, bullT04_h4, bullTm04_h4, bearF04_h4, bearZT04_h4, bearT04_h4, bearTm04_h4] = request.security(s04, TF_H4, checkSignalWithOB())
-[yhat05_h4, uf05_h4, bullF05_h4, bullZT05_h4, bullT05_h4, bullTm05_h4, bearF05_h4, bearZT05_h4, bearT05_h4, bearTm05_h4] = request.security(s05, TF_H4, checkSignalWithOB())
-[yhat06_h4, uf06_h4, bullF06_h4, bullZT06_h4, bullT06_h4, bullTm06_h4, bearF06_h4, bearZT06_h4, bearT06_h4, bearTm06_h4] = request.security(s06, TF_H4, checkSignalWithOB())
-[yhat07_h4, uf07_h4, bullF07_h4, bullZT07_h4, bullT07_h4, bullTm07_h4, bearF07_h4, bearZT07_h4, bearT07_h4, bearTm07_h4] = request.security(s07, TF_H4, checkSignalWithOB())
-[yhat08_h4, uf08_h4, bullF08_h4, bullZT08_h4, bullT08_h4, bullTm08_h4, bearF08_h4, bearZT08_h4, bearT08_h4, bearTm08_h4] = request.security(s08, TF_H4, checkSignalWithOB())
-[yhat09_h4, uf09_h4, bullF09_h4, bullZT09_h4, bullT09_h4, bullTm09_h4, bearF09_h4, bearZT09_h4, bearT09_h4, bearTm09_h4] = request.security(s09, TF_H4, checkSignalWithOB())
-[yhat10_h4, uf10_h4, bullF10_h4, bullZT10_h4, bullT10_h4, bullTm10_h4, bearF10_h4, bearZT10_h4, bearT10_h4, bearTm10_h4] = request.security(s10, TF_H4, checkSignalWithOB())
+// H4 timeframe - Combined NWE + OB overlap + Divergence (12 values each)
+[yhat01_h4, uf01_h4, bullF01_h4, bullZT01_h4, bullT01_h4, bullTm01_h4, bearF01_h4, bearZT01_h4, bearT01_h4, bearTm01_h4, divBullTm01_h4, divBearTm01_h4] = request.security(s01, TF_H4, checkSignalWithOB())
+[yhat02_h4, uf02_h4, bullF02_h4, bullZT02_h4, bullT02_h4, bullTm02_h4, bearF02_h4, bearZT02_h4, bearT02_h4, bearTm02_h4, divBullTm02_h4, divBearTm02_h4] = request.security(s02, TF_H4, checkSignalWithOB())
+[yhat03_h4, uf03_h4, bullF03_h4, bullZT03_h4, bullT03_h4, bullTm03_h4, bearF03_h4, bearZT03_h4, bearT03_h4, bearTm03_h4, divBullTm03_h4, divBearTm03_h4] = request.security(s03, TF_H4, checkSignalWithOB())
+[yhat04_h4, uf04_h4, bullF04_h4, bullZT04_h4, bullT04_h4, bullTm04_h4, bearF04_h4, bearZT04_h4, bearT04_h4, bearTm04_h4, divBullTm04_h4, divBearTm04_h4] = request.security(s04, TF_H4, checkSignalWithOB())
+[yhat05_h4, uf05_h4, bullF05_h4, bullZT05_h4, bullT05_h4, bullTm05_h4, bearF05_h4, bearZT05_h4, bearT05_h4, bearTm05_h4, divBullTm05_h4, divBearTm05_h4] = request.security(s05, TF_H4, checkSignalWithOB())
+[yhat06_h4, uf06_h4, bullF06_h4, bullZT06_h4, bullT06_h4, bullTm06_h4, bearF06_h4, bearZT06_h4, bearT06_h4, bearTm06_h4, divBullTm06_h4, divBearTm06_h4] = request.security(s06, TF_H4, checkSignalWithOB())
+[yhat07_h4, uf07_h4, bullF07_h4, bullZT07_h4, bullT07_h4, bullTm07_h4, bearF07_h4, bearZT07_h4, bearT07_h4, bearTm07_h4, divBullTm07_h4, divBearTm07_h4] = request.security(s07, TF_H4, checkSignalWithOB())
+[yhat08_h4, uf08_h4, bullF08_h4, bullZT08_h4, bullT08_h4, bullTm08_h4, bearF08_h4, bearZT08_h4, bearT08_h4, bearTm08_h4, divBullTm08_h4, divBearTm08_h4] = request.security(s08, TF_H4, checkSignalWithOB())
+[yhat09_h4, uf09_h4, bullF09_h4, bullZT09_h4, bullT09_h4, bullTm09_h4, bearF09_h4, bearZT09_h4, bearT09_h4, bearTm09_h4, divBullTm09_h4, divBearTm09_h4] = request.security(s09, TF_H4, checkSignalWithOB())
+[yhat10_h4, uf10_h4, bullF10_h4, bullZT10_h4, bullT10_h4, bullTm10_h4, bearF10_h4, bearZT10_h4, bearT10_h4, bearTm10_h4, divBullTm10_h4, divBearTm10_h4] = request.security(s10, TF_H4, checkSignalWithOB())
 
-// Daily timeframe - Combined NWE + OB overlap
-[yhat01_d1, uf01_d1, bullF01_d1, bullZT01_d1, bullT01_d1, bullTm01_d1, bearF01_d1, bearZT01_d1, bearT01_d1, bearTm01_d1] = request.security(s01, TF_D1, checkSignalWithOB())
-[yhat02_d1, uf02_d1, bullF02_d1, bullZT02_d1, bullT02_d1, bullTm02_d1, bearF02_d1, bearZT02_d1, bearT02_d1, bearTm02_d1] = request.security(s02, TF_D1, checkSignalWithOB())
-[yhat03_d1, uf03_d1, bullF03_d1, bullZT03_d1, bullT03_d1, bullTm03_d1, bearF03_d1, bearZT03_d1, bearT03_d1, bearTm03_d1] = request.security(s03, TF_D1, checkSignalWithOB())
-[yhat04_d1, uf04_d1, bullF04_d1, bullZT04_d1, bullT04_d1, bullTm04_d1, bearF04_d1, bearZT04_d1, bearT04_d1, bearTm04_d1] = request.security(s04, TF_D1, checkSignalWithOB())
-[yhat05_d1, uf05_d1, bullF05_d1, bullZT05_d1, bullT05_d1, bullTm05_d1, bearF05_d1, bearZT05_d1, bearT05_d1, bearTm05_d1] = request.security(s05, TF_D1, checkSignalWithOB())
-[yhat06_d1, uf06_d1, bullF06_d1, bullZT06_d1, bullT06_d1, bullTm06_d1, bearF06_d1, bearZT06_d1, bearT06_d1, bearTm06_d1] = request.security(s06, TF_D1, checkSignalWithOB())
-[yhat07_d1, uf07_d1, bullF07_d1, bullZT07_d1, bullT07_d1, bullTm07_d1, bearF07_d1, bearZT07_d1, bearT07_d1, bearTm07_d1] = request.security(s07, TF_D1, checkSignalWithOB())
-[yhat08_d1, uf08_d1, bullF08_d1, bullZT08_d1, bullT08_d1, bullTm08_d1, bearF08_d1, bearZT08_d1, bearT08_d1, bearTm08_d1] = request.security(s08, TF_D1, checkSignalWithOB())
-[yhat09_d1, uf09_d1, bullF09_d1, bullZT09_d1, bullT09_d1, bullTm09_d1, bearF09_d1, bearZT09_d1, bearT09_d1, bearTm09_d1] = request.security(s09, TF_D1, checkSignalWithOB())
-[yhat10_d1, uf10_d1, bullF10_d1, bullZT10_d1, bullT10_d1, bullTm10_d1, bearF10_d1, bearZT10_d1, bearT10_d1, bearTm10_d1] = request.security(s10, TF_D1, checkSignalWithOB())
+// Daily timeframe - Combined NWE + OB overlap + Divergence (12 values each)
+[yhat01_d1, uf01_d1, bullF01_d1, bullZT01_d1, bullT01_d1, bullTm01_d1, bearF01_d1, bearZT01_d1, bearT01_d1, bearTm01_d1, divBullTm01_d1, divBearTm01_d1] = request.security(s01, TF_D1, checkSignalWithOB())
+[yhat02_d1, uf02_d1, bullF02_d1, bullZT02_d1, bullT02_d1, bullTm02_d1, bearF02_d1, bearZT02_d1, bearT02_d1, bearTm02_d1, divBullTm02_d1, divBearTm02_d1] = request.security(s02, TF_D1, checkSignalWithOB())
+[yhat03_d1, uf03_d1, bullF03_d1, bullZT03_d1, bullT03_d1, bullTm03_d1, bearF03_d1, bearZT03_d1, bearT03_d1, bearTm03_d1, divBullTm03_d1, divBearTm03_d1] = request.security(s03, TF_D1, checkSignalWithOB())
+[yhat04_d1, uf04_d1, bullF04_d1, bullZT04_d1, bullT04_d1, bullTm04_d1, bearF04_d1, bearZT04_d1, bearT04_d1, bearTm04_d1, divBullTm04_d1, divBearTm04_d1] = request.security(s04, TF_D1, checkSignalWithOB())
+[yhat05_d1, uf05_d1, bullF05_d1, bullZT05_d1, bullT05_d1, bullTm05_d1, bearF05_d1, bearZT05_d1, bearT05_d1, bearTm05_d1, divBullTm05_d1, divBearTm05_d1] = request.security(s05, TF_D1, checkSignalWithOB())
+[yhat06_d1, uf06_d1, bullF06_d1, bullZT06_d1, bullT06_d1, bullTm06_d1, bearF06_d1, bearZT06_d1, bearT06_d1, bearTm06_d1, divBullTm06_d1, divBearTm06_d1] = request.security(s06, TF_D1, checkSignalWithOB())
+[yhat07_d1, uf07_d1, bullF07_d1, bullZT07_d1, bullT07_d1, bullTm07_d1, bearF07_d1, bearZT07_d1, bearT07_d1, bearTm07_d1, divBullTm07_d1, divBearTm07_d1] = request.security(s07, TF_D1, checkSignalWithOB())
+[yhat08_d1, uf08_d1, bullF08_d1, bullZT08_d1, bullT08_d1, bullTm08_d1, bearF08_d1, bearZT08_d1, bearT08_d1, bearTm08_d1, divBullTm08_d1, divBearTm08_d1] = request.security(s08, TF_D1, checkSignalWithOB())
+[yhat09_d1, uf09_d1, bullF09_d1, bullZT09_d1, bullT09_d1, bullTm09_d1, bearF09_d1, bearZT09_d1, bearT09_d1, bearTm09_d1, divBullTm09_d1, divBearTm09_d1] = request.security(s09, TF_D1, checkSignalWithOB())
+[yhat10_d1, uf10_d1, bullF10_d1, bullZT10_d1, bullT10_d1, bullTm10_d1, bearF10_d1, bearZT10_d1, bearT10_d1, bearTm10_d1, divBullTm10_d1, divBearTm10_d1] = request.security(s10, TF_D1, checkSignalWithOB())
 
 // Weekly timeframe - OB overlap only (no NWE)
 // Returns: [bullFound, bullZoneType, bullType, bullZoneTime, bearFound, bearZoneType, bearType, bearZoneTime]
@@ -434,7 +723,7 @@ checkOBOnly() =>
 [bullF09_w1, bullZT09_w1, bullT09_w1, bullTm09_w1, bearF09_w1, bearZT09_w1, bearT09_w1, bearTm09_w1] = request.security(s09, TF_W1, checkOBOnly())
 [bullF10_w1, bullZT10_w1, bullT10_w1, bullTm10_w1, bearF10_w1, bearZT10_w1, bearT10_w1, bearTm10_w1] = request.security(s10, TF_W1, checkOBOnly())
 
-// Total request.security() calls: 30 (under 40 limit)
+// Total request.security() calls: 30 (20 H4+D1 combined + 10 W1 OB-only)
 
 //////////////////////
 // DEBUG: DISPLAY   //
@@ -487,114 +776,95 @@ buildTooltip(int found, int zoneType, int subType, int zoneTime, bool isBull) =>
         string ts = str.format_time(zoneTime, "MM-dd HH:mm", "UTC+5:30")
         zt + " (" + st + ")\n" + ts
 
-// Build debug table to display OB overlap status for each symbol
-// Columns: Symbol | H4 Bull | H4 Bear | D1 Bull | D1 Bear | W1 Bull | W1 Bear
-// Each cell shows: Y (overlap found) or - (no overlap)
-// Tooltip shows zone type, subtype, and timestamp
-var table debugTable = table.new(position.top_right, 8, 12, bgcolor=color.new(color.black, 80), border_width=1)
+// Helper function to format divergence timestamp
+formatDivText(int divTime) =>
+    divTime > 0 ? str.format_time(divTime, "MM-dd HH:mm", "UTC+5:30") : "-"
+
+// Helper function to get divergence cell color
+getDivColor(int divTime, bool isBull) =>
+    divTime > 0 ? (isBull ? color.aqua : color.fuchsia) : color.gray
+
+// Debug table showing divergence for each symbol on H4 and D1
+// Columns: Symbol | H4 Bull Div | H4 Bear Div | D1 Bull Div | D1 Bear Div
+var table divTable = table.new(position.top_right, 6, 12, bgcolor=color.new(color.black, 80), border_width=1)
 
 if barstate.islast
     // Header row
-    table.cell(debugTable, 0, 0, "Symbol", text_color=color.white, text_size=size.small)
-    table.cell(debugTable, 1, 0, "H4 B", text_color=color.lime, text_size=size.small, tooltip="H4 Bullish Overlap")
-    table.cell(debugTable, 2, 0, "H4 S", text_color=color.red, text_size=size.small, tooltip="H4 Bearish Overlap")
-    table.cell(debugTable, 3, 0, "D1 B", text_color=color.lime, text_size=size.small, tooltip="D1 Bullish Overlap")
-    table.cell(debugTable, 4, 0, "D1 S", text_color=color.red, text_size=size.small, tooltip="D1 Bearish Overlap")
-    table.cell(debugTable, 5, 0, "W1 B", text_color=color.lime, text_size=size.small, tooltip="W1 Bullish Overlap")
-    table.cell(debugTable, 6, 0, "W1 S", text_color=color.red, text_size=size.small, tooltip="W1 Bearish Overlap")
+    table.cell(divTable, 0, 0, "Symbol", text_color=color.white, text_size=size.small)
+    table.cell(divTable, 1, 0, "H4 Bull", text_color=color.aqua, text_size=size.small)
+    table.cell(divTable, 2, 0, "H4 Bear", text_color=color.fuchsia, text_size=size.small)
+    table.cell(divTable, 3, 0, "D1 Bull", text_color=color.aqua, text_size=size.small)
+    table.cell(divTable, 4, 0, "D1 Bear", text_color=color.fuchsia, text_size=size.small)
 
-    // Symbol rows - each row shows overlap status for H4/D1/W1 Bull/Bear
-    // Cell shows: Y (overlap found) or - (no overlap)
-    // Tooltip shows zone type, subtype, and timestamp when hovering
-    if usedSymbols >= 1
-        table.cell(debugTable, 0, 1, getSymbolName(s01), text_color=color.yellow, text_size=size.small)
-        table.cell(debugTable, 1, 1, formatOverlapText(int(bullF01_h4)), text_color=getOverlapColor(int(bullF01_h4), true), text_size=size.small, tooltip=buildTooltip(int(bullF01_h4), int(bullZT01_h4), int(bullT01_h4), int(bullTm01_h4), true))
-        table.cell(debugTable, 2, 1, formatOverlapText(int(bearF01_h4)), text_color=getOverlapColor(int(bearF01_h4), false), text_size=size.small, tooltip=buildTooltip(int(bearF01_h4), int(bearZT01_h4), int(bearT01_h4), int(bearTm01_h4), false))
-        table.cell(debugTable, 3, 1, formatOverlapText(int(bullF01_d1)), text_color=getOverlapColor(int(bullF01_d1), true), text_size=size.small, tooltip=buildTooltip(int(bullF01_d1), int(bullZT01_d1), int(bullT01_d1), int(bullTm01_d1), true))
-        table.cell(debugTable, 4, 1, formatOverlapText(int(bearF01_d1)), text_color=getOverlapColor(int(bearF01_d1), false), text_size=size.small, tooltip=buildTooltip(int(bearF01_d1), int(bearZT01_d1), int(bearT01_d1), int(bearTm01_d1), false))
-        table.cell(debugTable, 5, 1, formatOverlapText(int(bullF01_w1)), text_color=getOverlapColor(int(bullF01_w1), true), text_size=size.small, tooltip=buildTooltip(int(bullF01_w1), int(bullZT01_w1), int(bullT01_w1), int(bullTm01_w1), true))
-        table.cell(debugTable, 6, 1, formatOverlapText(int(bearF01_w1)), text_color=getOverlapColor(int(bearF01_w1), false), text_size=size.small, tooltip=buildTooltip(int(bearF01_w1), int(bearZT01_w1), int(bearT01_w1), int(bearTm01_w1), false))
+    // Row 1
+    table.cell(divTable, 0, 1, getSymbolName(s01), text_color=color.white, text_size=size.small)
+    table.cell(divTable, 1, 1, formatDivText(divBullTm01_h4), text_color=getDivColor(divBullTm01_h4, true), text_size=size.small)
+    table.cell(divTable, 2, 1, formatDivText(divBearTm01_h4), text_color=getDivColor(divBearTm01_h4, false), text_size=size.small)
+    table.cell(divTable, 3, 1, formatDivText(divBullTm01_d1), text_color=getDivColor(divBullTm01_d1, true), text_size=size.small)
+    table.cell(divTable, 4, 1, formatDivText(divBearTm01_d1), text_color=getDivColor(divBearTm01_d1, false), text_size=size.small)
 
-    if usedSymbols >= 2
-        table.cell(debugTable, 0, 2, getSymbolName(s02), text_color=color.yellow, text_size=size.small)
-        table.cell(debugTable, 1, 2, formatOverlapText(int(bullF02_h4)), text_color=getOverlapColor(int(bullF02_h4), true), text_size=size.small, tooltip=buildTooltip(int(bullF02_h4), int(bullZT02_h4), int(bullT02_h4), int(bullTm02_h4), true))
-        table.cell(debugTable, 2, 2, formatOverlapText(int(bearF02_h4)), text_color=getOverlapColor(int(bearF02_h4), false), text_size=size.small, tooltip=buildTooltip(int(bearF02_h4), int(bearZT02_h4), int(bearT02_h4), int(bearTm02_h4), false))
-        table.cell(debugTable, 3, 2, formatOverlapText(int(bullF02_d1)), text_color=getOverlapColor(int(bullF02_d1), true), text_size=size.small, tooltip=buildTooltip(int(bullF02_d1), int(bullZT02_d1), int(bullT02_d1), int(bullTm02_d1), true))
-        table.cell(debugTable, 4, 2, formatOverlapText(int(bearF02_d1)), text_color=getOverlapColor(int(bearF02_d1), false), text_size=size.small, tooltip=buildTooltip(int(bearF02_d1), int(bearZT02_d1), int(bearT02_d1), int(bearTm02_d1), false))
-        table.cell(debugTable, 5, 2, formatOverlapText(int(bullF02_w1)), text_color=getOverlapColor(int(bullF02_w1), true), text_size=size.small, tooltip=buildTooltip(int(bullF02_w1), int(bullZT02_w1), int(bullT02_w1), int(bullTm02_w1), true))
-        table.cell(debugTable, 6, 2, formatOverlapText(int(bearF02_w1)), text_color=getOverlapColor(int(bearF02_w1), false), text_size=size.small, tooltip=buildTooltip(int(bearF02_w1), int(bearZT02_w1), int(bearT02_w1), int(bearTm02_w1), false))
+    // Row 2
+    table.cell(divTable, 0, 2, getSymbolName(s02), text_color=color.white, text_size=size.small)
+    table.cell(divTable, 1, 2, formatDivText(divBullTm02_h4), text_color=getDivColor(divBullTm02_h4, true), text_size=size.small)
+    table.cell(divTable, 2, 2, formatDivText(divBearTm02_h4), text_color=getDivColor(divBearTm02_h4, false), text_size=size.small)
+    table.cell(divTable, 3, 2, formatDivText(divBullTm02_d1), text_color=getDivColor(divBullTm02_d1, true), text_size=size.small)
+    table.cell(divTable, 4, 2, formatDivText(divBearTm02_d1), text_color=getDivColor(divBearTm02_d1, false), text_size=size.small)
 
-    if usedSymbols >= 3
-        table.cell(debugTable, 0, 3, getSymbolName(s03), text_color=color.yellow, text_size=size.small)
-        table.cell(debugTable, 1, 3, formatOverlapText(int(bullF03_h4)), text_color=getOverlapColor(int(bullF03_h4), true), text_size=size.small, tooltip=buildTooltip(int(bullF03_h4), int(bullZT03_h4), int(bullT03_h4), int(bullTm03_h4), true))
-        table.cell(debugTable, 2, 3, formatOverlapText(int(bearF03_h4)), text_color=getOverlapColor(int(bearF03_h4), false), text_size=size.small, tooltip=buildTooltip(int(bearF03_h4), int(bearZT03_h4), int(bearT03_h4), int(bearTm03_h4), false))
-        table.cell(debugTable, 3, 3, formatOverlapText(int(bullF03_d1)), text_color=getOverlapColor(int(bullF03_d1), true), text_size=size.small, tooltip=buildTooltip(int(bullF03_d1), int(bullZT03_d1), int(bullT03_d1), int(bullTm03_d1), true))
-        table.cell(debugTable, 4, 3, formatOverlapText(int(bearF03_d1)), text_color=getOverlapColor(int(bearF03_d1), false), text_size=size.small, tooltip=buildTooltip(int(bearF03_d1), int(bearZT03_d1), int(bearT03_d1), int(bearTm03_d1), false))
-        table.cell(debugTable, 5, 3, formatOverlapText(int(bullF03_w1)), text_color=getOverlapColor(int(bullF03_w1), true), text_size=size.small, tooltip=buildTooltip(int(bullF03_w1), int(bullZT03_w1), int(bullT03_w1), int(bullTm03_w1), true))
-        table.cell(debugTable, 6, 3, formatOverlapText(int(bearF03_w1)), text_color=getOverlapColor(int(bearF03_w1), false), text_size=size.small, tooltip=buildTooltip(int(bearF03_w1), int(bearZT03_w1), int(bearT03_w1), int(bearTm03_w1), false))
+    // Row 3
+    table.cell(divTable, 0, 3, getSymbolName(s03), text_color=color.white, text_size=size.small)
+    table.cell(divTable, 1, 3, formatDivText(divBullTm03_h4), text_color=getDivColor(divBullTm03_h4, true), text_size=size.small)
+    table.cell(divTable, 2, 3, formatDivText(divBearTm03_h4), text_color=getDivColor(divBearTm03_h4, false), text_size=size.small)
+    table.cell(divTable, 3, 3, formatDivText(divBullTm03_d1), text_color=getDivColor(divBullTm03_d1, true), text_size=size.small)
+    table.cell(divTable, 4, 3, formatDivText(divBearTm03_d1), text_color=getDivColor(divBearTm03_d1, false), text_size=size.small)
 
-    if usedSymbols >= 4
-        table.cell(debugTable, 0, 4, getSymbolName(s04), text_color=color.yellow, text_size=size.small)
-        table.cell(debugTable, 1, 4, formatOverlapText(int(bullF04_h4)), text_color=getOverlapColor(int(bullF04_h4), true), text_size=size.small, tooltip=buildTooltip(int(bullF04_h4), int(bullZT04_h4), int(bullT04_h4), int(bullTm04_h4), true))
-        table.cell(debugTable, 2, 4, formatOverlapText(int(bearF04_h4)), text_color=getOverlapColor(int(bearF04_h4), false), text_size=size.small, tooltip=buildTooltip(int(bearF04_h4), int(bearZT04_h4), int(bearT04_h4), int(bearTm04_h4), false))
-        table.cell(debugTable, 3, 4, formatOverlapText(int(bullF04_d1)), text_color=getOverlapColor(int(bullF04_d1), true), text_size=size.small, tooltip=buildTooltip(int(bullF04_d1), int(bullZT04_d1), int(bullT04_d1), int(bullTm04_d1), true))
-        table.cell(debugTable, 4, 4, formatOverlapText(int(bearF04_d1)), text_color=getOverlapColor(int(bearF04_d1), false), text_size=size.small, tooltip=buildTooltip(int(bearF04_d1), int(bearZT04_d1), int(bearT04_d1), int(bearTm04_d1), false))
-        table.cell(debugTable, 5, 4, formatOverlapText(int(bullF04_w1)), text_color=getOverlapColor(int(bullF04_w1), true), text_size=size.small, tooltip=buildTooltip(int(bullF04_w1), int(bullZT04_w1), int(bullT04_w1), int(bullTm04_w1), true))
-        table.cell(debugTable, 6, 4, formatOverlapText(int(bearF04_w1)), text_color=getOverlapColor(int(bearF04_w1), false), text_size=size.small, tooltip=buildTooltip(int(bearF04_w1), int(bearZT04_w1), int(bearT04_w1), int(bearTm04_w1), false))
+    // Row 4
+    table.cell(divTable, 0, 4, getSymbolName(s04), text_color=color.white, text_size=size.small)
+    table.cell(divTable, 1, 4, formatDivText(divBullTm04_h4), text_color=getDivColor(divBullTm04_h4, true), text_size=size.small)
+    table.cell(divTable, 2, 4, formatDivText(divBearTm04_h4), text_color=getDivColor(divBearTm04_h4, false), text_size=size.small)
+    table.cell(divTable, 3, 4, formatDivText(divBullTm04_d1), text_color=getDivColor(divBullTm04_d1, true), text_size=size.small)
+    table.cell(divTable, 4, 4, formatDivText(divBearTm04_d1), text_color=getDivColor(divBearTm04_d1, false), text_size=size.small)
 
-    if usedSymbols >= 5
-        table.cell(debugTable, 0, 5, getSymbolName(s05), text_color=color.yellow, text_size=size.small)
-        table.cell(debugTable, 1, 5, formatOverlapText(int(bullF05_h4)), text_color=getOverlapColor(int(bullF05_h4), true), text_size=size.small, tooltip=buildTooltip(int(bullF05_h4), int(bullZT05_h4), int(bullT05_h4), int(bullTm05_h4), true))
-        table.cell(debugTable, 2, 5, formatOverlapText(int(bearF05_h4)), text_color=getOverlapColor(int(bearF05_h4), false), text_size=size.small, tooltip=buildTooltip(int(bearF05_h4), int(bearZT05_h4), int(bearT05_h4), int(bearTm05_h4), false))
-        table.cell(debugTable, 3, 5, formatOverlapText(int(bullF05_d1)), text_color=getOverlapColor(int(bullF05_d1), true), text_size=size.small, tooltip=buildTooltip(int(bullF05_d1), int(bullZT05_d1), int(bullT05_d1), int(bullTm05_d1), true))
-        table.cell(debugTable, 4, 5, formatOverlapText(int(bearF05_d1)), text_color=getOverlapColor(int(bearF05_d1), false), text_size=size.small, tooltip=buildTooltip(int(bearF05_d1), int(bearZT05_d1), int(bearT05_d1), int(bearTm05_d1), false))
-        table.cell(debugTable, 5, 5, formatOverlapText(int(bullF05_w1)), text_color=getOverlapColor(int(bullF05_w1), true), text_size=size.small, tooltip=buildTooltip(int(bullF05_w1), int(bullZT05_w1), int(bullT05_w1), int(bullTm05_w1), true))
-        table.cell(debugTable, 6, 5, formatOverlapText(int(bearF05_w1)), text_color=getOverlapColor(int(bearF05_w1), false), text_size=size.small, tooltip=buildTooltip(int(bearF05_w1), int(bearZT05_w1), int(bearT05_w1), int(bearTm05_w1), false))
+    // Row 5
+    table.cell(divTable, 0, 5, getSymbolName(s05), text_color=color.white, text_size=size.small)
+    table.cell(divTable, 1, 5, formatDivText(divBullTm05_h4), text_color=getDivColor(divBullTm05_h4, true), text_size=size.small)
+    table.cell(divTable, 2, 5, formatDivText(divBearTm05_h4), text_color=getDivColor(divBearTm05_h4, false), text_size=size.small)
+    table.cell(divTable, 3, 5, formatDivText(divBullTm05_d1), text_color=getDivColor(divBullTm05_d1, true), text_size=size.small)
+    table.cell(divTable, 4, 5, formatDivText(divBearTm05_d1), text_color=getDivColor(divBearTm05_d1, false), text_size=size.small)
 
-    if usedSymbols >= 6
-        table.cell(debugTable, 0, 6, getSymbolName(s06), text_color=color.yellow, text_size=size.small)
-        table.cell(debugTable, 1, 6, formatOverlapText(int(bullF06_h4)), text_color=getOverlapColor(int(bullF06_h4), true), text_size=size.small, tooltip=buildTooltip(int(bullF06_h4), int(bullZT06_h4), int(bullT06_h4), int(bullTm06_h4), true))
-        table.cell(debugTable, 2, 6, formatOverlapText(int(bearF06_h4)), text_color=getOverlapColor(int(bearF06_h4), false), text_size=size.small, tooltip=buildTooltip(int(bearF06_h4), int(bearZT06_h4), int(bearT06_h4), int(bearTm06_h4), false))
-        table.cell(debugTable, 3, 6, formatOverlapText(int(bullF06_d1)), text_color=getOverlapColor(int(bullF06_d1), true), text_size=size.small, tooltip=buildTooltip(int(bullF06_d1), int(bullZT06_d1), int(bullT06_d1), int(bullTm06_d1), true))
-        table.cell(debugTable, 4, 6, formatOverlapText(int(bearF06_d1)), text_color=getOverlapColor(int(bearF06_d1), false), text_size=size.small, tooltip=buildTooltip(int(bearF06_d1), int(bearZT06_d1), int(bearT06_d1), int(bearTm06_d1), false))
-        table.cell(debugTable, 5, 6, formatOverlapText(int(bullF06_w1)), text_color=getOverlapColor(int(bullF06_w1), true), text_size=size.small, tooltip=buildTooltip(int(bullF06_w1), int(bullZT06_w1), int(bullT06_w1), int(bullTm06_w1), true))
-        table.cell(debugTable, 6, 6, formatOverlapText(int(bearF06_w1)), text_color=getOverlapColor(int(bearF06_w1), false), text_size=size.small, tooltip=buildTooltip(int(bearF06_w1), int(bearZT06_w1), int(bearT06_w1), int(bearTm06_w1), false))
+    // Row 6
+    table.cell(divTable, 0, 6, getSymbolName(s06), text_color=color.white, text_size=size.small)
+    table.cell(divTable, 1, 6, formatDivText(divBullTm06_h4), text_color=getDivColor(divBullTm06_h4, true), text_size=size.small)
+    table.cell(divTable, 2, 6, formatDivText(divBearTm06_h4), text_color=getDivColor(divBearTm06_h4, false), text_size=size.small)
+    table.cell(divTable, 3, 6, formatDivText(divBullTm06_d1), text_color=getDivColor(divBullTm06_d1, true), text_size=size.small)
+    table.cell(divTable, 4, 6, formatDivText(divBearTm06_d1), text_color=getDivColor(divBearTm06_d1, false), text_size=size.small)
 
-    if usedSymbols >= 7
-        table.cell(debugTable, 0, 7, getSymbolName(s07), text_color=color.yellow, text_size=size.small)
-        table.cell(debugTable, 1, 7, formatOverlapText(int(bullF07_h4)), text_color=getOverlapColor(int(bullF07_h4), true), text_size=size.small, tooltip=buildTooltip(int(bullF07_h4), int(bullZT07_h4), int(bullT07_h4), int(bullTm07_h4), true))
-        table.cell(debugTable, 2, 7, formatOverlapText(int(bearF07_h4)), text_color=getOverlapColor(int(bearF07_h4), false), text_size=size.small, tooltip=buildTooltip(int(bearF07_h4), int(bearZT07_h4), int(bearT07_h4), int(bearTm07_h4), false))
-        table.cell(debugTable, 3, 7, formatOverlapText(int(bullF07_d1)), text_color=getOverlapColor(int(bullF07_d1), true), text_size=size.small, tooltip=buildTooltip(int(bullF07_d1), int(bullZT07_d1), int(bullT07_d1), int(bullTm07_d1), true))
-        table.cell(debugTable, 4, 7, formatOverlapText(int(bearF07_d1)), text_color=getOverlapColor(int(bearF07_d1), false), text_size=size.small, tooltip=buildTooltip(int(bearF07_d1), int(bearZT07_d1), int(bearT07_d1), int(bearTm07_d1), false))
-        table.cell(debugTable, 5, 7, formatOverlapText(int(bullF07_w1)), text_color=getOverlapColor(int(bullF07_w1), true), text_size=size.small, tooltip=buildTooltip(int(bullF07_w1), int(bullZT07_w1), int(bullT07_w1), int(bullTm07_w1), true))
-        table.cell(debugTable, 6, 7, formatOverlapText(int(bearF07_w1)), text_color=getOverlapColor(int(bearF07_w1), false), text_size=size.small, tooltip=buildTooltip(int(bearF07_w1), int(bearZT07_w1), int(bearT07_w1), int(bearTm07_w1), false))
+    // Row 7
+    table.cell(divTable, 0, 7, getSymbolName(s07), text_color=color.white, text_size=size.small)
+    table.cell(divTable, 1, 7, formatDivText(divBullTm07_h4), text_color=getDivColor(divBullTm07_h4, true), text_size=size.small)
+    table.cell(divTable, 2, 7, formatDivText(divBearTm07_h4), text_color=getDivColor(divBearTm07_h4, false), text_size=size.small)
+    table.cell(divTable, 3, 7, formatDivText(divBullTm07_d1), text_color=getDivColor(divBullTm07_d1, true), text_size=size.small)
+    table.cell(divTable, 4, 7, formatDivText(divBearTm07_d1), text_color=getDivColor(divBearTm07_d1, false), text_size=size.small)
 
-    if usedSymbols >= 8
-        table.cell(debugTable, 0, 8, getSymbolName(s08), text_color=color.yellow, text_size=size.small)
-        table.cell(debugTable, 1, 8, formatOverlapText(int(bullF08_h4)), text_color=getOverlapColor(int(bullF08_h4), true), text_size=size.small, tooltip=buildTooltip(int(bullF08_h4), int(bullZT08_h4), int(bullT08_h4), int(bullTm08_h4), true))
-        table.cell(debugTable, 2, 8, formatOverlapText(int(bearF08_h4)), text_color=getOverlapColor(int(bearF08_h4), false), text_size=size.small, tooltip=buildTooltip(int(bearF08_h4), int(bearZT08_h4), int(bearT08_h4), int(bearTm08_h4), false))
-        table.cell(debugTable, 3, 8, formatOverlapText(int(bullF08_d1)), text_color=getOverlapColor(int(bullF08_d1), true), text_size=size.small, tooltip=buildTooltip(int(bullF08_d1), int(bullZT08_d1), int(bullT08_d1), int(bullTm08_d1), true))
-        table.cell(debugTable, 4, 8, formatOverlapText(int(bearF08_d1)), text_color=getOverlapColor(int(bearF08_d1), false), text_size=size.small, tooltip=buildTooltip(int(bearF08_d1), int(bearZT08_d1), int(bearT08_d1), int(bearTm08_d1), false))
-        table.cell(debugTable, 5, 8, formatOverlapText(int(bullF08_w1)), text_color=getOverlapColor(int(bullF08_w1), true), text_size=size.small, tooltip=buildTooltip(int(bullF08_w1), int(bullZT08_w1), int(bullT08_w1), int(bullTm08_w1), true))
-        table.cell(debugTable, 6, 8, formatOverlapText(int(bearF08_w1)), text_color=getOverlapColor(int(bearF08_w1), false), text_size=size.small, tooltip=buildTooltip(int(bearF08_w1), int(bearZT08_w1), int(bearT08_w1), int(bearTm08_w1), false))
+    // Row 8
+    table.cell(divTable, 0, 8, getSymbolName(s08), text_color=color.white, text_size=size.small)
+    table.cell(divTable, 1, 8, formatDivText(divBullTm08_h4), text_color=getDivColor(divBullTm08_h4, true), text_size=size.small)
+    table.cell(divTable, 2, 8, formatDivText(divBearTm08_h4), text_color=getDivColor(divBearTm08_h4, false), text_size=size.small)
+    table.cell(divTable, 3, 8, formatDivText(divBullTm08_d1), text_color=getDivColor(divBullTm08_d1, true), text_size=size.small)
+    table.cell(divTable, 4, 8, formatDivText(divBearTm08_d1), text_color=getDivColor(divBearTm08_d1, false), text_size=size.small)
 
-    if usedSymbols >= 9
-        table.cell(debugTable, 0, 9, getSymbolName(s09), text_color=color.yellow, text_size=size.small)
-        table.cell(debugTable, 1, 9, formatOverlapText(int(bullF09_h4)), text_color=getOverlapColor(int(bullF09_h4), true), text_size=size.small, tooltip=buildTooltip(int(bullF09_h4), int(bullZT09_h4), int(bullT09_h4), int(bullTm09_h4), true))
-        table.cell(debugTable, 2, 9, formatOverlapText(int(bearF09_h4)), text_color=getOverlapColor(int(bearF09_h4), false), text_size=size.small, tooltip=buildTooltip(int(bearF09_h4), int(bearZT09_h4), int(bearT09_h4), int(bearTm09_h4), false))
-        table.cell(debugTable, 3, 9, formatOverlapText(int(bullF09_d1)), text_color=getOverlapColor(int(bullF09_d1), true), text_size=size.small, tooltip=buildTooltip(int(bullF09_d1), int(bullZT09_d1), int(bullT09_d1), int(bullTm09_d1), true))
-        table.cell(debugTable, 4, 9, formatOverlapText(int(bearF09_d1)), text_color=getOverlapColor(int(bearF09_d1), false), text_size=size.small, tooltip=buildTooltip(int(bearF09_d1), int(bearZT09_d1), int(bearT09_d1), int(bearTm09_d1), false))
-        table.cell(debugTable, 5, 9, formatOverlapText(int(bullF09_w1)), text_color=getOverlapColor(int(bullF09_w1), true), text_size=size.small, tooltip=buildTooltip(int(bullF09_w1), int(bullZT09_w1), int(bullT09_w1), int(bullTm09_w1), true))
-        table.cell(debugTable, 6, 9, formatOverlapText(int(bearF09_w1)), text_color=getOverlapColor(int(bearF09_w1), false), text_size=size.small, tooltip=buildTooltip(int(bearF09_w1), int(bearZT09_w1), int(bearT09_w1), int(bearTm09_w1), false))
+    // Row 9
+    table.cell(divTable, 0, 9, getSymbolName(s09), text_color=color.white, text_size=size.small)
+    table.cell(divTable, 1, 9, formatDivText(divBullTm09_h4), text_color=getDivColor(divBullTm09_h4, true), text_size=size.small)
+    table.cell(divTable, 2, 9, formatDivText(divBearTm09_h4), text_color=getDivColor(divBearTm09_h4, false), text_size=size.small)
+    table.cell(divTable, 3, 9, formatDivText(divBullTm09_d1), text_color=getDivColor(divBullTm09_d1, true), text_size=size.small)
+    table.cell(divTable, 4, 9, formatDivText(divBearTm09_d1), text_color=getDivColor(divBearTm09_d1, false), text_size=size.small)
 
-    if usedSymbols >= 10
-        table.cell(debugTable, 0, 10, getSymbolName(s10), text_color=color.yellow, text_size=size.small)
-        table.cell(debugTable, 1, 10, formatOverlapText(int(bullF10_h4)), text_color=getOverlapColor(int(bullF10_h4), true), text_size=size.small, tooltip=buildTooltip(int(bullF10_h4), int(bullZT10_h4), int(bullT10_h4), int(bullTm10_h4), true))
-        table.cell(debugTable, 2, 10, formatOverlapText(int(bearF10_h4)), text_color=getOverlapColor(int(bearF10_h4), false), text_size=size.small, tooltip=buildTooltip(int(bearF10_h4), int(bearZT10_h4), int(bearT10_h4), int(bearTm10_h4), false))
-        table.cell(debugTable, 3, 10, formatOverlapText(int(bullF10_d1)), text_color=getOverlapColor(int(bullF10_d1), true), text_size=size.small, tooltip=buildTooltip(int(bullF10_d1), int(bullZT10_d1), int(bullT10_d1), int(bullTm10_d1), true))
-        table.cell(debugTable, 4, 10, formatOverlapText(int(bearF10_d1)), text_color=getOverlapColor(int(bearF10_d1), false), text_size=size.small, tooltip=buildTooltip(int(bearF10_d1), int(bearZT10_d1), int(bearT10_d1), int(bearTm10_d1), false))
-        table.cell(debugTable, 5, 10, formatOverlapText(int(bullF10_w1)), text_color=getOverlapColor(int(bullF10_w1), true), text_size=size.small, tooltip=buildTooltip(int(bullF10_w1), int(bullZT10_w1), int(bullT10_w1), int(bullTm10_w1), true))
-        table.cell(debugTable, 6, 10, formatOverlapText(int(bearF10_w1)), text_color=getOverlapColor(int(bearF10_w1), false), text_size=size.small, tooltip=buildTooltip(int(bearF10_w1), int(bearZT10_w1), int(bearT10_w1), int(bearTm10_w1), false))
+    // Row 10
+    table.cell(divTable, 0, 10, getSymbolName(s10), text_color=color.white, text_size=size.small)
+    table.cell(divTable, 1, 10, formatDivText(divBullTm10_h4), text_color=getDivColor(divBullTm10_h4, true), text_size=size.small)
+    table.cell(divTable, 2, 10, formatDivText(divBearTm10_h4), text_color=getDivColor(divBearTm10_h4, false), text_size=size.small)
+    table.cell(divTable, 3, 10, formatDivText(divBullTm10_d1), text_color=getDivColor(divBullTm10_d1, true), text_size=size.small)
+    table.cell(divTable, 4, 10, formatDivText(divBearTm10_d1), text_color=getDivColor(divBearTm10_d1, false), text_size=size.small)
 
 // Required for valid indicator
 plot(na)
