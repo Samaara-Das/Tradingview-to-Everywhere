@@ -2,7 +2,7 @@
   "master": {
     "tasks": [
       {
-        "id": "1",
+        "id": 1,
         "title": "Get the screener working",
         "description": "Get the TTE Screener Pine Script indicator fully operational with additional symbols and optimized indicator integrations",
         "details": "",
@@ -81,12 +81,21 @@
             "parentTaskId": 1,
             "updatedAt": "2026-01-25T11:54:13.802Z",
             "parentId": "undefined"
+          },
+          {
+            "id": 8,
+            "title": "Add Kernel AO regular divergences Logic 1 to screener and test",
+            "description": "Add Logic 1 regular divergence detection from Pine Script Code/Kernel AO Divergence.txt. Logic 1 uses pivot-based detection comparing price and AO values at pivot highs/lows.",
+            "details": "",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 1
           }
         ],
         "updatedAt": "2026-01-25T11:54:13.802Z"
       },
       {
-        "id": "2",
+        "id": 2,
         "title": "Optimize the screener to make it load faster",
         "description": "Optimize the TTE Screener Pine Script indicator to improve loading performance and reduce computation time",
         "details": "",
@@ -97,7 +106,7 @@
         "subtasks": []
       },
       {
-        "id": "3",
+        "id": 3,
         "title": "Optimize the TTE Screener to load faster",
         "description": "Research and implement optimizations to make the TTE Screener Pine Script load faster while maintaining all functionality",
         "details": "",
@@ -115,7 +124,9 @@
       "completedCount": 1,
       "tags": [
         "master"
-      ]
+      ],
+      "created": "2026-01-25T12:10:09.477Z",
+      "description": "Tasks for master context"
     }
   }
 }

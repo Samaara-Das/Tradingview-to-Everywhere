@@ -2,7 +2,7 @@
 
 This file is automatically updated by Claude Code hooks to maintain context across sessions.
 
-**Last Updated**: 2026-01-25 17:25:39
+**Last Updated**: 2026-01-25 18:50:00
 
 **Current Task Master Task**: Get the TTE Screener working
 
@@ -14,7 +14,7 @@ This file is automatically updated by Claude Code hooks to maintain context acro
 - 1.1: Increased symbols from 5 to 20 in the screener
 - 1.2: Added NWE indicator to screener (H4 + Daily timeframes, 10 symbols)
 - 1.3: Added OB & FVG indicator to screener (H4, Daily, Weekly timeframes) ✅ **COMPLETE**
-- 1.4: Add Kernel AO regular divergences Logic 1 to screener ✅ **SKIPPED** (replaced by Logic 2)
+- 1.4: Add Kernel AO regular divergences (original task) ✅ **DONE** (covered by 1.6)
 - 1.6: Add Kernel AO regular divergences Logic 2 to screener ✅ **COMPLETE**
 - 1.7: Test Logic 2 divergence matches original Kernel AO Divergence indicator ✅ **COMPLETE**
 
@@ -23,6 +23,7 @@ This file is automatically updated by Claude Code hooks to maintain context acro
 
 ### Pending Subtasks (in order)
 - 1.5: Add Multi Oscillator same side divergence to screener and test
+- 1.8: Add Kernel AO regular divergences Logic 1 to screener and test (re-added)
 
 ---
 
@@ -153,8 +154,9 @@ For Bearish Divergence:
 ## Next Steps
 
 1. **Subtask 1.5** - Add Multi Oscillator same side divergence to screener and test
-2. **Clean up debug logs** - Remove verbose logging from screener once Multi Oscillator is working
-3. **Complete Task 1** - Get the screener fully working with all indicators
+2. **Subtask 1.8** - Add Kernel AO Logic 1 divergence to screener and test
+3. **Clean up debug logs** - Remove verbose logging from screener once all divergences are working
+4. **Complete Task 1** - Get the screener fully working with all indicators
 
 ---
 
