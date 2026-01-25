@@ -2,12 +2,12 @@
   "master": {
     "tasks": [
       {
-        "id": 1,
+        "id": "1",
         "title": "Get the screener working",
         "description": "Get the TTE Screener Pine Script indicator fully operational with additional symbols and optimized indicator integrations",
         "details": "",
         "testStrategy": "",
-        "status": "pending",
+        "status": "in-progress",
         "dependencies": [],
         "priority": "high",
         "subtasks": [
@@ -18,7 +18,8 @@
             "details": "",
             "status": "done",
             "dependencies": [],
-            "parentTaskId": 1
+            "parentTaskId": 1,
+            "parentId": "undefined"
           },
           {
             "id": 2,
@@ -27,7 +28,8 @@
             "details": "",
             "status": "done",
             "dependencies": [],
-            "parentTaskId": 1
+            "parentTaskId": 1,
+            "parentId": "undefined"
           },
           {
             "id": 3,
@@ -36,7 +38,8 @@
             "details": "",
             "status": "done",
             "dependencies": [],
-            "parentTaskId": 1
+            "parentTaskId": 1,
+            "parentId": "undefined"
           },
           {
             "id": 4,
@@ -45,7 +48,8 @@
             "details": "",
             "status": "done",
             "dependencies": [],
-            "parentTaskId": 1
+            "parentTaskId": 1,
+            "parentId": "undefined"
           },
           {
             "id": 6,
@@ -54,7 +58,8 @@
             "details": "",
             "status": "done",
             "dependencies": [],
-            "parentTaskId": 1
+            "parentTaskId": 1,
+            "parentId": "undefined"
           },
           {
             "id": 5,
@@ -63,21 +68,25 @@
             "details": "",
             "status": "pending",
             "dependencies": [],
-            "parentTaskId": 1
+            "parentTaskId": 1,
+            "parentId": "undefined"
           },
           {
             "id": 7,
             "title": "Test Logic 2 divergence matches original Kernel AO Divergence indicator",
             "description": "Verify the screener's Logic 2 divergence detection matches the original Kernel AO Divergence indicator. Add both indicators to the same chart, enable 'Show Kernel Reg Divergence with logic 2?' in the original, and compare divergence signals on H4 and D1 timeframes across multiple symbols.",
             "details": "",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
-            "parentTaskId": 1
+            "parentTaskId": 1,
+            "updatedAt": "2026-01-25T11:54:13.802Z",
+            "parentId": "undefined"
           }
-        ]
+        ],
+        "updatedAt": "2026-01-25T11:54:13.802Z"
       },
       {
-        "id": 2,
+        "id": "2",
         "title": "Optimize the screener to make it load faster",
         "description": "Optimize the TTE Screener Pine Script indicator to improve loading performance and reduce computation time",
         "details": "",
@@ -88,7 +97,7 @@
         "subtasks": []
       },
       {
-        "id": 3,
+        "id": "3",
         "title": "Optimize the TTE Screener to load faster",
         "description": "Research and implement optimizations to make the TTE Screener Pine Script load faster while maintaining all functionality",
         "details": "",
@@ -100,9 +109,13 @@
       }
     ],
     "metadata": {
-      "created": "2026-01-10T13:52:23.986Z",
-      "description": "Default tasks context",
-      "updated": "2026-01-15T15:06:14.235Z"
+      "version": "1.0.0",
+      "lastModified": "2026-01-25T11:54:13.805Z",
+      "taskCount": 3,
+      "completedCount": 1,
+      "tags": [
+        "master"
+      ]
     }
   }
 }
