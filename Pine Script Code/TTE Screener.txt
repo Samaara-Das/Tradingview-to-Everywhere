@@ -8,7 +8,7 @@
 // When entry conditions are met, an alert is generated containing signal details.
 
 //@version=5
-indicator("Premium Screener", 'Screener', overlay = true, precision = 5, max_bars_back = 500)
+indicator("TTE Screener", 'Screener', overlay = true, precision = 5, max_bars_back = 500)
 
 // DEBUG: Test that logging works
 if barstate.islast
@@ -133,6 +133,30 @@ findHighestAoInRange(float osc, int startShift, int endShift) =>
         if not na(osc[i]) and osc[i] > highest
             highest := osc[i]
     highest
+
+// Find lowest price and its shift in a range
+// startShift = newer/right side (smaller shift)
+// endShift = older/left side (larger shift)
+findLowestPriceInRange(int startShift, int endShift) =>
+    float lowest = low[endShift]
+    int lowestShift = endShift
+    for i = endShift to startShift
+        if low[i] < lowest
+            lowest := low[i]
+            lowestShift := i
+    [lowest, lowestShift]
+
+// Find highest price and its shift in a range
+// startShift = newer/right side (smaller shift)
+// endShift = older/left side (larger shift)
+findHighestPriceInRange(int startShift, int endShift) =>
+    float highest = high[endShift]
+    int highestShift = endShift
+    for i = endShift to startShift
+        if high[i] > highest
+            highest := high[i]
+            highestShift := i
+    [highest, highestShift]
 
 // Track swing points from the latest 2 AO ranges of each type
 // Scans backwards from shift 0 to find:
@@ -370,6 +394,360 @@ detectBearishDiv(float osc, int maxLookback) =>
             result := time[currHighShift]
             if barstate.islast
                 log.info("  >>> BEARISH DIVERGENCE DETECTED! time={0}", result)
+
+    result
+
+/////////////////////////////////
+// INTERNAL DIVERGENCE (SAME-SIDE)
+/////////////////////////////////
+
+// Detect bullish internal divergence within the most recent negative AO range
+// Compares pink sub-ranges (AO falling) within the same negative range
+// Returns timestamp of 2nd low if divergence found, else 0
+// NOTE: Works even if current bar is no longer in negative range (scans backwards)
+detectBullishIntDiv(float osc, int maxLookback) =>
+    int result = 0
+
+    // DEBUG: Log start
+    if barstate.islast
+        log.info("=== detectBullishIntDiv START ===")
+
+    // Find first valid bar
+    int validStart = 0
+    for i = 0 to maxLookback
+        if not na(osc[i])
+            validStart := i
+            break
+
+    // DEBUG: Log valid start
+    if barstate.islast
+        log.info("validStart={0}, osc[validStart]={1,number,#.####}", validStart, osc[validStart])
+
+    // Find the most recent negative range
+    // If current bar is in negative range, use it; otherwise scan backwards
+    int negRangeStart = -1  // Shift where negative range starts (closest to shift 0)
+    int negRangeEnd = -1    // Shift where negative range ends (farthest from shift 0)
+
+    if not na(osc[validStart]) and osc[validStart] < 0
+        // Currently in negative range - find its boundaries
+        negRangeStart := validStart
+        for i = validStart to maxLookback
+            if na(osc[i]) or osc[i] >= 0
+                negRangeEnd := i - 1
+                break
+            negRangeEnd := i
+        if barstate.islast
+            log.info("Currently IN negative range: shift {0} to {1}", negRangeStart, negRangeEnd)
+    else
+        // Not in negative range - scan backwards to find most recent one
+        bool foundNeg = false
+        for i = validStart to maxLookback
+            if na(osc[i])
+                continue
+            if osc[i] < 0
+                if not foundNeg
+                    negRangeStart := i
+                    foundNeg := true
+                negRangeEnd := i
+            else if foundNeg
+                // Just left the negative range
+                break
+        if barstate.islast
+            log.info("Found recent negative range: shift {0} to {1}", negRangeStart, negRangeEnd)
+
+    // Check if we found a negative range
+    if negRangeStart < 0 or negRangeEnd < 0
+        if barstate.islast
+            log.info("EXIT: No negative range found in lookback")
+        result
+    else
+        // Now scan within this negative range to find all pink sub-ranges
+        // Pink = AO falling (osc <= osc[1])
+        // Purple = AO rising (osc > osc[1])
+
+        // Collect all pink sub-ranges with their lowest AO and price
+        // We'll store up to 10 pink ranges (should be enough)
+        var array<float> pinkAos = array.new_float(10, 0.0)
+        var array<float> pinkPrices = array.new_float(10, 0.0)
+        var array<int> pinkPriceShifts = array.new_int(10, 0)
+        int pinkCount = 0
+
+        bool inPink = false
+        int currPinkStartShift = 0
+        float currPinkLowestAo = 0.0
+
+        // Scan from negRangeStart (closest to shift 0) to negRangeEnd (farthest)
+        for i = negRangeStart to negRangeEnd
+            if na(osc[i])
+                continue
+
+            // Determine if this bar is pink or purple
+            // Pink = AO falling: osc[i] <= osc[i+1] (comparing to older bar)
+            // Purple = AO rising: osc[i] > osc[i+1]
+            bool isPurple = not na(osc[i + 1]) and osc[i] > osc[i + 1]
+
+            if not isPurple  // In pink
+                if not inPink
+                    // Starting a new pink sub-range
+                    currPinkStartShift := i
+                    currPinkLowestAo := osc[i]
+                    inPink := true
+                else
+                    // Continuing pink - track lowest AO
+                    if osc[i] < currPinkLowestAo
+                        currPinkLowestAo := osc[i]
+            else  // In purple
+                if inPink
+                    // Pink just ended - record it
+                    if pinkCount < 10
+                        // Find lowest price in this pink range
+                        [pLowest, pShift] = findLowestPriceInRange(currPinkStartShift, i - 1)
+                        array.set(pinkAos, pinkCount, currPinkLowestAo)
+                        array.set(pinkPrices, pinkCount, pLowest)
+                        array.set(pinkPriceShifts, pinkCount, pShift)
+
+                        if barstate.islast
+                            log.info("Pink #{0}: shift {1}-{2}, lowestAo={3,number,#.####}, lowestPrice={4,number,#.#####} @ shift {5}",
+                                     pinkCount, currPinkStartShift, i - 1, currPinkLowestAo, pLowest, pShift)
+
+                        pinkCount := pinkCount + 1
+                    inPink := false
+
+        // Handle case where we ended inside a pink range
+        if inPink and pinkCount < 10
+            [pLowest, pShift] = findLowestPriceInRange(currPinkStartShift, negRangeEnd)
+            array.set(pinkAos, pinkCount, currPinkLowestAo)
+            array.set(pinkPrices, pinkCount, pLowest)
+            array.set(pinkPriceShifts, pinkCount, pShift)
+
+            if barstate.islast
+                log.info("Pink #{0} (at end): shift {1}-{2}, lowestAo={3,number,#.####}, lowestPrice={4,number,#.#####} @ shift {5}",
+                         pinkCount, currPinkStartShift, negRangeEnd, currPinkLowestAo, pLowest, pShift)
+
+            pinkCount := pinkCount + 1
+
+        if barstate.islast
+            log.info("Total pink sub-ranges found: {0}", pinkCount)
+
+        // Now check for divergence
+        // Pink ranges are stored from closest to shift 0 (index 0) to farthest (higher indices)
+        // Bullish internal div: deepest pink (lowest AO) has HIGHER price,
+        //                      subsequent pink has LESS negative AO but LOWER price
+
+        if pinkCount >= 2
+            // Find the deepest pink (most negative AO)
+            int deepestIdx = 0
+            float deepestAo = array.get(pinkAos, 0)
+            for i = 1 to pinkCount - 1
+                if array.get(pinkAos, i) < deepestAo
+                    deepestAo := array.get(pinkAos, i)
+                    deepestIdx := i
+
+            float deepestPrice = array.get(pinkPrices, deepestIdx)
+            int deepestPriceShift = array.get(pinkPriceShifts, deepestIdx)
+
+            if barstate.islast
+                log.info("Deepest pink: idx={0}, ao={1,number,#.####}, price={2,number,#.#####} @ shift {3}",
+                         deepestIdx, deepestAo, deepestPrice, deepestPriceShift)
+
+            // Check each pink that comes AFTER the deepest (closer to shift 0, i.e., lower index)
+            // Guard: if deepestIdx is 0, there are no pinks with lower index, so skip
+            if deepestIdx > 0
+                for i = 0 to deepestIdx - 1
+                    float thisAo = array.get(pinkAos, i)
+                    float thisPrice = array.get(pinkPrices, i)
+                    int thisPriceShift = array.get(pinkPriceShifts, i)
+
+                    if barstate.islast
+                        log.info("Checking pink #{0}: ao={1,number,#.####} (higher than deepest={2}), price={3,number,#.#####} (lower than deepest={4})",
+                                 i, thisAo, thisAo > deepestAo, thisPrice, thisPrice < deepestPrice)
+
+                    // Divergence conditions:
+                    // - This pink has higher AO (less negative) than deepest
+                    // - This pink has lower price than deepest
+                    if thisAo > deepestAo and thisPrice < deepestPrice
+                        result := time[thisPriceShift]
+                        if barstate.islast
+                            log.info(">>> BULLISH INT DIV DETECTED! time={0} (pink #{1})", result, i)
+                        break  // Take the first (most recent) divergence
+
+        if barstate.islast and result == 0
+            log.info("NO bullish internal divergence detected (need >= 2 pinks, deepestIdx=0, or no div conditions met)")
+
+    result
+
+// Detect bearish internal divergence within the most recent positive AO range
+// Compares purple sub-ranges (AO rising) within the same positive range
+// Returns timestamp of 2nd high if divergence found, else 0
+// NOTE: Works even if current bar is no longer in positive range (scans backwards)
+detectBearishIntDiv(float osc, int maxLookback) =>
+    int result = 0
+
+    // DEBUG: Log start
+    if barstate.islast
+        log.info("=== detectBearishIntDiv START ===")
+
+    // Find first valid bar
+    int validStart = 0
+    for i = 0 to maxLookback
+        if not na(osc[i])
+            validStart := i
+            break
+
+    // DEBUG: Log valid start
+    if barstate.islast
+        log.info("validStart={0}, osc[validStart]={1,number,#.####}", validStart, osc[validStart])
+
+    // Find the most recent positive range
+    // If current bar is in positive range, use it; otherwise scan backwards
+    int posRangeStart = -1  // Shift where positive range starts (closest to shift 0)
+    int posRangeEnd = -1    // Shift where positive range ends (farthest from shift 0)
+
+    if not na(osc[validStart]) and osc[validStart] > 0
+        // Currently in positive range - find its boundaries
+        posRangeStart := validStart
+        for i = validStart to maxLookback
+            if na(osc[i]) or osc[i] <= 0
+                posRangeEnd := i - 1
+                break
+            posRangeEnd := i
+        if barstate.islast
+            log.info("Currently IN positive range: shift {0} to {1}", posRangeStart, posRangeEnd)
+    else
+        // Not in positive range - scan backwards to find most recent one
+        bool foundPos = false
+        for i = validStart to maxLookback
+            if na(osc[i])
+                continue
+            if osc[i] > 0
+                if not foundPos
+                    posRangeStart := i
+                    foundPos := true
+                posRangeEnd := i
+            else if foundPos
+                // Just left the positive range
+                break
+        if barstate.islast
+            log.info("Found recent positive range: shift {0} to {1}", posRangeStart, posRangeEnd)
+
+    // Check if we found a positive range
+    if posRangeStart < 0 or posRangeEnd < 0
+        if barstate.islast
+            log.info("EXIT: No positive range found in lookback")
+        result
+    else
+        // Now scan within this positive range to find all purple sub-ranges
+        // Purple = AO rising (osc > osc[1])
+        // Pink = AO falling (osc <= osc[1])
+
+        // Collect all purple sub-ranges with their highest AO and price
+        // We'll store up to 10 purple ranges (should be enough)
+        var array<float> purpleAos = array.new_float(10, 0.0)
+        var array<float> purplePrices = array.new_float(10, 0.0)
+        var array<int> purplePriceShifts = array.new_int(10, 0)
+        int purpleCount = 0
+
+        bool inPurple = false
+        int currPurpleStartShift = 0
+        float currPurpleHighestAo = 0.0
+
+        // Scan from posRangeStart (closest to shift 0) to posRangeEnd (farthest)
+        for i = posRangeStart to posRangeEnd
+            if na(osc[i])
+                continue
+
+            // Determine if this bar is purple or pink
+            // Purple = AO rising: osc[i] > osc[i+1] (comparing to older bar)
+            // Pink = AO falling: osc[i] <= osc[i+1]
+            bool isPurple = not na(osc[i + 1]) and osc[i] > osc[i + 1]
+
+            if isPurple  // In purple
+                if not inPurple
+                    // Starting a new purple sub-range
+                    currPurpleStartShift := i
+                    currPurpleHighestAo := osc[i]
+                    inPurple := true
+                else
+                    // Continuing purple - track highest AO
+                    if osc[i] > currPurpleHighestAo
+                        currPurpleHighestAo := osc[i]
+            else  // In pink
+                if inPurple
+                    // Purple just ended - record it
+                    if purpleCount < 10
+                        // Find highest price in this purple range
+                        [pHighest, pShift] = findHighestPriceInRange(currPurpleStartShift, i - 1)
+                        array.set(purpleAos, purpleCount, currPurpleHighestAo)
+                        array.set(purplePrices, purpleCount, pHighest)
+                        array.set(purplePriceShifts, purpleCount, pShift)
+
+                        if barstate.islast
+                            log.info("Purple #{0}: shift {1}-{2}, highestAo={3,number,#.####}, highestPrice={4,number,#.#####} @ shift {5}",
+                                     purpleCount, currPurpleStartShift, i - 1, currPurpleHighestAo, pHighest, pShift)
+
+                        purpleCount := purpleCount + 1
+                    inPurple := false
+
+        // Handle case where we ended inside a purple range
+        if inPurple and purpleCount < 10
+            [pHighest, pShift] = findHighestPriceInRange(currPurpleStartShift, posRangeEnd)
+            array.set(purpleAos, purpleCount, currPurpleHighestAo)
+            array.set(purplePrices, purpleCount, pHighest)
+            array.set(purplePriceShifts, purpleCount, pShift)
+
+            if barstate.islast
+                log.info("Purple #{0} (at end): shift {1}-{2}, highestAo={3,number,#.####}, highestPrice={4,number,#.#####} @ shift {5}",
+                         purpleCount, currPurpleStartShift, posRangeEnd, currPurpleHighestAo, pHighest, pShift)
+
+            purpleCount := purpleCount + 1
+
+        if barstate.islast
+            log.info("Total purple sub-ranges found: {0}", purpleCount)
+
+        // Now check for divergence
+        // Purple ranges are stored from closest to shift 0 (index 0) to farthest (higher indices)
+        // Bearish internal div: highest purple (highest AO) has LOWER price,
+        //                       subsequent purple has LOWER AO but HIGHER price
+
+        if purpleCount >= 2
+            // Find the highest purple (most positive AO)
+            int highestIdx = 0
+            float highestAo = array.get(purpleAos, 0)
+            for i = 1 to purpleCount - 1
+                if array.get(purpleAos, i) > highestAo
+                    highestAo := array.get(purpleAos, i)
+                    highestIdx := i
+
+            float highestPrice = array.get(purplePrices, highestIdx)
+            int highestPriceShift = array.get(purplePriceShifts, highestIdx)
+
+            if barstate.islast
+                log.info("Highest purple: idx={0}, ao={1,number,#.####}, price={2,number,#.#####} @ shift {3}",
+                         highestIdx, highestAo, highestPrice, highestPriceShift)
+
+            // Check each purple that comes AFTER the highest (closer to shift 0, i.e., lower index)
+            // Guard: if highestIdx is 0, there are no purples with lower index, so skip
+            if highestIdx > 0
+                for i = 0 to highestIdx - 1
+                    float thisAo = array.get(purpleAos, i)
+                    float thisPrice = array.get(purplePrices, i)
+                    int thisPriceShift = array.get(purplePriceShifts, i)
+
+                    if barstate.islast
+                        log.info("Checking purple #{0}: ao={1,number,#.####} (lower than highest={2}), price={3,number,#.#####} (higher than highest={4})",
+                                 i, thisAo, thisAo < highestAo, thisPrice, thisPrice > highestPrice)
+
+                    // Divergence conditions:
+                    // - This purple has lower AO than highest
+                    // - This purple has higher price than highest
+                    if thisAo < highestAo and thisPrice > highestPrice
+                        result := time[thisPriceShift]
+                        if barstate.islast
+                            log.info(">>> BEARISH INT DIV DETECTED! time={0} (purple #{1})", result, i)
+                        break  // Take the first (most recent) divergence
+
+        if barstate.islast and result == 0
+            log.info("NO bearish internal divergence detected (need >= 2 purples, highestIdx=0, or no div conditions met)")
 
     result
 
@@ -644,8 +1022,9 @@ scanOBRange() =>
 
 // Combined NWE + OB overlap + Divergence scan for H4 and D1 timeframes
 // Returns: [yhat, upper_far, bullFound, bullZoneType, bullType, bullZoneTime,
-//           bearFound, bearZoneType, bearType, bearZoneTime, bullDivTime, bearDivTime]
-// Total: 12 values (2 NWE + 8 OB overlap info + 2 divergence timestamps)
+//           bearFound, bearZoneType, bearType, bearZoneTime, bullDivTime, bearDivTime,
+//           bullIntDivTime, bearIntDivTime]
+// Total: 14 values (2 NWE + 8 OB overlap info + 2 Logic 2 div + 2 Internal div timestamps)
 checkSignalWithOB() =>
     // Calculate NWE envelope (kept for future signal use)
     [yhat, upper_near, upper_far, lower_near, lower_far] = calcNWE(close, high, low, nwe_h, nwe_alpha, nwe_x0, nwe_atrLen, nwe_nearFactor, nwe_farFactor)
@@ -660,8 +1039,12 @@ checkSignalWithOB() =>
     int bullDivTime = detectBullishDiv(osc, maxLookback)
     int bearDivTime = detectBearishDiv(osc, maxLookback)
 
+    // Internal divergence detection (Same-Side)
+    int bullIntDivTime = detectBullishIntDiv(osc, maxLookback)
+    int bearIntDivTime = detectBearishIntDiv(osc, maxLookback)
+
     // Return NWE + OB overlap + divergence data (using [1] offset for non-repainting NWE values)
-    [yhat[1], upper_far[1], bullFound, bullZoneType, bullType, bullZoneTime, bearFound, bearZoneType, bearType, bearZoneTime, bullDivTime, bearDivTime]
+    [yhat[1], upper_far[1], bullFound, bullZoneType, bullType, bullZoneTime, bearFound, bearZoneType, bearType, bearZoneTime, bullDivTime, bearDivTime, bullIntDivTime, bearIntDivTime]
 
 // OB overlap scan only (for Weekly timeframe - no NWE)
 // Returns: [bullFound, bullZoneType, bullType, bullZoneTime, bearFound, bearZoneType, bearType, bearZoneTime]
@@ -676,38 +1059,40 @@ checkOBOnly() =>
 
 // Combined NWE + OB overlap + Divergence scan from each symbol on H4 and Daily timeframes
 // Returns: [yhat, upper_far, bullFound, bullZoneType, bullType, bullZoneTime,
-//           bearFound, bearZoneType, bearType, bearZoneTime, bullDivTime, bearDivTime]
+//           bearFound, bearZoneType, bearType, bearZoneTime, bullDivTime, bearDivTime,
+//           bullIntDivTime, bearIntDivTime]
 // - bullFound/bearFound: 1 if price overlaps a bullish/bearish zone, 0 otherwise
 // - bullZoneType/bearZoneType: 1=OB, 2=FVG
 // - bullType: 1=unmit OB, 2=mit OB, 3=breaker support, 4=bullish FVG
 // - bearType: 1=unmit OB, 2=mit OB, 3=breaker resistance, 4=bearish FVG
 // - bullZoneTime/bearZoneTime: timestamp of zone formation
-// - bullDivTime/bearDivTime: timestamp of divergence (0 if none)
+// - bullDivTime/bearDivTime: Logic 2 divergence timestamp (0 if none)
+// - bullIntDivTime/bearIntDivTime: Internal divergence timestamp (0 if none)
 // Total: 20 calls (10 symbols × 2 TFs)
 
-// H4 timeframe - Combined NWE + OB overlap + Divergence (12 values each)
-[yhat01_h4, uf01_h4, bullF01_h4, bullZT01_h4, bullT01_h4, bullTm01_h4, bearF01_h4, bearZT01_h4, bearT01_h4, bearTm01_h4, divBullTm01_h4, divBearTm01_h4] = request.security(s01, TF_H4, checkSignalWithOB())
-[yhat02_h4, uf02_h4, bullF02_h4, bullZT02_h4, bullT02_h4, bullTm02_h4, bearF02_h4, bearZT02_h4, bearT02_h4, bearTm02_h4, divBullTm02_h4, divBearTm02_h4] = request.security(s02, TF_H4, checkSignalWithOB())
-[yhat03_h4, uf03_h4, bullF03_h4, bullZT03_h4, bullT03_h4, bullTm03_h4, bearF03_h4, bearZT03_h4, bearT03_h4, bearTm03_h4, divBullTm03_h4, divBearTm03_h4] = request.security(s03, TF_H4, checkSignalWithOB())
-[yhat04_h4, uf04_h4, bullF04_h4, bullZT04_h4, bullT04_h4, bullTm04_h4, bearF04_h4, bearZT04_h4, bearT04_h4, bearTm04_h4, divBullTm04_h4, divBearTm04_h4] = request.security(s04, TF_H4, checkSignalWithOB())
-[yhat05_h4, uf05_h4, bullF05_h4, bullZT05_h4, bullT05_h4, bullTm05_h4, bearF05_h4, bearZT05_h4, bearT05_h4, bearTm05_h4, divBullTm05_h4, divBearTm05_h4] = request.security(s05, TF_H4, checkSignalWithOB())
-[yhat06_h4, uf06_h4, bullF06_h4, bullZT06_h4, bullT06_h4, bullTm06_h4, bearF06_h4, bearZT06_h4, bearT06_h4, bearTm06_h4, divBullTm06_h4, divBearTm06_h4] = request.security(s06, TF_H4, checkSignalWithOB())
-[yhat07_h4, uf07_h4, bullF07_h4, bullZT07_h4, bullT07_h4, bullTm07_h4, bearF07_h4, bearZT07_h4, bearT07_h4, bearTm07_h4, divBullTm07_h4, divBearTm07_h4] = request.security(s07, TF_H4, checkSignalWithOB())
-[yhat08_h4, uf08_h4, bullF08_h4, bullZT08_h4, bullT08_h4, bullTm08_h4, bearF08_h4, bearZT08_h4, bearT08_h4, bearTm08_h4, divBullTm08_h4, divBearTm08_h4] = request.security(s08, TF_H4, checkSignalWithOB())
-[yhat09_h4, uf09_h4, bullF09_h4, bullZT09_h4, bullT09_h4, bullTm09_h4, bearF09_h4, bearZT09_h4, bearT09_h4, bearTm09_h4, divBullTm09_h4, divBearTm09_h4] = request.security(s09, TF_H4, checkSignalWithOB())
-[yhat10_h4, uf10_h4, bullF10_h4, bullZT10_h4, bullT10_h4, bullTm10_h4, bearF10_h4, bearZT10_h4, bearT10_h4, bearTm10_h4, divBullTm10_h4, divBearTm10_h4] = request.security(s10, TF_H4, checkSignalWithOB())
+// H4 timeframe - Combined NWE + OB overlap + Divergence (14 values each)
+[yhat01_h4, uf01_h4, bullF01_h4, bullZT01_h4, bullT01_h4, bullTm01_h4, bearF01_h4, bearZT01_h4, bearT01_h4, bearTm01_h4, divBullTm01_h4, divBearTm01_h4, intBullTm01_h4, intBearTm01_h4] = request.security(s01, TF_H4, checkSignalWithOB())
+[yhat02_h4, uf02_h4, bullF02_h4, bullZT02_h4, bullT02_h4, bullTm02_h4, bearF02_h4, bearZT02_h4, bearT02_h4, bearTm02_h4, divBullTm02_h4, divBearTm02_h4, intBullTm02_h4, intBearTm02_h4] = request.security(s02, TF_H4, checkSignalWithOB())
+[yhat03_h4, uf03_h4, bullF03_h4, bullZT03_h4, bullT03_h4, bullTm03_h4, bearF03_h4, bearZT03_h4, bearT03_h4, bearTm03_h4, divBullTm03_h4, divBearTm03_h4, intBullTm03_h4, intBearTm03_h4] = request.security(s03, TF_H4, checkSignalWithOB())
+[yhat04_h4, uf04_h4, bullF04_h4, bullZT04_h4, bullT04_h4, bullTm04_h4, bearF04_h4, bearZT04_h4, bearT04_h4, bearTm04_h4, divBullTm04_h4, divBearTm04_h4, intBullTm04_h4, intBearTm04_h4] = request.security(s04, TF_H4, checkSignalWithOB())
+[yhat05_h4, uf05_h4, bullF05_h4, bullZT05_h4, bullT05_h4, bullTm05_h4, bearF05_h4, bearZT05_h4, bearT05_h4, bearTm05_h4, divBullTm05_h4, divBearTm05_h4, intBullTm05_h4, intBearTm05_h4] = request.security(s05, TF_H4, checkSignalWithOB())
+[yhat06_h4, uf06_h4, bullF06_h4, bullZT06_h4, bullT06_h4, bullTm06_h4, bearF06_h4, bearZT06_h4, bearT06_h4, bearTm06_h4, divBullTm06_h4, divBearTm06_h4, intBullTm06_h4, intBearTm06_h4] = request.security(s06, TF_H4, checkSignalWithOB())
+[yhat07_h4, uf07_h4, bullF07_h4, bullZT07_h4, bullT07_h4, bullTm07_h4, bearF07_h4, bearZT07_h4, bearT07_h4, bearTm07_h4, divBullTm07_h4, divBearTm07_h4, intBullTm07_h4, intBearTm07_h4] = request.security(s07, TF_H4, checkSignalWithOB())
+[yhat08_h4, uf08_h4, bullF08_h4, bullZT08_h4, bullT08_h4, bullTm08_h4, bearF08_h4, bearZT08_h4, bearT08_h4, bearTm08_h4, divBullTm08_h4, divBearTm08_h4, intBullTm08_h4, intBearTm08_h4] = request.security(s08, TF_H4, checkSignalWithOB())
+[yhat09_h4, uf09_h4, bullF09_h4, bullZT09_h4, bullT09_h4, bullTm09_h4, bearF09_h4, bearZT09_h4, bearT09_h4, bearTm09_h4, divBullTm09_h4, divBearTm09_h4, intBullTm09_h4, intBearTm09_h4] = request.security(s09, TF_H4, checkSignalWithOB())
+[yhat10_h4, uf10_h4, bullF10_h4, bullZT10_h4, bullT10_h4, bullTm10_h4, bearF10_h4, bearZT10_h4, bearT10_h4, bearTm10_h4, divBullTm10_h4, divBearTm10_h4, intBullTm10_h4, intBearTm10_h4] = request.security(s10, TF_H4, checkSignalWithOB())
 
-// Daily timeframe - Combined NWE + OB overlap + Divergence (12 values each)
-[yhat01_d1, uf01_d1, bullF01_d1, bullZT01_d1, bullT01_d1, bullTm01_d1, bearF01_d1, bearZT01_d1, bearT01_d1, bearTm01_d1, divBullTm01_d1, divBearTm01_d1] = request.security(s01, TF_D1, checkSignalWithOB())
-[yhat02_d1, uf02_d1, bullF02_d1, bullZT02_d1, bullT02_d1, bullTm02_d1, bearF02_d1, bearZT02_d1, bearT02_d1, bearTm02_d1, divBullTm02_d1, divBearTm02_d1] = request.security(s02, TF_D1, checkSignalWithOB())
-[yhat03_d1, uf03_d1, bullF03_d1, bullZT03_d1, bullT03_d1, bullTm03_d1, bearF03_d1, bearZT03_d1, bearT03_d1, bearTm03_d1, divBullTm03_d1, divBearTm03_d1] = request.security(s03, TF_D1, checkSignalWithOB())
-[yhat04_d1, uf04_d1, bullF04_d1, bullZT04_d1, bullT04_d1, bullTm04_d1, bearF04_d1, bearZT04_d1, bearT04_d1, bearTm04_d1, divBullTm04_d1, divBearTm04_d1] = request.security(s04, TF_D1, checkSignalWithOB())
-[yhat05_d1, uf05_d1, bullF05_d1, bullZT05_d1, bullT05_d1, bullTm05_d1, bearF05_d1, bearZT05_d1, bearT05_d1, bearTm05_d1, divBullTm05_d1, divBearTm05_d1] = request.security(s05, TF_D1, checkSignalWithOB())
-[yhat06_d1, uf06_d1, bullF06_d1, bullZT06_d1, bullT06_d1, bullTm06_d1, bearF06_d1, bearZT06_d1, bearT06_d1, bearTm06_d1, divBullTm06_d1, divBearTm06_d1] = request.security(s06, TF_D1, checkSignalWithOB())
-[yhat07_d1, uf07_d1, bullF07_d1, bullZT07_d1, bullT07_d1, bullTm07_d1, bearF07_d1, bearZT07_d1, bearT07_d1, bearTm07_d1, divBullTm07_d1, divBearTm07_d1] = request.security(s07, TF_D1, checkSignalWithOB())
-[yhat08_d1, uf08_d1, bullF08_d1, bullZT08_d1, bullT08_d1, bullTm08_d1, bearF08_d1, bearZT08_d1, bearT08_d1, bearTm08_d1, divBullTm08_d1, divBearTm08_d1] = request.security(s08, TF_D1, checkSignalWithOB())
-[yhat09_d1, uf09_d1, bullF09_d1, bullZT09_d1, bullT09_d1, bullTm09_d1, bearF09_d1, bearZT09_d1, bearT09_d1, bearTm09_d1, divBullTm09_d1, divBearTm09_d1] = request.security(s09, TF_D1, checkSignalWithOB())
-[yhat10_d1, uf10_d1, bullF10_d1, bullZT10_d1, bullT10_d1, bullTm10_d1, bearF10_d1, bearZT10_d1, bearT10_d1, bearTm10_d1, divBullTm10_d1, divBearTm10_d1] = request.security(s10, TF_D1, checkSignalWithOB())
+// Daily timeframe - Combined NWE + OB overlap + Divergence (14 values each)
+[yhat01_d1, uf01_d1, bullF01_d1, bullZT01_d1, bullT01_d1, bullTm01_d1, bearF01_d1, bearZT01_d1, bearT01_d1, bearTm01_d1, divBullTm01_d1, divBearTm01_d1, intBullTm01_d1, intBearTm01_d1] = request.security(s01, TF_D1, checkSignalWithOB())
+[yhat02_d1, uf02_d1, bullF02_d1, bullZT02_d1, bullT02_d1, bullTm02_d1, bearF02_d1, bearZT02_d1, bearT02_d1, bearTm02_d1, divBullTm02_d1, divBearTm02_d1, intBullTm02_d1, intBearTm02_d1] = request.security(s02, TF_D1, checkSignalWithOB())
+[yhat03_d1, uf03_d1, bullF03_d1, bullZT03_d1, bullT03_d1, bullTm03_d1, bearF03_d1, bearZT03_d1, bearT03_d1, bearTm03_d1, divBullTm03_d1, divBearTm03_d1, intBullTm03_d1, intBearTm03_d1] = request.security(s03, TF_D1, checkSignalWithOB())
+[yhat04_d1, uf04_d1, bullF04_d1, bullZT04_d1, bullT04_d1, bullTm04_d1, bearF04_d1, bearZT04_d1, bearT04_d1, bearTm04_d1, divBullTm04_d1, divBearTm04_d1, intBullTm04_d1, intBearTm04_d1] = request.security(s04, TF_D1, checkSignalWithOB())
+[yhat05_d1, uf05_d1, bullF05_d1, bullZT05_d1, bullT05_d1, bullTm05_d1, bearF05_d1, bearZT05_d1, bearT05_d1, bearTm05_d1, divBullTm05_d1, divBearTm05_d1, intBullTm05_d1, intBearTm05_d1] = request.security(s05, TF_D1, checkSignalWithOB())
+[yhat06_d1, uf06_d1, bullF06_d1, bullZT06_d1, bullT06_d1, bullTm06_d1, bearF06_d1, bearZT06_d1, bearT06_d1, bearTm06_d1, divBullTm06_d1, divBearTm06_d1, intBullTm06_d1, intBearTm06_d1] = request.security(s06, TF_D1, checkSignalWithOB())
+[yhat07_d1, uf07_d1, bullF07_d1, bullZT07_d1, bullT07_d1, bullTm07_d1, bearF07_d1, bearZT07_d1, bearT07_d1, bearTm07_d1, divBullTm07_d1, divBearTm07_d1, intBullTm07_d1, intBearTm07_d1] = request.security(s07, TF_D1, checkSignalWithOB())
+[yhat08_d1, uf08_d1, bullF08_d1, bullZT08_d1, bullT08_d1, bullTm08_d1, bearF08_d1, bearZT08_d1, bearT08_d1, bearTm08_d1, divBullTm08_d1, divBearTm08_d1, intBullTm08_d1, intBearTm08_d1] = request.security(s08, TF_D1, checkSignalWithOB())
+[yhat09_d1, uf09_d1, bullF09_d1, bullZT09_d1, bullT09_d1, bullTm09_d1, bearF09_d1, bearZT09_d1, bearT09_d1, bearTm09_d1, divBullTm09_d1, divBearTm09_d1, intBullTm09_d1, intBearTm09_d1] = request.security(s09, TF_D1, checkSignalWithOB())
+[yhat10_d1, uf10_d1, bullF10_d1, bullZT10_d1, bullT10_d1, bullTm10_d1, bearF10_d1, bearZT10_d1, bearT10_d1, bearTm10_d1, divBullTm10_d1, divBearTm10_d1, intBullTm10_d1, intBearTm10_d1] = request.security(s10, TF_D1, checkSignalWithOB())
 
 // Weekly timeframe - OB overlap only (no NWE)
 // Returns: [bullFound, bullZoneType, bullType, bullZoneTime, bearFound, bearZoneType, bearType, bearZoneTime]
@@ -784,87 +1169,87 @@ formatDivText(int divTime) =>
 getDivColor(int divTime, bool isBull) =>
     divTime > 0 ? (isBull ? color.aqua : color.fuchsia) : color.gray
 
-// Debug table showing divergence for each symbol on H4 and D1
-// Columns: Symbol | H4 Bull Div | H4 Bear Div | D1 Bull Div | D1 Bear Div
+// Debug table showing Internal divergence for each symbol on H4 and D1
+// Columns: Symbol | H4 Int Bull | H4 Int Bear | D1 Int Bull | D1 Int Bear
 var table divTable = table.new(position.top_right, 6, 12, bgcolor=color.new(color.black, 80), border_width=1)
 
 if barstate.islast
-    // Header row
+    // Header row - Internal divergence
     table.cell(divTable, 0, 0, "Symbol", text_color=color.white, text_size=size.small)
-    table.cell(divTable, 1, 0, "H4 Bull", text_color=color.aqua, text_size=size.small)
-    table.cell(divTable, 2, 0, "H4 Bear", text_color=color.fuchsia, text_size=size.small)
-    table.cell(divTable, 3, 0, "D1 Bull", text_color=color.aqua, text_size=size.small)
-    table.cell(divTable, 4, 0, "D1 Bear", text_color=color.fuchsia, text_size=size.small)
+    table.cell(divTable, 1, 0, "H4 IntBull", text_color=color.lime, text_size=size.small)
+    table.cell(divTable, 2, 0, "H4 IntBear", text_color=color.red, text_size=size.small)
+    table.cell(divTable, 3, 0, "D1 IntBull", text_color=color.lime, text_size=size.small)
+    table.cell(divTable, 4, 0, "D1 IntBear", text_color=color.red, text_size=size.small)
 
     // Row 1
     table.cell(divTable, 0, 1, getSymbolName(s01), text_color=color.white, text_size=size.small)
-    table.cell(divTable, 1, 1, formatDivText(divBullTm01_h4), text_color=getDivColor(divBullTm01_h4, true), text_size=size.small)
-    table.cell(divTable, 2, 1, formatDivText(divBearTm01_h4), text_color=getDivColor(divBearTm01_h4, false), text_size=size.small)
-    table.cell(divTable, 3, 1, formatDivText(divBullTm01_d1), text_color=getDivColor(divBullTm01_d1, true), text_size=size.small)
-    table.cell(divTable, 4, 1, formatDivText(divBearTm01_d1), text_color=getDivColor(divBearTm01_d1, false), text_size=size.small)
+    table.cell(divTable, 1, 1, formatDivText(intBullTm01_h4), text_color=getDivColor(intBullTm01_h4, true), text_size=size.small)
+    table.cell(divTable, 2, 1, formatDivText(intBearTm01_h4), text_color=getDivColor(intBearTm01_h4, false), text_size=size.small)
+    table.cell(divTable, 3, 1, formatDivText(intBullTm01_d1), text_color=getDivColor(intBullTm01_d1, true), text_size=size.small)
+    table.cell(divTable, 4, 1, formatDivText(intBearTm01_d1), text_color=getDivColor(intBearTm01_d1, false), text_size=size.small)
 
     // Row 2
     table.cell(divTable, 0, 2, getSymbolName(s02), text_color=color.white, text_size=size.small)
-    table.cell(divTable, 1, 2, formatDivText(divBullTm02_h4), text_color=getDivColor(divBullTm02_h4, true), text_size=size.small)
-    table.cell(divTable, 2, 2, formatDivText(divBearTm02_h4), text_color=getDivColor(divBearTm02_h4, false), text_size=size.small)
-    table.cell(divTable, 3, 2, formatDivText(divBullTm02_d1), text_color=getDivColor(divBullTm02_d1, true), text_size=size.small)
-    table.cell(divTable, 4, 2, formatDivText(divBearTm02_d1), text_color=getDivColor(divBearTm02_d1, false), text_size=size.small)
+    table.cell(divTable, 1, 2, formatDivText(intBullTm02_h4), text_color=getDivColor(intBullTm02_h4, true), text_size=size.small)
+    table.cell(divTable, 2, 2, formatDivText(intBearTm02_h4), text_color=getDivColor(intBearTm02_h4, false), text_size=size.small)
+    table.cell(divTable, 3, 2, formatDivText(intBullTm02_d1), text_color=getDivColor(intBullTm02_d1, true), text_size=size.small)
+    table.cell(divTable, 4, 2, formatDivText(intBearTm02_d1), text_color=getDivColor(intBearTm02_d1, false), text_size=size.small)
 
     // Row 3
     table.cell(divTable, 0, 3, getSymbolName(s03), text_color=color.white, text_size=size.small)
-    table.cell(divTable, 1, 3, formatDivText(divBullTm03_h4), text_color=getDivColor(divBullTm03_h4, true), text_size=size.small)
-    table.cell(divTable, 2, 3, formatDivText(divBearTm03_h4), text_color=getDivColor(divBearTm03_h4, false), text_size=size.small)
-    table.cell(divTable, 3, 3, formatDivText(divBullTm03_d1), text_color=getDivColor(divBullTm03_d1, true), text_size=size.small)
-    table.cell(divTable, 4, 3, formatDivText(divBearTm03_d1), text_color=getDivColor(divBearTm03_d1, false), text_size=size.small)
+    table.cell(divTable, 1, 3, formatDivText(intBullTm03_h4), text_color=getDivColor(intBullTm03_h4, true), text_size=size.small)
+    table.cell(divTable, 2, 3, formatDivText(intBearTm03_h4), text_color=getDivColor(intBearTm03_h4, false), text_size=size.small)
+    table.cell(divTable, 3, 3, formatDivText(intBullTm03_d1), text_color=getDivColor(intBullTm03_d1, true), text_size=size.small)
+    table.cell(divTable, 4, 3, formatDivText(intBearTm03_d1), text_color=getDivColor(intBearTm03_d1, false), text_size=size.small)
 
     // Row 4
     table.cell(divTable, 0, 4, getSymbolName(s04), text_color=color.white, text_size=size.small)
-    table.cell(divTable, 1, 4, formatDivText(divBullTm04_h4), text_color=getDivColor(divBullTm04_h4, true), text_size=size.small)
-    table.cell(divTable, 2, 4, formatDivText(divBearTm04_h4), text_color=getDivColor(divBearTm04_h4, false), text_size=size.small)
-    table.cell(divTable, 3, 4, formatDivText(divBullTm04_d1), text_color=getDivColor(divBullTm04_d1, true), text_size=size.small)
-    table.cell(divTable, 4, 4, formatDivText(divBearTm04_d1), text_color=getDivColor(divBearTm04_d1, false), text_size=size.small)
+    table.cell(divTable, 1, 4, formatDivText(intBullTm04_h4), text_color=getDivColor(intBullTm04_h4, true), text_size=size.small)
+    table.cell(divTable, 2, 4, formatDivText(intBearTm04_h4), text_color=getDivColor(intBearTm04_h4, false), text_size=size.small)
+    table.cell(divTable, 3, 4, formatDivText(intBullTm04_d1), text_color=getDivColor(intBullTm04_d1, true), text_size=size.small)
+    table.cell(divTable, 4, 4, formatDivText(intBearTm04_d1), text_color=getDivColor(intBearTm04_d1, false), text_size=size.small)
 
     // Row 5
     table.cell(divTable, 0, 5, getSymbolName(s05), text_color=color.white, text_size=size.small)
-    table.cell(divTable, 1, 5, formatDivText(divBullTm05_h4), text_color=getDivColor(divBullTm05_h4, true), text_size=size.small)
-    table.cell(divTable, 2, 5, formatDivText(divBearTm05_h4), text_color=getDivColor(divBearTm05_h4, false), text_size=size.small)
-    table.cell(divTable, 3, 5, formatDivText(divBullTm05_d1), text_color=getDivColor(divBullTm05_d1, true), text_size=size.small)
-    table.cell(divTable, 4, 5, formatDivText(divBearTm05_d1), text_color=getDivColor(divBearTm05_d1, false), text_size=size.small)
+    table.cell(divTable, 1, 5, formatDivText(intBullTm05_h4), text_color=getDivColor(intBullTm05_h4, true), text_size=size.small)
+    table.cell(divTable, 2, 5, formatDivText(intBearTm05_h4), text_color=getDivColor(intBearTm05_h4, false), text_size=size.small)
+    table.cell(divTable, 3, 5, formatDivText(intBullTm05_d1), text_color=getDivColor(intBullTm05_d1, true), text_size=size.small)
+    table.cell(divTable, 4, 5, formatDivText(intBearTm05_d1), text_color=getDivColor(intBearTm05_d1, false), text_size=size.small)
 
     // Row 6
     table.cell(divTable, 0, 6, getSymbolName(s06), text_color=color.white, text_size=size.small)
-    table.cell(divTable, 1, 6, formatDivText(divBullTm06_h4), text_color=getDivColor(divBullTm06_h4, true), text_size=size.small)
-    table.cell(divTable, 2, 6, formatDivText(divBearTm06_h4), text_color=getDivColor(divBearTm06_h4, false), text_size=size.small)
-    table.cell(divTable, 3, 6, formatDivText(divBullTm06_d1), text_color=getDivColor(divBullTm06_d1, true), text_size=size.small)
-    table.cell(divTable, 4, 6, formatDivText(divBearTm06_d1), text_color=getDivColor(divBearTm06_d1, false), text_size=size.small)
+    table.cell(divTable, 1, 6, formatDivText(intBullTm06_h4), text_color=getDivColor(intBullTm06_h4, true), text_size=size.small)
+    table.cell(divTable, 2, 6, formatDivText(intBearTm06_h4), text_color=getDivColor(intBearTm06_h4, false), text_size=size.small)
+    table.cell(divTable, 3, 6, formatDivText(intBullTm06_d1), text_color=getDivColor(intBullTm06_d1, true), text_size=size.small)
+    table.cell(divTable, 4, 6, formatDivText(intBearTm06_d1), text_color=getDivColor(intBearTm06_d1, false), text_size=size.small)
 
     // Row 7
     table.cell(divTable, 0, 7, getSymbolName(s07), text_color=color.white, text_size=size.small)
-    table.cell(divTable, 1, 7, formatDivText(divBullTm07_h4), text_color=getDivColor(divBullTm07_h4, true), text_size=size.small)
-    table.cell(divTable, 2, 7, formatDivText(divBearTm07_h4), text_color=getDivColor(divBearTm07_h4, false), text_size=size.small)
-    table.cell(divTable, 3, 7, formatDivText(divBullTm07_d1), text_color=getDivColor(divBullTm07_d1, true), text_size=size.small)
-    table.cell(divTable, 4, 7, formatDivText(divBearTm07_d1), text_color=getDivColor(divBearTm07_d1, false), text_size=size.small)
+    table.cell(divTable, 1, 7, formatDivText(intBullTm07_h4), text_color=getDivColor(intBullTm07_h4, true), text_size=size.small)
+    table.cell(divTable, 2, 7, formatDivText(intBearTm07_h4), text_color=getDivColor(intBearTm07_h4, false), text_size=size.small)
+    table.cell(divTable, 3, 7, formatDivText(intBullTm07_d1), text_color=getDivColor(intBullTm07_d1, true), text_size=size.small)
+    table.cell(divTable, 4, 7, formatDivText(intBearTm07_d1), text_color=getDivColor(intBearTm07_d1, false), text_size=size.small)
 
     // Row 8
     table.cell(divTable, 0, 8, getSymbolName(s08), text_color=color.white, text_size=size.small)
-    table.cell(divTable, 1, 8, formatDivText(divBullTm08_h4), text_color=getDivColor(divBullTm08_h4, true), text_size=size.small)
-    table.cell(divTable, 2, 8, formatDivText(divBearTm08_h4), text_color=getDivColor(divBearTm08_h4, false), text_size=size.small)
-    table.cell(divTable, 3, 8, formatDivText(divBullTm08_d1), text_color=getDivColor(divBullTm08_d1, true), text_size=size.small)
-    table.cell(divTable, 4, 8, formatDivText(divBearTm08_d1), text_color=getDivColor(divBearTm08_d1, false), text_size=size.small)
+    table.cell(divTable, 1, 8, formatDivText(intBullTm08_h4), text_color=getDivColor(intBullTm08_h4, true), text_size=size.small)
+    table.cell(divTable, 2, 8, formatDivText(intBearTm08_h4), text_color=getDivColor(intBearTm08_h4, false), text_size=size.small)
+    table.cell(divTable, 3, 8, formatDivText(intBullTm08_d1), text_color=getDivColor(intBullTm08_d1, true), text_size=size.small)
+    table.cell(divTable, 4, 8, formatDivText(intBearTm08_d1), text_color=getDivColor(intBearTm08_d1, false), text_size=size.small)
 
     // Row 9
     table.cell(divTable, 0, 9, getSymbolName(s09), text_color=color.white, text_size=size.small)
-    table.cell(divTable, 1, 9, formatDivText(divBullTm09_h4), text_color=getDivColor(divBullTm09_h4, true), text_size=size.small)
-    table.cell(divTable, 2, 9, formatDivText(divBearTm09_h4), text_color=getDivColor(divBearTm09_h4, false), text_size=size.small)
-    table.cell(divTable, 3, 9, formatDivText(divBullTm09_d1), text_color=getDivColor(divBullTm09_d1, true), text_size=size.small)
-    table.cell(divTable, 4, 9, formatDivText(divBearTm09_d1), text_color=getDivColor(divBearTm09_d1, false), text_size=size.small)
+    table.cell(divTable, 1, 9, formatDivText(intBullTm09_h4), text_color=getDivColor(intBullTm09_h4, true), text_size=size.small)
+    table.cell(divTable, 2, 9, formatDivText(intBearTm09_h4), text_color=getDivColor(intBearTm09_h4, false), text_size=size.small)
+    table.cell(divTable, 3, 9, formatDivText(intBullTm09_d1), text_color=getDivColor(intBullTm09_d1, true), text_size=size.small)
+    table.cell(divTable, 4, 9, formatDivText(intBearTm09_d1), text_color=getDivColor(intBearTm09_d1, false), text_size=size.small)
 
     // Row 10
     table.cell(divTable, 0, 10, getSymbolName(s10), text_color=color.white, text_size=size.small)
-    table.cell(divTable, 1, 10, formatDivText(divBullTm10_h4), text_color=getDivColor(divBullTm10_h4, true), text_size=size.small)
-    table.cell(divTable, 2, 10, formatDivText(divBearTm10_h4), text_color=getDivColor(divBearTm10_h4, false), text_size=size.small)
-    table.cell(divTable, 3, 10, formatDivText(divBullTm10_d1), text_color=getDivColor(divBullTm10_d1, true), text_size=size.small)
-    table.cell(divTable, 4, 10, formatDivText(divBearTm10_d1), text_color=getDivColor(divBearTm10_d1, false), text_size=size.small)
+    table.cell(divTable, 1, 10, formatDivText(intBullTm10_h4), text_color=getDivColor(intBullTm10_h4, true), text_size=size.small)
+    table.cell(divTable, 2, 10, formatDivText(intBearTm10_h4), text_color=getDivColor(intBearTm10_h4, false), text_size=size.small)
+    table.cell(divTable, 3, 10, formatDivText(intBullTm10_d1), text_color=getDivColor(intBullTm10_d1, true), text_size=size.small)
+    table.cell(divTable, 4, 10, formatDivText(intBearTm10_d1), text_color=getDivColor(intBearTm10_d1, false), text_size=size.small)
 
 // Required for valid indicator
 plot(na)
