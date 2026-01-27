@@ -2,7 +2,7 @@
 
 This file is automatically updated by Claude Code hooks to maintain context across sessions.
 
-**Last Updated**: 2026-01-26 20:45:00
+**Last Updated**: 2026-01-27 19:38:38
 
 **Current Task Master Task**: Get the TTE Screener working
 
@@ -18,18 +18,61 @@ This file is automatically updated by Claude Code hooks to maintain context acro
 - 1.6: Add Kernel AO regular divergences Logic 2 to screener ✅ **COMPLETE**
 - 1.7: Test Logic 2 divergence matches original Kernel AO Divergence indicator ✅ **COMPLETE**
 - 1.5: Add Multi Oscillator same side divergence to screener ✅ **COMPLETE** (tested & working on H4/D1)
+- 1.9: Implement Regime 1 Reversal signal logic ✅ **COMPLETE** (debug table shows BUY/SELL signals)
 
 ### In Progress
-- None
+- **Testing Regime 1 Reversal Signal Logic** - User is testing the screener in TradingView to verify signals
 
 ### Pending Subtasks (in order)
-- 1.8: Add Kernel AO regular divergences Logic 1 to screener and test
+- Refine signal logic based on testing results (if needed)
+- Add alert sending functionality once signals are verified
 
 ---
 
 ## This Session's Work (2026-01-26)
 
-### Internal Divergence Detection - WORKING ✅
+### Regime 1 Reversal Signal Logic - IMPLEMENTED ✅
+
+Implemented Task 1.9: Signal detection logic that checks conditions in order (NWE → OB/FVG → Divergence).
+
+**Signal Logic (Sequential Check):**
+
+1. **Level 1 - NWE Zone Check** (H4 or D1)
+   - Bullish: `low <= lower_near` (price in lower_avg or lower_far zone)
+   - Bearish: `high >= upper_near` (price in upper_avg or upper_far zone)
+
+2. **Level 2 - OB/FVG Overlap** (H4 or D1 or W1) - only checked if NWE passes
+   - Bullish: bullish OB, bullish FVG, or breaker support
+   - Bearish: bearish OB, bearish FVG, or breaker resistance
+
+3. **Level 3 - Divergence on Current Bar** (H4 or D1) - only checked if OB passes
+   - Bullish: Logic 2 or Internal bullish divergence with timestamp == current time
+   - Bearish: Logic 2 or Internal bearish divergence with timestamp == current time
+
+**Changes Made:**
+
+1. **Modified `checkSignalWithOB()` return values:**
+   - Now returns `upper_near` and `lower_near` instead of `yhat` and `upper_far`
+   - These boundaries are used for zone detection
+
+2. **Updated all 20 H4/D1 request.security() calls:**
+   - Variable names changed from `yhat##`/`uf##` to `un##`/`ln##`
+
+3. **Added signal detection logic for all 10 symbols:**
+   - Calculates `buyLvl##` and `sellLvl##` (0-3) for each symbol
+   - Level indicates how many sequential conditions passed
+
+4. **Replaced Internal Divergence table with Signal Status table:**
+   - Columns: Symbol | Signal | Lvl | Details
+   - Signal: BUY (lime), SELL (red), or - (gray)
+   - Lvl: 1, 2, or 3 (how far conditions passed)
+   - Details: Shows which TFs triggered each condition (e.g., "NWE:H4 OB:D1,W1 DIV:H4")
+
+**Priority Rule:** If both BUY and SELL conditions exist, show the one with higher level. If tied, show BUY.
+
+---
+
+### Previous: Internal Divergence Detection - WORKING ✅
 
 **Problem**: USDCHF Daily had a bullish internal divergence visible in Multi Oscillator indicator, but screener didn't detect it.
 
@@ -164,15 +207,18 @@ Fixed swing point overwrite bug where previous swing high/low was detected at wr
 
 ## Next Steps
 
-1. **Subtask 1.8** - Add Kernel AO Logic 1 divergence to screener and test
-2. **Clean up debug logs** - Remove verbose logging from screener once all divergences are working
-3. **Complete Task 1** - Get the screener fully working with all indicators
+1. **USER TESTING IN PROGRESS** - Verifying signal detection in TradingView
+2. **Refine as needed** - Adjust logic based on testing results
+3. **Add alert sending** - Once signal logic is verified, add actual alert functionality
+
+### Debug Logs Cleaned Up ✅
+All `log.info()` debug statements removed from `TTE Screener.txt` on 2026-01-26.
 
 ---
 
 ## Files Referenced
-- `Pine Script Code/TTE Screener.txt` - Main screener with NWE + OB/FVG + Internal Divergence Debug Table
-- `Pine Script Code/TTE Internal Div Debug.txt` - **NEW** Single-symbol test script for debugging internal divergence
+- `Pine Script Code/TTE Screener.txt` - Main screener with Regime 1 Reversal Signal Table
+- `Pine Script Code/TTE Internal Div Debug.txt` - Single-symbol test script for debugging internal divergence
 - `Pine Script Code/Kernel AO Divergence.txt` - Original indicator reference
 - `Pine Script Code/aoDiv library.txt` - Divergence library
 - `Pine Script Code/Multi Oscillator_swing high low.txt` - Reference for same side divergence
@@ -180,7 +226,9 @@ Fixed swing point overwrite bug where previous swing high/low was detected at wr
 
 ---
 
-## Current Debug Table Columns
-| Symbol | H4 IntBull | H4 IntBear | D1 IntBull | D1 IntBear |
-|--------|------------|------------|------------|------------|
-| Shows timestamps of Internal divergences on H4 and D1 timeframes |
+## Current Signal Table Columns
+| Symbol | Signal | Lvl | Details |
+|--------|--------|-----|---------|
+| Shows BUY/SELL signals with level (1-3) and which TFs triggered conditions |
+
+**Example Details:** `NWE:H4,D1 OB:W1 DIV:H4` means NWE triggered on H4 and D1, OB on W1, DIV on H4
