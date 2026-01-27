@@ -90,6 +90,15 @@
             "status": "pending",
             "dependencies": [],
             "parentTaskId": 1
+          },
+          {
+            "id": 9,
+            "title": "Implement Regime 1 Reversal signal logic",
+            "description": "Add the signal generation logic from Regime 1 Reversal logic for SB.md. For each symbol, check conditions in order: 1) NWE zone overlap (H4/D1), 2) OB/FVG overlap (H4/D1/W1), 3) Divergence on shift 0 (H4/D1). Send alert if at least one condition is true in that order. Bullish: lower NWE zones + bullish OB/FVG/breaker support + bullish divergence. Bearish: upper NWE zones + bearish OB/FVG/breaker resistance + bearish divergence.",
+            "details": "Implementation steps:\n1. Add NWE zone detection (lower_avg/lower_far for bullish, upper_avg/upper_far for bearish)\n2. Check conditions in sequential order as specified in logic doc\n3. Build JSON alert message with all fulfilled conditions\n4. Send alert only when at least one condition in order is true\n5. Test with sample symbols to verify signal generation",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 1
           }
         ],
         "updatedAt": "2026-01-25T11:54:13.802Z"

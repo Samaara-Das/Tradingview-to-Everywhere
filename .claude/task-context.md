@@ -2,9 +2,9 @@
 
 This file is automatically updated by Claude Code hooks to maintain context across sessions.
 
-**Last Updated**: 2026-01-27 19:38:38
+**Last Updated**: 2026-01-27 22:14:24
 
-**Current Task Master Task**: Get the TTE Screener working
+**Current Task Master Task**: Get the TTE Screener working ✅ **WORKING**
 
 ---
 
@@ -19,17 +19,145 @@ This file is automatically updated by Claude Code hooks to maintain context acro
 - 1.7: Test Logic 2 divergence matches original Kernel AO Divergence indicator ✅ **COMPLETE**
 - 1.5: Add Multi Oscillator same side divergence to screener ✅ **COMPLETE** (tested & working on H4/D1)
 - 1.9: Implement Regime 1 Reversal signal logic ✅ **COMPLETE** (debug table shows BUY/SELL signals)
+- **NWE Zone Overlap Fix** ✅ **COMPLETE** - Fixed zone detection to use middle lines (upper_avg/lower_avg)
+- **Real-Time Signal Updates** ✅ **COMPLETE** - Alert functionality with JSON format, state tracking
+- **Pine Script Compilation Fixes** ✅ **COMPLETE** - Fixed function ordering and scope warnings
 
 ### In Progress
-- **Testing Regime 1 Reversal Signal Logic** - User is testing the screener in TradingView to verify signals
+- None
 
 ### Pending Subtasks (in order)
-- Refine signal logic based on testing results (if needed)
-- Add alert sending functionality once signals are verified
+- Integrate alerts with Python backend (when ready)
+
+### Recently Completed (2026-01-27)
+- **Real-Time Signal Updates Implementation** ✅ **COMPLETE** - Added alert() calls with JSON format, state tracking for change detection
+- **Pine Script Compilation Fixes** ✅ **COMPLETE** - Fixed "function not found" errors and scope warnings
 
 ---
 
-## This Session's Work (2026-01-26)
+## This Session's Work (2026-01-27)
+
+### Real-Time Signal Updates Implementation ✅
+
+**Goal**: Make the screener give fresh, real-time signals that update every tick for alert generation.
+
+**Changes Made:**
+
+1. **Reduced symbols from 10 to 8**
+   - Removed AUDUSD (s09) and NZDUSD (s10)
+   - Kept: GBPAUD, AUDJPY, EURCAD, EURGBP, USDCHF, GBPUSD, EURUSD, USDJPY
+   - New request.security count: 24 calls (8×3 TFs) - 60% utilization
+
+2. **Added state tracking variables**
+   - `var int prevBuyLvl01..08` and `var int prevSellLvl01..08`
+   - Persist across bars to track previous signal state
+
+3. **Added alert message builder function**
+   - `buildAlertMsg(sym, signal, level, details)` returns JSON string
+   - Format: `{"symbol":"XXX","signal":"BUY","level":3,"details":"NWE:H4,D1 OB:W1 DIV:H4"}`
+
+4. **Added change detection and alert() calls**
+   - Runs on `barstate.isconfirmed` for non-repainting behavior
+   - Compares current buyLvl/sellLvl to previous values
+   - Fires `alert()` with `alert.freq_once_per_bar_close` when signal changes
+   - Updates prev state variables after firing
+
+5. **Updated table size from 12 to 10 rows** (header + 8 symbols + buffer)
+
+**Alert Behavior:**
+- Non-repainting: fires once when bar closes with signal change
+- JSON format for easy parsing by Python backend
+- Only fires when signal level changes (not every bar)
+
+### Pine Script Compilation Fixes ✅
+
+Fixed errors and warnings that occurred after adding alert functionality:
+
+**Errors Fixed (Function Not Found):**
+- `buildNweDetail`, `buildObDetail`, `buildDivDetail`, `buildAlertMsg`, `getSymbolName` were being called before they were defined
+- **Fix**: Moved the alert logic block to AFTER all helper function definitions
+- Pine Script requires functions to be defined BEFORE they are called
+
+**Warnings Fixed (Scope Issues):**
+- `findLowestAoInRange` and `findHighestAoInRange` were called inside conditional `if` blocks
+- **Fix**: Extracted function calls to the function level (outside `if` blocks) in both `detectBullishDiv` and `detectBearishDiv`
+- Pine Script recommends calling functions unconditionally for consistency
+
+**Screener Status:** Working fine - compiles without errors or warnings
+
+---
+
+### Previous Session's Work
+
+### NWE Zone Overlap Fix ✅
+
+**Problem**: The screener was missing the middle lines (`upper_avg` and `lower_avg`) that exist in the original NWE indicator, causing incorrect zone detection.
+
+**Root Cause**: The original NWE has 6 boundary lines (3 upper + 3 lower), but the screener only had 4. The zone detection was incorrectly using `yhat` (regression line) as a boundary instead of the actual zone boundaries.
+
+**Correct Zone Structure:**
+```
+upper_far   ─────  (highest red line)
+              UPPER FAR ZONE
+upper_avg   ─────  (middle red line) ← WAS MISSING
+              UPPER AVG ZONE
+upper_near  ─────  (bottom red line)
+yhat        ═════  (regression line - NOT a zone boundary)
+lower_near  ─────  (top green line)
+              LOWER AVG ZONE
+lower_avg   ─────  (middle green line) ← WAS MISSING
+              LOWER FAR ZONE
+lower_far   ─────  (lowest green line)
+```
+
+**Fixes Applied:**
+
+1. **Updated `calcNWE()` function:**
+   - Added `upper_avg = (upper_far + upper_near) / 2`
+   - Added `lower_avg = (lower_far + lower_near) / 2`
+   - Now returns 7 values instead of 5
+
+2. **Fixed zone overlap logic in `checkSignalWithOB()`:**
+   - Bullish: `(low <= lower_near and high >= lower_avg) or (low <= lower_avg and high >= lower_far)`
+   - Bearish: `(high >= upper_near and low <= upper_avg) or (high >= upper_avg and low <= upper_far)`
+
+### Added Tooltips to Signal Table ✅
+
+**Feature**: Hover over Details cell to see expanded info about NWE zones and OB/FVG overlap.
+
+**Changes Made:**
+
+1. **Modified `checkSignalWithOB()` return values (14 → 18 values):**
+   - Added 4 NWE band prices: `lower_near`, `lower_avg`, `upper_near`, `upper_avg`
+
+2. **Updated all 20 H4/D1 request.security() calls:**
+   - Added new variables: `lnNear##_h4/d1`, `lnAvg##_h4/d1`, `unNear##_h4/d1`, `unAvg##_h4/d1`
+
+3. **Added tooltip helper functions:**
+   - `buildNweTooltip()` - Shows NWE band prices for each TF that triggered
+   - `buildObTooltip()` - Shows OB/FVG type and formation timestamp for each TF
+   - `buildDetailsTooltip()` - Combines NWE and OB info
+
+4. **Added tooltips to all 10 table rows:**
+   - Details cell now shows tooltip on hover
+
+**Tooltip Format:**
+```
+NWE Zone:
+H4: 1.23456 - 1.23789
+D1: 1.23123 - 1.23567
+
+OB/FVG Zone:
+H4: Unmit OB @ 01-15 08:00
+W1: Bull FVG @ 01-10 00:00
+```
+
+### Removed Debug Logs ✅
+- Cleaned up all `log.info()` debug statements from the screener
+
+---
+
+## Previous Session's Work (2026-01-26)
 
 ### Regime 1 Reversal Signal Logic - IMPLEMENTED ✅
 
@@ -38,8 +166,8 @@ Implemented Task 1.9: Signal detection logic that checks conditions in order (NW
 **Signal Logic (Sequential Check):**
 
 1. **Level 1 - NWE Zone Check** (H4 or D1)
-   - Bullish: `low <= lower_near` (price in lower_avg or lower_far zone)
-   - Bearish: `high >= upper_near` (price in upper_avg or upper_far zone)
+   - Bullish: bar overlaps lower_avg zone (lower_near to lower_avg) OR lower_far zone (lower_avg to lower_far)
+   - Bearish: bar overlaps upper_avg zone (upper_near to upper_avg) OR upper_far zone (upper_avg to upper_far)
 
 2. **Level 2 - OB/FVG Overlap** (H4 or D1 or W1) - only checked if NWE passes
    - Bullish: bullish OB, bullish FVG, or breaker support
@@ -49,113 +177,16 @@ Implemented Task 1.9: Signal detection logic that checks conditions in order (NW
    - Bullish: Logic 2 or Internal bullish divergence with timestamp == current time
    - Bearish: Logic 2 or Internal bearish divergence with timestamp == current time
 
-**Changes Made:**
-
-1. **Modified `checkSignalWithOB()` return values:**
-   - Now returns `upper_near` and `lower_near` instead of `yhat` and `upper_far`
-   - These boundaries are used for zone detection
-
-2. **Updated all 20 H4/D1 request.security() calls:**
-   - Variable names changed from `yhat##`/`uf##` to `un##`/`ln##`
-
-3. **Added signal detection logic for all 10 symbols:**
-   - Calculates `buyLvl##` and `sellLvl##` (0-3) for each symbol
-   - Level indicates how many sequential conditions passed
-
-4. **Replaced Internal Divergence table with Signal Status table:**
-   - Columns: Symbol | Signal | Lvl | Details
-   - Signal: BUY (lime), SELL (red), or - (gray)
-   - Lvl: 1, 2, or 3 (how far conditions passed)
-   - Details: Shows which TFs triggered each condition (e.g., "NWE:H4 OB:D1,W1 DIV:H4")
-
 **Priority Rule:** If both BUY and SELL conditions exist, show the one with higher level. If tied, show BUY.
 
 ---
 
-### Previous: Internal Divergence Detection - WORKING ✅
-
-**Problem**: USDCHF Daily had a bullish internal divergence visible in Multi Oscillator indicator, but screener didn't detect it.
-
-**Root Causes Found & Fixed**:
-
-1. **`log.info()` in `request.security()` shows wrong symbol** - Created test script to debug directly on chart symbol
-
-2. **Array index -1 out of bounds error** - When `deepestIdx` (or `highestIdx`) was 0, the loop `for i = 0 to deepestIdx - 1` became `for i = 0 to -1`, causing Pine Script to iterate to -1 and crash on `array.get(pinkAos, -1)`
-
-**Fixes Applied**:
-
-1. Created `TTE Internal Div Debug.txt` test script for single-symbol debugging
-2. Added `if deepestIdx > 0` guard in `detectBullishIntDiv()` (both test script and main screener)
-3. Added `if highestIdx > 0` guard in `detectBearishIntDiv()` (main screener)
-
-**Result**: Internal divergences now working on H4 and D1 timeframes. USDCHF bullish internal divergence successfully detected on 2025-04-03.
-
----
-
-## Previous Session's Work (2026-01-25)
-
-### Internal (Same-Side) Divergence Added to Screener ✅
-
-Implemented Internal/Same-Side divergence detection for the screener based on the Multi Oscillator indicator.
-
-**What is Internal Divergence?**
-Unlike Logic 2 divergence which compares swing points across different AO ranges, Internal divergence compares swing points within the SAME oscillator range:
-- **Bullish Internal**: Within a negative AO range, compare pink sub-ranges (AO falling). If previous pink had deeper AO but higher price, and current pink has shallower AO but lower price → bullish divergence (momentum improving despite lower price)
-- **Bearish Internal**: Within a positive AO range, compare purple sub-ranges (AO rising). If previous purple had higher AO but lower price, and current purple has lower AO but higher price → bearish divergence (momentum weakening despite higher price)
-
-**Changes Made:**
-
-1. **Added helper functions:**
-   - `findLowestPriceInRange(startShift, endShift)` - Returns [lowest price, shift of lowest]
-   - `findHighestPriceInRange(startShift, endShift)` - Returns [highest price, shift of highest]
-
-2. **Added detection functions:**
-   - `detectBullishIntDiv(osc, maxLookback)` - Detects bullish internal divergence within current negative AO range
-   - `detectBearishIntDiv(osc, maxLookback)` - Detects bearish internal divergence within current positive AO range
-
-3. **Updated `checkSignalWithOB()`:**
-   - Now returns 14 values (was 12): 2 NWE + 8 OB + 2 Logic 2 div + 2 Internal div timestamps
-
-4. **Updated all 20 request.security() calls:**
-   - H4 (10 symbols) and D1 (10 symbols) now receive 14 values each
-   - Added `intBullTm*` and `intBearTm*` variables for internal divergence timestamps
-
-5. **Updated debug table:**
-   - Changed from Logic 2 columns to Internal divergence columns
-   - Headers: Symbol | H4 IntBull | H4 IntBear | D1 IntBull | D1 IntBear
-   - Uses lime/red colors to distinguish from Logic 2 (which was aqua/fuchsia)
-
-**Logic Details:**
-
-For Bullish Internal Div:
-1. Must be in negative AO range (osc < 0)
-2. Must be in a pink sub-range (AO falling, `osc <= osc[1]`)
-3. Find the deepest (most negative) pink sub-range in this negative range
-4. Compare current pink to deepest pink:
-   - Current AO higher (less negative): `currPinkLowestAo > deepestPinkAo`
-   - Current price lower: `currPinkPriceLowest < deepestPinkPriceLowest`
-5. Return timestamp of current pink's lowest price
-
-For Bearish Internal Div:
-1. Must be in positive AO range (osc > 0)
-2. Must be in a purple sub-range (AO rising, `osc > osc[1]`)
-3. Find the highest purple sub-range in this positive range
-4. Compare current purple to highest purple:
-   - Current AO lower: `currPurpleHighestAo < highestPurpleAo`
-   - Current price higher: `currPurplePriceHighest > highestPurplePriceHighest`
-5. Return timestamp of current purple's highest price
-
----
-
-## Previous Session's Work (2026-01-17)
-
-### Swing Point Detection - WORKING CORRECTLY ✅
-
-Fixed swing point overwrite bug where previous swing high/low was detected at wrong bars.
-
----
-
 ## Bugs Fixed (All Sessions)
+
+### NWE Zone Detection Bug (2026-01-27)
+- **Error**: NWE zone overlap detected incorrectly (was using yhat instead of zone boundaries)
+- **Cause**: Missing `upper_avg` and `lower_avg` middle lines from `calcNWE()`
+- **Fix**: Added middle line calculations and fixed zone overlap logic to check between the 3 boundary lines
 
 ### Array Index -1 Out of Bounds (2026-01-26)
 - **Error**: `Runtime error: Error on bar 5948: In 'array.get()' function. Index -1 is out of bounds, array size is 10.`
@@ -207,22 +238,20 @@ Fixed swing point overwrite bug where previous swing high/low was detected at wr
 
 ## Next Steps
 
-1. **USER TESTING IN PROGRESS** - Verifying signal detection in TradingView
-2. **Refine as needed** - Adjust logic based on testing results
-3. **Add alert sending** - Once signal logic is verified, add actual alert functionality
-
-### Debug Logs Cleaned Up ✅
-All `log.info()` debug statements removed from `TTE Screener.txt` on 2026-01-26.
+1. **Integrate with Python backend** - Connect TradingView alerts to the Python application
+2. **Monitor alerts in production** - Verify alerts fire correctly in real-time
+3. **Fine-tune as needed** - Adjust signal logic based on real-world results
 
 ---
 
 ## Files Referenced
-- `Pine Script Code/TTE Screener.txt` - Main screener with Regime 1 Reversal Signal Table
+- `Pine Script Code/TTE Screener.txt` - Main screener with Regime 1 Reversal Signal Table + tooltips
 - `Pine Script Code/TTE Internal Div Debug.txt` - Single-symbol test script for debugging internal divergence
 - `Pine Script Code/Kernel AO Divergence.txt` - Original indicator reference
 - `Pine Script Code/aoDiv library.txt` - Divergence library
 - `Pine Script Code/Multi Oscillator_swing high low.txt` - Reference for same side divergence
 - `Pine Script Code/logic/Regime 1 Reversal logic for SB.md` - Signal requirements
+- `Pine Script Code/Nadaraya Watson Envelope.txt` - Original NWE indicator reference
 
 ---
 
@@ -232,3 +261,5 @@ All `log.info()` debug statements removed from `TTE Screener.txt` on 2026-01-26.
 | Shows BUY/SELL signals with level (1-3) and which TFs triggered conditions |
 
 **Example Details:** `NWE:H4,D1 OB:W1 DIV:H4` means NWE triggered on H4 and D1, OB on W1, DIV on H4
+
+**Tooltip on Hover:** Shows NWE band prices and OB/FVG type + formation timestamp
