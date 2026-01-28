@@ -2,9 +2,185 @@
 
 This file is automatically updated by Claude Code hooks to maintain context across sessions.
 
-**Last Updated**: 2026-01-27 22:14:24
+**Last Updated**: 2026-01-28 20:52:13
 
-**Current Task Master Task**: Get the TTE Screener working ✅ **WORKING**
+**Current Task Master Task**: Build Tiered Screener Architecture (Option C)
+
+---
+
+## Architecture Decision (2026-01-28)
+
+### The Problem
+
+On 28th Jan 2026, while building the TTE Screener with all 3 indicators (NWE, OB & FVG, Divergence) running on 10 symbols, we hit a **memory limit problem**. Pine Script has a hard limit of **40 `request.security()` calls** per script (64 with Ultimate plan).
+
+The full screener was using ~24 calls for just 8 symbols (8 × 3 timeframes). Scaling to 40+ symbols and adding more indicators to the chain was impossible with a single script.
+
+After discussing with Papa, we evaluated 3 architecture options and decided **Option C (Tiered Architecture)** works best for our scaling goals.
+
+---
+
+### Option A: Pure Pine Script (Multiple Full Screeners)
+
+```
+┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐
+│ Full Screener #1 │  │ Full Screener #2 │  │ Full Screener #3 │
+│ Symbols 1-8      │  │ Symbols 9-16     │  │ Symbols 17-24    │
+│ NWE + OB + DIV   │  │ NWE + OB + DIV   │  │ NWE + OB + DIV   │
+└──────────────────┘  └──────────────────┘  └──────────────────┘
+         │                    │                     │
+         └────────────────────┴─────────────────────┘
+                              │
+                       Alerts to Python
+```
+
+**How it works:**
+- Copy the full screener multiple times
+- Each copy watches ~8 symbols (due to request.security limits)
+- All indicators run simultaneously for all symbols
+
+**Pros:**
+- Simple - just duplicate the screener
+- Everything stays in Pine Script
+
+**Cons:**
+- Need ~5 screeners for 40 symbols
+- Each screener calculates ALL indicators even when NWE doesn't trigger
+- Wasteful - 90% of the time, OB/DIV checks are unnecessary
+- Hard to add more indicators (already at the limit)
+
+---
+
+### Option B: Lightweight Screeners + Manual Selenium Checks
+
+```
+┌──────────────────┐  ┌──────────────────┐
+│ NWE Screener #1  │  │ NWE Screener #2  │
+│ Symbols 1-20     │  │ Symbols 21-40    │
+│ NWE only         │  │ NWE only         │
+└────────┬─────────┘  └────────┬─────────┘
+         │                     │
+         └──────────┬──────────┘
+                    │ "GBPAUD has NWE bullish"
+                    ▼
+┌─────────────────────────────────────────┐
+│ Python receives alert                   │
+│ Opens chart for GBPAUD                  │
+│ Manually loads OB indicator → checks    │
+│ Manually loads DIV indicator → checks   │
+└─────────────────────────────────────────┘
+```
+
+**How it works:**
+- NWE-only screeners watch 20 symbols each (lightweight)
+- When NWE triggers, Python opens that specific symbol's chart
+- Python loads OB indicator, reads output, checks for overlap
+- If OB found, Python loads DIV indicator, reads output
+- Sequential, one symbol at a time
+
+**Pros:**
+- Can watch 40+ symbols with just 2 NWE screeners
+- Only does detailed checks when needed
+- Can add unlimited indicators (loaded one at a time)
+
+**Cons:**
+- Slower - Selenium navigation takes time per symbol
+- Sequential processing - checks one symbol at a time
+- More complex Python code
+
+---
+
+### Option C: Tiered Architecture ✅ CHOSEN
+
+```
+┌─────────────────────────────────────────────────────┐
+│  TIER 1: NWE Screeners (always running)             │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  │
+│  │ NWE Scan #1 │  │ NWE Scan #2 │  │ NWE Scan #3 │  │
+│  │ Sym 1-20    │  │ Sym 21-40   │  │ Sym 41-60   │  │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘  │
+└─────────┼────────────────┼────────────────┼─────────┘
+          │                │                │
+          └────────────────┴────────────────┘
+                           │ NWE alerts (JSON)
+                           ▼
+┌─────────────────────────────────────────────────────┐
+│  PYTHON ORCHESTRATOR (tiered_orchestrator.py)       │
+│  - Receives: {"symbol":"GBPAUD","nwe":"bullish"}    │
+│  - Adds GBPAUD to "hot list"                        │
+│  - Maintains hot list with expiry (24hr)            │
+│  - Periodically processes hot symbols               │
+└─────────────────────┬───────────────────────────────┘
+                      │ For each hot symbol
+                      ▼
+┌─────────────────────────────────────────────────────┐
+│  TIER 2: Detailed Checks (on-demand via Selenium)   │
+│                                                     │
+│  For each hot symbol:                               │
+│  1. Open chart → Load OB indicator → Read output    │
+│  2. If OB found → Load DIV indicator → Read output  │
+│  3. If DIV found → FIRE FULL SIGNAL (Level 3)       │
+│                                                     │
+│  Signal Levels:                                     │
+│  - Level 1: NWE only                                │
+│  - Level 2: NWE + OB                                │
+│  - Level 3: NWE + OB + DIV (full signal)            │
+└─────────────────────────────────────────────────────┘
+```
+
+**How it works:**
+- **Tier 1**: Lightweight NWE-only screeners run continuously in TradingView
+  - Each screener watches 20 symbols (uses 40 request.security calls for H4+D1)
+  - Fires JSON alerts: `{"symbol":"GBPAUD","nwe":"bullish","tf":"H4,D1"}`
+  - Only alerts when NWE state CHANGES (not every bar)
+
+- **Hot List**: Python orchestrator maintains a list of "hot" symbols
+  - Symbols with active NWE signals go on the hot list
+  - Hot list entries expire after 24 hours
+  - Symbols removed when NWE signal ends
+
+- **Tier 2**: Python uses Selenium to check OB and Divergence
+  - Only checks symbols on the hot list (~5-10% of total)
+  - Opens chart, loads OB & FVG indicator, reads output
+  - If OB found, loads Divergence indicator, reads output
+  - Fires full trading signal if all conditions met
+
+**Pros:**
+- Scales to **unlimited symbols** (just add more NWE screeners)
+- **Efficient** - only checks OB/DIV for symbols that have NWE (~5-10%)
+- Can **add unlimited indicators** to the chain (loaded sequentially)
+- Hot list **persists** - rechecks symbols periodically
+- Clean separation of concerns (Pine for screening, Python for orchestration)
+
+**Cons:**
+- Most complex architecture
+- Requires Python orchestrator code
+- Selenium checks take time (but only for hot symbols)
+
+**Why We Chose Option C:**
+1. We want to scale to 40+ symbols - Option A can't handle this efficiently
+2. We want to add more indicators in future - Option C allows unlimited indicators
+3. NWE triggers only ~5-10% of the time - no need to check OB/DIV for all symbols always
+4. Hot list concept allows periodic rechecks while NWE signal persists
+
+---
+
+### Files Created for Option C
+
+1. **`Pine Script Code/TTE NWE Screener.txt`** - Tier 1 NWE-only screener
+   - Watches 20 symbols on H4 and D1 timeframes
+   - Uses 40 request.security() calls
+   - Fires JSON alerts on NWE state changes
+   - Pre-configured with 20 currency pairs
+
+2. **`tiered_orchestrator.py`** - Python orchestrator module
+   - `HotSymbol` dataclass - tracks symbols with active NWE signals
+   - `Tier2Result` dataclass - captures OB/DIV findings
+   - `TieredOrchestrator` class with methods:
+     - `on_nwe_alert()` - receives NWE alerts from TradingView
+     - `process_hot_symbols()` - checks pending symbols for OB/DIV
+     - `_check_tier2()` - performs Selenium-based OB/DIV checks
+   - **TODO**: Implement `_check_ob_indicator()` and `_check_divergence_indicator()` based on indicator output format
 
 ---
 
@@ -24,10 +200,23 @@ This file is automatically updated by Claude Code hooks to maintain context acro
 - **Pine Script Compilation Fixes** ✅ **COMPLETE** - Fixed function ordering and scope warnings
 
 ### In Progress
-- None
+- **Option C Architecture Implementation** - Building tiered screener system
+  - ✅ Created TTE NWE Screener (Tier 1)
+  - ✅ Created tiered_orchestrator.py skeleton
+  - 🔲 Implement `_check_ob_indicator()` method
+  - 🔲 Implement `_check_divergence_indicator()` method
+  - 🔲 Integrate orchestrator with existing alert handling
 
 ### Pending Subtasks (in order)
-- Integrate alerts with Python backend (when ready)
+- Complete Tier 2 indicator check methods (OB & DIV)
+- Test end-to-end flow: NWE alert → hot list → Tier 2 check → signal
+- Deploy multiple NWE screeners for full symbol coverage
+
+### Recently Completed (2026-01-28)
+- **Architecture Decision** ✅ - Evaluated 3 options, chose Option C (Tiered Architecture)
+- **TTE NWE Screener** ✅ - Created lightweight Tier 1 screener for 20 symbols
+- **tiered_orchestrator.py** ✅ - Created Python orchestrator skeleton with hot list management
+- **Conditional Execution Test** ✅ - Proved that conditional indicator execution inside functions causes 41% mismatch rate (history buffer fragmentation)
 
 ### Recently Completed (2026-01-27)
 - **Real-Time Signal Updates Implementation** ✅ **COMPLETE** - Added alert() calls with JSON format, state tracking for change detection
@@ -35,7 +224,30 @@ This file is automatically updated by Claude Code hooks to maintain context acro
 
 ---
 
-## This Session's Work (2026-01-27)
+## This Session's Work (2026-01-28)
+
+### Conditional Execution Test - FAILED ❌
+
+Before deciding on Option C, we tested whether we could conditionally execute indicator calculations inside Pine Script functions to save request.security() calls.
+
+**Test Setup** (`TTE Conditional Test.txt`):
+- Created two versions: `checkSignalUNCOND()` (always calculates all indicators) and `checkSignalCOND()` (only calculates OB if NWE triggers, only calculates DIV if OB triggers)
+- Ran both side-by-side and compared outputs
+
+**Results:**
+- **Mismatches: 8383 of 20312 bars (41.27%)**
+- Many red X markers on chart showing where outputs differed
+
+**Root Cause**: Pine Script **history buffer fragmentation**
+- When functions using `[]` operators are called conditionally inside `if` blocks, they don't maintain consistent history buffers
+- The function's internal history references (`close[1]`, `ta.sma()`, etc.) get fragmented when the function isn't called every bar
+- This causes the function to return different values compared to when it's called unconditionally
+
+**Conclusion**: Cannot optimize by conditionally skipping indicator calculations in Pine Script. Must use external orchestration (Option C) to achieve conditional execution.
+
+---
+
+## Previous Session's Work (2026-01-27)
 
 ### Real-Time Signal Updates Implementation ✅
 
@@ -238,20 +450,34 @@ Implemented Task 1.9: Signal detection logic that checks conditions in order (NW
 
 ## Next Steps
 
-1. **Integrate with Python backend** - Connect TradingView alerts to the Python application
-2. **Monitor alerts in production** - Verify alerts fire correctly in real-time
-3. **Fine-tune as needed** - Adjust signal logic based on real-world results
+1. **Complete Tier 2 methods** - Implement `_check_ob_indicator()` and `_check_divergence_indicator()` in tiered_orchestrator.py
+2. **Integrate with alert handling** - Connect TieredOrchestrator to existing handle_alerts.py
+3. **Test NWE Screener** - Deploy TTE NWE Screener in TradingView and verify alerts fire correctly
+4. **Deploy multiple screeners** - Create additional NWE screener instances for full symbol coverage
+5. **End-to-end testing** - Test complete flow from NWE alert through Tier 2 checks to final signal
 
 ---
 
 ## Files Referenced
-- `Pine Script Code/TTE Screener.txt` - Main screener with Regime 1 Reversal Signal Table + tooltips
+
+### Option C Architecture Files (NEW)
+- `Pine Script Code/TTE NWE Screener.txt` - **Tier 1** lightweight NWE-only screener (20 symbols)
+- `tiered_orchestrator.py` - **Python orchestrator** for hot list management and Tier 2 checks
+- `Pine Script Code/TTE Conditional Test.txt` - Test script that proved conditional execution doesn't work (41% mismatch)
+
+### Original Screener Files
+- `Pine Script Code/TTE Screener.txt` - Original full screener with all 3 indicators (limited to 8 symbols)
 - `Pine Script Code/TTE Internal Div Debug.txt` - Single-symbol test script for debugging internal divergence
-- `Pine Script Code/Kernel AO Divergence.txt` - Original indicator reference
+
+### Reference Indicators
+- `Pine Script Code/Kernel AO Divergence.txt` - Original Kernel AO Divergence indicator
 - `Pine Script Code/aoDiv library.txt` - Divergence library
 - `Pine Script Code/Multi Oscillator_swing high low.txt` - Reference for same side divergence
+- `Pine Script Code/Nadaraya Watson Envelope.txt` - Original NWE indicator
+- `Pine Script Code/OB & FVG.txt` - Original Order Block & FVG indicator
+
+### Documentation
 - `Pine Script Code/logic/Regime 1 Reversal logic for SB.md` - Signal requirements
-- `Pine Script Code/Nadaraya Watson Envelope.txt` - Original NWE indicator reference
 
 ---
 
