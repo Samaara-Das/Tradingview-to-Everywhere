@@ -198,21 +198,54 @@ MAJOR_PAIRS = [
 
 def parse_symbol(full_symbol, category):
     """Parse a symbol string and return symbol info dict."""
+
+    # Add exchange prefix for categories that don't have them
     if ":" in full_symbol:
-        exchange, symbol = full_symbol.split(":", 1)
-    else:
-        # Default exchange based on category
+        # Already has prefix (currencies, crypto, some indices)
         symbol = full_symbol
+    else:
+        # Add appropriate prefix based on category
         if category == "indian_stocks":
-            exchange = "NSE"
+            symbol = f"NSE:{full_symbol}"
         elif category == "us_stocks":
-            exchange = "NASDAQ"
+            symbol = f"NASDAQ:{full_symbol}"
+        elif category == "indices":
+            # Map known indices to their exchanges
+            index_exchanges = {
+                "NIFTY": "NSE",
+                "BANKNIFTY": "NSE",
+                "SENSEX": "BSE",
+                "FTSE": "CAPITALCOM",
+                "DAX": "CAPITALCOM",
+                "CAC40": "CAPITALCOM",
+                "NIKKEI": "TVC",
+                "HSI": "HSI",
+                "ASX200": "ASX",
+            }
+            exchange_prefix = index_exchanges.get(full_symbol, "TVC")
+            symbol = f"{exchange_prefix}:{full_symbol}"
         else:
-            exchange = "UNKNOWN"
-    
+            symbol = full_symbol
+
+    # Map category to exchange type (what API expects)
+    category_to_exchange = {
+        "currencies": "FX",
+        "crypto": "CRYPTO",
+        "indian_stocks": "STOCKS",
+        "us_stocks": "STOCKS",
+        "indices": "INDICES"
+    }
+    exchange = category_to_exchange.get(category, "STOCKS")
+
+    # Extract base symbol for major pair check
+    if ":" in full_symbol:
+        base_symbol = full_symbol.split(":", 1)[1]
+    else:
+        base_symbol = full_symbol
+
     # Determine priority
     if category == "currencies":
-        if symbol in MAJOR_PAIRS:
+        if base_symbol in MAJOR_PAIRS:
             priority = "A"
         else:
             priority = "B"
@@ -222,7 +255,7 @@ def parse_symbol(full_symbol, category):
         priority = "B"
     else:
         priority = "C"
-    
+
     return {
         "symbol": symbol,
         "exchange": exchange,
@@ -279,12 +312,12 @@ def main():
         )
         
         data = response.json()
-        
+
         if response.status_code == 200 and data.get("success"):
-            result = data.get("data", {})
+            # API returns imported/total at root level, not under 'data'
             print(f"\n[OK] Import successful!")
-            print(f"  Imported: {result.get('imported', 0)}")
-            print(f"  Total in DB: {result.get('total', 0)}")
+            print(f"  Imported: {data.get('imported', 0)}")
+            print(f"  Total in DB: {data.get('total', 0)}")
         else:
             print(f"\n[ERROR] Import failed: {data.get('error', 'Unknown error')}")
             
