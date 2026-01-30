@@ -1,0 +1,55 @@
+# ===========================================
+# TTE Tiered Orchestrator Dependencies
+# ===========================================
+
+# HTTP Requests
+requests>=2.31.0
+
+# Browser Automation
+selenium>=4.15.0
+webdriver-manager>=4.0.0
+
+# Environment Variables
+python-dotenv>=1.0.0
+
+# ===========================================
+# Legacy Dependencies (existing system)
+# ===========================================
+
+# Discord Integration
+discord-webhook>=1.3.0
+
+# Database (MongoDB for local testing)
+pymongo>=4.6.0
+
+# Time Zones
+pytz>=2024.1
+
+# Web Scraping
+beautifulsoup4>=4.12.0
+
+# Social Media
+# tweepy==4.9.0  # Specific version for Twitter v1.1 API
+# facebook-sdk>=3.1.0
+# linkedin-api-client>=0.2.0
+# requests-oauthlib>=1.3.0
+
+# Firebase (for legacy entries)
+firebase-admin>=6.2.0
+
+# Async File Operations
+aiofiles>=23.2.0
+
+# ===========================================
+# Development Dependencies
+# ===========================================
+
+# Testing
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+
+# Linting
+ruff>=0.1.0
+
+# Type Checking
+mypy>=1.7.0

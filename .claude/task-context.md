@@ -2,21 +2,35 @@
 
 This file is automatically updated by Claude Code hooks to maintain context across sessions.
 
-**Last Updated**: 2026-01-28 20:52:13
+**Last Updated**: 2026-01-30 18:06:55
 
-**Current Task Master Task**: Build Tiered Screener Architecture (Option C)
+**Current Task Master Task**: Build Tiered Screener Architecture (Option C) - Webhook-based with Stock Buddy Dashboard
 
 ---
 
-## Architecture Decision (2026-01-28)
+## Architecture Evolution
 
-### The Problem
+### Phase 1: Initial Problem (2026-01-28)
 
 On 28th Jan 2026, while building the TTE Screener with all 3 indicators (NWE, OB & FVG, Divergence) running on 10 symbols, we hit a **memory limit problem**. Pine Script has a hard limit of **40 `request.security()` calls** per script (64 with Ultimate plan).
 
 The full screener was using ~24 calls for just 8 symbols (8 × 3 timeframes). Scaling to 40+ symbols and adding more indicators to the chain was impossible with a single script.
 
 After discussing with Papa, we evaluated 3 architecture options and decided **Option C (Tiered Architecture)** works best for our scaling goals.
+
+### Phase 2: Architecture Refinement (2026-01-29)
+
+After further analysis, we refined Option C into a **webhook-based architecture** with these key changes:
+
+1. **Webhooks instead of Alert Scraping**: TradingView webhooks deliver alerts directly to Stock Buddy API (faster, more reliable than Selenium scraping)
+
+2. **OBDIV Screener Optimization**: Removed NWE calculation from Tier 2 screener (redundant since Tier 1 already confirmed NWE) and removed table display (signals go to webhook)
+
+3. **Stock Buddy Dashboard**: Signals displayed on web dashboard instead of Pine Script table (scales to 1000+ symbols)
+
+4. **Screenshot-only Selenium**: Python/Selenium now only handles screenshot capture (TradingView webhooks cannot include chart snapshots)
+
+5. **Dynamic Symbol Input**: Python changes OBDIV Screener symbols via Selenium to process hot list in batches of 8
 
 ---
 
@@ -90,141 +104,261 @@ After discussing with Papa, we evaluated 3 architecture options and decided **Op
 
 ---
 
-### Option C: Tiered Architecture ✅ CHOSEN
+### Option C: Tiered Architecture ✅ CHOSEN (Refined)
 
 ```
-┌─────────────────────────────────────────────────────┐
-│  TIER 1: NWE Screeners (always running)             │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  │
-│  │ NWE Scan #1 │  │ NWE Scan #2 │  │ NWE Scan #3 │  │
-│  │ Sym 1-20    │  │ Sym 21-40   │  │ Sym 41-60   │  │
-│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘  │
-└─────────┼────────────────┼────────────────┼─────────┘
-          │                │                │
-          └────────────────┴────────────────┘
-                           │ NWE alerts (JSON)
-                           ▼
-┌─────────────────────────────────────────────────────┐
-│  PYTHON ORCHESTRATOR (tiered_orchestrator.py)       │
-│  - Receives: {"symbol":"GBPAUD","nwe":"bullish"}    │
-│  - Adds GBPAUD to "hot list"                        │
-│  - Maintains hot list with expiry (24hr)            │
-│  - Periodically processes hot symbols               │
-└─────────────────────┬───────────────────────────────┘
-                      │ For each hot symbol
-                      ▼
-┌─────────────────────────────────────────────────────┐
-│  TIER 2: Detailed Checks (on-demand via Selenium)   │
-│                                                     │
-│  For each hot symbol:                               │
-│  1. Open chart → Load OB indicator → Read output    │
-│  2. If OB found → Load DIV indicator → Read output  │
-│  3. If DIV found → FIRE FULL SIGNAL (Level 3)       │
-│                                                     │
-│  Signal Levels:                                     │
-│  - Level 1: NWE only                                │
-│  - Level 2: NWE + OB                                │
-│  - Level 3: NWE + OB + DIV (full signal)            │
-└─────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      REFINED WEBHOOK-BASED ARCHITECTURE                      │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │  TIER 1: TTE NWE Screener (TradingView)                             │   │
+│  │  - 20 symbols, H4 + D1 timeframes                                   │   │
+│  │  - Webhook: POST to Stock Buddy /api/nwe                            │   │
+│  │  - Payload: {"tier":"nwe","symbol":"X","direction":"bullish",...}   │   │
+│  └───────────────────────────────┬─────────────────────────────────────┘   │
+│                                  │                                          │
+│                                  ▼                                          │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │  STOCK BUDDY API (Vercel + MongoDB)                                 │   │
+│  │  - /api/nwe → Adds to hot_list collection                           │   │
+│  │  - /api/obdiv → Combines with NWE → final signal                    │   │
+│  │  - /api/signals → Dashboard fetches signals                         │   │
+│  │  - /api/hot-symbols → Python fetches symbols for Tier 2             │   │
+│  └───────────────────────────────┬─────────────────────────────────────┘   │
+│                                  │                                          │
+│                                  ▼                                          │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │  PYTHON ORCHESTRATOR (Local)                                        │   │
+│  │  - Polls /api/hot-symbols for pending Tier 2 checks                 │   │
+│  │  - Changes OBDIV Screener symbol inputs (Selenium)                  │   │
+│  │  - Takes screenshots for final signals                              │   │
+│  │  - Updates /api/signals with screenshot URLs                        │   │
+│  └───────────────────────────────┬─────────────────────────────────────┘   │
+│                                  │                                          │
+│                                  ▼                                          │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │  TIER 2: TTE OBDIV Screener (TradingView)                           │   │
+│  │  - 8 symbols (dynamically set by Python)                            │   │
+│  │  - Checks OB + Divergence ONLY (NWE removed for efficiency)         │   │
+│  │  - NO table display (signals go to webhook)                         │   │
+│  │  - Webhook: POST to Stock Buddy /api/obdiv                          │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│                                  ▼                                          │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │  STOCK BUDDY DASHBOARD (https://stock-buddy-app.vercel.app)         │   │
+│  │  - Real-time signals table with sorting/filtering                   │   │
+│  │  - Statistics cards (today, level 3, bullish/bearish)               │   │
+│  │  - Screenshot modal for viewing chart snapshots                     │   │
+│  │  - Push notifications for new signals                               │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**How it works:**
-- **Tier 1**: Lightweight NWE-only screeners run continuously in TradingView
-  - Each screener watches 20 symbols (uses 40 request.security calls for H4+D1)
-  - Fires JSON alerts: `{"symbol":"GBPAUD","nwe":"bullish","tf":"H4,D1"}`
-  - Only alerts when NWE state CHANGES (not every bar)
+**How it works (Refined):**
 
-- **Hot List**: Python orchestrator maintains a list of "hot" symbols
-  - Symbols with active NWE signals go on the hot list
-  - Hot list entries expire after 24 hours
-  - Symbols removed when NWE signal ends
+- **Tier 1 (TTE NWE Screener)**: Lightweight NWE-only screener in TradingView
+  - Watches 20 symbols on H4 + D1 (40 request.security calls)
+  - Fires **webhook** to Stock Buddy `/api/nwe` on NWE zone entry
+  - Payload: `{"tier":"nwe","symbol":"GBPAUD","direction":"bullish","timeframes":["H4","D1"]}`
 
-- **Tier 2**: Python uses Selenium to check OB and Divergence
-  - Only checks symbols on the hot list (~5-10% of total)
-  - Opens chart, loads OB & FVG indicator, reads output
-  - If OB found, loads Divergence indicator, reads output
-  - Fires full trading signal if all conditions met
+- **Hot List (MongoDB)**: Stock Buddy API maintains hot list in database
+  - `hot_list` collection with status: pending_tier2 / tier2_complete / expired
+  - Python polls `/api/hot-symbols` to get symbols needing Tier 2 check
 
-**Pros:**
-- Scales to **unlimited symbols** (just add more NWE screeners)
-- **Efficient** - only checks OB/DIV for symbols that have NWE (~5-10%)
-- Can **add unlimited indicators** to the chain (loaded sequentially)
-- Hot list **persists** - rechecks symbols periodically
-- Clean separation of concerns (Pine for screening, Python for orchestration)
+- **Tier 2 (TTE OBDIV Screener)**: Focused OB+DIV check screener
+  - **NWE removed** (redundant - Tier 1 already confirmed NWE)
+  - **Table removed** (signals go to webhook, not display)
+  - 8 symbols dynamically set by Python via Selenium
+  - Reports **both** bullish and bearish findings (Python matches direction from hot list)
+  - Fires **webhook** to Stock Buddy `/api/obdiv`
 
-**Cons:**
-- Most complex architecture
-- Requires Python orchestrator code
-- Selenium checks take time (but only for hot symbols)
+- **Signal Creation**: Stock Buddy API combines NWE + OBDIV
+  - Looks up hot_list to get NWE direction
+  - Matches direction with OBDIV findings
+  - Calculates level (1=NWE, 2=NWE+OB, 3=NWE+OB+DIV)
+  - Creates signal in `signals` collection
 
-**Why We Chose Option C:**
-1. We want to scale to 40+ symbols - Option A can't handle this efficiently
-2. We want to add more indicators in future - Option C allows unlimited indicators
-3. NWE triggers only ~5-10% of the time - no need to check OB/DIV for all symbols always
-4. Hot list concept allows periodic rechecks while NWE signal persists
+- **Screenshot Capture**: Python/Selenium captures chart snapshots
+  - Polls `/api/signals?status=pending_screenshot`
+  - Navigates to chart, takes screenshot
+  - Updates signal with screenshot URL via `/api/signals/{id}`
+
+- **Dashboard**: Stock Buddy web app displays all signals
+  - Real-time table with sorting, filtering, search
+  - Statistics cards (today, level 3, bullish/bearish)
+  - Screenshot modal, notifications, distribution chart
+
+**Key Advantages of Refined Architecture:**
+1. **Instant delivery** - Webhooks are faster than alert scraping
+2. **Efficient Tier 2** - No redundant NWE calculation
+3. **Scalable display** - Dashboard scales to 1000+ symbols
+4. **Proof of signals** - Screenshots preserved in database
+5. **Direction matching** - OBDIV reports both sides, Python matches correctly
 
 ---
 
-### Files Created for Option C
+### Files for Webhook-Based Architecture
 
-1. **`Pine Script Code/TTE NWE Screener.txt`** - Tier 1 NWE-only screener
-   - Watches 20 symbols on H4 and D1 timeframes
-   - Uses 40 request.security() calls
-   - Fires JSON alerts on NWE state changes
-   - Pre-configured with 20 currency pairs
+**Pine Script Files (To Create/Modify):**
+1. **`Pine Script Code/TTE NWE Screener v2.txt`** - Tier 1 webhook-based screener
+   - Watches 20 symbols on H4 + D1
+   - Fires webhook with JSON payload on NWE zone entry
+   - No table display needed
 
-2. **`tiered_orchestrator.py`** - Python orchestrator module
-   - `HotSymbol` dataclass - tracks symbols with active NWE signals
-   - `Tier2Result` dataclass - captures OB/DIV findings
-   - `TieredOrchestrator` class with methods:
-     - `on_nwe_alert()` - receives NWE alerts from TradingView
-     - `process_hot_symbols()` - checks pending symbols for OB/DIV
-     - `_check_tier2()` - performs Selenium-based OB/DIV checks
-   - **TODO**: Implement `_check_ob_indicator()` and `_check_divergence_indicator()` based on indicator output format
+2. **`Pine Script Code/TTE OBDIV Screener.txt`** - Tier 2 focused screener
+   - 8 symbols (dynamically changed by Python)
+   - OB + Divergence detection ONLY (no NWE)
+   - Reports both bullish and bearish findings
+   - Fires webhook with JSON payload
+
+**Stock Buddy API (To Create):**
+3. **`pages/api/nwe.js`** - Receives Tier 1 webhooks, adds to hot_list
+4. **`pages/api/obdiv.js`** - Receives Tier 2 webhooks, creates signals
+5. **`pages/api/signals/index.js`** - GET signals for dashboard
+6. **`pages/api/signals/[id].js`** - PATCH signal with screenshot
+7. **`pages/api/hot-symbols.js`** - GET pending symbols for Python
+
+**Stock Buddy Dashboard (To Create):**
+8. **`app/dashboard/page.jsx`** - Main dashboard page
+9. **`components/dashboard/StatsGrid.jsx`** - Statistics cards
+10. **`components/dashboard/FilterBar.jsx`** - Filtering controls
+11. **`components/dashboard/SignalsTable.jsx`** - Signals table (desktop)
+12. **`components/dashboard/CardGrid.jsx`** - Signal cards (mobile)
+13. **`components/dashboard/ScreenshotModal.jsx`** - Screenshot viewer
+
+**Python Files (To Update):**
+14. **`tiered_orchestrator.py`** - Refactor for webhook-based flow
+    - Poll `/api/hot-symbols` instead of maintaining local hot list
+    - Change OBDIV Screener symbols via Selenium
+    - Capture screenshots and update via `/api/signals/{id}`
+
+**Documentation:**
+15. **`.claude/TIERED_ARCHITECTURE_IMPLEMENTATION_PLAN.md`** ✅ Created
+    - Complete 9-phase implementation plan
+    - API endpoint code, MongoDB schema, component tree
 
 ---
 
 ## Task Progress Summary
 
-### Completed Subtasks
-- 1.1: Increased symbols from 5 to 20 in the screener
-- 1.2: Added NWE indicator to screener (H4 + Daily timeframes, 10 symbols)
-- 1.3: Added OB & FVG indicator to screener (H4, Daily, Weekly timeframes) ✅ **COMPLETE**
-- 1.4: Add Kernel AO regular divergences (original task) ✅ **DONE** (covered by 1.6)
-- 1.6: Add Kernel AO regular divergences Logic 2 to screener ✅ **COMPLETE**
-- 1.7: Test Logic 2 divergence matches original Kernel AO Divergence indicator ✅ **COMPLETE**
-- 1.5: Add Multi Oscillator same side divergence to screener ✅ **COMPLETE** (tested & working on H4/D1)
-- 1.9: Implement Regime 1 Reversal signal logic ✅ **COMPLETE** (debug table shows BUY/SELL signals)
-- **NWE Zone Overlap Fix** ✅ **COMPLETE** - Fixed zone detection to use middle lines (upper_avg/lower_avg)
-- **Real-Time Signal Updates** ✅ **COMPLETE** - Alert functionality with JSON format, state tracking
-- **Pine Script Compilation Fixes** ✅ **COMPLETE** - Fixed function ordering and scope warnings
+### Historical Progress (TTE Screener Development)
+- 1.1: Increased symbols from 5 to 20 ✅
+- 1.2: Added NWE indicator (H4 + Daily) ✅
+- 1.3: Added OB & FVG indicator (H4, Daily, Weekly) ✅
+- 1.4: Add Kernel AO regular divergences ✅ (covered by 1.6)
+- 1.5: Add Multi Oscillator same side divergence ✅
+- 1.6: Add Kernel AO regular divergences Logic 2 ✅
+- 1.7: Test Logic 2 divergence matches original indicator ✅
+- 1.9: Implement Regime 1 Reversal signal logic ✅
+- NWE Zone Overlap Fix ✅
+- Real-Time Signal Updates ✅
+- Pine Script Compilation Fixes ✅
 
-### In Progress
-- **Option C Architecture Implementation** - Building tiered screener system
-  - ✅ Created TTE NWE Screener (Tier 1)
-  - ✅ Created tiered_orchestrator.py skeleton
-  - 🔲 Implement `_check_ob_indicator()` method
-  - 🔲 Implement `_check_divergence_indicator()` method
-  - 🔲 Integrate orchestrator with existing alert handling
+### Current Implementation Plan (9 Phases, 17 Tasks)
 
-### Pending Subtasks (in order)
-- Complete Tier 2 indicator check methods (OB & DIV)
-- Test end-to-end flow: NWE alert → hot list → Tier 2 check → signal
-- Deploy multiple NWE screeners for full symbol coverage
+See full plan: `.claude/TIERED_ARCHITECTURE_IMPLEMENTATION_PLAN.md`
 
-### Recently Completed (2026-01-28)
-- **Architecture Decision** ✅ - Evaluated 3 options, chose Option C (Tiered Architecture)
-- **TTE NWE Screener** ✅ - Created lightweight Tier 1 screener for 20 symbols
-- **tiered_orchestrator.py** ✅ - Created Python orchestrator skeleton with hot list management
-- **Conditional Execution Test** ✅ - Proved that conditional indicator execution inside functions causes 41% mismatch rate (history buffer fragmentation)
+| Phase | Task# | Description | Status | Blocked By |
+|-------|-------|-------------|--------|------------|
+| 1 | #1 | Select 20 symbols for deployment | pending | - |
+| 2 | #2 | Create TTE NWE Screener (Tier 1) | pending | #1 |
+| 3 | #3 | Create TTE OBDIV Screener (Tier 2) | pending | #1 |
+| 4 | #4 | Create Stock Buddy API endpoints | pending | - |
+| 5 | #5 | Set up MongoDB collections | pending | - |
+| 6 | #6 | Update Python orchestrator | pending | #4, #5 |
+| 7 | #7 | Dashboard - Statistics Cards | pending | #4 |
+| 7 | #8 | Dashboard - Filter Bar | pending | - |
+| 7 | #9 | Dashboard - Signals Table | pending | - |
+| 7 | #10 | Dashboard - Mobile Cards | pending | - |
+| 7 | #11 | Dashboard - Screenshot Modal | pending | - |
+| 7 | #12 | Dashboard - Notifications | pending | - |
+| 7 | #13 | Dashboard - Real-time Updates | pending | - |
+| 7 | #14 | Dashboard - Distribution Chart | pending | - |
+| 7 | #15 | Dashboard - Main Page Assembly | pending | - |
+| 8 | #16 | End-to-end integration testing | pending | #2, #3, #6, #15 |
+| 9 | #17 | Production deployment | pending | #16 |
 
-### Recently Completed (2026-01-27)
-- **Real-Time Signal Updates Implementation** ✅ **COMPLETE** - Added alert() calls with JSON format, state tracking for change detection
-- **Pine Script Compilation Fixes** ✅ **COMPLETE** - Fixed "function not found" errors and scope warnings
+### Selected 20 Symbols (Phase 1)
+
+```
+Batch 1 (1-10):        Batch 2 (11-20):
+1.  EURUSD             11. GBPAUD
+2.  GBPUSD             12. EURAUD
+3.  USDJPY             13. EURGBP
+4.  USDCHF             14. EURCAD
+5.  AUDUSD             15. GBPCAD
+6.  NZDUSD             16. AUDCAD
+7.  USDCAD             17. NZDJPY
+8.  GBPJPY             18. CADJPY
+9.  EURJPY             19. CHFJPY
+10. AUDJPY             20. AUDNZD
+```
+
+### Key Decisions (2026-01-29)
+1. **Webhooks over Alert Scraping**: Instant delivery, more reliable
+2. **OBDIV without NWE**: Avoids redundant calculation
+3. **No Table in Screener**: Dashboard scales better
+4. **Both Directions in OBDIV**: Python matches with hot list direction
+5. **Screenshot-only Selenium**: TradingView webhooks can't include images
+6. **Batch Processing**: 8 symbols per OBDIV batch (hot list may have more)
 
 ---
 
-## This Session's Work (2026-01-28)
+## This Session's Work (2026-01-29)
+
+### Architecture Refinement and Task Planning ✅
+
+**Goal**: Create comprehensive implementation plan for webhook-based tiered architecture.
+
+**Research Completed:**
+
+1. **Point-Capital Branch Analysis**
+   - Reviewed alert scraping pattern via Selenium
+   - Reviewed MongoDB integration (`local_db.py`)
+   - Understood `send_everywhere()` flow for storing alerts
+
+2. **TradingView Webhook Limitations**
+   - Confirmed: Webhooks can only send JSON data (no images)
+   - Decision: Use webhooks for data, Selenium only for screenshots
+
+3. **Architecture Decisions Made:**
+   - Webhooks replace alert scraping (faster, more reliable)
+   - NWE removed from OBDIV screener (redundant calculation)
+   - Table removed from OBDIV screener (dashboard scales better)
+   - OBDIV reports both directions (Python matches with hot list)
+   - Batch processing for hot symbols (8 per screener run)
+
+**Artifacts Created:**
+
+1. **Implementation Plan Document** ✅
+   - File: `.claude/TIERED_ARCHITECTURE_IMPLEMENTATION_PLAN.md`
+   - 9 phases with detailed specifications
+   - API endpoint code, MongoDB schema
+   - Component tree for dashboard
+   - Signal flow timeline
+   - Deployment and testing checklists
+
+2. **Task Management** ✅
+   - Created 17 tasks across 9 phases
+   - Set up task dependencies
+   - Tasks tracked in Claude Code task system
+
+3. **Task Context Update** ✅
+   - This file updated with new architecture details
+   - Added selected 20 symbols
+   - Added webhook payload formats
+   - Added MongoDB schema
+   - Added dashboard layout
+
+**Session Summary:**
+Successfully transitioned from original tiered architecture concept to refined webhook-based architecture with Stock Buddy dashboard. All planning artifacts created and ready for implementation.
+
+---
+
+## Previous Session's Work (2026-01-28)
 
 ### Conditional Execution Test - FAILED ❌
 
@@ -448,44 +582,140 @@ Implemented Task 1.9: Signal detection logic that checks conditions in order (NW
 
 ---
 
-## Next Steps
+## Next Steps (Recommended Order)
 
-1. **Complete Tier 2 methods** - Implement `_check_ob_indicator()` and `_check_divergence_indicator()` in tiered_orchestrator.py
-2. **Integrate with alert handling** - Connect TieredOrchestrator to existing handle_alerts.py
-3. **Test NWE Screener** - Deploy TTE NWE Screener in TradingView and verify alerts fire correctly
-4. **Deploy multiple screeners** - Create additional NWE screener instances for full symbol coverage
-5. **End-to-end testing** - Test complete flow from NWE alert through Tier 2 checks to final signal
+### Phase 1-3: Pine Script Screeners
+1. **Finalize 20 symbols** (Task #1) - Confirm the forex pairs list
+2. **Create TTE NWE Screener v2** (Task #2) - Webhook-based, 20 symbols, H4+D1
+3. **Create TTE OBDIV Screener** (Task #3) - OB+DIV only, 8 symbols, webhook
+
+### Phase 4-5: Backend Infrastructure
+4. **Create Stock Buddy API endpoints** (Task #4) - 5 endpoints for webhooks + dashboard
+5. **Set up MongoDB collections** (Task #5) - hot_list and signals with indexes
+
+### Phase 6: Python Integration
+6. **Update Python orchestrator** (Task #6) - Poll API, change symbols via Selenium, take screenshots
+
+### Phase 7: Dashboard (Can parallel with Phase 6)
+7. **Build dashboard components** (Tasks #7-15) - Stats, filters, table, mobile, modal, notifications
+
+### Phase 8-9: Testing & Deployment
+8. **End-to-end integration testing** (Task #16) - Full signal flow test
+9. **Production deployment** (Task #17) - Deploy all components
+
+### Quick Start Recommendation
+Begin with Tasks #1, #4, #5 in parallel (no dependencies), then proceed to #2, #3, then #6.
 
 ---
 
 ## Files Referenced
 
-### Option C Architecture Files (NEW)
-- `Pine Script Code/TTE NWE Screener.txt` - **Tier 1** lightweight NWE-only screener (20 symbols)
-- `tiered_orchestrator.py` - **Python orchestrator** for hot list management and Tier 2 checks
-- `Pine Script Code/TTE Conditional Test.txt` - Test script that proved conditional execution doesn't work (41% mismatch)
+### Architecture Documentation
+- `.claude/TIERED_ARCHITECTURE_IMPLEMENTATION_PLAN.md` - **Complete 9-phase implementation plan** with code, schemas, and diagrams
 
-### Original Screener Files
-- `Pine Script Code/TTE Screener.txt` - Original full screener with all 3 indicators (limited to 8 symbols)
-- `Pine Script Code/TTE Internal Div Debug.txt` - Single-symbol test script for debugging internal divergence
+### Pine Script Files
+- `Pine Script Code/TTE NWE Screener.txt` - **Tier 1** lightweight NWE screener (to be refactored for webhooks)
+- `Pine Script Code/TTE Screener.txt` - Original full screener (reference for OBDIV logic)
+- `Pine Script Code/TTE Conditional Test.txt` - Test proving conditional execution doesn't work
 
 ### Reference Indicators
-- `Pine Script Code/Kernel AO Divergence.txt` - Original Kernel AO Divergence indicator
+- `Pine Script Code/Kernel AO Divergence.txt` - Original divergence indicator
 - `Pine Script Code/aoDiv library.txt` - Divergence library
-- `Pine Script Code/Multi Oscillator_swing high low.txt` - Reference for same side divergence
 - `Pine Script Code/Nadaraya Watson Envelope.txt` - Original NWE indicator
 - `Pine Script Code/OB & FVG.txt` - Original Order Block & FVG indicator
 
-### Documentation
-- `Pine Script Code/logic/Regime 1 Reversal logic for SB.md` - Signal requirements
+### Python Files
+- `tiered_orchestrator.py` - **Orchestrator** (to be updated for webhook-based flow)
+- `main.py` - Main entry point
+- `handle_alerts.py` - Alert handling (reference for point-capital pattern)
+- `database/local_db.py` - MongoDB connection (reference)
+
+### Stock Buddy (External Repository)
+- URL: https://stock-buddy-app.vercel.app/
+- API endpoints to create: /api/nwe, /api/obdiv, /api/signals, /api/hot-symbols
+
+### Point-Capital Branch (Reference)
+- Contains MongoDB + alert scraping pattern
+- `Alert message for screeners.md` - JSON formats for OB, NW, SB screeners
 
 ---
 
-## Current Signal Table Columns
-| Symbol | Signal | Lvl | Details |
-|--------|--------|-----|---------|
-| Shows BUY/SELL signals with level (1-3) and which TFs triggered conditions |
+## Stock Buddy Dashboard Layout
 
-**Example Details:** `NWE:H4,D1 OB:W1 DIV:H4` means NWE triggered on H4 and D1, OB on W1, DIV on H4
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  HEADER: Logo | Notifications Badge | Profile                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  STATS GRID                                                                 │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐      │
+│  │ TODAY    │  │ LEVEL 3  │  │ LEVEL 2  │  │ BULLISH  │  │ BEARISH  │      │
+│  │   12     │  │    3     │  │    5     │  │    8     │  │    4     │      │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────┘  └──────────┘      │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  FILTER BAR                                                                 │
+│  Level: [All ▼] Direction: [All ▼] Symbol: [Search...] Period: [24h ▼]     │
+│  Sort: [Time ▼] [↑↓]    [ ] Screenshots only    [🔴 Live]                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  SIGNALS TABLE (Desktop) / CARD GRID (Mobile)                               │
+│  ┌───────┬────────┬───────┬───────┬────────┬──────┬───────┬──────────┐     │
+│  │ Time  │ Symbol │ Dir   │ Level │ NWE    │ OB   │ DIV   │ Actions  │     │
+│  ├───────┼────────┼───────┼───────┼────────┼──────┼───────┼──────────┤     │
+│  │ 14:30 │ GBPAUD │ 🟢BUY │ ⭐⭐⭐│ H4,D1  │ W1   │ H4    │ 📸 📈 🔗 │     │
+│  │ 14:15 │ EURUSD │ 🔴SELL│ ⭐⭐  │ D1     │ H4   │ -     │ 📸 📈 🔗 │     │
+│  └───────┴────────┴───────┴───────┴────────┴──────┴───────┴──────────┘     │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
 
-**Tooltip on Hover:** Shows NWE band prices and OB/FVG type + formation timestamp
+## Webhook Payload Formats
+
+### Tier 1 (NWE Screener → /api/nwe)
+```json
+{
+  "tier": "nwe",
+  "symbol": "GBPAUD",
+  "direction": "bullish",
+  "timeframes": ["H4", "D1"],
+  "timestamp": 1672531200
+}
+```
+
+### Tier 2 (OBDIV Screener → /api/obdiv)
+```json
+{
+  "tier": "obdiv",
+  "symbol": "GBPAUD",
+  "bull_ob": {"found": true, "tf": "W1", "type": "OB"},
+  "bull_div": {"found": true, "tf": "H4", "type": "Logic2"},
+  "bear_ob": {"found": false},
+  "bear_div": {"found": false},
+  "timestamp": 1672531200
+}
+```
+
+## MongoDB Collections
+
+### hot_list
+```javascript
+{
+  symbol: "GBPAUD",
+  direction: "bullish",
+  nwe_timeframes: ["H4", "D1"],
+  status: "pending_tier2",  // pending_tier2 | tier2_complete | expired
+  updated_at: Date
+}
+```
+
+### signals
+```javascript
+{
+  symbol: "GBPAUD",
+  direction: "bullish",
+  level: 3,
+  nwe_tf: ["H4", "D1"],
+  ob_tf: "W1",
+  div_tf: "H4",
+  screenshot_url: "https://...",
+  status: "complete",  // pending_screenshot | complete
+  created_at: Date
+}
+```

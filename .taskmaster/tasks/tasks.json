@@ -2,10 +2,10 @@
   "master": {
     "tasks": [
       {
-        "id": 1,
-        "title": "Get the screener working",
-        "description": "Get the TTE Screener Pine Script indicator fully operational with additional symbols and optimized indicator integrations",
-        "details": "",
+        "id": "1",
+        "title": "Test Orchestrator E2E (Foundation + Core Flow)",
+        "description": "Verify the orchestrator works end-to-end, including verifying symbols in MongoDB, testing all API endpoints, testing TradingView webhook delivery, testing Selenium indicator symbol updates, and testing the full signal flow (NWE → Hot List → OBDIV → Signal creation).",
+        "details": "Subtasks:\n1. Verify symbols exist in MongoDB (import showed 0 in Session 2 - run import_symbols.py again if needed)\n2. Test all Stock Buddy API endpoints work correctly (/api/tte/stats, /api/tte/signals, /api/tte/hot-symbols, /api/tte/symbols/next-batch, etc.)\n3. Test TradingView → Stock Buddy API webhook delivery (manually trigger alerts or wait for real signals)\n4. Test Selenium can update indicator symbol inputs on TradingView\n5. Test full signal flow: NWE webhook → Hot List entry → OBDIV webhook → Signal creation in MongoDB\n\nCommands to use:\n- python tiered_main.py --test-api\n- python tiered_main.py --stats\n- python tiered_main.py --single-cycle\n- curl https://stock-buddy-app.vercel.app/api/tte/stats",
         "testStrategy": "",
         "status": "in-progress",
         "dependencies": [],
@@ -13,59 +13,61 @@
         "subtasks": [
           {
             "id": 1,
-            "title": "Increase 5 symbols to 10 symbols in the screener",
-            "description": "Modify the TTE Screener to support 10 symbols instead of the current 5 symbols limit",
-            "details": "",
+            "title": "1.1: Audit Existing Selenium Code",
+            "description": "Review and document all existing Selenium automation code in the tradingview-to-everywhere project to understand what capabilities already exist and what needs to be developed.",
+            "details": "Files to review:\n- selenium_manager.py - Browser management\n- open_tv.py - TradingView browser automation basics\n- handle_alerts.py - Alert handling (may have alert creation logic)\n- orchestrator.py - Current orchestration logic\n- tiered_orchestrator.py - Legacy orchestrator\n- main.py - Legacy entry point with automation\n\nDocument:\n1. What TradingView automation already exists?\n2. Can it open TradingView charts/layouts?\n3. Can it interact with indicator settings dialogs?\n4. Can it create/edit alerts?\n5. Error handling patterns\n6. What's missing for orchestrator needs\n7. Code quality (selectors, retry logic, waits)\n8. What can be reused vs needs development\n\nOutput: Create docs/SELENIUM_AUDIT_REPORT.md with findings\n<info added on 2026-01-30T12:32:25.287Z>\nAudit complete. Created docs/SELENIUM_AUDIT_REPORT.md with findings.\n\nKey findings:\n- Browser init, navigation, screenshots: Working, reuse as-is\n- Indicator settings update: Implemented but UNTESTED - needs manual validation\n- Alert creation: Partial - basic creation exists, webhook config MISSING\n- Symbol input detection: Heuristic-based, may fail on Pine Scripts\n\nCritical gaps:\n1. No code to configure webhook URLs in alerts\n2. Cannot set {{alert.message}} template programmatically\n3. Indicator settings double-click never validated\n4. Alert creation in open_tv.py is fragile (hardcoded XPaths)\n\nRecommendations:\n1. Test indicator settings flow manually first\n2. Inspect TradingView alert dialog to find webhook selectors\n3. Implement create_webhook_alert() method in selenium_manager.py\n4. Do NOT reuse open_tv.py layout switching code\n</info added on 2026-01-30T12:32:25.287Z>",
             "status": "done",
             "dependencies": [],
             "parentTaskId": 1,
+            "updatedAt": "2026-01-30T12:32:09.704Z",
             "parentId": "undefined"
           },
           {
             "id": 2,
-            "title": "Add NWE indicator to screener and test",
-            "description": "Add Nadaraya Watson Envelope indicator from Pine Script Code/Nadaraya Watson Envelope.txt to the TTE Screener and test if it works across all symbols",
-            "details": "",
-            "status": "done",
+            "title": "1.2: Verify/Seed Symbols in MongoDB",
+            "description": "Check if tte_symbols collection in MongoDB has data. If empty, seed symbols using the import_symbols.py script or Stock Buddy API.",
+            "details": "The orchestrator must read symbols from MongoDB tte_symbols collection, not from local Python files.\n\nSteps:\n1. Check current symbol count via API or direct MongoDB connection\n2. If count = 0, run: python import_symbols.py\n3. Verify symbols imported correctly\n4. Document the symbol structure in MongoDB\n\nThe import_symbols.py script should read from symbol_settings.py and send to Stock Buddy API endpoint /api/tte/symbols/import\n\nExpected symbol counts:\n- Currencies: 30 (Priority A/B)\n- Crypto: 19 (Priority B)\n- Indian Stocks: 266 (Priority C)\n- US Stocks: 608 (Priority C)\n- Indices: 18 (Priority B)\n- Total: ~941 symbols",
+            "status": "in-progress",
             "dependencies": [],
             "parentTaskId": 1,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-01-30T12:32:31.174Z"
           },
           {
             "id": 3,
-            "title": "Add OB & FVG indicator to screener and test",
-            "description": "Add OB & FVG indicator from Pine Script Code/OB & FVG.txt to the TTE Screener and test if it works across all symbols",
-            "details": "",
-            "status": "done",
+            "title": "1.3: Develop Alert Creation Automation",
+            "description": "Develop NEW Selenium code to create TradingView alerts with webhook URLs. This functionality does NOT currently exist.",
+            "details": "CRITICAL: The orchestrator must CREATE new TradingView alerts each time it runs, not just update existing ones (user deleted all alerts).\n\nRequired functionality:\n1. Navigate to TradingView chart with indicator loaded\n2. Click on \"Create Alert\" button (usually top-right)\n3. In alert dialog:\n   - Select condition: The specific screener indicator (NWE or OBDIV)\n   - Set alert name (e.g., \"TTE NWE Webhook\" or \"TTE OBDIV Webhook\")\n   - Set \"Once Per Bar Close\" frequency\n   - Configure webhook URL:\n     * NWE screener → https://stock-buddy-app.vercel.app/api/tte/nwe\n     * OBDIV screener → https://stock-buddy-app.vercel.app/api/tte/obdiv\n   - Set alert message to: {{alert.message}}\n     (This passes the Pine Script JSON payload to webhook)\n4. Click \"Create\" to save alert\n\nError handling:\n- Check if alert already exists (same name)\n- Handle TradingView rate limits\n- Retry logic for failed alert creation\n- Verify alert was created successfully\n\nIntegration:\n- Add to orchestrator.py in Phase 1 (NWE) and Phase 2 (OBDIV)\n- Must run AFTER symbol updates, BEFORE waiting for webhooks\n\nReference: Look at handle_alerts.py for any existing alert code patterns",
+            "status": "pending",
             "dependencies": [],
             "parentTaskId": 1,
             "parentId": "undefined"
           },
           {
             "id": 4,
-            "title": "Add Kernel AO regular divergences to screener and test",
-            "description": "Add only regular divergences (Logic 1 and Logic 2) from Pine Script Code/Kernel AO Divergence.txt to the TTE Screener and test if it works across all symbols",
-            "details": "",
-            "status": "done",
-            "dependencies": [],
-            "parentTaskId": 1,
-            "parentId": "undefined"
-          },
-          {
-            "id": 6,
-            "title": "Add Kernel AO regular divergences Logic 2 to screener and test",
-            "description": "Add Logic 2 regular divergence detection from Pine Script Code/Kernel AO Divergence.txt. Logic 2 uses oscillator range tracking (isKernelBullDiv, isKernelBearDiv functions) comparing AO values between swing points.",
-            "details": "",
-            "status": "done",
+            "title": "1.4: Develop Indicator Settings Automation",
+            "description": "Develop/fix Selenium code to open indicator settings dialog and update symbol input fields. This has NEVER been tested/verified.",
+            "details": "Required functionality:\n1. Find indicator in chart legend (by name)\n2. Double-click indicator title to open settings dialog\n3. Wait for settings dialog to appear\n4. Find all symbol input fields (there are 40 for NWE, 8 for OBDIV)\n5. Update each input field with new symbol\n6. Click \"OK\" to apply changes\n7. Wait for TradingView to recalculate\n\nSymbol format requirements:\n- Must include exchange prefix (e.g., \"OANDA:EURUSD\", \"NSE:RELIANCE\")\n- Empty inputs should be set to empty string \"\" (not removed)\n- Preserve any symbols at end if batch < max capacity\n\nSelectors to find:\n- Indicator in legend: Look for element with indicator name\n- Settings dialog: Modal/dialog container\n- Symbol inputs: Input fields (possibly with data-property-id attribute)\n- OK button: Submit button in dialog\n\nError handling:\n- Indicator not found → log error, skip\n- Dialog doesn't open → retry with fresh page load\n- Input fields not found → check if UI changed, update selectors\n- Timeout waiting for recalculation → log warning, continue\n\nTesting approach:\n- Start with NWE screener (40 symbols)\n- Test with small batch first (5 symbols)\n- Verify symbols appear correctly in indicator\n- Then test OBDIV screener (8 symbols)\n\nIntegration:\n- Add function to selenium_manager.py or new tv_automation.py\n- Call from orchestrator.py Phase 1 and Phase 2",
+            "status": "pending",
             "dependencies": [],
             "parentTaskId": 1,
             "parentId": "undefined"
           },
           {
             "id": 5,
-            "title": "Add Multi Oscillator same side divergence to screener and test",
-            "description": "Add only regular same side divergence from Pine Script Code/Multi Oscillator_swing high low.txt to the TTE Screener and test if it works across all symbols",
-            "details": "",
+            "title": "1.5: Test NWE Webhook Flow",
+            "description": "Test the complete NWE webhook flow: TradingView NWE Screener → Stock Buddy API → hot_list creation",
+            "details": "Prerequisites:\n- Subtask 1.3 complete (alert creation working)\n- Subtask 1.4 complete (indicator settings working)\n- NWE screener with test timeframes (5m, 15m) loaded on TradingView\n- Alert configured with webhook URL\n\nTest procedure:\n1. Ensure NWE screener is loaded with 5m/15m timeframes (faster signals)\n2. Monitor TradingView chart for NWE zone entry\n3. When alert fires, check Stock Buddy logs/database\n4. Verify webhook payload received at /api/tte/nwe\n5. Verify hot_list entry created in MongoDB with:\n   - Correct symbol\n   - Correct direction (bullish/bearish)\n   - Correct timeframes array\n   - Status = \"pending_tier2\"\n\nCommands:\n- Check logs: Check Vercel logs or local API logs\n- Check hot_list: curl https://stock-buddy-app.vercel.app/api/tte/hot-symbols\n- Check stats: curl https://stock-buddy-app.vercel.app/api/tte/stats\n\nTroubleshooting:\n- If no webhook received → Check TradingView alert configuration\n- If wrong data → Check Pine Script alert message format\n- If API error → Check Stock Buddy API logs\n- If not in hot_list → Check MongoDB connection\n\nSuccess criteria:\n- Webhook received within 5 seconds of TradingView alert\n- hot_list entry created with correct data\n- Entry visible via /api/tte/hot-symbols endpoint",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 1,
+            "parentId": "undefined"
+          },
+          {
+            "id": 6,
+            "title": "1.6: Test OBDIV Webhook Flow",
+            "description": "Test the complete OBDIV webhook flow: hot_list → TradingView OBDIV Screener → Stock Buddy API → signal creation",
+            "details": "Prerequisites:\n- Subtask 1.5 complete (NWE flow working, hot symbols exist)\n- OBDIV screener with test timeframes (5m, 15m, 1H) loaded\n- Alert configured with webhook URL\n- At least one symbol in hot_list\n\nTest procedure:\n1. Verify hot symbols exist: curl https://stock-buddy-app.vercel.app/api/tte/hot-symbols\n2. Run orchestrator Phase 2 to update OBDIV symbols\n3. Wait for OBDIV screener to recalculate and fire alert\n4. Verify webhook payload received at /api/tte/obdiv with both bullish and bearish findings\n5. Verify signal created in tte_signals collection with:\n   - Correct symbol (matches hot_list)\n   - Correct direction (from hot_list)\n   - Correct level (1/2/3 based on findings)\n   - Correct timeframe details\n   - Status = \"pending_screenshot\"\n\nSignal level logic:\n- Level 1: NWE only (shouldn't happen in OBDIV flow)\n- Level 2: NWE + OB/FVG found\n- Level 3: NWE + OB/FVG + Divergence found\n\nCommands:\n- Check signals: curl https://stock-buddy-app.vercel.app/api/tte/signals\n- Check specific signal: curl https://stock-buddy-app.vercel.app/api/tte/signals?symbol=GBPAUD\n\nTroubleshooting:\n- If no webhook → Check OBDIV alert exists and is enabled\n- If wrong direction → Verify API combines OBDIV findings with hot_list direction\n- If wrong level → Check OB/DIV detection logic in API\n- If not in signals → Check MongoDB connection and API logs\n\nSuccess criteria:\n- Signal created with correct level\n- Direction matches hot_list entry\n- Timeframe details populated correctly\n- Signal visible in dashboard",
             "status": "pending",
             "dependencies": [],
             "parentTaskId": 1,
@@ -73,69 +75,88 @@
           },
           {
             "id": 7,
-            "title": "Test Logic 2 divergence matches original Kernel AO Divergence indicator",
-            "description": "Verify the screener's Logic 2 divergence detection matches the original Kernel AO Divergence indicator. Add both indicators to the same chart, enable 'Show Kernel Reg Divergence with logic 2?' in the original, and compare divergence signals on H4 and D1 timeframes across multiple symbols.",
-            "details": "",
-            "status": "done",
+            "title": "1.7: Test Screenshot Capture",
+            "description": "Test screenshot capture: navigating to chart, capturing TradingView snapshot, updating signal with URL",
+            "details": "Prerequisites:\n- Subtask 1.6 complete (signals created)\n- At least one signal with status=\"pending_screenshot\"\n\nTest procedure:\n1. Get pending screenshots: curl https://stock-buddy-app.vercel.app/api/tte/signals?status=pending_screenshot\n2. Run orchestrator Phase 3 or manually test screenshot capture\n3. For each signal:\n   - Navigate to symbol chart\n   - Change to appropriate timeframe (from signal.ob_tf or signal.nwe_tf[0])\n   - Wait for chart to load\n   - Take TradingView snapshot (Camera icon → Publish snapshot)\n   - Extract snapshot URL\n   - Update signal via PATCH /api/tte/signals/{id}\n\nScreenshot capture methods:\n- TradingView's built-in snapshot feature (preferred)\n- Selenium screenshot (fallback)\n\nError handling:\n- Chart doesn't load → retry after delay\n- Snapshot fails → log error, mark as \"screenshot_failed\"\n- URL not extracted → try alternative method\n- API update fails → retry with exponential backoff\n\nCommands:\n- Test screenshot: python tiered_main.py --single-cycle (Phase 3 only)\n- Verify update: curl https://stock-buddy-app.vercel.app/api/tte/signals?status=complete\n\nSuccess criteria:\n- Screenshot URL captured successfully\n- Signal updated with screenshot_url\n- Status changed to \"complete\"\n- Screenshot accessible (URL loads image)\n- Screenshot shows correct symbol and timeframe",
+            "status": "pending",
             "dependencies": [],
             "parentTaskId": 1,
-            "updatedAt": "2026-01-25T11:54:13.802Z",
             "parentId": "undefined"
           },
           {
             "id": 8,
-            "title": "Add Kernel AO regular divergences Logic 1 to screener and test",
-            "description": "Add Logic 1 regular divergence detection from Pine Script Code/Kernel AO Divergence.txt. Logic 1 uses pivot-based detection comparing price and AO values at pivot highs/lows.",
-            "details": "",
+            "title": "1.8: Full Cycle Integration Test",
+            "description": "Run complete orchestrator cycle end-to-end to verify entire system works: rotation → NWE → hot_list → OBDIV → signals → screenshots → dashboard",
+            "details": "Prerequisites:\n- All previous subtasks complete (1.1-1.7)\n- Symbols in MongoDB\n- Both screeners on TradingView with test timeframes\n- Alerts configured\n- Orchestrator code updated\n\nFull cycle test:\n1. Initialize rotation state: python tiered_main.py --init\n2. Start orchestrator: python tiered_main.py\n3. Monitor complete flow:\n\nPhase 1 - NWE Rotation:\n- Orchestrator calls /api/tte/symbols/next-batch\n- Updates NWE screener symbols (40 symbols)\n- Creates/updates NWE alert\n- Waits 60-120 seconds\n- TradingView fires NWE webhooks\n- hot_list populated\n\nPhase 2 - OBDIV Processing:\n- Orchestrator calls /api/tte/hot-symbols\n- Updates OBDIV screener symbols (8 symbols)\n- Creates/updates OBDIV alert\n- Waits 30-60 seconds\n- TradingView fires OBDIV webhooks\n- Signals created\n\nPhase 3 - Screenshots:\n- Orchestrator calls /api/tte/signals?status=pending_screenshot\n- Captures screenshots for each signal\n- Updates signals with URLs\n\n4. Verify dashboard displays correctly at https://stock-buddy-app.vercel.app/tte\n\nMonitoring commands:\n- Watch logs: tail -f logs/orchestrator.log\n- Check stats: python tiered_main.py --stats\n- Check hot list: curl https://stock-buddy-app.vercel.app/api/tte/hot-symbols\n- Check signals: curl https://stock-buddy-app.vercel.app/api/tte/signals\n\nSuccess criteria:\n- Full cycle completes without errors\n- Signals appear in correct level columns on dashboard\n- Screenshots display correctly\n- No missing data\n- Performance acceptable (<10 minutes per cycle)\n\nDocument:\n- Any bugs found\n- Performance bottlenecks\n- Improvements needed",
             "status": "pending",
             "dependencies": [],
-            "parentTaskId": 1
-          },
-          {
-            "id": 9,
-            "title": "Implement Regime 1 Reversal signal logic",
-            "description": "Add the signal generation logic from Regime 1 Reversal logic for SB.md. For each symbol, check conditions in order: 1) NWE zone overlap (H4/D1), 2) OB/FVG overlap (H4/D1/W1), 3) Divergence on shift 0 (H4/D1). Send alert if at least one condition is true in that order. Bullish: lower NWE zones + bullish OB/FVG/breaker support + bullish divergence. Bearish: upper NWE zones + bearish OB/FVG/breaker resistance + bearish divergence.",
-            "details": "Implementation steps:\n1. Add NWE zone detection (lower_avg/lower_far for bullish, upper_avg/upper_far for bearish)\n2. Check conditions in sequential order as specified in logic doc\n3. Build JSON alert message with all fulfilled conditions\n4. Send alert only when at least one condition in order is true\n5. Test with sample symbols to verify signal generation",
-            "status": "pending",
-            "dependencies": [],
-            "parentTaskId": 1
+            "parentTaskId": 1,
+            "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-01-25T11:54:13.802Z"
+        "updatedAt": "2026-01-30T12:32:31.174Z"
       },
       {
-        "id": 2,
-        "title": "Optimize the screener to make it load faster",
-        "description": "Optimize the TTE Screener Pine Script indicator to improve loading performance and reduce computation time",
-        "details": "",
+        "id": "2",
+        "title": "Remove Debug Tables from Screeners + Set Shorter Timeframes for Testing",
+        "description": "Remove the debug table display from both TTE NWE Screener and TTE OBDIV Screener Pine Scripts to reduce processing load. Also change the timeframes to shorter intervals (e.g., 5m, 15m) for faster testing cycles.",
+        "details": "Changes needed in Pine Scripts:\n1. TTE NWE Screener v2.txt - Remove/comment out table display code, change timeframes from H4/D1 to shorter ones like 5m/15m for testing\n2. TTE OBDIV Screener v2.txt - Remove/comment out table display code, change timeframes from H4/D1/W1 to shorter ones like 5m/15m/1H for testing\n\nPurpose: Faster iteration during testing - shorter timeframes mean signals fire more frequently, allowing quicker verification of the entire flow.\n\nNote: This is TEMPORARY for testing. Task 4 will restore proper timeframes.",
         "testStrategy": "",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [],
+        "priority": "high",
+        "subtasks": [],
+        "updatedAt": "2026-01-30T10:56:07.311Z"
+      },
+      {
+        "id": "3",
+        "title": "Add Signals Matrix Table to Stock Buddy Dashboard",
+        "description": "Add a signals matrix table to the Stock Buddy TTE dashboard showing all symbols and their signal status across different levels and timeframes.",
+        "details": "Table structure:\n- Column 1: Symbol\n- Level 1 columns (NWE hot symbols): H4, Daily\n- Level 2 columns (OB): H4, Daily, Weekly  \n- Level 3 columns (DIV): H4, Daily\n\nVisual indicators:\n- Green cell = bullish signal detected\n- Red cell = bearish signal detected\n- Empty/gray = no signal\n\nData source:\n- Level 1 data: tte_hot_list collection (NWE triggers)\n- Level 2 data: tte_signals collection where level >= 2 (OB found)\n- Level 3 data: tte_signals collection where level = 3 (DIV found)\n\nFile to modify: C:\\Users\\dassa\\Work\\Stock-Buddy-App\\src\\app\\tte\\page.tsx\n\nThis table provides at-a-glance visibility of which symbols have signals at which levels and timeframes.",
+        "testStrategy": "",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": [],
+        "updatedAt": "2026-01-30T10:56:11.616Z"
+      },
+      {
+        "id": "4",
+        "title": "Reset Screener Timeframes to Production Values",
+        "description": "After testing is complete, restore the proper production timeframes in both TradingView screeners.",
+        "details": "Production timeframe configuration:\n\nTTE NWE Screener:\n- H4 (240 minutes)\n- Daily (D)\n\nTTE OBDIV Screener - OB/FVG detection:\n- H4 (240 minutes)\n- Daily (D)\n- Weekly (W)\n\nTTE OBDIV Screener - Divergence detection:\n- H4 (240 minutes)\n- Daily (D)\n\nUpdate the Pine Script files in:\nC:\\Users\\dassa\\Work\\For Poolsifi\\tradingview to everywhere\\Pine Script Code\\\n\nThen update the indicators on TradingView with the corrected code.",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          "1",
+          "2"
+        ],
         "priority": "medium",
         "subtasks": []
       },
       {
-        "id": 3,
-        "title": "Optimize the TTE Screener to load faster",
-        "description": "Research and implement optimizations to make the TTE Screener Pine Script load faster while maintaining all functionality",
-        "details": "",
+        "id": "5",
+        "title": "Full E2E Test - Verify Signals Display Correctly on Dashboard",
+        "description": "Perform a full end-to-end test to verify that signals from all symbols detected by TradingView's NWE and OBDIV screeners correctly display in the Stock Buddy dashboard's signals matrix table.",
+        "details": "Test procedure:\n1. Start the Python orchestrator: python tiered_main.py\n2. Monitor TradingView for NWE zone entries (Tier 1 signals)\n3. Verify hot symbols appear in Stock Buddy API: curl https://stock-buddy-app.vercel.app/api/tte/hot-symbols\n4. Wait for OBDIV screener to process hot symbols\n5. Verify signals appear in Stock Buddy API: curl https://stock-buddy-app.vercel.app/api/tte/signals\n6. Check the dashboard table at https://stock-buddy-app.vercel.app/tte\n7. Verify correct cells are highlighted (Level 1/2/3, correct timeframes, correct direction colors)\n\nSuccess criteria:\n- All symbols with NWE triggers show in Level 1 columns\n- Symbols with OB/FVG overlap show in Level 2 columns\n- Symbols with Divergence show in Level 3 columns\n- Green = bullish, Red = bearish\n- No missing signals, no false positives\n\nDocument any discrepancies found.",
         "testStrategy": "",
-        "status": "done",
-        "dependencies": [],
+        "status": "pending",
+        "dependencies": [
+          "3",
+          "4"
+        ],
         "priority": "high",
         "subtasks": []
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-01-25T11:54:13.805Z",
-      "taskCount": 3,
-      "completedCount": 1,
+      "lastModified": "2026-01-30T12:32:31.175Z",
+      "taskCount": 5,
+      "completedCount": 2,
       "tags": [
         "master"
-      ],
-      "created": "2026-01-25T12:10:09.477Z",
-      "description": "Tasks for master context"
+      ]
     }
   }
 }

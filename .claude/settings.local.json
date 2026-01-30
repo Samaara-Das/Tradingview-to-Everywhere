@@ -7,7 +7,12 @@
       "Skill(pinescript)",
       "Skill(commit-push)",
       "mcp__task-master-ai__get_task",
-      "mcp__task-master-ai__get_tasks"
+      "mcp__task-master-ai__get_tasks",
+      "WebFetch(domain:stock-buddy-app.vercel.app)",
+      "WebSearch",
+      "Bash(dir \"C:\\\\Users\\\\dassa\\\\Work\\\\For Poolsifi\\\\tradingview to everywhere\\\\stock-buddy\" /b)",
+      "WebFetch(domain:claude.ai)",
+      "Bash(python -m py_compile:*)"
     ]
   },
   "enabledPlugins": {
