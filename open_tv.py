@@ -962,6 +962,189 @@ class Browser:
             )
             return False
 
+    def create_webhook_alert(self, indicator_shorttitle: str, webhook_url: str):
+        """Creates a TradingView alert with webhook notification for the specified indicator.
+
+        This method:
+        1. Opens the alert creation dialog
+        2. Selects the indicator condition from the dropdown
+        3. Navigates to the Notifications tab
+        4. Enables the webhook checkbox
+        5. Fills in the webhook URL
+        6. Sets the message to {{alert.message}}
+        7. Submits the alert
+
+        Args:
+            indicator_shorttitle: The short title of the indicator to create an alert for
+            webhook_url: The URL that TradingView will POST to when the alert triggers
+
+        Returns:
+            bool: True if the alert was created successfully, False otherwise
+        """
+        try:
+            self.utils.open_alert_tab(self.driver)
+
+            # Click the + button to open alert creation dialog
+            plus_button = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable(
+                    (By.CSS_SELECTOR, 'div[data-name="set-alert-button"]')
+                )
+            )
+            plus_button.click()
+            open_tv_logger.info("Clicked on the + button to create webhook alert")
+
+            # Wait for the alert dialog to appear
+            popup = WebDriverWait(self.driver, 10).until(
+                EC.visibility_of_element_located(
+                    (By.CSS_SELECTOR, 'div[data-qa-id="alerts-create-edit-dialog"]')
+                )
+            )
+            open_tv_logger.info("Alert creation dialog appeared")
+
+            # Select the indicator from the condition dropdown
+            condition_dropdown = WebDriverWait(popup, 10).until(
+                EC.element_to_be_clickable(
+                    (
+                        By.CSS_SELECTOR,
+                        'span[data-qa-id="ui-kit-disclosure-control main-series-select"]',
+                    )
+                )
+            )
+            condition_dropdown.click()
+            open_tv_logger.info("Opened condition dropdown")
+
+            # Wait for dropdown menu and find the indicator
+            dropdown_menu = WebDriverWait(self.driver, 10).until(
+                EC.visibility_of_element_located(
+                    (
+                        By.CSS_SELECTOR,
+                        'div[data-qa-id="ui-kit-disclosure-popup popup-menu-container main-series-select"]',
+                    )
+                )
+            )
+            options = dropdown_menu.find_elements(By.CSS_SELECTOR, 'div[role="option"]')
+            indicator_found = False
+            for option in options:
+                if indicator_shorttitle in option.text:
+                    option.click()
+                    indicator_found = True
+                    open_tv_logger.info(
+                        f"Selected indicator '{indicator_shorttitle}' from dropdown"
+                    )
+                    break
+
+            if not indicator_found:
+                open_tv_logger.error(
+                    f"Could not find indicator '{indicator_shorttitle}' in dropdown"
+                )
+                self._close_alert_dialog()
+                return False
+
+            sleep(0.5)  # Brief pause after selecting condition
+
+            # Navigate to the Notifications tab
+            notifications_tab = WebDriverWait(popup, 10).until(
+                EC.element_to_be_clickable(
+                    (By.CSS_SELECTOR, "#alert-dialog-tabs__notifications")
+                )
+            )
+            notifications_tab.click()
+            open_tv_logger.info("Clicked on Notifications tab")
+
+            sleep(0.5)  # Brief pause for tab content to load
+
+            # Enable the webhook checkbox if not already enabled
+            webhook_checkbox = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located(
+                    (By.CSS_SELECTOR, 'input[data-qa-id="webhook"]')
+                )
+            )
+            if not webhook_checkbox.is_selected():
+                # Click the label or parent element since input might not be directly clickable
+                webhook_label = webhook_checkbox.find_element(By.XPATH, "./..")
+                webhook_label.click()
+                open_tv_logger.info("Enabled webhook checkbox")
+            else:
+                open_tv_logger.info("Webhook checkbox was already enabled")
+
+            # Fill in the webhook URL
+            webhook_url_input = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "#webhook-url"))
+            )
+            webhook_url_input.clear()
+            webhook_url_input.send_keys(webhook_url)
+            open_tv_logger.info(f"Entered webhook URL: {webhook_url}")
+
+            # Navigate to the Message tab to set the message
+            message_tab = WebDriverWait(popup, 10).until(
+                EC.element_to_be_clickable(
+                    (By.CSS_SELECTOR, "#alert-dialog-tabs__message")
+                )
+            )
+            message_tab.click()
+            open_tv_logger.info("Clicked on Message tab")
+
+            sleep(0.5)  # Brief pause for tab content to load
+
+            # Find the message textarea and set it to {{alert.message}}
+            message_textarea = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located(
+                    (By.CSS_SELECTOR, 'textarea[id="alert-message"]')
+                )
+            )
+            message_textarea.clear()
+            message_textarea.send_keys("{{alert.message}}")
+            open_tv_logger.info("Set alert message to {{alert.message}}")
+
+            # Submit the alert
+            submit_button = self.driver.find_element(
+                By.CSS_SELECTOR, 'button[data-qa-id="submit"]'
+            )
+            submit_button.click()
+            open_tv_logger.info('Clicked "Create" to submit the alert')
+
+            # Check for errors
+            try:
+                WebDriverWait(self.driver, 2.5).until(
+                    EC.presence_of_element_located(
+                        (
+                            By.CSS_SELECTOR,
+                            'div[data-qa-id="alerts-create-edit-dialog"] div[data-name="error-hint"]',
+                        )
+                    )
+                )
+                open_tv_logger.error("Error occurred while creating webhook alert")
+                self._close_alert_dialog()
+                return False
+            except TimeoutException:
+                open_tv_logger.info(
+                    f"Webhook alert created successfully for {indicator_shorttitle}"
+                )
+                return True
+
+        except Exception as e:
+            open_tv_logger.exception(
+                f"Error occurred when creating webhook alert for {indicator_shorttitle}. Error:"
+            )
+            self._close_alert_dialog()
+            return False
+
+    def _close_alert_dialog(self):
+        """Helper method to close the alert creation dialog if it's open."""
+        try:
+            popup = self.driver.find_element(
+                By.CSS_SELECTOR, 'div[data-qa-id="alerts-create-edit-dialog"]'
+            )
+            if popup:
+                close_buttons = popup.find_elements(
+                    By.CSS_SELECTOR, 'button[data-name="close"]'
+                )
+                if close_buttons:
+                    close_buttons[0].click()
+                    open_tv_logger.info("Closed alert creation dialog")
+        except Exception:
+            pass
+
     def indicator_visibility(self, make_visible: bool, shorttitle: str):
         """Makes `shorttitle` indicator visible or hidden by clicking on the indicator's 👁️ button"""
         HIDDEN = "Hidden"
