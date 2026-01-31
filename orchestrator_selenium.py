@@ -425,8 +425,7 @@ class OrchestratorSelenium:
             )
 
             # Clear existing text using Ctrl+A pattern
-            ActionChains(driver).key_down(Keys.CONTROL, search_input).send_keys("a").perform()
-            search_input.send_keys(Keys.DELETE)
+            self._clear_input(search_input)
 
             # Enter symbol and press Enter
             search_input.send_keys(symbol)
@@ -609,8 +608,7 @@ class OrchestratorSelenium:
                     )
 
                     # Clear with Ctrl+A/Delete (more reliable than .clear())
-                    ActionChains(driver).key_down(Keys.CONTROL, search_input).send_keys('a').key_up(Keys.CONTROL).perform()
-                    search_input.send_keys(Keys.DELETE)
+                    self._clear_input(search_input)
                     time.sleep(0.1)
 
                     # Type symbol and submit
@@ -735,6 +733,20 @@ class OrchestratorSelenium:
             element
         )
         time.sleep(0.3)
+
+    def _clear_input(self, element) -> None:
+        """
+        Clear input field using Ctrl+A + Delete pattern.
+
+        More reliable than element.clear() on TradingView inputs.
+        Uses ActionChains for proper key registration on Windows.
+
+        Args:
+            element: WebElement input field to clear
+        """
+        driver = self.get_driver()
+        ActionChains(driver).key_down(Keys.CONTROL, element).send_keys('a').key_up(Keys.CONTROL).perform()
+        element.send_keys(Keys.DELETE)
 
     def open_alert_tab(self) -> bool:
         """
@@ -1089,10 +1101,9 @@ class OrchestratorSelenium:
             webhook_input = wait.until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, TVSelectors.WEBHOOK_URL_INPUT))
             )
-            # Click to focus, Ctrl+A to select all existing text, then type new URL
+            # Click to focus, clear existing text, then type new URL
             webhook_input.click()
-            webhook_input.send_keys(Keys.CONTROL + 'a')
-            webhook_input.send_keys(Keys.DELETE)
+            self._clear_input(webhook_input)
             webhook_input.send_keys(webhook_url)
             time.sleep(0.5)
 

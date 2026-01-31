@@ -81,8 +81,8 @@ def retry_on_failure(max_retries: int = 3, delay: float = 2.0,
 class TVSelectors:
     """TradingView UI selectors organized by function."""
 
-    # Legend / Indicator
-    LEGEND_ITEM = 'div[data-name="legend-source-item"]'
+    # Legend / Indicator (FIXED: data-qa-id, not data-name - verified 2026-01-31)
+    LEGEND_ITEM = 'div[data-qa-id="legend-source-item"]'
     INDICATOR_TITLE = 'div[class*="title"]'
     INDICATOR_SETTINGS_DIALOG = '[data-dialog-name="indicatorSettings"], .tv-dialog--indicator-properties'
 
@@ -327,10 +327,10 @@ class SeleniumManager:
         wait = WebDriverWait(driver, self.config.SELENIUM_EXPLICIT_WAIT)
 
         try:
-            # Find indicator in legend area (using selector from open_tv.py)
+            # Find indicator in legend area (FIXED: data-qa-id, not data-name)
             indicators = wait.until(
                 EC.presence_of_all_elements_located(
-                    (By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')
+                    (By.CSS_SELECTOR, 'div[data-qa-id="legend-source-item"]')
                 )
             )
             
@@ -485,7 +485,11 @@ class SeleniumManager:
         self.set_symbol_inputs(symbols, max_inputs=20)
         self.click_ok_button()
 
-        logger.info("NWE screener symbols updated")
+        # Delete existing alerts and create new webhook alert
+        self.delete_all_alerts()
+        self.create_webhook_alert("TTE NWE Screener", self.config.NWE_WEBHOOK_URL, "NWE Alert")
+
+        logger.info("NWE screener symbols updated and alert created")
 
     def update_obdiv_symbols(self, symbols: List[str]):
         """
@@ -504,7 +508,11 @@ class SeleniumManager:
         self.set_symbol_inputs(symbols[:8], max_inputs=8)
         self.click_ok_button()
 
-        logger.info("OBDIV screener symbols updated")
+        # Delete existing alerts and create new webhook alert
+        self.delete_all_alerts()
+        self.create_webhook_alert("TTE OBDIV Screener", self.config.OBDIV_WEBHOOK_URL, "OBDIV Alert")
+
+        logger.info("OBDIV screener symbols updated and alert created")
 
     def set_symbol_inputs_by_label(self, symbols: List[str], label_prefix: str = "Symbol"):
         """

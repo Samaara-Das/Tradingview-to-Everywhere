@@ -13,6 +13,7 @@ Usage:
 """
 
 import sys
+import time
 import argparse
 from config import Config
 from utils.logger import logger
@@ -340,19 +341,13 @@ Examples:
                 if symbols:
                     print(f"Symbols: {', '.join(symbols[:5])}..." if len(symbols) > 5 else f"Symbols: {', '.join(symbols)}")
                     
-                    print(f"\nNavigating to NWE chart: {Config.NWE_CHART_URL}")
-                    browser.navigate_to_chart(Config.NWE_CHART_URL)
-                    print("[OK] Chart loaded")
-                    
-                    print(f"\nWaiting {Config.NWE_BATCH_WAIT}s for NWE scan (simulated - press Enter to skip)...")
-                    # In single-cycle mode, allow skipping the wait
-                    try:
-                        # For testing, just wait a short time
-                        import time
-                        time.sleep(5)
-                        print("[OK] NWE scan wait complete (shortened for test)")
-                    except:
-                        pass
+                    print(f"\nUpdating NWE screener with {len(symbols)} symbols...")
+                    browser.update_nwe_symbols(symbols)
+                    print("[OK] NWE screener updated with symbols and alert created")
+
+                    print(f"\nWaiting {Config.NWE_BATCH_WAIT}s for NWE scan...")
+                    time.sleep(Config.NWE_BATCH_WAIT)
+                    print("[OK] NWE scan wait complete")
                     
                     # Mark as scanned
                     api.mark_symbols_scanned(symbols)
@@ -372,13 +367,12 @@ Examples:
                 symbols = [s['symbol'] for s in hot_symbols]
                 print(f"Got {len(symbols)} hot symbols: {', '.join(symbols)}")
                 
-                print(f"\nNavigating to OBDIV chart: {Config.OBDIV_CHART_URL}")
-                browser.navigate_to_chart(Config.OBDIV_CHART_URL)
-                print("[OK] Chart loaded")
-                
-                print(f"\nWaiting {Config.OBDIV_BATCH_WAIT}s for OBDIV scan (shortened for test)...")
-                import time
-                time.sleep(3)
+                print(f"\nUpdating OBDIV screener with {len(symbols)} symbols...")
+                browser.update_obdiv_symbols(symbols)
+                print("[OK] OBDIV screener updated with symbols and alert created")
+
+                print(f"\nWaiting {Config.OBDIV_BATCH_WAIT}s for OBDIV scan...")
+                time.sleep(Config.OBDIV_BATCH_WAIT)
                 print("[OK] OBDIV scan wait complete")
             else:
                 print("[INFO] No hot symbols pending OBDIV check")

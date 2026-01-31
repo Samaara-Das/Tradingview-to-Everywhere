@@ -49,6 +49,19 @@ class Config:
     OBDIV_CHART_URL = os.getenv('OBDIV_CHART_URL', '')
 
     # ===========================================
+    # Webhook URLs
+    # ===========================================
+
+    NWE_WEBHOOK_URL = os.getenv(
+        'NWE_WEBHOOK_URL',
+        'https://stock-buddy-app.vercel.app/api/tte/nwe'
+    )
+    OBDIV_WEBHOOK_URL = os.getenv(
+        'OBDIV_WEBHOOK_URL',
+        'https://stock-buddy-app.vercel.app/api/tte/obdiv'
+    )
+
+    # ===========================================
     # Logging
     # ===========================================
 
