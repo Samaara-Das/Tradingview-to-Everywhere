@@ -13,6 +13,11 @@ Usage:
     python tiered_main.py --stats          # Show system statistics
 """
 
+import os
+
+# Skip MongoDB symbols loading - tiered orchestrator gets symbols from API
+os.environ["SKIP_MONGODB_SYMBOLS"] = "true"
+
 import argparse
 import sys
 import logging
@@ -88,7 +93,9 @@ def test_api() -> bool:
         print(f"  Batch #{batch.get('batch_number', '?')}: {len(symbols)} symbols")
         if symbols:
             sample = symbols[:3]
-            print(f"  Sample: {[s['symbol'] if isinstance(s, dict) else s for s in sample]}")
+            print(
+                f"  Sample: {[s['symbol'] if isinstance(s, dict) else s for s in sample]}"
+            )
     else:
         print(f"  Batch fetch failed: {batch.get('error', 'Unknown error')}")
 
@@ -154,10 +161,10 @@ def test_browser() -> bool:
             drawer_name="",
             interval_minutes=10,
             start_fresh=False,
-            screener_ob_short="TTE NWE Screener v2",
-            screener_ob_name="TTE NWE Screener v2",
-            screener_nw_short="TTE OBDIV Screener v2",
-            screener_nw_name="TTE OBDIV Screener v2",
+            screener_ob_short="TTE NWE Screener",
+            screener_ob_name="TTE NWE Screener",
+            screener_nw_short="TTE OBDIV Screener",
+            screener_nw_name="TTE OBDIV Screener",
             screener_sb_short="",
             screener_sb_name="",
         )
@@ -170,6 +177,7 @@ def test_browser() -> bool:
         browser.driver.get(test_url)
 
         import time
+
         time.sleep(3)
 
         print(f"Current URL: {browser.driver.current_url}")
@@ -180,7 +188,9 @@ def test_browser() -> bool:
         page_source = browser.driver.page_source
         if "Sign in" in page_source and "Sign up" in page_source:
             print("Login status: NOT LOGGED IN")
-            print("Please log in to TradingView manually before running the orchestrator.")
+            print(
+                "Please log in to TradingView manually before running the orchestrator."
+            )
         else:
             print("Login status: LOGGED IN")
 
@@ -237,38 +247,28 @@ Examples:
   python tiered_main.py --validate     Check configuration
   python tiered_main.py --test-api     Test API connection
   python tiered_main.py --stats        Show system statistics
-        """
+        """,
     )
 
     parser.add_argument(
-        "--validate",
-        action="store_true",
-        help="Validate configuration and exit"
+        "--validate", action="store_true", help="Validate configuration and exit"
     )
     parser.add_argument(
-        "--test-api",
-        action="store_true",
-        help="Test API connection and exit"
+        "--test-api", action="store_true", help="Test API connection and exit"
     )
     parser.add_argument(
-        "--stats",
-        action="store_true",
-        help="Show system statistics and exit"
+        "--stats", action="store_true", help="Show system statistics and exit"
     )
     parser.add_argument(
-        "--single-cycle",
-        action="store_true",
-        help="Run only one cycle then exit"
+        "--single-cycle", action="store_true", help="Run only one cycle then exit"
     )
     parser.add_argument(
         "--init",
         action="store_true",
-        help="Initialize/reset rotation state (not yet implemented)"
+        help="Initialize/reset rotation state (not yet implemented)",
     )
     parser.add_argument(
-        "--test-browser",
-        action="store_true",
-        help="Test browser automation and exit"
+        "--test-browser", action="store_true", help="Test browser automation and exit"
     )
 
     args = parser.parse_args()
