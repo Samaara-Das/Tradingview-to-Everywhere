@@ -138,24 +138,31 @@ def get_symbol_categories():
 
 
 # Update the global symbols and categories to use MongoDB by default
-# This will fail if MongoDB is unavailable
-try:
-    _mongodb_main_symbols = get_symbols()
-    _mongodb_symbol_categories = get_symbol_categories()
+# Skip if SKIP_MONGODB_SYMBOLS is set (used by tiered orchestrator which gets symbols from API)
+_skip_mongodb = os.getenv("SKIP_MONGODB_SYMBOLS", "").lower() in ("true", "1", "yes")
 
-    # Update global variables with MongoDB data
-    main_symbols.clear()
-    main_symbols.update(_mongodb_main_symbols)
-    symbol_logger.info("Updated main_symbols with data from MongoDB")
+if _skip_mongodb:
+    symbol_logger.info("SKIP_MONGODB_SYMBOLS is set - skipping MongoDB symbol loading")
+else:
+    try:
+        _mongodb_main_symbols = get_symbols()
+        _mongodb_symbol_categories = get_symbol_categories()
 
-    symbol_categories.clear()
-    symbol_categories.update(_mongodb_symbol_categories)
-    symbol_logger.info("Updated symbol_categories with data from MongoDB")
+        # Update global variables with MongoDB data
+        main_symbols.clear()
+        main_symbols.update(_mongodb_main_symbols)
+        symbol_logger.info("Updated main_symbols with data from MongoDB")
 
-except Exception as e:
-    symbol_logger.error(f"Failed to load symbols from MongoDB: {e}")
-    symbol_logger.error("Application will not function without MongoDB symbols data")
-    raise RuntimeError(f"Critical error: Cannot load symbols from MongoDB: {e}")
+        symbol_categories.clear()
+        symbol_categories.update(_mongodb_symbol_categories)
+        symbol_logger.info("Updated symbol_categories with data from MongoDB")
+
+    except Exception as e:
+        symbol_logger.error(f"Failed to load symbols from MongoDB: {e}")
+        symbol_logger.error(
+            "Application will not function without MongoDB symbols data"
+        )
+        raise RuntimeError(f"Critical error: Cannot load symbols from MongoDB: {e}")
 
 
 def fill_symbol_set(symbol_inputs: int):

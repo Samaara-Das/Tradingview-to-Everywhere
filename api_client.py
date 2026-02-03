@@ -25,13 +25,12 @@ class StockBuddyAPIClient:
             base_url: Base URL for the API (e.g., https://stock-buddy-app.vercel.app/api/tte)
             timeout: Request timeout in seconds
         """
-        self.base_url = base_url.rstrip('/')
+        self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self.session = requests.Session()
-        self.session.headers.update({
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-        })
+        self.session.headers.update(
+            {"Content-Type": "application/json", "Accept": "application/json"}
+        )
 
     def health_check(self) -> bool:
         """
@@ -42,11 +41,11 @@ class StockBuddyAPIClient:
         """
         try:
             # Health endpoint is at /api/health, not /api/tte/health
-            health_url = self.base_url.replace('/api/tte', '/api/health')
+            health_url = self.base_url.replace("/api/tte", "/api/health")
             response = self.session.get(health_url, timeout=self.timeout)
             response.raise_for_status()
             data = response.json()
-            return data.get('status') == 'healthy'
+            return data.get("status") == "healthy"
         except Exception as e:
             logger.error(f"Health check failed: {e}")
             return False
@@ -59,10 +58,7 @@ class StockBuddyAPIClient:
             Stats dictionary or None on error
         """
         try:
-            response = self.session.get(
-                f"{self.base_url}/stats",
-                timeout=self.timeout
-            )
+            response = self.session.get(f"{self.base_url}/stats", timeout=self.timeout)
             response.raise_for_status()
             return response.json()
         except Exception as e:
@@ -91,11 +87,13 @@ class StockBuddyAPIClient:
             response = self.session.get(
                 f"{self.base_url}/symbols/next-batch",
                 params={"size": size},
-                timeout=self.timeout
+                timeout=self.timeout,
             )
             response.raise_for_status()
             data = response.json()
-            logger.info(f"Fetched batch #{data.get('batch_number', '?')} with {len(data.get('batch', []))} symbols")
+            logger.info(
+                f"Fetched batch #{data.get('batch_number', '?')} with {len(data.get('batch', []))} symbols"
+            )
             return data
         except Exception as e:
             logger.error(f"Failed to get next symbol batch: {e}")
@@ -115,7 +113,7 @@ class StockBuddyAPIClient:
             response = self.session.post(
                 f"{self.base_url}/symbols/mark-scanned",
                 json={"symbols": symbols},
-                timeout=self.timeout
+                timeout=self.timeout,
             )
             response.raise_for_status()
             data = response.json()
@@ -148,7 +146,7 @@ class StockBuddyAPIClient:
             response = self.session.get(
                 f"{self.base_url}/hot-symbols",
                 params={"limit": limit, "status": "pending_tier2"},
-                timeout=self.timeout
+                timeout=self.timeout,
             )
             response.raise_for_status()
             data = response.json()

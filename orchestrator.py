@@ -19,10 +19,10 @@ logger = logging.getLogger(__name__)
 
 
 # TTE Screener indicator names (as they appear in TradingView)
-NWE_SCREENER_SHORTTITLE = "TTE NWE Screener v2"
-NWE_SCREENER_NAME = "TTE NWE Screener v2"
-OBDIV_SCREENER_SHORTTITLE = "TTE OBDIV Screener v2"
-OBDIV_SCREENER_NAME = "TTE OBDIV Screener v2"
+NWE_SCREENER_SHORTTITLE = "TTE NWE Screener"
+NWE_SCREENER_NAME = "TTE NWE Screener"
+OBDIV_SCREENER_SHORTTITLE = "TTE OBDIV Screener"
+OBDIV_SCREENER_NAME = "TTE OBDIV Screener"
 
 # Layout names for saved TradingView layouts
 NWE_LAYOUT_NAME = "NWE"
@@ -67,7 +67,7 @@ class TieredOrchestrator:
         self.running = False
 
         # Build webhook URLs
-        api_base = config.api_base_url.rstrip('/')
+        api_base = config.api_base_url.rstrip("/")
         # Webhook URLs should be at the same base as the API
         self.nwe_webhook_url = f"{api_base}{NWE_WEBHOOK_PATH}"
         self.obdiv_webhook_url = f"{api_base}{OBDIV_WEBHOOK_PATH}"
@@ -106,7 +106,9 @@ class TieredOrchestrator:
 
                 # Wait before next cycle
                 if self.config.cycle_interval > 0:
-                    logger.info(f"Waiting {self.config.cycle_interval}s before next cycle...")
+                    logger.info(
+                        f"Waiting {self.config.cycle_interval}s before next cycle..."
+                    )
                     time.sleep(self.config.cycle_interval)
 
             except Exception as e:
@@ -136,7 +138,9 @@ class TieredOrchestrator:
         batch_response = self.api.get_next_symbol_batch(self.config.nwe_batch_size)
 
         if not batch_response.get("success", False):
-            logger.error(f"Failed to get symbol batch: {batch_response.get('error', 'Unknown error')}")
+            logger.error(
+                f"Failed to get symbol batch: {batch_response.get('error', 'Unknown error')}"
+            )
             return
 
         symbols = batch_response.get("batch", [])
@@ -148,7 +152,9 @@ class TieredOrchestrator:
         symbol_strings = [s["symbol"] if isinstance(s, dict) else s for s in symbols]
         batch_number = batch_response.get("batch_number", "?")
 
-        logger.info(f"Processing NWE batch #{batch_number} with {len(symbol_strings)} symbols")
+        logger.info(
+            f"Processing NWE batch #{batch_number} with {len(symbol_strings)} symbols"
+        )
 
         try:
             # Ensure we're on the NWE layout
@@ -156,7 +162,9 @@ class TieredOrchestrator:
                 logger.warning("Could not switch to NWE layout, attempting anyway...")
 
             # Input symbols into the NWE screener
-            if not self._input_symbols_to_screener(symbol_strings, NWE_SCREENER_SHORTTITLE):
+            if not self._input_symbols_to_screener(
+                symbol_strings, NWE_SCREENER_SHORTTITLE
+            ):
                 logger.error("Failed to input symbols into NWE screener")
                 return
 
@@ -164,11 +172,15 @@ class TieredOrchestrator:
             time.sleep(3)
 
             # Create webhook alert for NWE screener
-            if not self.browser.create_webhook_alert(NWE_SCREENER_SHORTTITLE, self.nwe_webhook_url):
+            if not self.browser.create_webhook_alert(
+                NWE_SCREENER_SHORTTITLE, self.nwe_webhook_url
+            ):
                 logger.error("Failed to create webhook alert for NWE screener")
                 return
 
-            logger.info(f"Waiting {self.config.nwe_batch_wait}s for NWE webhook to fire...")
+            logger.info(
+                f"Waiting {self.config.nwe_batch_wait}s for NWE webhook to fire..."
+            )
             time.sleep(self.config.nwe_batch_wait)
 
             # Delete the alert
@@ -180,7 +192,9 @@ class TieredOrchestrator:
             if mark_response.get("success", False):
                 logger.info(f"Marked {len(symbol_strings)} symbols as scanned")
             else:
-                logger.warning(f"Failed to mark symbols as scanned: {mark_response.get('error', 'Unknown error')}")
+                logger.warning(
+                    f"Failed to mark symbols as scanned: {mark_response.get('error', 'Unknown error')}"
+                )
 
         except Exception as e:
             logger.exception(f"Error in Phase 1: {e}")
@@ -226,12 +240,16 @@ class TieredOrchestrator:
                 hot_symbols = hot_symbols[batch_size:]
 
                 # Extract symbol strings
-                symbol_strings = [s["symbol"] if isinstance(s, dict) else s for s in batch]
+                symbol_strings = [
+                    s["symbol"] if isinstance(s, dict) else s for s in batch
+                ]
 
                 logger.info(f"Processing OBDIV batch of {len(symbol_strings)} symbols")
 
                 # Input symbols into OBDIV screener
-                if not self._input_symbols_to_screener(symbol_strings, OBDIV_SCREENER_SHORTTITLE):
+                if not self._input_symbols_to_screener(
+                    symbol_strings, OBDIV_SCREENER_SHORTTITLE
+                ):
                     logger.error("Failed to input symbols into OBDIV screener")
                     continue
 
@@ -239,11 +257,15 @@ class TieredOrchestrator:
                 time.sleep(3)
 
                 # Create webhook alert for OBDIV screener
-                if not self.browser.create_webhook_alert(OBDIV_SCREENER_SHORTTITLE, self.obdiv_webhook_url):
+                if not self.browser.create_webhook_alert(
+                    OBDIV_SCREENER_SHORTTITLE, self.obdiv_webhook_url
+                ):
                     logger.error("Failed to create webhook alert for OBDIV screener")
                     continue
 
-                logger.info(f"Waiting {self.config.obdiv_batch_wait}s for OBDIV webhook to fire...")
+                logger.info(
+                    f"Waiting {self.config.obdiv_batch_wait}s for OBDIV webhook to fire..."
+                )
                 time.sleep(self.config.obdiv_batch_wait)
 
                 # Delete the alert
@@ -268,7 +290,9 @@ class TieredOrchestrator:
             except:
                 logger.warning("Could not switch back to NWE layout")
 
-    def _input_symbols_to_screener(self, symbols: List[str], screener_shorttitle: str) -> bool:
+    def _input_symbols_to_screener(
+        self, symbols: List[str], screener_shorttitle: str
+    ) -> bool:
         """
         Input symbols into a screener's settings.
 
@@ -319,8 +343,7 @@ def create_orchestrator(config: Optional[Config] = None) -> TieredOrchestrator:
 
     # Initialize API client
     api_client = StockBuddyAPIClient(
-        base_url=config.api_base_url,
-        timeout=config.api_timeout
+        base_url=config.api_base_url, timeout=config.api_timeout
     )
 
     # Check API health
@@ -345,5 +368,28 @@ def create_orchestrator(config: Optional[Config] = None) -> TieredOrchestrator:
         screener_sb_short="",  # Not used
         screener_sb_name="",
     )
+
+    # Sign in to TradingView
+    logger.info("Signing in to TradingView...")
+    if not browser.sign_in():
+        raise RuntimeError("Failed to sign in to TradingView")
+
+    # Navigate to NWE chart URL
+    logger.info(f"Navigating to NWE chart: {config.nwe_chart_url}")
+    if not browser.open_page(config.nwe_chart_url):
+        raise RuntimeError(f"Failed to open NWE chart URL: {config.nwe_chart_url}")
+
+    # Wait for page to fully load
+    import time
+
+    time.sleep(5)
+
+    # Open alerts sidebar
+    logger.info("Opening alerts sidebar...")
+    browser.open_alerts_sidebar()
+
+    # Delete any existing alerts
+    logger.info("Deleting existing alerts...")
+    browser.delete_all_alerts()
 
     return TieredOrchestrator(browser, api_client, config)
