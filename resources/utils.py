@@ -49,7 +49,7 @@ class Utils:
         """
         try:
             # make sure the the Alerts tab is currently open
-            alert_tab_selector = 'div[class="widget-X9EuSe_t widgetbar-widget widgetbar-widget-alerts"] div[class="widgetHeader-X9EuSe_t"] div[id="AlertsHeaderTabs"] button[data-name="light-tab-0"]'
+            alert_tab_selector = 'div[class="widget-X9EuSe_t widgetbar-widget widgetbar-widget-alerts"] div[class="widgetHeader-X9EuSe_t"] button[aria-controls="id_alert-widget-tabs-slots_tabpanel_list"]'
 
             if (
                 WebDriverWait(driver, 5)
@@ -80,7 +80,7 @@ class Utils:
         """
         try:
             # make sure the the Alerts tab is currently open
-            alert_tab_selector = 'div[class="widget-X9EuSe_t widgetbar-widget widgetbar-widget-alerts"] div[class="widgetHeader-X9EuSe_t"] div[id="AlertsHeaderTabs"] button[data-name="light-tab-0"]'
+            alert_tab_selector = 'div[class="widget-X9EuSe_t widgetbar-widget widgetbar-widget-alerts"] div[class="widgetHeader-X9EuSe_t"] button[aria-controls="id_alert-widget-tabs-slots_tabpanel_list"]'
 
             if (
                 WebDriverWait(driver, 5)
@@ -99,10 +99,15 @@ class Utils:
                     EC.element_to_be_clickable((By.CSS_SELECTOR, alert_tab_selector))
                 ).click()  # open the Alerts tab
 
-            # Wait until the Alerts tab opens
-            WebDriverWait(driver, 5).until(
-                EC.presence_of_element_located((By.ID, "AlertsHeaderTabs"))
-            )
+            # Wait until the Alerts tab is actually selected
+            def alerts_tab_is_selected(d):
+                try:
+                    el = d.find_element(By.CSS_SELECTOR, alert_tab_selector)
+                    return el.get_attribute("aria-selected") == "true"
+                except:
+                    return False
+
+            WebDriverWait(driver, 5).until(alerts_tab_is_selected)
             return True
         except Exception as e:
             utils_logger.exception(f"Error ocurred when opening the Alert tab. Error: ")
