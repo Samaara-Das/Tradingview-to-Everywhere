@@ -81,10 +81,14 @@ Located in `screeners on TV/`:
 - `TTE NWE Screener v2.txt` - Tier 1: 20 symbols, H4/D1 NWE zones
 - `TTE OBDIV Screener v2.txt` - Tier 2: 8 symbols, OB/FVG + Divergence
 
-### Tiered Workflow
-1. **Tier 1 (NWE)**: Scan 20 symbols for NWE zone entries -> webhook to `/api/nwe`
-2. **API**: Hot symbols queued for Tier 2 processing
-3. **Tier 2 (OBDIV)**: Process 8 hot symbols for OB/Divergence -> webhook to `/api/obdiv`
+### Tiered Workflow (Single Cycle = One 20-Symbol Batch)
+1. Input 20 symbols to NWE screener
+2. Create webhook alert, wait for it to trigger
+3. Delete alert
+4. Hot symbols (from webhook) go to OBDIV screener (batches of 8)
+5. Create webhook alert, wait for it to trigger
+6. Delete alert, repeat until all hot symbols processed
+7. Move to next 20-symbol batch
 
 ### Running Tiered Mode
 ```bash
