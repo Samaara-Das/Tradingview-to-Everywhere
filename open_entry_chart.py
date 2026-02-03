@@ -201,6 +201,61 @@ class OpenChart:
             )
             return False
 
+    def force_change_tframe(self, timeframe):
+        """Forces the timeframe change without checking current value first.
+
+        Use this after layout switches where the aria-label might not be accurate.
+        """
+        try:
+            tf_button = WebDriverWait(self.driver, 15).until(
+                EC.element_to_be_clickable(
+                    (By.XPATH, '//*[@id="header-toolbar-intervals"]/button')
+                )
+            )
+
+            # Log current aria-label for debugging
+            current_label = tf_button.get_attribute("aria-label")
+            entry_chart_logger.info(
+                f"Current timeframe aria-label: '{current_label}', target: '{timeframe}'"
+            )
+
+            # Always click to open dropdown, regardless of current timeframe
+            tf_button.click()
+
+            options = WebDriverWait(self.driver, 15).until(
+                EC.presence_of_element_located(
+                    (By.CSS_SELECTOR, 'div[class="dropdown-S_1OCXUK"]')
+                )
+            )
+            options = options.find_elements(
+                By.CSS_SELECTOR,
+                'div[class="accessible-NQERJsv9 menuItem-RmqZNwwp item-jFqVJoPk"]',
+            )
+
+            for option in options:
+                label_text = option.find_element(
+                    By.CSS_SELECTOR, 'span[class="label-jFqVJoPk"]'
+                ).text
+                if label_text == timeframe:
+                    option.click()
+                    entry_chart_logger.info(
+                        f"Force changed the timeframe to {timeframe}!"
+                    )
+                    return True
+
+            # If we didn't find the timeframe, close the dropdown by pressing Escape
+            entry_chart_logger.warning(f"Timeframe '{timeframe}' not found in dropdown")
+            from selenium.webdriver.common.keys import Keys
+
+            ActionChains(self.driver).send_keys(Keys.ESCAPE).perform()
+            return False
+
+        except Exception as e:
+            entry_chart_logger.exception(
+                f"Failed to force change the timeframe to {timeframe}. Error:"
+            )
+            return False
+
     def save_chart_img(self):
         """Clicks on the camera icon to take a snapshot of the chart and opens it in a new tab. The link of the tab and image are returned in a dictionary. If an error occurs, an empty string is returned.
 

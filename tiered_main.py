@@ -212,6 +212,117 @@ def test_browser() -> bool:
         return False
 
 
+def test_phase2() -> bool:
+    """Test Phase 2 (OBDIV) with mock hot symbols."""
+    print("Testing Phase 2 (OBDIV) with mock hot symbols...")
+    print()
+
+    # Mock hot symbols for testing - these are common forex pairs
+    MOCK_HOT_SYMBOLS = [
+        "EURUSD",
+        "GBPUSD",
+        "USDJPY",
+        "AUDUSD",
+        "USDCAD",
+        "NZDUSD",
+        "USDCHF",
+        "EURGBP",
+    ]
+
+    print(f"Mock hot symbols: {MOCK_HOT_SYMBOLS}")
+    print()
+
+    try:
+        from orchestrator import (
+            create_orchestrator,
+            OBDIV_LAYOUT_NAME,
+            OBDIV_SCREENER_SHORTTITLE,
+        )
+        import time
+
+        # Create orchestrator (this sets up browser, signs in, etc.)
+        print("Initializing orchestrator...")
+        orchestrator = create_orchestrator(config)
+        print("Orchestrator initialized!")
+        print()
+
+        # Switch to OBDIV layout
+        print(f"Switching to {OBDIV_LAYOUT_NAME} layout...")
+        is_first = not orchestrator._obdiv_layout_initialized
+        if not orchestrator._switch_to_layout_with_setup(OBDIV_LAYOUT_NAME, is_first):
+            print(f"ERROR: Could not switch to {OBDIV_LAYOUT_NAME} layout")
+            return False
+        orchestrator._obdiv_layout_initialized = True
+        print(f"Switched to {OBDIV_LAYOUT_NAME} layout: PASS")
+        print()
+
+        # Input mock symbols into OBDIV screener
+        print(f"Inputting {len(MOCK_HOT_SYMBOLS)} mock symbols into OBDIV screener...")
+        if not orchestrator._input_symbols_to_screener(
+            MOCK_HOT_SYMBOLS, OBDIV_SCREENER_SHORTTITLE
+        ):
+            print("ERROR: Failed to input symbols into OBDIV screener")
+            return False
+        print("Symbols input: PASS")
+        print()
+
+        # Give the screener time to recalculate
+        print("Waiting 3s for screener to recalculate...")
+        time.sleep(3)
+
+        # Click on the OBDIV screener indicator
+        print(f"Clicking on {OBDIV_SCREENER_SHORTTITLE} indicator...")
+        obdiv_indicator = orchestrator.browser._safe_indicator_access(
+            OBDIV_SCREENER_SHORTTITLE
+        )
+        if not obdiv_indicator:
+            print(f"ERROR: Could not find {OBDIV_SCREENER_SHORTTITLE} indicator")
+            return False
+        obdiv_indicator.click()
+        print("Indicator clicked: PASS")
+        print()
+
+        # Create webhook alert
+        print(f"Creating webhook alert for {OBDIV_SCREENER_SHORTTITLE}...")
+        print(f"Webhook URL: {orchestrator.obdiv_webhook_url}")
+        if not orchestrator.browser.create_webhook_alert(
+            OBDIV_SCREENER_SHORTTITLE, orchestrator.obdiv_webhook_url
+        ):
+            print("ERROR: Failed to create webhook alert")
+            return False
+        print("Webhook alert created: PASS")
+        print()
+
+        # Wait for webhook
+        wait_time = config.obdiv_batch_wait
+        print(f"Waiting {wait_time}s for webhook to fire...")
+        time.sleep(wait_time)
+        print("Wait complete")
+        print()
+
+        # Delete the alert
+        print("Deleting alerts...")
+        if not orchestrator.browser.delete_all_alerts():
+            print("WARNING: Failed to delete alerts")
+        else:
+            print("Alerts deleted: PASS")
+        print()
+
+        print("=" * 50)
+        print("Phase 2 test completed successfully!")
+        print("=" * 50)
+        print()
+        print("Note: Browser window left open for inspection. Close it manually.")
+        return True
+
+    except Exception as e:
+        print(f"Phase 2 test FAILED: {e}")
+        import traceback
+
+        traceback.print_exc()
+        return False
+
+
 def run_orchestrator(single_cycle: bool = False):
     """Run the tiered orchestrator."""
     print("Starting TTE Tiered Orchestrator...")
@@ -278,6 +389,11 @@ Examples:
     parser.add_argument(
         "--test-browser", action="store_true", help="Test browser automation and exit"
     )
+    parser.add_argument(
+        "--test-phase2",
+        action="store_true",
+        help="Test Phase 2 (OBDIV) with mock hot symbols",
+    )
 
     args = parser.parse_args()
 
@@ -301,6 +417,10 @@ Examples:
 
     if args.test_browser:
         success = test_browser()
+        sys.exit(0 if success else 1)
+
+    if args.test_phase2:
+        success = test_phase2()
         sys.exit(0 if success else 1)
 
     # Run the orchestrator
