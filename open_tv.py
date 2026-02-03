@@ -35,7 +35,7 @@ open_tv_logger = logger_setup.setup_logger(__name__, logger_setup.INFO)
 
 # some constants
 SYMBOL_INPUTS = 5  # number of symbol inputs in the screener
-CHART_TIMEFRAME = "4 hours"  # the timeframe that the entries are from
+CHART_TIMEFRAME = "5 minutes"  # the timeframe that the entries are from
 USED_SYMBOLS_INPUT = "Used Symbols"  # Name of the Used Symbols input in the Screener
 LAYOUT_NAME = "PointCapital"  # Name of the layout for the screener
 SCREENER_REUPLOAD_TIMEOUT = (
@@ -590,76 +590,78 @@ class Browser:
                         search_input.send_keys(to_be_symbol)
                         search_input.send_keys(Keys.ENTER)
 
-                    # Handle the 3 timeframe inputs
-                    open_tv_logger.info(
-                        f"Setting timeframe inputs for screener {shorttitle}"
-                    )
+                    # Handle the 3 timeframe inputs - only for legacy mode (all 3 screeners)
+                    # Skip for tiered mode (when a specific screener_shorttitle is provided)
+                    if screener_shorttitle is None:
+                        open_tv_logger.info(
+                            f"Setting timeframe inputs for screener {shorttitle}"
+                        )
 
-                    # Import timeframe constants here to avoid circular import
-                    from main import (
-                        SCREENER_TIMEFRAME_1,
-                        SCREENER_TIMEFRAME_2,
-                        SCREENER_TIMEFRAME_3,
-                        TIMEFRAME_INPUT_MAP,
-                    )
+                        # Import timeframe constants here to avoid circular import
+                        from main import (
+                            SCREENER_TIMEFRAME_1,
+                            SCREENER_TIMEFRAME_2,
+                            SCREENER_TIMEFRAME_3,
+                            TIMEFRAME_INPUT_MAP,
+                        )
 
-                    timeframes = [
-                        SCREENER_TIMEFRAME_1,
-                        SCREENER_TIMEFRAME_2,
-                        SCREENER_TIMEFRAME_3,
-                    ]
+                        timeframes = [
+                            SCREENER_TIMEFRAME_1,
+                            SCREENER_TIMEFRAME_2,
+                            SCREENER_TIMEFRAME_3,
+                        ]
 
-                    # Find timeframe inputs (text inputs, not dropdowns)
-                    settings = self.driver.find_element(
-                        By.CSS_SELECTOR, ".content-tBgV1m0B"
-                    )
-                    timeframe_inputs = settings.find_elements(
-                        By.CSS_SELECTOR, 'div[class="cell-tBgV1m0B"] input'
-                    )
+                        # Find timeframe inputs (text inputs, not dropdowns)
+                        settings = self.driver.find_element(
+                            By.CSS_SELECTOR, ".content-tBgV1m0B"
+                        )
+                        timeframe_inputs = settings.find_elements(
+                            By.CSS_SELECTOR, 'div[class="cell-tBgV1m0B"] input'
+                        )
 
-                    # Process each timeframe input
-                    for idx, timeframe in enumerate(timeframes):
-                        try:
-                            if idx < len(timeframe_inputs):
-                                tf_input = timeframe_inputs[idx]
+                        # Process each timeframe input
+                        for idx, timeframe in enumerate(timeframes):
+                            try:
+                                if idx < len(timeframe_inputs):
+                                    tf_input = timeframe_inputs[idx]
 
-                                # Get the corresponding value for this timeframe
-                                if timeframe in TIMEFRAME_INPUT_MAP:
-                                    timeframe_value = TIMEFRAME_INPUT_MAP[timeframe]
-                                    current_value = tf_input.get_attribute("value")
+                                    # Get the corresponding value for this timeframe
+                                    if timeframe in TIMEFRAME_INPUT_MAP:
+                                        timeframe_value = TIMEFRAME_INPUT_MAP[timeframe]
+                                        current_value = tf_input.get_attribute("value")
 
-                                    # Only change if the current value is different
-                                    if current_value != timeframe_value:
-                                        # Clear the input and type the new value
-                                        ActionChains(self.driver).click(
-                                            tf_input
-                                        ).perform()
-                                        ActionChains(self.driver).key_down(
-                                            Keys.CONTROL, tf_input
-                                        ).send_keys("a").perform()
-                                        tf_input.send_keys(Keys.DELETE)
-                                        tf_input.send_keys(timeframe_value)
+                                        # Only change if the current value is different
+                                        if current_value != timeframe_value:
+                                            # Clear the input and type the new value
+                                            ActionChains(self.driver).click(
+                                                tf_input
+                                            ).perform()
+                                            ActionChains(self.driver).key_down(
+                                                Keys.CONTROL, tf_input
+                                            ).send_keys("a").perform()
+                                            tf_input.send_keys(Keys.DELETE)
+                                            tf_input.send_keys(timeframe_value)
 
-                                        open_tv_logger.info(
-                                            f"Set timeframe {idx + 1} to: {timeframe} (value: {timeframe_value})"
-                                        )
+                                            open_tv_logger.info(
+                                                f"Set timeframe {idx + 1} to: {timeframe} (value: {timeframe_value})"
+                                            )
+                                        else:
+                                            open_tv_logger.info(
+                                                f"Timeframe {idx + 1} already set to: {timeframe} (value: {timeframe_value})"
+                                            )
                                     else:
-                                        open_tv_logger.info(
-                                            f"Timeframe {idx + 1} already set to: {timeframe} (value: {timeframe_value})"
+                                        open_tv_logger.error(
+                                            f'Timeframe "{timeframe}" not found in TIMEFRAME_INPUT_MAP'
                                         )
                                 else:
-                                    open_tv_logger.error(
-                                        f'Timeframe "{timeframe}" not found in TIMEFRAME_INPUT_MAP'
+                                    open_tv_logger.warning(
+                                        f"Could not find timeframe input at index {idx}"
                                     )
-                            else:
-                                open_tv_logger.warning(
-                                    f"Could not find timeframe input at index {idx}"
-                                )
 
-                        except Exception as e:
-                            open_tv_logger.error(
-                                f"Error setting timeframe {idx + 1}: {e}"
-                            )
+                            except Exception as e:
+                                open_tv_logger.error(
+                                    f"Error setting timeframe {idx + 1}: {e}"
+                                )
 
                     # click on submit
                     self.driver.find_element(
