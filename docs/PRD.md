@@ -185,78 +185,80 @@ flowchart TB
 
 ## 5. Two-Tier Workflow Design
 
+### Workflow Overview
+
+A **single cycle** processes one batch of 20 symbols completely through both tiers:
+
+1. **NWE Scan**: Input 20 symbols → Create alert → Wait for webhook → Delete alert
+2. **OBDIV Processing**: Hot symbols from NWE → Process in batches of 8 → Repeat until done
+3. **Next Cycle**: Move to next 20-symbol batch
+
 ### Workflow Diagram
 
 ```mermaid
 flowchart TD
-    START([Start Cycle]) --> PHASE1_START
+    START([Start Cycle]) --> GET_BATCH
 
-    subgraph PHASE1["Phase 1: NWE Batch Processing"]
-        PHASE1_START[Get Next Batch from API] --> CHECK_BATCH{Symbols Available?}
-        CHECK_BATCH -->|No| PHASE2_START
-        CHECK_BATCH -->|Yes| SWITCH_NWE[Switch to NWE Layout]
-        SWITCH_NWE --> INPUT_NWE[Input 20 Symbols to NWE Screener]
-        INPUT_NWE --> WAIT_RECALC1[Wait 3s for Recalculation]
-        WAIT_RECALC1 --> CREATE_NWE_ALERT[Create Webhook Alert]
-        CREATE_NWE_ALERT --> WAIT_NWE[Wait 60s for Webhook]
-        WAIT_NWE --> DELETE_NWE[Delete Alert]
-        DELETE_NWE --> MARK_SCANNED[Mark Symbols as Scanned via API]
-        MARK_SCANNED --> PHASE1_START
-    end
+    subgraph CYCLE["Single Cycle (20 symbols)"]
+        GET_BATCH[Get Next 20 Symbols from API] --> CHECK_BATCH{Symbols Available?}
+        CHECK_BATCH -->|No| END_CYCLE
+        CHECK_BATCH -->|Yes| INPUT_NWE[Input 20 Symbols to NWE Screener]
+        INPUT_NWE --> CREATE_NWE[Create Webhook Alert for NWE]
+        CREATE_NWE --> WAIT_NWE[Wait for NWE Webhook to Trigger]
+        WAIT_NWE --> DELETE_NWE[Delete NWE Alert]
+        DELETE_NWE --> CHECK_HOT{Hot Symbols from Webhook?}
 
-    subgraph PHASE2["Phase 2: OBDIV Processing"]
-        PHASE2_START[Get Hot Symbols from API] --> CHECK_HOT{Hot Symbols Available?}
         CHECK_HOT -->|No| END_CYCLE
-        CHECK_HOT -->|Yes| SWITCH_OBDIV[Switch to OBDIV Layout]
-        SWITCH_OBDIV --> BATCH_HOT[Take 8 Hot Symbols]
-        BATCH_HOT --> INPUT_OBDIV[Input Symbols to OBDIV Screener]
-        INPUT_OBDIV --> WAIT_RECALC2[Wait 3s for Recalculation]
-        WAIT_RECALC2 --> CREATE_OBDIV_ALERT[Create Webhook Alert]
-        CREATE_OBDIV_ALERT --> WAIT_OBDIV[Wait 30s for Webhook]
-        WAIT_OBDIV --> DELETE_OBDIV[Delete Alert]
-        DELETE_OBDIV --> MORE_HOT{More Hot Symbols?}
+        CHECK_HOT -->|Yes| BATCH_HOT[Take up to 8 Hot Symbols]
+        BATCH_HOT --> INPUT_OBDIV[Input to OBDIV Screener]
+        INPUT_OBDIV --> CREATE_OBDIV[Create Webhook Alert for OBDIV]
+        CREATE_OBDIV --> WAIT_OBDIV[Wait for OBDIV Webhook to Trigger]
+        WAIT_OBDIV --> DELETE_OBDIV[Delete OBDIV Alert]
+        DELETE_OBDIV --> MORE_HOT{More Hot Symbols<br/>from this batch?}
         MORE_HOT -->|Yes| BATCH_HOT
         MORE_HOT -->|No| END_CYCLE
     end
 
-    END_CYCLE([End Cycle]) --> WAIT_INTERVAL[Wait Cycle Interval]
-    WAIT_INTERVAL --> START
+    END_CYCLE([End Cycle]) --> NEXT_BATCH[Move to Next 20-Symbol Batch]
+    NEXT_BATCH --> START
 ```
 
-### Phase Details
+### Cycle Details
 
-#### Phase 1: NWE Batch Processing
+Each cycle processes **one batch of 20 symbols** completely:
 
-**Purpose**: Scan large batches of symbols for NWE (Nadaraya-Watson Envelope) conditions
+#### Step 1: NWE Scanning
 
 | Step | Action | Duration | Notes |
 |------|--------|----------|-------|
 | 1 | Fetch batch from API | ~1s | GET `/symbols/next-batch?size=20` |
-| 2 | Switch to NWE layout | ~2s | `change_layout("NWE")` |
-| 3 | Input symbols to screener | ~5s | `change_settings(symbols, "TTE NWE Screener")` (max 20) |
-| 4 | Wait for recalculation | 3s | Fixed delay |
-| 5 | Create webhook alert | ~3s | `create_webhook_alert()` |
-| 6 | Wait for webhook | 60s | Configurable via `NWE_BATCH_WAIT` |
-| 7 | Delete alert | ~2s | `delete_all_alerts()` |
-| 8 | Mark symbols scanned | ~1s | POST `/symbols/mark-scanned` |
+| 2 | Input symbols to NWE screener | ~5s | `change_settings(symbols, "TTE NWE Screener")` |
+| 3 | Create webhook alert | ~3s | `create_webhook_alert()` with NWE webhook URL |
+| 4 | Wait for webhook to trigger | ~60s | Webhook fires when screener evaluates symbols |
+| 5 | Delete alert | ~2s | `delete_all_alerts()` |
 
-**Total per batch**: ~75 seconds
+**NWE scan time**: ~70 seconds per 20-symbol batch
 
-#### Phase 2: OBDIV Processing
+#### Step 2: OBDIV Processing (for hot symbols)
 
-**Purpose**: Deep analysis of "hot" symbols that triggered NWE conditions
+Hot symbols = symbols that triggered NWE conditions (returned via webhook)
 
 | Step | Action | Duration | Notes |
 |------|--------|----------|-------|
-| 1 | Fetch hot symbols | ~1s | GET `/hot-symbols?limit=50` |
-| 2 | Switch to OBDIV layout | ~2s | `change_layout("OBDIV")` |
-| 3 | Input batch (8 symbols) | ~5s | `change_settings(symbols, "TTE OBDIV Screener")` (max 8) |
-| 4 | Wait for recalculation | 3s | Fixed delay |
-| 5 | Create webhook alert | ~3s | `create_webhook_alert()` |
-| 6 | Wait for webhook | 30s | Configurable via `OBDIV_BATCH_WAIT` |
-| 7 | Delete alert | ~2s | `delete_all_alerts()` |
+| 1 | Take up to 8 hot symbols | - | From NWE webhook response |
+| 2 | Input to OBDIV screener | ~5s | `change_settings(symbols, "TTE OBDIV Screener")` |
+| 3 | Create webhook alert | ~3s | `create_webhook_alert()` with OBDIV webhook URL |
+| 4 | Wait for webhook to trigger | ~30s | Webhook fires when screener evaluates symbols |
+| 5 | Delete alert | ~2s | `delete_all_alerts()` |
+| 6 | Repeat if more hot symbols | - | Until all hot symbols from batch processed |
 
-**Total per batch**: ~45 seconds
+**OBDIV time**: ~40 seconds per 8-symbol batch
+
+#### Total Cycle Time
+
+- **Best case** (no hot symbols): ~70 seconds
+- **Typical** (1-8 hot symbols): ~110 seconds
+- **Worst case** (all 20 hot, 3 OBDIV batches): ~190 seconds
 
 ---
 
@@ -269,11 +271,13 @@ class TieredOrchestrator:
     """
     Orchestrates the tiered symbol scanning workflow.
 
-    Responsibilities:
-    - Coordinate Phase 1 (NWE) and Phase 2 (OBDIV) processing
-    - Manage API communication for batch fetching
-    - Handle error recovery and retry logic
-    - Control cycle timing and state
+    Each cycle processes one 20-symbol batch:
+    1. Input 20 symbols to NWE screener
+    2. Create webhook alert, wait for it to trigger
+    3. Delete alert
+    4. Process hot symbols (from webhook) through OBDIV in batches of 8
+    5. Repeat OBDIV until all hot symbols from this batch are done
+    6. Move to next 20-symbol batch
     """
 
     def __init__(self, browser, api_client, config):
@@ -282,16 +286,19 @@ class TieredOrchestrator:
         self.config = config
 
     def run(self, single_cycle=False):
-        """Main orchestration loop"""
+        """Main orchestration loop - processes batches continuously"""
 
-    def _phase1_nwe_batch(self):
-        """Process NWE symbol batches"""
+    def _process_nwe_batch(self, symbols):
+        """Scan symbols through NWE, returns hot symbols from webhook"""
 
-    def _phase2_obdiv_processing(self):
-        """Process hot symbols through OBDIV"""
+    def _process_obdiv_batch(self, hot_symbols):
+        """Process hot symbols through OBDIV in batches of 8"""
 
     def _input_symbols_to_screener(self, symbols, screener_shorttitle):
         """Input symbols into a screener's settings"""
+
+    def _create_and_wait_for_webhook(self, screener, webhook_url, wait_time):
+        """Create alert with webhook and wait for it to trigger"""
 ```
 
 ### StockBuddyAPIClient (`api_client.py`)
