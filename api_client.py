@@ -65,22 +65,23 @@ class StockBuddyAPIClient:
             logger.error(f"Failed to get stats: {e}")
             return None
 
-    def get_next_symbol_batch(self, size: int = 40) -> Dict:
+    def get_next_symbol_batch(self, size: int = 20) -> Dict:
         """
         Get the next batch of symbols for NWE scanning.
 
         Args:
-            size: Number of symbols to fetch (default 40)
+            size: Number of symbols to fetch (default 20, max for NWE screener)
 
         Returns:
             Dictionary with batch info:
             {
                 "success": true,
-                "batch": [{"symbol": "OANDA:EURUSD", "category": "currencies", "priority": "A"}, ...],
+                "batch": [{"symbol": "OANDA:EURUSD", ...}, ...],
+                "count": 20,
                 "batch_number": 6,
                 "rotation_number": 1,
-                "total_in_batch": 40,
-                "progress_percent": 35.2
+                "total_symbols": 941,
+                "symbols_scanned_this_rotation": 120
             }
         """
         try:
@@ -91,8 +92,23 @@ class StockBuddyAPIClient:
             )
             response.raise_for_status()
             data = response.json()
+
+            # Extract rotation info from nested structure
+            rotation = data.get("rotation", {})
+            batch_number = rotation.get("batch_number", "?")
+            rotation_number = rotation.get("rotation_number", "?")
+            total_symbols = rotation.get("total_symbols", "?")
+            scanned = rotation.get("symbols_scanned_this_rotation", 0)
+
+            # Flatten rotation info to top level for easier access
+            data["batch_number"] = batch_number
+            data["rotation_number"] = rotation_number
+            data["total_symbols"] = total_symbols
+            data["symbols_scanned_this_rotation"] = scanned
+
             logger.info(
-                f"Fetched batch #{data.get('batch_number', '?')} with {len(data.get('batch', []))} symbols"
+                f"Fetched batch #{batch_number} with {len(data.get('batch', []))} symbols "
+                f"(rotation {rotation_number}, {scanned}/{total_symbols} scanned)"
             )
             return data
         except Exception as e:

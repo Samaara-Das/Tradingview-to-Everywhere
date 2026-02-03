@@ -336,23 +336,33 @@ def create_orchestrator(config: Optional[Config] = None) -> TieredOrchestrator:
     if config is None:
         config = default_config
 
+    print("[DEBUG] create_orchestrator() started", flush=True)
+
     # Validate configuration
+    print("[DEBUG] Validating configuration...", flush=True)
     errors = config.validate()
     if errors:
         raise ValueError(f"Configuration errors: {errors}")
+    print("[DEBUG] Configuration valid", flush=True)
 
     # Initialize API client
+    print("[DEBUG] Initializing API client...", flush=True)
     api_client = StockBuddyAPIClient(
         base_url=config.api_base_url, timeout=config.api_timeout
     )
 
     # Check API health
+    print("[DEBUG] Checking API health...", flush=True)
     if not api_client.health_check():
         logger.warning("API health check failed - proceeding anyway")
+        print("[DEBUG] API health check failed (continuing anyway)", flush=True)
+    else:
+        print("[DEBUG] API health check passed", flush=True)
 
     # Initialize browser
     # For the tiered orchestrator, we use placeholder values for the legacy screener params
     # since we only need the TTE screeners
+    print("[DEBUG] Initializing Browser...", flush=True)
     browser = Browser(
         keep_open=True,
         screener_shorttitle="",  # Not used in tiered mode
@@ -368,28 +378,40 @@ def create_orchestrator(config: Optional[Config] = None) -> TieredOrchestrator:
         screener_sb_short="",  # Not used
         screener_sb_name="",
     )
+    print("[DEBUG] Browser initialized", flush=True)
 
     # Sign in to TradingView
+    print("[DEBUG] Calling browser.sign_in()...", flush=True)
     logger.info("Signing in to TradingView...")
     if not browser.sign_in():
         raise RuntimeError("Failed to sign in to TradingView")
+    print("[DEBUG] sign_in() returned True", flush=True)
 
     # Navigate to NWE chart URL
+    print(f"[DEBUG] Navigating to NWE chart: {config.nwe_chart_url}", flush=True)
     logger.info(f"Navigating to NWE chart: {config.nwe_chart_url}")
     if not browser.open_page(config.nwe_chart_url):
         raise RuntimeError(f"Failed to open NWE chart URL: {config.nwe_chart_url}")
+    print("[DEBUG] NWE chart page opened", flush=True)
 
     # Wait for page to fully load
     import time
 
+    print("[DEBUG] Waiting 5s for page to load...", flush=True)
     time.sleep(5)
+    print("[DEBUG] Wait complete", flush=True)
 
     # Open alerts sidebar
+    print("[DEBUG] Opening alerts sidebar...", flush=True)
     logger.info("Opening alerts sidebar...")
     browser.open_alerts_sidebar()
+    print("[DEBUG] Alerts sidebar opened", flush=True)
 
     # Delete any existing alerts
+    print("[DEBUG] Deleting existing alerts...", flush=True)
     logger.info("Deleting existing alerts...")
     browser.delete_all_alerts()
+    print("[DEBUG] Alerts deleted", flush=True)
 
+    print("[DEBUG] create_orchestrator() complete - returning orchestrator", flush=True)
     return TieredOrchestrator(browser, api_client, config)

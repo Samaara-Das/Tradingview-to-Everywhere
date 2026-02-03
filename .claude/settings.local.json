@@ -6,7 +6,14 @@
       "Bash(git commit -m \"$\\(cat <<''EOF''\nAdd comprehensive deny list for dangerous commands\n\nBlock destructive git operations, file deletion, credential exposure,\ndatabase drops, process killing, remote code execution, and system\nmodification commands.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(git push)",
       "Bash(git commit -m \"$\\(cat <<''EOF''\nAdd comprehensive PRD and update for v2 screeners\n\n- Create docs/PRD.md \\(1900+ lines\\) with full technical specifications\n  - Stock Buddy API integration details\n  - Selenium automation patterns and selectors\n  - Two-tier workflow design with Mermaid diagrams\n  - Webhook payload schemas\n  - Implementation guide and troubleshooting\n\n- Add TradingView screener source files \\(screeners on TV/\\)\n  - TTE NWE Screener v2.txt \\(Tier 1: 20 symbols, H4/D1\\)\n  - TTE OBDIV Screener v2.txt \\(Tier 2: 8 symbols, OB/Div\\)\n\n- Update config.py batch sizes to match screener limits\n  - NWE: 40 -> 20 symbols max\n  - OBDIV: 10 -> 8 symbols max\n\n- Update CLAUDE.md with tiered architecture section\n\n- Delete outdated docs \\(content now in PRD.md\\)\n  - Alert message for screeners.md\n  - docs/EXISTING_SELENIUM_FLOW.md\n  - docs/POINT_CAPITAL_ANALYSIS.md\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "mcp__task-master-ai__add_task",
+      "mcp__task-master-ai__get_tasks",
+      "Bash(python tiered_main.py:*)",
+      "Bash(python:*)",
+      "mcp__task-master-ai__set_task_status",
+      "Bash(pipenv run python:*)",
+      "WebFetch(domain:www.selenium.dev)"
     ],
     "deny": [
       "Bash(git push --force*)",

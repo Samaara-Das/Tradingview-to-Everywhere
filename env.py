@@ -4,7 +4,7 @@ import os
 load_dotenv()
 
 # Profile path in chrome user data folder
-PROFILE = "Profile 2"
+PROFILE = "Profile 4"
 
 # Collection name for storing trading signals
 COLLECTION = "Point Capitalis signals"
