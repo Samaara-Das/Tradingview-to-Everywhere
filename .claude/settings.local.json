@@ -13,7 +13,8 @@
       "Bash(python:*)",
       "mcp__task-master-ai__set_task_status",
       "Bash(pipenv run python:*)",
-      "WebFetch(domain:www.selenium.dev)"
+      "WebFetch(domain:www.selenium.dev)",
+      "Bash(git push:*)"
     ],
     "deny": [
       "Bash(git push --force*)",
