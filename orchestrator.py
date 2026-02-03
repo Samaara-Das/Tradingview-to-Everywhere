@@ -66,6 +66,10 @@ class TieredOrchestrator:
         self.config = config
         self.running = False
 
+        # Track first-switch state for layout initialization
+        self._nwe_layout_initialized = False
+        self._obdiv_layout_initialized = False
+
         # Build webhook URLs
         api_base = config.api_base_url.rstrip("/")
         # Webhook URLs should be at the same base as the API
@@ -121,6 +125,46 @@ class TieredOrchestrator:
         logger.info("Stopping orchestrator...")
         self.running = False
 
+    def _switch_to_layout_with_setup(
+        self, layout_name: str, is_first_switch: bool
+    ) -> bool:
+        """
+        Switch to a layout with retry logic. On first switch, also sets timeframe and saves.
+
+        Args:
+            layout_name: "NWE" or "OBDIV"
+            is_first_switch: If True, also set timeframe and save layout
+
+        Returns:
+            True if successful, False otherwise
+        """
+        # Try to change layout (with retry)
+        if not self.browser.change_layout(layout_name):
+            self.browser.change_layout(layout_name)  # retry
+            if self.browser.current_layout() != layout_name:
+                logger.error(f"Cannot change layout to {layout_name}")
+                return False
+
+        if is_first_switch:
+            # Set timeframe to "5 minutes" for testing
+            CHART_TIMEFRAME = "5 minutes"
+            if not self.browser.open_chart.change_tframe(CHART_TIMEFRAME):
+                self.browser.open_chart.change_tframe(CHART_TIMEFRAME)  # retry
+                if self.browser.current_chart_tframe() != CHART_TIMEFRAME:
+                    logger.error(f"Cannot change timeframe to {CHART_TIMEFRAME}")
+                    return False
+
+            logger.info(f"Set chart timeframe to {CHART_TIMEFRAME}")
+
+            # Save the layout
+            if not self.browser.save_layout():
+                self.browser.save_layout()  # retry (non-critical)
+                logger.warning(f"Could not save layout {layout_name}")
+            else:
+                logger.info(f"Saved layout {layout_name}")
+
+        return True
+
     def _phase1_nwe_batch(self):
         """
         Phase 1: NWE Batch Processing
@@ -157,9 +201,12 @@ class TieredOrchestrator:
         )
 
         try:
-            # Ensure we're on the NWE layout
-            if not self.browser.change_layout(NWE_LAYOUT_NAME):
-                logger.warning("Could not switch to NWE layout, attempting anyway...")
+            # Ensure we're on the NWE layout (with setup on first switch)
+            is_first = not self._nwe_layout_initialized
+            if not self._switch_to_layout_with_setup(NWE_LAYOUT_NAME, is_first):
+                logger.error("Could not switch to NWE layout")
+                return
+            self._nwe_layout_initialized = True
 
             # Input symbols into the NWE screener
             if not self._input_symbols_to_screener(
@@ -170,6 +217,14 @@ class TieredOrchestrator:
 
             # Give the screener time to recalculate
             time.sleep(3)
+
+            # Click on the NWE screener indicator to select it before creating alert
+            nwe_indicator = self.browser._safe_indicator_access(NWE_SCREENER_SHORTTITLE)
+            if not nwe_indicator:
+                logger.error("Could not find NWE screener indicator")
+                return
+            nwe_indicator.click()
+            logger.info(f"Clicked on {NWE_SCREENER_SHORTTITLE} indicator")
 
             # Create webhook alert for NWE screener
             if not self.browser.create_webhook_alert(
@@ -225,10 +280,12 @@ class TieredOrchestrator:
         logger.info(f"Found {len(hot_symbols)} hot symbols for OBDIV processing")
 
         try:
-            # Switch to OBDIV layout
-            if not self.browser.change_layout(OBDIV_LAYOUT_NAME):
+            # Switch to OBDIV layout (with setup on first switch)
+            is_first = not self._obdiv_layout_initialized
+            if not self._switch_to_layout_with_setup(OBDIV_LAYOUT_NAME, is_first):
                 logger.error("Could not switch to OBDIV layout")
                 return
+            self._obdiv_layout_initialized = True
 
             # Process hot symbols in batches
             batch_size = self.config.obdiv_batch_size
@@ -255,6 +312,16 @@ class TieredOrchestrator:
 
                 # Give the screener time to recalculate
                 time.sleep(3)
+
+                # Click on the OBDIV screener indicator to select it before creating alert
+                obdiv_indicator = self.browser._safe_indicator_access(
+                    OBDIV_SCREENER_SHORTTITLE
+                )
+                if not obdiv_indicator:
+                    logger.error("Could not find OBDIV screener indicator")
+                    continue
+                obdiv_indicator.click()
+                logger.info(f"Clicked on {OBDIV_SCREENER_SHORTTITLE} indicator")
 
                 # Create webhook alert for OBDIV screener
                 if not self.browser.create_webhook_alert(

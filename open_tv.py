@@ -566,18 +566,18 @@ class Browser:
                         EC.element_to_be_clickable(
                             (
                                 By.CSS_SELECTOR,
-                                'button[data-name="legend-settings-action"]',
+                                'button[data-qa-id="legend-settings-action"]',
                             )
                         )
                     ).click()
                     settings = WebDriverWait(self.driver, 10).until(
                         EC.presence_of_element_located(
-                            (By.CSS_SELECTOR, ".content-tBgV1m0B")
+                            (By.CSS_SELECTOR, 'div[data-outside-boundary-for="indicator-properties-dialog"]')
                         )
                     )
                     symbol_inputs = settings.find_elements(
                         By.CSS_SELECTOR,
-                        '.inlineRow-tBgV1m0B div[data-name="edit-button"]',
+                        '.inlineRow-uuCuCMOL div[data-name="edit-button"]',
                     )  # symbol inputs
 
                     # change the symbol inputs based on the total number of symbols
@@ -993,17 +993,18 @@ class Browser:
     def create_webhook_alert(self, indicator_shorttitle: str, webhook_url: str):
         """Creates a TradingView alert with webhook notification for the specified indicator.
 
+        IMPORTANT: The indicator must be clicked/selected BEFORE calling this method.
+        This ensures the alert dialog opens with the correct indicator pre-selected.
+
         This method:
-        1. Opens the alert creation dialog
-        2. Selects the indicator condition from the dropdown
-        3. Navigates to the Notifications tab
-        4. Enables the webhook checkbox
-        5. Fills in the webhook URL
-        6. Sets the message to {{alert.message}}
-        7. Submits the alert
+        1. Opens the alert creation dialog (indicator should already be selected)
+        2. Navigates to the Notifications tab
+        3. Ensures the webhook checkbox is enabled
+        4. Fills in the webhook URL
+        5. Submits the alert
 
         Args:
-            indicator_shorttitle: The short title of the indicator to create an alert for
+            indicator_shorttitle: The short title of the indicator (for logging)
             webhook_url: The URL that TradingView will POST to when the alert triggers
 
         Returns:
@@ -1029,104 +1030,51 @@ class Browser:
             )
             open_tv_logger.info("Alert creation dialog appeared")
 
-            # Select the indicator from the condition dropdown
-            condition_dropdown = WebDriverWait(popup, 10).until(
-                EC.element_to_be_clickable(
-                    (
-                        By.CSS_SELECTOR,
-                        'span[data-qa-id="ui-kit-disclosure-control main-series-select"]',
-                    )
-                )
-            )
-            condition_dropdown.click()
-            open_tv_logger.info("Opened condition dropdown")
-
-            # Wait for dropdown menu and find the indicator
-            dropdown_menu = WebDriverWait(self.driver, 10).until(
-                EC.visibility_of_element_located(
-                    (
-                        By.CSS_SELECTOR,
-                        'div[data-qa-id="ui-kit-disclosure-popup popup-menu-container main-series-select"]',
-                    )
-                )
-            )
-            options = dropdown_menu.find_elements(By.CSS_SELECTOR, 'div[role="option"]')
-            indicator_found = False
-            for option in options:
-                if indicator_shorttitle in option.text:
-                    option.click()
-                    indicator_found = True
-                    open_tv_logger.info(
-                        f"Selected indicator '{indicator_shorttitle}' from dropdown"
-                    )
-                    break
-
-            if not indicator_found:
-                open_tv_logger.error(
-                    f"Could not find indicator '{indicator_shorttitle}' in dropdown"
-                )
-                self._close_alert_dialog()
-                return False
-
-            sleep(0.5)  # Brief pause after selecting condition
-
-            # Navigate to the Notifications tab
+            # Step 1: Click on the Notifications tab
             notifications_tab = WebDriverWait(popup, 10).until(
                 EC.element_to_be_clickable(
-                    (By.CSS_SELECTOR, "#alert-dialog-tabs__notifications")
+                    (By.CSS_SELECTOR, 'button[id="alert-dialog-tabs__notifications"]')
                 )
             )
             notifications_tab.click()
             open_tv_logger.info("Clicked on Notifications tab")
 
-            sleep(0.5)  # Brief pause for tab content to load
-
-            # Enable the webhook checkbox if not already enabled
+            # Step 2: Wait for the webhook checkbox to appear (indicates tab is loaded)
             webhook_checkbox = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located(
                     (By.CSS_SELECTOR, 'input[data-qa-id="webhook"]')
                 )
             )
+            open_tv_logger.info("Notifications tab loaded - webhook checkbox visible")
+
+            # Step 3: Ensure the webhook checkbox is checked
             if not webhook_checkbox.is_selected():
-                # Click the label or parent element since input might not be directly clickable
-                webhook_label = webhook_checkbox.find_element(By.XPATH, "./..")
+                # Click the parent label element since the input might not be directly clickable
+                webhook_label = webhook_checkbox.find_element(
+                    By.XPATH, "./ancestor::label"
+                )
                 webhook_label.click()
                 open_tv_logger.info("Enabled webhook checkbox")
             else:
                 open_tv_logger.info("Webhook checkbox was already enabled")
 
-            # Fill in the webhook URL
+            # Step 4: Clear and fill the webhook URL using Ctrl+A, Backspace, then type
             webhook_url_input = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, "#webhook-url"))
+                EC.element_to_be_clickable((By.CSS_SELECTOR, "input#webhook-url"))
             )
-            webhook_url_input.clear()
+            webhook_url_input.click()
+            ActionChains(self.driver).key_down(Keys.CONTROL).send_keys("a").key_up(
+                Keys.CONTROL
+            ).perform()
+            webhook_url_input.send_keys(Keys.BACKSPACE)
             webhook_url_input.send_keys(webhook_url)
             open_tv_logger.info(f"Entered webhook URL: {webhook_url}")
 
-            # Navigate to the Message tab to set the message
-            message_tab = WebDriverWait(popup, 10).until(
+            # Step 5: Click the Create button
+            submit_button = WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable(
-                    (By.CSS_SELECTOR, "#alert-dialog-tabs__message")
+                    (By.CSS_SELECTOR, 'button[data-qa-id="submit"]')
                 )
-            )
-            message_tab.click()
-            open_tv_logger.info("Clicked on Message tab")
-
-            sleep(0.5)  # Brief pause for tab content to load
-
-            # Find the message textarea and set it to {{alert.message}}
-            message_textarea = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located(
-                    (By.CSS_SELECTOR, 'textarea[id="alert-message"]')
-                )
-            )
-            message_textarea.clear()
-            message_textarea.send_keys("{{alert.message}}")
-            open_tv_logger.info("Set alert message to {{alert.message}}")
-
-            # Submit the alert
-            submit_button = self.driver.find_element(
-                By.CSS_SELECTOR, 'button[data-qa-id="submit"]'
             )
             submit_button.click()
             open_tv_logger.info('Clicked "Create" to submit the alert')
@@ -1497,7 +1445,7 @@ class Browser:
             wait = WebDriverWait(self.driver, 15)
             indicators = wait.until(
                 EC.presence_of_all_elements_located(
-                    (By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')
+                    (By.CSS_SELECTOR, 'div[data-qa-id="legend-source-item"]')
                 )
             )
 
