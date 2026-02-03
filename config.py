@@ -30,7 +30,7 @@ class Config:
 
     # Wait times (seconds)
     nwe_batch_wait: int = int(os.getenv("NWE_BATCH_WAIT", "60"))
-    obdiv_batch_wait: int = int(os.getenv("OBDIV_BATCH_WAIT", "30"))
+    obdiv_batch_wait: int = int(os.getenv("OBDIV_BATCH_WAIT", "60"))
 
     # Chrome settings
     chrome_profile: str = os.getenv("CHROME_PROFILE", "Profile 2")

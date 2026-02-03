@@ -1298,52 +1298,103 @@ class Browser:
 
         try:
             # Make sure that the Alerts tab is open
+            print("[DEBUG] delete_all_alerts: Opening alert tab...", flush=True)
             self.utils.open_alert_tab(self.driver)
+            print("[DEBUG] delete_all_alerts: Alert tab opened", flush=True)
 
             # Check if there already are no alerts
-            if (
-                self.driver.find_elements(
-                    By.CSS_SELECTOR, "div.list-G90Hl2iS div.itemBody-ucBqatk5"
-                )
-                == []
-            ):
+            print(
+                "[DEBUG] delete_all_alerts: Checking if there are any alerts...",
+                flush=True,
+            )
+            alert_items = self.driver.find_elements(
+                By.CSS_SELECTOR, "div.list-G90Hl2iS div.itemBody-ucBqatk5"
+            )
+            print(
+                f"[DEBUG] delete_all_alerts: Found {len(alert_items)} alert items",
+                flush=True,
+            )
+            if alert_items == []:
                 open_tv_logger.info(
                     "There are no alerts. No need to delete any alerts!"
                 )
                 return True
 
+            print("[DEBUG] delete_all_alerts: Opening dropdown menu...", flush=True)
             dropdown = open_dropdown()
+            print("[DEBUG] delete_all_alerts: Dropdown opened", flush=True)
 
             # Check if "Stop All" is disabled
+            print(
+                "[DEBUG] delete_all_alerts: Looking for Stop All button...", flush=True
+            )
             stop_all_button = WebDriverWait(dropdown, 10).until(
                 EC.presence_of_all_elements_located(
                     (By.CSS_SELECTOR, dropdown_option_selector)
                 )
             )[1]
+            print(
+                f"[DEBUG] delete_all_alerts: Stop All button class: {stop_all_button.get_attribute('class')}",
+                flush=True,
+            )
             if "isDisabled" in stop_all_button.get_attribute("class"):
                 open_tv_logger.info(
                     'The "Stop All" option is disabled. No need to click it.'
                 )
             else:
+                print("[DEBUG] delete_all_alerts: Clicking Stop All...", flush=True)
                 stop_all_button.click()
+                print(
+                    "[DEBUG] delete_all_alerts: Clicking Yes in confirm popup...",
+                    flush=True,
+                )
                 self.utils.click_yes_in_confirm_popup(self.driver)
+                print("[DEBUG] delete_all_alerts: Stop All complete", flush=True)
 
+            print(
+                "[DEBUG] delete_all_alerts: Re-opening dropdown for Delete Inactive...",
+                flush=True,
+            )
             dropdown = open_dropdown()
+            print("[DEBUG] delete_all_alerts: Dropdown re-opened", flush=True)
 
             # Check if "Delete All Inactive" is disabled
+            print(
+                "[DEBUG] delete_all_alerts: Looking for Delete All Inactive button...",
+                flush=True,
+            )
             delete_inactive_button = WebDriverWait(dropdown, 10).until(
                 EC.presence_of_all_elements_located(
                     (By.CSS_SELECTOR, dropdown_option_selector)
                 )
             )[2]
+            print(
+                f"[DEBUG] delete_all_alerts: Delete Inactive button class: {delete_inactive_button.get_attribute('class')}",
+                flush=True,
+            )
             if "isDisabled" in delete_inactive_button.get_attribute("class"):
                 open_tv_logger.info(
                     'The "Delete All Inactive" option is disabled. No need to click it.'
                 )
             else:
+                print(
+                    "[DEBUG] delete_all_alerts: Clicking Delete All Inactive...",
+                    flush=True,
+                )
                 delete_inactive_button.click()
+                print(
+                    "[DEBUG] delete_all_alerts: Clicking Yes in confirm popup...",
+                    flush=True,
+                )
                 self.utils.click_yes_in_confirm_popup(self.driver)
+                print(
+                    "[DEBUG] delete_all_alerts: Delete All Inactive complete",
+                    flush=True,
+                )
 
+            print(
+                "[DEBUG] delete_all_alerts: All alerts deleted successfully", flush=True
+            )
             return True
         except Exception as e:
             open_tv_logger.exception(
