@@ -24,9 +24,9 @@ class Config:
     nwe_chart_url: str = os.getenv("NWE_CHART_URL", "")
     obdiv_chart_url: str = os.getenv("OBDIV_CHART_URL", "")
 
-    # Batch sizes
-    nwe_batch_size: int = int(os.getenv("NWE_BATCH_SIZE", "40"))
-    obdiv_batch_size: int = int(os.getenv("OBDIV_BATCH_SIZE", "10"))
+    # Batch sizes (NWE screener supports max 20, OBDIV supports max 8)
+    nwe_batch_size: int = int(os.getenv("NWE_BATCH_SIZE", "20"))
+    obdiv_batch_size: int = int(os.getenv("OBDIV_BATCH_SIZE", "8"))
 
     # Wait times (seconds)
     nwe_batch_wait: int = int(os.getenv("NWE_BATCH_WAIT", "60"))
@@ -58,11 +58,15 @@ class Config:
         if not self.obdiv_chart_url:
             errors.append("OBDIV_CHART_URL is required for Tier 2 operations")
 
-        if self.nwe_batch_size < 1 or self.nwe_batch_size > 40:
-            errors.append("NWE_BATCH_SIZE must be between 1 and 40")
+        if self.nwe_batch_size < 1 or self.nwe_batch_size > 20:
+            errors.append(
+                "NWE_BATCH_SIZE must be between 1 and 20 (TTE NWE Screener v2 limit)"
+            )
 
-        if self.obdiv_batch_size < 1 or self.obdiv_batch_size > 10:
-            errors.append("OBDIV_BATCH_SIZE must be between 1 and 10")
+        if self.obdiv_batch_size < 1 or self.obdiv_batch_size > 8:
+            errors.append(
+                "OBDIV_BATCH_SIZE must be between 1 and 8 (TTE OBDIV Screener v2 limit)"
+            )
 
         return errors
 

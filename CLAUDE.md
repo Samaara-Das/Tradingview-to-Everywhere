@@ -6,6 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 TradingView to Everywhere (TTE) is an automated trading signals distribution system that bridges TradingView alerts with multiple social media platforms. It monitors TradingView for trading signals, captures and processes them, and distributes formatted trade information to Discord, Facebook, Twitter/X, and MongoDB.
 
+### Things to always keep in mind
+This new tiered architecture in TTE should use existing code in the codebase whenever possible. Before implementing any code that performs a particular action, thoroughly check if this has been done before. If so, decide if it's best to use the existing code or not.
+
 ## Common Development Tasks
 
 ### Running the Application
@@ -53,7 +56,7 @@ pipenv sync
 - `logger_setup.py`: Centralized logging configuration
 - `resources/symbol_settings.py`: Trading symbol categories and configurations
 
-### Data Flow
+### Data Flow (Legacy Mode)
 
 1. TradingView generates alerts based on technical analysis
 2. TTE captures alert messages via Selenium
@@ -61,6 +64,35 @@ pipenv sync
 4. Screenshots taken with trade information overlay
 5. Distribution to multiple platforms
 6. Exit monitoring and notification
+
+## Tiered Architecture (New)
+
+The tiered architecture uses webhook-based alerts instead of poll-based scraping.
+
+### Key Files
+- `tiered_main.py`: Entry point for tiered orchestrator
+- `orchestrator.py`: TieredOrchestrator class managing two-phase workflow
+- `api_client.py`: Stock Buddy API client
+- `config.py`: Tiered orchestrator configuration
+- `docs/PRD.md`: Complete technical specification (1800+ lines)
+
+### TradingView Screeners
+Located in `screeners on TV/`:
+- `TTE NWE Screener v2.txt` - Tier 1: 20 symbols, H4/D1 NWE zones
+- `TTE OBDIV Screener v2.txt` - Tier 2: 8 symbols, OB/FVG + Divergence
+
+### Tiered Workflow
+1. **Tier 1 (NWE)**: Scan 20 symbols for NWE zone entries -> webhook to `/api/nwe`
+2. **API**: Hot symbols queued for Tier 2 processing
+3. **Tier 2 (OBDIV)**: Process 8 hot symbols for OB/Divergence -> webhook to `/api/obdiv`
+
+### Running Tiered Mode
+```bash
+python tiered_main.py              # Run continuously
+python tiered_main.py --validate   # Validate configuration
+python tiered_main.py --test-api   # Test API connection
+python tiered_main.py --stats      # Show system statistics
+```
 
 ## Important Configuration
 
@@ -81,11 +113,19 @@ pipenv sync
 
 ### TradingView Requirements
 
+**For Legacy Mode:**
 1. Disable two-factor authentication
 2. No linked social accounts
 3. Saved layout named "Screener" with Premium Screener and Trade Drawer indicators
 4. Saved layout named "Exits" with Get Exits indicator
 5. Indicators must be starred/favorited
+
+**For Tiered Mode:**
+1. Disable two-factor authentication
+2. No linked social accounts
+3. Saved layout named "NWE" with TTE NWE Screener v2 indicator
+4. Saved layout named "OBDIV" with TTE OBDIV Screener v2 indicator
+5. Both indicators must be starred/favorited
 
 ## Key Constants
 
