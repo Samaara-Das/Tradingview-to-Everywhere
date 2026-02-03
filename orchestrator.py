@@ -100,7 +100,7 @@ class TieredOrchestrator:
                 self._phase1_nwe_batch()
 
                 # Phase 2: OBDIV Processing
-                self._phase2_obdiv_processing()
+                had_hot_symbols = self._phase2_obdiv_processing()
 
                 logger.info(f"=== Completed cycle #{cycle_count} ===")
 
@@ -108,12 +108,17 @@ class TieredOrchestrator:
                     logger.info("Single cycle mode - stopping orchestrator")
                     break
 
-                # Wait before next cycle
-                if self.config.cycle_interval > 0:
+                # Only wait between cycles if we processed hot symbols
+                # If no hot symbols, continue immediately to next batch
+                if had_hot_symbols and self.config.cycle_interval > 0:
                     logger.info(
                         f"Waiting {self.config.cycle_interval}s before next cycle..."
                     )
                     time.sleep(self.config.cycle_interval)
+                else:
+                    logger.info(
+                        "No hot symbols processed - continuing to next batch immediately"
+                    )
 
             except Exception as e:
                 logger.exception(f"Error in cycle #{cycle_count}: {e}")
@@ -138,15 +143,49 @@ class TieredOrchestrator:
         Returns:
             True if successful, False otherwise
         """
+        print(
+            f"[DEBUG] _switch_to_layout_with_setup: Switching to layout '{layout_name}'",
+            flush=True,
+        )
+
         # Try to change layout (with retry)
-        if not self.browser.change_layout(layout_name):
+        print(f"[DEBUG] Calling browser.change_layout('{layout_name}')...", flush=True)
+        result = self.browser.change_layout(layout_name)
+        print(f"[DEBUG] change_layout returned: {result}", flush=True)
+
+        if not result:
+            print(f"[DEBUG] First attempt failed, retrying...", flush=True)
             self.browser.change_layout(layout_name)  # retry
-            if self.browser.current_layout() != layout_name:
+            current = self.browser.current_layout()
+            print(f"[DEBUG] After retry, current_layout() = '{current}'", flush=True)
+            if current != layout_name:
                 logger.error(f"Cannot change layout to {layout_name}")
                 return False
 
-        # Wait for layout to fully load before changing timeframe
-        time.sleep(2)
+        # Wait for layout to fully load (indicators need time to appear)
+        print(
+            f"[DEBUG] Waiting 5s for layout '{layout_name}' to fully load...",
+            flush=True,
+        )
+        time.sleep(5)
+
+        # Verify the layout actually changed
+        current = self.browser.current_layout()
+        print(f"[DEBUG] After wait, current_layout() = '{current}'", flush=True)
+        if current != layout_name:
+            logger.error(f"Layout mismatch: expected '{layout_name}', got '{current}'")
+            # Try one more time
+            print(f"[DEBUG] Layout mismatch, trying change_layout again...", flush=True)
+            self.browser.change_layout(layout_name)
+            time.sleep(3)
+            current = self.browser.current_layout()
+            if current != layout_name:
+                logger.error(
+                    f"Cannot change layout to {layout_name} after multiple attempts"
+                )
+                return False
+
+        print(f"[DEBUG] Layout successfully set to '{layout_name}'", flush=True)
 
         # Always set timeframe to "5 minutes" (lowest timeframe for faster alert triggers)
         CHART_TIMEFRAME = "5 minutes"
@@ -240,20 +279,39 @@ class TieredOrchestrator:
             logger.info(
                 f"Waiting {self.config.nwe_batch_wait}s for NWE webhook to fire..."
             )
+            print(
+                f"[DEBUG] Starting {self.config.nwe_batch_wait}s wait for NWE webhook...",
+                flush=True,
+            )
             time.sleep(self.config.nwe_batch_wait)
+            print("[DEBUG] NWE wait complete", flush=True)
 
             # Delete the alert
+            print("[DEBUG] Calling delete_all_alerts()...", flush=True)
             if not self.browser.delete_all_alerts():
                 logger.warning("Failed to delete alerts, continuing anyway...")
+                print("[DEBUG] delete_all_alerts() returned False", flush=True)
+            else:
+                print("[DEBUG] delete_all_alerts() returned True", flush=True)
 
             # Mark symbols as scanned
+            print("[DEBUG] Calling api.mark_symbols_scanned()...", flush=True)
             mark_response = self.api.mark_symbols_scanned(symbol_strings)
+            print(f"[DEBUG] mark_symbols_scanned response: {mark_response}", flush=True)
             if mark_response.get("success", False):
                 logger.info(f"Marked {len(symbol_strings)} symbols as scanned")
             else:
                 logger.warning(
                     f"Failed to mark symbols as scanned: {mark_response.get('error', 'Unknown error')}"
                 )
+
+            # Save the NWE layout after Phase 1 completes
+            print("[DEBUG] Saving NWE layout after Phase 1...", flush=True)
+            self.browser.save_layout()
+            time.sleep(1)
+            print("[DEBUG] NWE layout saved", flush=True)
+
+            print("[DEBUG] Phase 1 NWE batch complete", flush=True)
 
         except Exception as e:
             logger.exception(f"Error in Phase 1: {e}")
@@ -263,7 +321,7 @@ class TieredOrchestrator:
             except:
                 pass
 
-    def _phase2_obdiv_processing(self):
+    def _phase2_obdiv_processing(self) -> bool:
         """
         Phase 2: OBDIV Processing
 
@@ -271,25 +329,67 @@ class TieredOrchestrator:
         2. Switch to OBDIV layout
         3. Process hot symbols in batches
         4. Switch back to NWE layout
+
+        Returns:
+            True if hot symbols were found and processed, False otherwise
         """
+        print("[DEBUG] === Entering Phase 2: OBDIV Processing ===", flush=True)
         logger.info("--- Phase 2: OBDIV Processing ---")
 
         # Get hot symbols pending Tier 2 processing
+        print("[DEBUG] Fetching hot symbols from API...", flush=True)
         hot_symbols = self.api.get_hot_symbols(limit=50)  # Get more, we'll batch them
+        print(f"[DEBUG] get_hot_symbols returned: {hot_symbols}", flush=True)
 
         if not hot_symbols:
             logger.info("No hot symbols to process - skipping OBDIV phase")
-            return
+            print("[DEBUG] No hot symbols - skipping OBDIV phase", flush=True)
+            return False
 
         logger.info(f"Found {len(hot_symbols)} hot symbols for OBDIV processing")
 
         try:
             # Switch to OBDIV layout (with setup on first switch)
             is_first = not self._obdiv_layout_initialized
+            print(
+                f"[DEBUG] Switching to OBDIV layout (is_first={is_first})...",
+                flush=True,
+            )
             if not self._switch_to_layout_with_setup(OBDIV_LAYOUT_NAME, is_first):
                 logger.error("Could not switch to OBDIV layout")
-                return
+                return False
             self._obdiv_layout_initialized = True
+            print("[DEBUG] OBDIV layout switch complete", flush=True)
+
+            # Wait for OBDIV indicator to be available
+            print(
+                f"[DEBUG] Waiting for {OBDIV_SCREENER_SHORTTITLE} indicator to appear...",
+                flush=True,
+            )
+            max_wait = 10
+            indicator_found = False
+            for i in range(max_wait):
+                indicator = self.browser._safe_indicator_access(
+                    OBDIV_SCREENER_SHORTTITLE
+                )
+                if indicator:
+                    print(
+                        f"[DEBUG] Found {OBDIV_SCREENER_SHORTTITLE} indicator after {i+1}s",
+                        flush=True,
+                    )
+                    indicator_found = True
+                    break
+                print(
+                    f"[DEBUG] Indicator not found, waiting... ({i+1}/{max_wait})",
+                    flush=True,
+                )
+                time.sleep(1)
+
+            if not indicator_found:
+                logger.error(
+                    f"Could not find {OBDIV_SCREENER_SHORTTITLE} indicator after {max_wait}s"
+                )
+                return False
 
             # Process hot symbols in batches
             batch_size = self.config.obdiv_batch_size
@@ -345,7 +445,14 @@ class TieredOrchestrator:
 
                 processed_count += len(symbol_strings)
 
+            # Save the OBDIV layout after Phase 2 completes
+            print("[DEBUG] Saving OBDIV layout after Phase 2...", flush=True)
+            self.browser.save_layout()
+            time.sleep(1)
+            print("[DEBUG] OBDIV layout saved", flush=True)
+
             logger.info(f"Completed OBDIV processing for {processed_count} symbols")
+            return True
 
         except Exception as e:
             logger.exception(f"Error in Phase 2: {e}")
@@ -354,10 +461,16 @@ class TieredOrchestrator:
                 self.browser.delete_all_alerts()
             except:
                 pass
+            return False
         finally:
-            # Always try to switch back to NWE layout
+            # Always try to switch back to NWE layout and save it
             try:
+                print("[DEBUG] Switching back to NWE layout...", flush=True)
                 self.browser.change_layout(NWE_LAYOUT_NAME)
+                time.sleep(1)
+                self.browser.save_layout()
+                time.sleep(1)
+                print("[DEBUG] Switched back to NWE layout and saved", flush=True)
             except:
                 logger.warning("Could not switch back to NWE layout")
 

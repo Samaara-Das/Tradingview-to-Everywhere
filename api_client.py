@@ -159,17 +159,22 @@ class StockBuddyAPIClient:
             ]
         """
         try:
-            response = self.session.get(
-                f"{self.base_url}/hot-symbols",
-                params={"limit": limit, "status": "pending_tier2"},
-                timeout=self.timeout,
-            )
+            url = f"{self.base_url}/hot-symbols"
+            params = {"limit": limit, "status": "pending_tier2"}
+            print(f"[DEBUG] GET {url} with params: {params}", flush=True)
+
+            response = self.session.get(url, params=params, timeout=self.timeout)
+            print(f"[DEBUG] Response status: {response.status_code}", flush=True)
+            print(f"[DEBUG] Response body: {response.text[:500]}", flush=True)
+
             response.raise_for_status()
             data = response.json()
-            hot_symbols = data.get("data", [])
+            # API returns {"success": true, "symbols": [...]} not {"data": [...]}
+            hot_symbols = data.get("symbols", [])
             logger.info(f"Fetched {len(hot_symbols)} hot symbols pending Tier 2")
             return hot_symbols
         except Exception as e:
+            print(f"[DEBUG] get_hot_symbols error: {e}", flush=True)
             logger.error(f"Failed to get hot symbols: {e}")
             return []
 
