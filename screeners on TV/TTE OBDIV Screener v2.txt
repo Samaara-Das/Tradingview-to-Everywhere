@@ -946,8 +946,11 @@ var bool prevBullDiv07 = false, var bool prevBearDiv07 = false
 var bool prevBullOb08 = false, var bool prevBearOb08 = false
 var bool prevBullDiv08 = false, var bool prevBearDiv08 = false
 
-// Alert firing on bar close
-if barstate.isconfirmed
+// Initial scan flag - fires on first realtime bar to catch existing signals
+var bool isFirstRealtimeBar = true
+
+// Alert firing on realtime tick (immediate)
+if barstate.isrealtime
     // Symbol 01
     bool bullOb01 = bullF01_h4 == 1 or bullF01_d1 == 1 or bullF01_w1 == 1
     bool bearOb01 = bearF01_h4 == 1 or bearF01_d1 == 1 or bearF01_w1 == 1
@@ -958,10 +961,10 @@ if barstate.isconfirmed
     bool bearDiv01_int = intBearTm01_h4 == time or intBearTm01_d1 == time
     bool bearDiv01 = bearDiv01_logic2 or bearDiv01_int
 
-    bool hasSignal01 = bullOb01 or bearOb01 or bullDiv01 or bearDiv01
+    bool hasSignal01 = bullOb01 or bearOb01  // OB/FVG required per Regime 1 logic
     bool stateChanged01 = (bullOb01 != prevBullOb01) or (bearOb01 != prevBearOb01) or (bullDiv01 != prevBullDiv01) or (bearDiv01 != prevBearDiv01)
 
-    if hasSignal01 and stateChanged01 and usedSymbols >= 1
+    if hasSignal01 and usedSymbols >= 1 and (isFirstRealtimeBar or stateChanged01)
         // Determine best OB timeframe (prefer higher TF: W1 > D1 > H4)
         string bullObTf01 = bullF01_w1 == 1 ? "W1" : (bullF01_d1 == 1 ? "D1" : "H4")
         string bullObType01 = bullF01_w1 == 1 ? getObTypeStrJson(bullT01_w1) : (bullF01_d1 == 1 ? getObTypeStrJson(bullT01_d1) : getObTypeStrJson(bullT01_h4))
@@ -979,7 +982,7 @@ if barstate.isconfirmed
         string bearDivTf01 = (divBearTm01_d1 == time or intBearTm01_d1 == time) ? "D1" : "H4"
         string bearDivType01 = bearDiv01_logic2 ? "Logic2" : "Internal"
 
-        alert(buildObdivPayload(getSymbolName(s01), bullOb01, bullObTf01, bullObType01, bullObHigh01, bullObLow01, bullDiv01, bullDivTf01, bullDivType01, bearOb01, bearObTf01, bearObType01, bearObHigh01, bearObLow01, bearDiv01, bearDivTf01, bearDivType01), alert.freq_once_per_bar_close)
+        alert(buildObdivPayload(getSymbolName(s01), bullOb01, bullObTf01, bullObType01, bullObHigh01, bullObLow01, bullDiv01, bullDivTf01, bullDivType01, bearOb01, bearObTf01, bearObType01, bearObHigh01, bearObLow01, bearDiv01, bearDivTf01, bearDivType01), alert.freq_once_per_bar)
 
     prevBullOb01 := bullOb01
     prevBearOb01 := bearOb01
@@ -996,10 +999,10 @@ if barstate.isconfirmed
     bool bearDiv02_int = intBearTm02_h4 == time or intBearTm02_d1 == time
     bool bearDiv02 = bearDiv02_logic2 or bearDiv02_int
 
-    bool hasSignal02 = bullOb02 or bearOb02 or bullDiv02 or bearDiv02
+    bool hasSignal02 = bullOb02 or bearOb02  // OB/FVG required per Regime 1 logic
     bool stateChanged02 = (bullOb02 != prevBullOb02) or (bearOb02 != prevBearOb02) or (bullDiv02 != prevBullDiv02) or (bearDiv02 != prevBearDiv02)
 
-    if hasSignal02 and stateChanged02 and usedSymbols >= 2
+    if hasSignal02 and usedSymbols >= 2 and (isFirstRealtimeBar or stateChanged02)
         string bullObTf02 = bullF02_w1 == 1 ? "W1" : (bullF02_d1 == 1 ? "D1" : "H4")
         string bullObType02 = bullF02_w1 == 1 ? getObTypeStrJson(bullT02_w1) : (bullF02_d1 == 1 ? getObTypeStrJson(bullT02_d1) : getObTypeStrJson(bullT02_h4))
         float bullObHigh02 = bullF02_w1 == 1 ? bullZH02_w1 : (bullF02_d1 == 1 ? bullZH02_d1 : bullZH02_h4)
@@ -1015,7 +1018,7 @@ if barstate.isconfirmed
         string bearDivTf02 = (divBearTm02_d1 == time or intBearTm02_d1 == time) ? "D1" : "H4"
         string bearDivType02 = bearDiv02_logic2 ? "Logic2" : "Internal"
 
-        alert(buildObdivPayload(getSymbolName(s02), bullOb02, bullObTf02, bullObType02, bullObHigh02, bullObLow02, bullDiv02, bullDivTf02, bullDivType02, bearOb02, bearObTf02, bearObType02, bearObHigh02, bearObLow02, bearDiv02, bearDivTf02, bearDivType02), alert.freq_once_per_bar_close)
+        alert(buildObdivPayload(getSymbolName(s02), bullOb02, bullObTf02, bullObType02, bullObHigh02, bullObLow02, bullDiv02, bullDivTf02, bullDivType02, bearOb02, bearObTf02, bearObType02, bearObHigh02, bearObLow02, bearDiv02, bearDivTf02, bearDivType02), alert.freq_once_per_bar)
 
     prevBullOb02 := bullOb02
     prevBearOb02 := bearOb02
@@ -1032,10 +1035,10 @@ if barstate.isconfirmed
     bool bearDiv03_int = intBearTm03_h4 == time or intBearTm03_d1 == time
     bool bearDiv03 = bearDiv03_logic2 or bearDiv03_int
 
-    bool hasSignal03 = bullOb03 or bearOb03 or bullDiv03 or bearDiv03
+    bool hasSignal03 = bullOb03 or bearOb03  // OB/FVG required per Regime 1 logic
     bool stateChanged03 = (bullOb03 != prevBullOb03) or (bearOb03 != prevBearOb03) or (bullDiv03 != prevBullDiv03) or (bearDiv03 != prevBearDiv03)
 
-    if hasSignal03 and stateChanged03 and usedSymbols >= 3
+    if hasSignal03 and usedSymbols >= 3 and (isFirstRealtimeBar or stateChanged03)
         string bullObTf03 = bullF03_w1 == 1 ? "W1" : (bullF03_d1 == 1 ? "D1" : "H4")
         string bullObType03 = bullF03_w1 == 1 ? getObTypeStrJson(bullT03_w1) : (bullF03_d1 == 1 ? getObTypeStrJson(bullT03_d1) : getObTypeStrJson(bullT03_h4))
         float bullObHigh03 = bullF03_w1 == 1 ? bullZH03_w1 : (bullF03_d1 == 1 ? bullZH03_d1 : bullZH03_h4)
@@ -1051,7 +1054,7 @@ if barstate.isconfirmed
         string bearDivTf03 = (divBearTm03_d1 == time or intBearTm03_d1 == time) ? "D1" : "H4"
         string bearDivType03 = bearDiv03_logic2 ? "Logic2" : "Internal"
 
-        alert(buildObdivPayload(getSymbolName(s03), bullOb03, bullObTf03, bullObType03, bullObHigh03, bullObLow03, bullDiv03, bullDivTf03, bullDivType03, bearOb03, bearObTf03, bearObType03, bearObHigh03, bearObLow03, bearDiv03, bearDivTf03, bearDivType03), alert.freq_once_per_bar_close)
+        alert(buildObdivPayload(getSymbolName(s03), bullOb03, bullObTf03, bullObType03, bullObHigh03, bullObLow03, bullDiv03, bullDivTf03, bullDivType03, bearOb03, bearObTf03, bearObType03, bearObHigh03, bearObLow03, bearDiv03, bearDivTf03, bearDivType03), alert.freq_once_per_bar)
 
     prevBullOb03 := bullOb03
     prevBearOb03 := bearOb03
@@ -1068,10 +1071,10 @@ if barstate.isconfirmed
     bool bearDiv04_int = intBearTm04_h4 == time or intBearTm04_d1 == time
     bool bearDiv04 = bearDiv04_logic2 or bearDiv04_int
 
-    bool hasSignal04 = bullOb04 or bearOb04 or bullDiv04 or bearDiv04
+    bool hasSignal04 = bullOb04 or bearOb04  // OB/FVG required per Regime 1 logic
     bool stateChanged04 = (bullOb04 != prevBullOb04) or (bearOb04 != prevBearOb04) or (bullDiv04 != prevBullDiv04) or (bearDiv04 != prevBearDiv04)
 
-    if hasSignal04 and stateChanged04 and usedSymbols >= 4
+    if hasSignal04 and usedSymbols >= 4 and (isFirstRealtimeBar or stateChanged04)
         string bullObTf04 = bullF04_w1 == 1 ? "W1" : (bullF04_d1 == 1 ? "D1" : "H4")
         string bullObType04 = bullF04_w1 == 1 ? getObTypeStrJson(bullT04_w1) : (bullF04_d1 == 1 ? getObTypeStrJson(bullT04_d1) : getObTypeStrJson(bullT04_h4))
         float bullObHigh04 = bullF04_w1 == 1 ? bullZH04_w1 : (bullF04_d1 == 1 ? bullZH04_d1 : bullZH04_h4)
@@ -1087,7 +1090,7 @@ if barstate.isconfirmed
         string bearDivTf04 = (divBearTm04_d1 == time or intBearTm04_d1 == time) ? "D1" : "H4"
         string bearDivType04 = bearDiv04_logic2 ? "Logic2" : "Internal"
 
-        alert(buildObdivPayload(getSymbolName(s04), bullOb04, bullObTf04, bullObType04, bullObHigh04, bullObLow04, bullDiv04, bullDivTf04, bullDivType04, bearOb04, bearObTf04, bearObType04, bearObHigh04, bearObLow04, bearDiv04, bearDivTf04, bearDivType04), alert.freq_once_per_bar_close)
+        alert(buildObdivPayload(getSymbolName(s04), bullOb04, bullObTf04, bullObType04, bullObHigh04, bullObLow04, bullDiv04, bullDivTf04, bullDivType04, bearOb04, bearObTf04, bearObType04, bearObHigh04, bearObLow04, bearDiv04, bearDivTf04, bearDivType04), alert.freq_once_per_bar)
 
     prevBullOb04 := bullOb04
     prevBearOb04 := bearOb04
@@ -1104,10 +1107,10 @@ if barstate.isconfirmed
     bool bearDiv05_int = intBearTm05_h4 == time or intBearTm05_d1 == time
     bool bearDiv05 = bearDiv05_logic2 or bearDiv05_int
 
-    bool hasSignal05 = bullOb05 or bearOb05 or bullDiv05 or bearDiv05
+    bool hasSignal05 = bullOb05 or bearOb05  // OB/FVG required per Regime 1 logic
     bool stateChanged05 = (bullOb05 != prevBullOb05) or (bearOb05 != prevBearOb05) or (bullDiv05 != prevBullDiv05) or (bearDiv05 != prevBearDiv05)
 
-    if hasSignal05 and stateChanged05 and usedSymbols >= 5
+    if hasSignal05 and usedSymbols >= 5 and (isFirstRealtimeBar or stateChanged05)
         string bullObTf05 = bullF05_w1 == 1 ? "W1" : (bullF05_d1 == 1 ? "D1" : "H4")
         string bullObType05 = bullF05_w1 == 1 ? getObTypeStrJson(bullT05_w1) : (bullF05_d1 == 1 ? getObTypeStrJson(bullT05_d1) : getObTypeStrJson(bullT05_h4))
         float bullObHigh05 = bullF05_w1 == 1 ? bullZH05_w1 : (bullF05_d1 == 1 ? bullZH05_d1 : bullZH05_h4)
@@ -1123,7 +1126,7 @@ if barstate.isconfirmed
         string bearDivTf05 = (divBearTm05_d1 == time or intBearTm05_d1 == time) ? "D1" : "H4"
         string bearDivType05 = bearDiv05_logic2 ? "Logic2" : "Internal"
 
-        alert(buildObdivPayload(getSymbolName(s05), bullOb05, bullObTf05, bullObType05, bullObHigh05, bullObLow05, bullDiv05, bullDivTf05, bullDivType05, bearOb05, bearObTf05, bearObType05, bearObHigh05, bearObLow05, bearDiv05, bearDivTf05, bearDivType05), alert.freq_once_per_bar_close)
+        alert(buildObdivPayload(getSymbolName(s05), bullOb05, bullObTf05, bullObType05, bullObHigh05, bullObLow05, bullDiv05, bullDivTf05, bullDivType05, bearOb05, bearObTf05, bearObType05, bearObHigh05, bearObLow05, bearDiv05, bearDivTf05, bearDivType05), alert.freq_once_per_bar)
 
     prevBullOb05 := bullOb05
     prevBearOb05 := bearOb05
@@ -1140,10 +1143,10 @@ if barstate.isconfirmed
     bool bearDiv06_int = intBearTm06_h4 == time or intBearTm06_d1 == time
     bool bearDiv06 = bearDiv06_logic2 or bearDiv06_int
 
-    bool hasSignal06 = bullOb06 or bearOb06 or bullDiv06 or bearDiv06
+    bool hasSignal06 = bullOb06 or bearOb06  // OB/FVG required per Regime 1 logic
     bool stateChanged06 = (bullOb06 != prevBullOb06) or (bearOb06 != prevBearOb06) or (bullDiv06 != prevBullDiv06) or (bearDiv06 != prevBearDiv06)
 
-    if hasSignal06 and stateChanged06 and usedSymbols >= 6
+    if hasSignal06 and usedSymbols >= 6 and (isFirstRealtimeBar or stateChanged06)
         string bullObTf06 = bullF06_w1 == 1 ? "W1" : (bullF06_d1 == 1 ? "D1" : "H4")
         string bullObType06 = bullF06_w1 == 1 ? getObTypeStrJson(bullT06_w1) : (bullF06_d1 == 1 ? getObTypeStrJson(bullT06_d1) : getObTypeStrJson(bullT06_h4))
         float bullObHigh06 = bullF06_w1 == 1 ? bullZH06_w1 : (bullF06_d1 == 1 ? bullZH06_d1 : bullZH06_h4)
@@ -1159,7 +1162,7 @@ if barstate.isconfirmed
         string bearDivTf06 = (divBearTm06_d1 == time or intBearTm06_d1 == time) ? "D1" : "H4"
         string bearDivType06 = bearDiv06_logic2 ? "Logic2" : "Internal"
 
-        alert(buildObdivPayload(getSymbolName(s06), bullOb06, bullObTf06, bullObType06, bullObHigh06, bullObLow06, bullDiv06, bullDivTf06, bullDivType06, bearOb06, bearObTf06, bearObType06, bearObHigh06, bearObLow06, bearDiv06, bearDivTf06, bearDivType06), alert.freq_once_per_bar_close)
+        alert(buildObdivPayload(getSymbolName(s06), bullOb06, bullObTf06, bullObType06, bullObHigh06, bullObLow06, bullDiv06, bullDivTf06, bullDivType06, bearOb06, bearObTf06, bearObType06, bearObHigh06, bearObLow06, bearDiv06, bearDivTf06, bearDivType06), alert.freq_once_per_bar)
 
     prevBullOb06 := bullOb06
     prevBearOb06 := bearOb06
@@ -1176,10 +1179,10 @@ if barstate.isconfirmed
     bool bearDiv07_int = intBearTm07_h4 == time or intBearTm07_d1 == time
     bool bearDiv07 = bearDiv07_logic2 or bearDiv07_int
 
-    bool hasSignal07 = bullOb07 or bearOb07 or bullDiv07 or bearDiv07
+    bool hasSignal07 = bullOb07 or bearOb07  // OB/FVG required per Regime 1 logic
     bool stateChanged07 = (bullOb07 != prevBullOb07) or (bearOb07 != prevBearOb07) or (bullDiv07 != prevBullDiv07) or (bearDiv07 != prevBearDiv07)
 
-    if hasSignal07 and stateChanged07 and usedSymbols >= 7
+    if hasSignal07 and usedSymbols >= 7 and (isFirstRealtimeBar or stateChanged07)
         string bullObTf07 = bullF07_w1 == 1 ? "W1" : (bullF07_d1 == 1 ? "D1" : "H4")
         string bullObType07 = bullF07_w1 == 1 ? getObTypeStrJson(bullT07_w1) : (bullF07_d1 == 1 ? getObTypeStrJson(bullT07_d1) : getObTypeStrJson(bullT07_h4))
         float bullObHigh07 = bullF07_w1 == 1 ? bullZH07_w1 : (bullF07_d1 == 1 ? bullZH07_d1 : bullZH07_h4)
@@ -1195,7 +1198,7 @@ if barstate.isconfirmed
         string bearDivTf07 = (divBearTm07_d1 == time or intBearTm07_d1 == time) ? "D1" : "H4"
         string bearDivType07 = bearDiv07_logic2 ? "Logic2" : "Internal"
 
-        alert(buildObdivPayload(getSymbolName(s07), bullOb07, bullObTf07, bullObType07, bullObHigh07, bullObLow07, bullDiv07, bullDivTf07, bullDivType07, bearOb07, bearObTf07, bearObType07, bearObHigh07, bearObLow07, bearDiv07, bearDivTf07, bearDivType07), alert.freq_once_per_bar_close)
+        alert(buildObdivPayload(getSymbolName(s07), bullOb07, bullObTf07, bullObType07, bullObHigh07, bullObLow07, bullDiv07, bullDivTf07, bullDivType07, bearOb07, bearObTf07, bearObType07, bearObHigh07, bearObLow07, bearDiv07, bearDivTf07, bearDivType07), alert.freq_once_per_bar)
 
     prevBullOb07 := bullOb07
     prevBearOb07 := bearOb07
@@ -1212,10 +1215,10 @@ if barstate.isconfirmed
     bool bearDiv08_int = intBearTm08_h4 == time or intBearTm08_d1 == time
     bool bearDiv08 = bearDiv08_logic2 or bearDiv08_int
 
-    bool hasSignal08 = bullOb08 or bearOb08 or bullDiv08 or bearDiv08
+    bool hasSignal08 = bullOb08 or bearOb08  // OB/FVG required per Regime 1 logic
     bool stateChanged08 = (bullOb08 != prevBullOb08) or (bearOb08 != prevBearOb08) or (bullDiv08 != prevBullDiv08) or (bearDiv08 != prevBearDiv08)
 
-    if hasSignal08 and stateChanged08 and usedSymbols >= 8
+    if hasSignal08 and usedSymbols >= 8 and (isFirstRealtimeBar or stateChanged08)
         string bullObTf08 = bullF08_w1 == 1 ? "W1" : (bullF08_d1 == 1 ? "D1" : "H4")
         string bullObType08 = bullF08_w1 == 1 ? getObTypeStrJson(bullT08_w1) : (bullF08_d1 == 1 ? getObTypeStrJson(bullT08_d1) : getObTypeStrJson(bullT08_h4))
         float bullObHigh08 = bullF08_w1 == 1 ? bullZH08_w1 : (bullF08_d1 == 1 ? bullZH08_d1 : bullZH08_h4)
@@ -1231,12 +1234,16 @@ if barstate.isconfirmed
         string bearDivTf08 = (divBearTm08_d1 == time or intBearTm08_d1 == time) ? "D1" : "H4"
         string bearDivType08 = bearDiv08_logic2 ? "Logic2" : "Internal"
 
-        alert(buildObdivPayload(getSymbolName(s08), bullOb08, bullObTf08, bullObType08, bullObHigh08, bullObLow08, bullDiv08, bullDivTf08, bullDivType08, bearOb08, bearObTf08, bearObType08, bearObHigh08, bearObLow08, bearDiv08, bearDivTf08, bearDivType08), alert.freq_once_per_bar_close)
+        alert(buildObdivPayload(getSymbolName(s08), bullOb08, bullObTf08, bullObType08, bullObHigh08, bullObLow08, bullDiv08, bullDivTf08, bullDivType08, bearOb08, bearObTf08, bearObType08, bearObHigh08, bearObLow08, bearDiv08, bearDivTf08, bearDivType08), alert.freq_once_per_bar)
 
     prevBullOb08 := bullOb08
     prevBearOb08 := bearOb08
     prevBullDiv08 := bullDiv08
     prevBearDiv08 := bearDiv08
+
+    // Reset initial scan flag after all symbols processed
+    if isFirstRealtimeBar
+        isFirstRealtimeBar := false
 
 // Required for valid indicator
 plot(na)

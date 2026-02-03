@@ -7,11 +7,24 @@
 // Sends webhook alerts to Stock Buddy API: POST /api/nwe
 // Webhook URL: https://stock-buddy-app.vercel.app/api/nwe
 //
-// Payload format:
-// {"tier":"nwe","symbol":"GBPAUD","direction":"bullish","timeframes":["H4","D1"],"timestamp":1672531200}
+// BATCH Payload format (fires ONCE INSTANTLY on first realtime tick):
+// {
+//   "tier": "nwe",
+//   "symbols": [
+//     {"symbol": "GBPAUD", "direction": "bullish", "timeframes": ["5m", "15m"]},
+//     {"symbol": "EURUSD", "direction": "bearish", "timeframes": ["5m"]}
+//   ],
+//   "timestamp": 1672531200,
+//   "count": 2
+// }
 //
-// Monitors 20 symbols on H4 and D1 timeframes for NWE zone entries
+// Monitors 20 symbols on 5m and 15m timeframes for NWE zone entries
 // Uses 40 request.security() calls (20 symbols × 2 timeframes)
+//
+// ALERT BEHAVIOR:
+// - Fires INSTANTLY on first realtime tick after alert creation
+// - Sends ALL symbols currently in zones as a batch
+// - TTE orchestrator deletes and recreates alert for next scan
 //
 // ALERT SETUP:
 // 1. Right-click indicator → "Add Alert"
@@ -194,32 +207,6 @@ bool nweBull20 = nweBull20_h4 or nweBull20_d1
 bool nweBear20 = nweBear20_h4 or nweBear20_d1
 
 ////////////////////////////
-// STATE TRACKING         //
-////////////////////////////
-
-// Track previous states for change detection
-var bool prevBull01 = false, var bool prevBear01 = false
-var bool prevBull02 = false, var bool prevBear02 = false
-var bool prevBull03 = false, var bool prevBear03 = false
-var bool prevBull04 = false, var bool prevBear04 = false
-var bool prevBull05 = false, var bool prevBear05 = false
-var bool prevBull06 = false, var bool prevBear06 = false
-var bool prevBull07 = false, var bool prevBear07 = false
-var bool prevBull08 = false, var bool prevBear08 = false
-var bool prevBull09 = false, var bool prevBear09 = false
-var bool prevBull10 = false, var bool prevBear10 = false
-var bool prevBull11 = false, var bool prevBear11 = false
-var bool prevBull12 = false, var bool prevBear12 = false
-var bool prevBull13 = false, var bool prevBear13 = false
-var bool prevBull14 = false, var bool prevBear14 = false
-var bool prevBull15 = false, var bool prevBear15 = false
-var bool prevBull16 = false, var bool prevBear16 = false
-var bool prevBull17 = false, var bool prevBear17 = false
-var bool prevBull18 = false, var bool prevBear18 = false
-var bool prevBull19 = false, var bool prevBear19 = false
-var bool prevBull20 = false, var bool prevBear20 = false
-
-////////////////////////////
 // HELPER FUNCTIONS       //
 ////////////////////////////
 
@@ -229,185 +216,190 @@ getSymbolName(string fullSymbol) =>
         result := array.get(str.split(fullSymbol, ":"), 1)
     result
 
-// Build alert message for Stock Buddy API
-// Format: {"tier":"nwe","symbol":"XXX","direction":"bullish","timeframes":["H4","D1"],"timestamp":1672531200}
-buildAlertMsg(string sym, string direction, bool h4Active, bool d1Active) =>
-    string tfArray = ""
-    if h4Active and d1Active
-        tfArray := '"H4","D1"'
-    else if h4Active
-        tfArray := '"H4"'
-    else if d1Active
-        tfArray := '"D1"'
-    else
-        tfArray := ""
-
-    string timestamp = str.tostring(math.round(time / 1000))
-
-    '{"tier":"nwe","symbol":"' + sym + '","direction":"' + direction + '","timeframes":[' + tfArray + '],"timestamp":' + timestamp + '}'
+// Build symbol entry for batch JSON
+// Format: {"symbol":"XXX","direction":"bullish","timeframes":["5m","15m"]}
+buildSymbolEntry(string sym, string direction, bool h4Active, bool d1Active) =>
+    string tfArray = h4Active and d1Active ? '"5m","15m"' : (h4Active ? '"5m"' : (d1Active ? '"15m"' : ''))
+    '{"symbol":"' + sym + '","direction":"' + direction + '","timeframes":[' + tfArray + ']}'
 
 ////////////////////////////
-// ALERTS                 //
+// BATCH ALERT (FIRE ONCE) //
 ////////////////////////////
 
-// Fire alerts when NWE state changes (enters zone)
-if barstate.isconfirmed
+// Fire-once flag - prevents multiple alerts after first trigger
+var bool alreadyFired = false
+
+// Build batch JSON with all symbols currently in zones
+var string batchJson = ""
+var int symbolCount = 0
+
+if barstate.isrealtime and not alreadyFired
+    // Reset batch for this bar
+    batchJson := ""
+    symbolCount := 0
+
     // Symbol 01
-    if nweBull01 and not prevBull01 and usedSymbols >= 1
-        alert(buildAlertMsg(getSymbolName(s01), "bullish", nweBull01_h4, nweBull01_d1), alert.freq_once_per_bar_close)
-    if nweBear01 and not prevBear01 and usedSymbols >= 1
-        alert(buildAlertMsg(getSymbolName(s01), "bearish", nweBear01_h4, nweBear01_d1), alert.freq_once_per_bar_close)
-    prevBull01 := nweBull01
-    prevBear01 := nweBear01
+    if nweBull01 and usedSymbols >= 1
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s01), "bullish", nweBull01_h4, nweBull01_d1)
+        symbolCount += 1
+    if nweBear01 and usedSymbols >= 1
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s01), "bearish", nweBear01_h4, nweBear01_d1)
+        symbolCount += 1
 
     // Symbol 02
-    if nweBull02 and not prevBull02 and usedSymbols >= 2
-        alert(buildAlertMsg(getSymbolName(s02), "bullish", nweBull02_h4, nweBull02_d1), alert.freq_once_per_bar_close)
-    if nweBear02 and not prevBear02 and usedSymbols >= 2
-        alert(buildAlertMsg(getSymbolName(s02), "bearish", nweBear02_h4, nweBear02_d1), alert.freq_once_per_bar_close)
-    prevBull02 := nweBull02
-    prevBear02 := nweBear02
+    if nweBull02 and usedSymbols >= 2
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s02), "bullish", nweBull02_h4, nweBull02_d1)
+        symbolCount += 1
+    if nweBear02 and usedSymbols >= 2
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s02), "bearish", nweBear02_h4, nweBear02_d1)
+        symbolCount += 1
 
     // Symbol 03
-    if nweBull03 and not prevBull03 and usedSymbols >= 3
-        alert(buildAlertMsg(getSymbolName(s03), "bullish", nweBull03_h4, nweBull03_d1), alert.freq_once_per_bar_close)
-    if nweBear03 and not prevBear03 and usedSymbols >= 3
-        alert(buildAlertMsg(getSymbolName(s03), "bearish", nweBear03_h4, nweBear03_d1), alert.freq_once_per_bar_close)
-    prevBull03 := nweBull03
-    prevBear03 := nweBear03
+    if nweBull03 and usedSymbols >= 3
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s03), "bullish", nweBull03_h4, nweBull03_d1)
+        symbolCount += 1
+    if nweBear03 and usedSymbols >= 3
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s03), "bearish", nweBear03_h4, nweBear03_d1)
+        symbolCount += 1
 
     // Symbol 04
-    if nweBull04 and not prevBull04 and usedSymbols >= 4
-        alert(buildAlertMsg(getSymbolName(s04), "bullish", nweBull04_h4, nweBull04_d1), alert.freq_once_per_bar_close)
-    if nweBear04 and not prevBear04 and usedSymbols >= 4
-        alert(buildAlertMsg(getSymbolName(s04), "bearish", nweBear04_h4, nweBear04_d1), alert.freq_once_per_bar_close)
-    prevBull04 := nweBull04
-    prevBear04 := nweBear04
+    if nweBull04 and usedSymbols >= 4
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s04), "bullish", nweBull04_h4, nweBull04_d1)
+        symbolCount += 1
+    if nweBear04 and usedSymbols >= 4
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s04), "bearish", nweBear04_h4, nweBear04_d1)
+        symbolCount += 1
 
     // Symbol 05
-    if nweBull05 and not prevBull05 and usedSymbols >= 5
-        alert(buildAlertMsg(getSymbolName(s05), "bullish", nweBull05_h4, nweBull05_d1), alert.freq_once_per_bar_close)
-    if nweBear05 and not prevBear05 and usedSymbols >= 5
-        alert(buildAlertMsg(getSymbolName(s05), "bearish", nweBear05_h4, nweBear05_d1), alert.freq_once_per_bar_close)
-    prevBull05 := nweBull05
-    prevBear05 := nweBear05
+    if nweBull05 and usedSymbols >= 5
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s05), "bullish", nweBull05_h4, nweBull05_d1)
+        symbolCount += 1
+    if nweBear05 and usedSymbols >= 5
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s05), "bearish", nweBear05_h4, nweBear05_d1)
+        symbolCount += 1
 
     // Symbol 06
-    if nweBull06 and not prevBull06 and usedSymbols >= 6
-        alert(buildAlertMsg(getSymbolName(s06), "bullish", nweBull06_h4, nweBull06_d1), alert.freq_once_per_bar_close)
-    if nweBear06 and not prevBear06 and usedSymbols >= 6
-        alert(buildAlertMsg(getSymbolName(s06), "bearish", nweBear06_h4, nweBear06_d1), alert.freq_once_per_bar_close)
-    prevBull06 := nweBull06
-    prevBear06 := nweBear06
+    if nweBull06 and usedSymbols >= 6
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s06), "bullish", nweBull06_h4, nweBull06_d1)
+        symbolCount += 1
+    if nweBear06 and usedSymbols >= 6
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s06), "bearish", nweBear06_h4, nweBear06_d1)
+        symbolCount += 1
 
     // Symbol 07
-    if nweBull07 and not prevBull07 and usedSymbols >= 7
-        alert(buildAlertMsg(getSymbolName(s07), "bullish", nweBull07_h4, nweBull07_d1), alert.freq_once_per_bar_close)
-    if nweBear07 and not prevBear07 and usedSymbols >= 7
-        alert(buildAlertMsg(getSymbolName(s07), "bearish", nweBear07_h4, nweBear07_d1), alert.freq_once_per_bar_close)
-    prevBull07 := nweBull07
-    prevBear07 := nweBear07
+    if nweBull07 and usedSymbols >= 7
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s07), "bullish", nweBull07_h4, nweBull07_d1)
+        symbolCount += 1
+    if nweBear07 and usedSymbols >= 7
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s07), "bearish", nweBear07_h4, nweBear07_d1)
+        symbolCount += 1
 
     // Symbol 08
-    if nweBull08 and not prevBull08 and usedSymbols >= 8
-        alert(buildAlertMsg(getSymbolName(s08), "bullish", nweBull08_h4, nweBull08_d1), alert.freq_once_per_bar_close)
-    if nweBear08 and not prevBear08 and usedSymbols >= 8
-        alert(buildAlertMsg(getSymbolName(s08), "bearish", nweBear08_h4, nweBear08_d1), alert.freq_once_per_bar_close)
-    prevBull08 := nweBull08
-    prevBear08 := nweBear08
+    if nweBull08 and usedSymbols >= 8
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s08), "bullish", nweBull08_h4, nweBull08_d1)
+        symbolCount += 1
+    if nweBear08 and usedSymbols >= 8
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s08), "bearish", nweBear08_h4, nweBear08_d1)
+        symbolCount += 1
 
     // Symbol 09
-    if nweBull09 and not prevBull09 and usedSymbols >= 9
-        alert(buildAlertMsg(getSymbolName(s09), "bullish", nweBull09_h4, nweBull09_d1), alert.freq_once_per_bar_close)
-    if nweBear09 and not prevBear09 and usedSymbols >= 9
-        alert(buildAlertMsg(getSymbolName(s09), "bearish", nweBear09_h4, nweBear09_d1), alert.freq_once_per_bar_close)
-    prevBull09 := nweBull09
-    prevBear09 := nweBear09
+    if nweBull09 and usedSymbols >= 9
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s09), "bullish", nweBull09_h4, nweBull09_d1)
+        symbolCount += 1
+    if nweBear09 and usedSymbols >= 9
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s09), "bearish", nweBear09_h4, nweBear09_d1)
+        symbolCount += 1
 
     // Symbol 10
-    if nweBull10 and not prevBull10 and usedSymbols >= 10
-        alert(buildAlertMsg(getSymbolName(s10), "bullish", nweBull10_h4, nweBull10_d1), alert.freq_once_per_bar_close)
-    if nweBear10 and not prevBear10 and usedSymbols >= 10
-        alert(buildAlertMsg(getSymbolName(s10), "bearish", nweBear10_h4, nweBear10_d1), alert.freq_once_per_bar_close)
-    prevBull10 := nweBull10
-    prevBear10 := nweBear10
+    if nweBull10 and usedSymbols >= 10
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s10), "bullish", nweBull10_h4, nweBull10_d1)
+        symbolCount += 1
+    if nweBear10 and usedSymbols >= 10
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s10), "bearish", nweBear10_h4, nweBear10_d1)
+        symbolCount += 1
 
     // Symbol 11
-    if nweBull11 and not prevBull11 and usedSymbols >= 11
-        alert(buildAlertMsg(getSymbolName(s11), "bullish", nweBull11_h4, nweBull11_d1), alert.freq_once_per_bar_close)
-    if nweBear11 and not prevBear11 and usedSymbols >= 11
-        alert(buildAlertMsg(getSymbolName(s11), "bearish", nweBear11_h4, nweBear11_d1), alert.freq_once_per_bar_close)
-    prevBull11 := nweBull11
-    prevBear11 := nweBear11
+    if nweBull11 and usedSymbols >= 11
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s11), "bullish", nweBull11_h4, nweBull11_d1)
+        symbolCount += 1
+    if nweBear11 and usedSymbols >= 11
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s11), "bearish", nweBear11_h4, nweBear11_d1)
+        symbolCount += 1
 
     // Symbol 12
-    if nweBull12 and not prevBull12 and usedSymbols >= 12
-        alert(buildAlertMsg(getSymbolName(s12), "bullish", nweBull12_h4, nweBull12_d1), alert.freq_once_per_bar_close)
-    if nweBear12 and not prevBear12 and usedSymbols >= 12
-        alert(buildAlertMsg(getSymbolName(s12), "bearish", nweBear12_h4, nweBear12_d1), alert.freq_once_per_bar_close)
-    prevBull12 := nweBull12
-    prevBear12 := nweBear12
+    if nweBull12 and usedSymbols >= 12
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s12), "bullish", nweBull12_h4, nweBull12_d1)
+        symbolCount += 1
+    if nweBear12 and usedSymbols >= 12
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s12), "bearish", nweBear12_h4, nweBear12_d1)
+        symbolCount += 1
 
     // Symbol 13
-    if nweBull13 and not prevBull13 and usedSymbols >= 13
-        alert(buildAlertMsg(getSymbolName(s13), "bullish", nweBull13_h4, nweBull13_d1), alert.freq_once_per_bar_close)
-    if nweBear13 and not prevBear13 and usedSymbols >= 13
-        alert(buildAlertMsg(getSymbolName(s13), "bearish", nweBear13_h4, nweBear13_d1), alert.freq_once_per_bar_close)
-    prevBull13 := nweBull13
-    prevBear13 := nweBear13
+    if nweBull13 and usedSymbols >= 13
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s13), "bullish", nweBull13_h4, nweBull13_d1)
+        symbolCount += 1
+    if nweBear13 and usedSymbols >= 13
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s13), "bearish", nweBear13_h4, nweBear13_d1)
+        symbolCount += 1
 
     // Symbol 14
-    if nweBull14 and not prevBull14 and usedSymbols >= 14
-        alert(buildAlertMsg(getSymbolName(s14), "bullish", nweBull14_h4, nweBull14_d1), alert.freq_once_per_bar_close)
-    if nweBear14 and not prevBear14 and usedSymbols >= 14
-        alert(buildAlertMsg(getSymbolName(s14), "bearish", nweBear14_h4, nweBear14_d1), alert.freq_once_per_bar_close)
-    prevBull14 := nweBull14
-    prevBear14 := nweBear14
+    if nweBull14 and usedSymbols >= 14
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s14), "bullish", nweBull14_h4, nweBull14_d1)
+        symbolCount += 1
+    if nweBear14 and usedSymbols >= 14
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s14), "bearish", nweBear14_h4, nweBear14_d1)
+        symbolCount += 1
 
     // Symbol 15
-    if nweBull15 and not prevBull15 and usedSymbols >= 15
-        alert(buildAlertMsg(getSymbolName(s15), "bullish", nweBull15_h4, nweBull15_d1), alert.freq_once_per_bar_close)
-    if nweBear15 and not prevBear15 and usedSymbols >= 15
-        alert(buildAlertMsg(getSymbolName(s15), "bearish", nweBear15_h4, nweBear15_d1), alert.freq_once_per_bar_close)
-    prevBull15 := nweBull15
-    prevBear15 := nweBear15
+    if nweBull15 and usedSymbols >= 15
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s15), "bullish", nweBull15_h4, nweBull15_d1)
+        symbolCount += 1
+    if nweBear15 and usedSymbols >= 15
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s15), "bearish", nweBear15_h4, nweBear15_d1)
+        symbolCount += 1
 
     // Symbol 16
-    if nweBull16 and not prevBull16 and usedSymbols >= 16
-        alert(buildAlertMsg(getSymbolName(s16), "bullish", nweBull16_h4, nweBull16_d1), alert.freq_once_per_bar_close)
-    if nweBear16 and not prevBear16 and usedSymbols >= 16
-        alert(buildAlertMsg(getSymbolName(s16), "bearish", nweBear16_h4, nweBear16_d1), alert.freq_once_per_bar_close)
-    prevBull16 := nweBull16
-    prevBear16 := nweBear16
+    if nweBull16 and usedSymbols >= 16
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s16), "bullish", nweBull16_h4, nweBull16_d1)
+        symbolCount += 1
+    if nweBear16 and usedSymbols >= 16
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s16), "bearish", nweBear16_h4, nweBear16_d1)
+        symbolCount += 1
 
     // Symbol 17
-    if nweBull17 and not prevBull17 and usedSymbols >= 17
-        alert(buildAlertMsg(getSymbolName(s17), "bullish", nweBull17_h4, nweBull17_d1), alert.freq_once_per_bar_close)
-    if nweBear17 and not prevBear17 and usedSymbols >= 17
-        alert(buildAlertMsg(getSymbolName(s17), "bearish", nweBear17_h4, nweBear17_d1), alert.freq_once_per_bar_close)
-    prevBull17 := nweBull17
-    prevBear17 := nweBear17
+    if nweBull17 and usedSymbols >= 17
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s17), "bullish", nweBull17_h4, nweBull17_d1)
+        symbolCount += 1
+    if nweBear17 and usedSymbols >= 17
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s17), "bearish", nweBear17_h4, nweBear17_d1)
+        symbolCount += 1
 
     // Symbol 18
-    if nweBull18 and not prevBull18 and usedSymbols >= 18
-        alert(buildAlertMsg(getSymbolName(s18), "bullish", nweBull18_h4, nweBull18_d1), alert.freq_once_per_bar_close)
-    if nweBear18 and not prevBear18 and usedSymbols >= 18
-        alert(buildAlertMsg(getSymbolName(s18), "bearish", nweBear18_h4, nweBear18_d1), alert.freq_once_per_bar_close)
-    prevBull18 := nweBull18
-    prevBear18 := nweBear18
+    if nweBull18 and usedSymbols >= 18
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s18), "bullish", nweBull18_h4, nweBull18_d1)
+        symbolCount += 1
+    if nweBear18 and usedSymbols >= 18
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s18), "bearish", nweBear18_h4, nweBear18_d1)
+        symbolCount += 1
 
     // Symbol 19
-    if nweBull19 and not prevBull19 and usedSymbols >= 19
-        alert(buildAlertMsg(getSymbolName(s19), "bullish", nweBull19_h4, nweBull19_d1), alert.freq_once_per_bar_close)
-    if nweBear19 and not prevBear19 and usedSymbols >= 19
-        alert(buildAlertMsg(getSymbolName(s19), "bearish", nweBear19_h4, nweBear19_d1), alert.freq_once_per_bar_close)
-    prevBull19 := nweBull19
-    prevBear19 := nweBear19
+    if nweBull19 and usedSymbols >= 19
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s19), "bullish", nweBull19_h4, nweBull19_d1)
+        symbolCount += 1
+    if nweBear19 and usedSymbols >= 19
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s19), "bearish", nweBear19_h4, nweBear19_d1)
+        symbolCount += 1
 
     // Symbol 20
-    if nweBull20 and not prevBull20 and usedSymbols >= 20
-        alert(buildAlertMsg(getSymbolName(s20), "bullish", nweBull20_h4, nweBull20_d1), alert.freq_once_per_bar_close)
-    if nweBear20 and not prevBear20 and usedSymbols >= 20
-        alert(buildAlertMsg(getSymbolName(s20), "bearish", nweBear20_h4, nweBear20_d1), alert.freq_once_per_bar_close)
-    prevBull20 := nweBull20
-    prevBear20 := nweBear20
+    if nweBull20 and usedSymbols >= 20
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s20), "bullish", nweBull20_h4, nweBull20_d1)
+        symbolCount += 1
+    if nweBear20 and usedSymbols >= 20
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s20), "bearish", nweBear20_h4, nweBear20_d1)
+        symbolCount += 1
+
+    // Build and send batch payload (always fires, even with empty symbols array)
+    string timestamp = str.tostring(math.round(time / 1000))
+    string payload = '{"tier":"nwe","symbols":[' + batchJson + '],"timestamp":' + timestamp + ',"count":' + str.tostring(symbolCount) + '}'
+    alert(payload, alert.freq_once_per_bar)
+    alreadyFired := true
