@@ -85,16 +85,24 @@ def test_api() -> bool:
     else:
         print("\nCould not retrieve stats (non-critical)")
 
-    # Test getting a batch
-    print("\nTesting batch fetch...")
-    batch = api.get_next_symbol_batch(5)
+    # Test getting a batch with configured size
+    print(f"\nTesting batch fetch (size={config.nwe_batch_size})...")
+    batch = api.get_next_symbol_batch(config.nwe_batch_size)
     if batch.get("success"):
         symbols = batch.get("batch", [])
         print(f"  Batch #{batch.get('batch_number', '?')}: {len(symbols)} symbols")
+        print(
+            f"  Rotation: {batch.get('rotation_number', '?')} "
+            f"({batch.get('symbols_scanned_this_rotation', '?')}/{batch.get('total_symbols', '?')} scanned)"
+        )
         if symbols:
             sample = symbols[:3]
             print(
                 f"  Sample: {[s['symbol'] if isinstance(s, dict) else s for s in sample]}"
+            )
+        if len(symbols) == config.nwe_batch_size:
+            print(
+                f"  Batch size: PASS (got {len(symbols)}, expected {config.nwe_batch_size})"
             )
     else:
         print(f"  Batch fetch failed: {batch.get('error', 'Unknown error')}")

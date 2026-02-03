@@ -79,21 +79,47 @@ class Browser:
         screener_sb_short: str,
         screener_sb_name: str,
     ) -> None:
+        print("[DEBUG] Browser.__init__() called", flush=True)
+
+        # Kill any existing Chrome processes to free the profile
+        print("[DEBUG] Killing any existing Chrome processes...", flush=True)
+        import subprocess
+
+        try:
+            # Windows command to kill Chrome processes
+            subprocess.run(
+                ["taskkill", "/F", "/IM", "chrome.exe"], capture_output=True, timeout=10
+            )
+            print("[DEBUG] Chrome processes killed (or none were running)", flush=True)
+            sleep(2)  # Give time for processes to fully terminate
+        except Exception as e:
+            print(f"[DEBUG] Could not kill Chrome processes: {e}", flush=True)
+
         chrome_options = Options()
         chrome_options.add_experimental_option("detach", keep_open)
 
+        print(f"[DEBUG] Chrome profile: {PROFILE}", flush=True)
+        print(f"[DEBUG] Chrome user data dir: {CHROME_PROFILES_PATH}", flush=True)
         chrome_options.add_argument(f"--profile-directory={PROFILE}")
         chrome_options.add_argument(f"--user-data-dir={CHROME_PROFILES_PATH}/TTE")
-        chrome_options.add_argument("--remote-debugging-port=9224")
+        # Removed --remote-debugging-port=9224 as it can cause conflicts
         chrome_options.add_argument("--no-sandbox")
         chrome_options.add_argument("--disable-dev-shm-usage")
 
+        print("[DEBUG] Getting Chrome version...", flush=True)
         cmd = "powershell -command \"&{(Get-Item 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe').VersionInfo.ProductVersion}\""
         version = read_version_from_cmd(cmd, PATTERN["google-chrome"])
+        print(f"[DEBUG] Chrome version: {version}", flush=True)
+
+        print("[DEBUG] Installing/getting ChromeDriver...", flush=True)
         service = ChromeDriverManager(driver_version=version).install()
+        print(f"[DEBUG] ChromeDriver path: {service}", flush=True)
+
+        print("[DEBUG] Creating Chrome webdriver...", flush=True)
         self.driver = webdriver.Chrome(
             service=ChromeService(service), options=chrome_options
         )
+        print("[DEBUG] Chrome webdriver created successfully", flush=True)
 
         self.open_chart = OpenChart(self.driver)
         self.utils = Utils()
@@ -1302,7 +1328,7 @@ class Browser:
                 ).click()
             return WebDriverWait(self.driver, 5).until(
                 EC.presence_of_element_located(
-                    (By.CSS_SELECTOR, 'div[data-name="menu-inner"]')
+                    (By.CSS_SELECTOR, 'div[data-qa-id="menu-inner"]')
                 )
             )
 
