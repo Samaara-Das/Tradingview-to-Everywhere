@@ -514,6 +514,17 @@ class Browser:
             screener_shorttitle: The short title of the screener to configure. If None, uses all 3 screeners.
         """
         try:
+            # Strip exchange prefix from symbols (e.g., "OANDA:EURUSD" -> "EURUSD")
+            cleaned_symbols = []
+            for symbol in symbols_list:
+                if ":" in symbol:
+                    cleaned_symbols.append(symbol.split(":")[-1])
+                else:
+                    cleaned_symbols.append(symbol)
+            symbols_list = cleaned_symbols
+            open_tv_logger.info(
+                f"Cleaned symbols (removed exchange prefix): {symbols_list[:5]}..."
+            )  # Log first 5
             # Determine which screeners to configure
             screeners_to_configure = []
             if screener_shorttitle:
@@ -572,7 +583,10 @@ class Browser:
                     ).click()
                     settings = WebDriverWait(self.driver, 10).until(
                         EC.presence_of_element_located(
-                            (By.CSS_SELECTOR, 'div[data-outside-boundary-for="indicator-properties-dialog"]')
+                            (
+                                By.CSS_SELECTOR,
+                                'div[data-outside-boundary-for="indicator-properties-dialog"]',
+                            )
                         )
                     )
                     symbol_inputs = settings.find_elements(

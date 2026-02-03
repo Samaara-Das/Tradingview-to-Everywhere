@@ -129,11 +129,11 @@ class TieredOrchestrator:
         self, layout_name: str, is_first_switch: bool
     ) -> bool:
         """
-        Switch to a layout with retry logic. On first switch, also sets timeframe and saves.
+        Switch to a layout with retry logic. Always sets timeframe. On first switch, also saves layout.
 
         Args:
             layout_name: "NWE" or "OBDIV"
-            is_first_switch: If True, also set timeframe and save layout
+            is_first_switch: If True, also save layout after setup
 
         Returns:
             True if successful, False otherwise
@@ -145,18 +145,22 @@ class TieredOrchestrator:
                 logger.error(f"Cannot change layout to {layout_name}")
                 return False
 
-        if is_first_switch:
-            # Set timeframe to "5 minutes" for testing
-            CHART_TIMEFRAME = "5 minutes"
+        # Wait for layout to fully load before changing timeframe
+        time.sleep(2)
+
+        # Always set timeframe to "5 minutes" (lowest timeframe for faster alert triggers)
+        CHART_TIMEFRAME = "5 minutes"
+        # Force timeframe change by using the dedicated method
+        if not self.browser.open_chart.force_change_tframe(CHART_TIMEFRAME):
+            logger.warning(f"force_change_tframe failed, trying regular change_tframe")
             if not self.browser.open_chart.change_tframe(CHART_TIMEFRAME):
-                self.browser.open_chart.change_tframe(CHART_TIMEFRAME)  # retry
-                if self.browser.current_chart_tframe() != CHART_TIMEFRAME:
-                    logger.error(f"Cannot change timeframe to {CHART_TIMEFRAME}")
-                    return False
+                logger.error(f"Cannot change timeframe to {CHART_TIMEFRAME}")
+                return False
 
-            logger.info(f"Set chart timeframe to {CHART_TIMEFRAME}")
+        logger.info(f"Chart timeframe set to {CHART_TIMEFRAME}")
 
-            # Save the layout
+        # Save the layout only on first switch
+        if is_first_switch:
             if not self.browser.save_layout():
                 self.browser.save_layout()  # retry (non-critical)
                 logger.warning(f"Could not save layout {layout_name}")
