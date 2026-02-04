@@ -1,7 +1,8 @@
 # Task Context Tracker
 
-**Last Updated**: 2026-02-03
+**Last Updated**: 2026-02-04
 **Current Task**: Task 5 - E2E Testing (Phase 1 and Phase 2)
+**Last Session**: Screener timeframe updates and documentation corrections
 
 ---
 
@@ -11,16 +12,97 @@
 |----|------|--------|----------|--------------|
 | 1 | Create TTE NWE Screener v2 Pine Script | **done** | high | - |
 | 2 | Create TTE OBDIV Screener v2 Pine Script | **done** | high | - |
-| 3 | Implement TieredOrchestrator class | **in-progress** | high | 1, 2 |
+| 3 | Implement TieredOrchestrator class | **done** | high | 1, 2 |
 | 4 | Fix screener webhooks to fire instantly | **done** | high | 1, 2 |
 | 5 | Test orchestrator E2E - Phase 1 and Phase 2 | pending | high | 3, 4 |
 | 6 | Test signals display on Stock Buddy grid | pending | medium | 5 |
+| 7 | Analyze architecture impact on signal delay | pending | high | - |
+| 8 | Verify TradingView screener signal accuracy | pending | high | - |
+| 9 | Send signal screenshots to Stock Buddy | pending | medium | - |
 
-**Stats**: 6 tasks, 50% complete (3 done, 1 in-progress, 2 pending)
+**Stats**: 9 tasks, 44% complete (4 done, 5 pending)
+
+### Task 5 Subtasks
+- 5.1: Prevent price-crossing alerts instead of screener alerts (pending)
+- 5.2: Reduce webhook wait time with alert log monitoring (pending)
+- 5.3: Handle data subscription error in Create Alert dialog (pending)
+
+### Task 6 Subtasks
+- 6.1: Verify Stock Buddy grid displays correct signal info (pending)
 
 ---
 
 ## Session History
+
+### Session: 2026-02-04 (Screener Timeframe Updates)
+
+**Goal**: Update screener timeframes from misleading H4/D1/W1 labels to actual 5m/15m/1H values
+
+**Changes Made**:
+
+1. **NWE Screener v2** (`screeners on TV/TTE NWE Screener v2.txt`):
+   - Renamed `TF_H4` → `TF_5M`, `TF_D1` → `TF_15M`
+   - Updated all variable suffixes: `_h4` → `_5m`, `_d1` → `_15m`
+   - Updated comments to reference correct timeframes
+   - JSON payload already used correct strings ("5m", "15m")
+
+2. **OBDIV Screener v2** (`screeners on TV/TTE OBDIV Screener v2.txt`):
+   - Renamed `TF_H4` → `TF_5M`, `TF_D1` → `TF_15M`, `TF_W1` → `TF_1H`
+   - Updated all variable suffixes: `_h4` → `_5m`, `_d1` → `_15m`, `_w1` → `_1h`
+   - Updated JSON payload strings: "W1" → "1H", "D1" → "15m", "H4" → "5m"
+   - Updated comments to reference correct timeframes
+
+3. **Documentation Updates** (all webhook format corrections):
+   - `docs/API.md` - Corrected NWE to batch format, updated all timeframe references
+   - `docs/PRD.md` - Updated all webhook payload examples and timeframe references
+   - `.claude/task-context.md` - Updated webhook format in Verified Patterns
+   - Stock Buddy `TTE-Integration.md` - Updated webhook formats and added clarity
+
+**Key Format Corrections**:
+- NWE webhook sends **batch** format (symbols array), not individual symbols
+- OBDIV webhook sends **individual** format (one alert per symbol)
+- Timeframes: 5m, 15m for NWE; 5m, 15m, 1H for OBDIV OB; 5m, 15m for OBDIV Divergence
+
+---
+
+### Session: 2026-02-04 (Documentation Correction)
+
+**Goal**: Correct Stock Buddy API documentation in TTE to match actual implementation
+
+**Problem Identified**:
+After exploring the Stock Buddy App codebase, found significant discrepancies between TTE documentation and actual Stock Buddy API implementation:
+1. Wrong/missing endpoints
+2. Incorrect webhook payload formats
+3. Missing signal levels documentation
+4. Missing database collection schemas
+
+**Files Modified (TTE Repo)**:
+- `docs/API.md` - Complete rewrite with correct endpoints and schemas
+- `docs/DATABASE.md` - Added Stock Buddy database collections section
+
+**Files Created (Stock Buddy Repo)**:
+- `src/lib/knowledge-base/TTE-Integration.md` - New comprehensive TTE integration doc
+- Updated `src/lib/knowledge-base/README.md` to reference new file
+
+**Key Corrections Made**:
+1. **Webhook Payloads**:
+   - NWE: `{ tier: "nwe", symbol, direction, timeframes, timestamp }` (not `{ screener, symbols[] }`)
+   - OBDIV: `{ tier: "obdiv", symbol, bull_ob, bull_div, bear_ob, bear_div }` with nested schemas
+2. **New Endpoints Documented**:
+   - `GET/POST /api/tte/init` - Initialization
+   - `GET /api/tte/signals` - Query signals with filtering
+   - `PATCH /api/tte/signals/[id]` - Update signal
+   - `POST /api/tte/symbols/import` - Bulk import
+3. **Stats Response Format**: Corrected to use nested structure (signals, hot_list, rotation, symbols)
+4. **Signal Levels**: Documented Level 1/2/3 system with criteria
+5. **Priority Rotation**: Documented A/B/C priority system
+6. **Stock Buddy Collections**: `tte_symbols`, `tte_hot_list`, `tte_signals`, `tte_rotation_state`
+
+**Commits**:
+- TTE: `bcc247d` - Correct Stock Buddy API documentation with actual endpoint schemas
+- Stock Buddy: `91d220b` - Add TTE integration documentation to knowledge base
+
+---
 
 ### Session: 2026-02-03 (Webhook Fix - COMPLETED)
 
@@ -137,6 +219,8 @@
 
 5. **Chrome Process Management**: Kill existing Chrome processes before starting Selenium to avoid profile lock issues
 
+6. **Signal Levels**: Level 1 (NWE only), Level 2 (NWE + OB or DIV), Level 3 (NWE + OB + DIV)
+
 ---
 
 ## Key Reference Files
@@ -144,6 +228,8 @@
 | File | Purpose |
 |------|---------|
 | `docs/PRD.md` | Complete technical specification (1900+ lines) |
+| `docs/API.md` | **Updated** - Stock Buddy API reference with correct schemas |
+| `docs/DATABASE.md` | **Updated** - TTE and Stock Buddy database documentation |
 | `orchestrator.py` | TieredOrchestrator class with two-phase workflow |
 | `open_tv.py` | Browser class with all Selenium automation methods |
 | `api_client.py` | Stock Buddy API client |
@@ -178,10 +264,13 @@ python tiered_main.py
 
 ## Next Steps
 
-1. **DONE**: Webhook fix applied - alerts fire instantly
-2. **Test E2E**: Run `--single-cycle` and verify:
+1. **Test E2E**: Run `--single-cycle` and verify:
    - Phase 1 webhook fires and sends hot symbols to API
    - Phase 2 receives hot symbols and processes through OBDIV
+2. **Fix Task 5 Subtasks**:
+   - 5.1: Prevent price-crossing alerts
+   - 5.2: Reduce webhook wait time with alert log monitoring
+   - 5.3: Handle data subscription error
 3. **Test Stock Buddy Grid**: Verify signals appear correctly on the grid UI
 
 ---
@@ -231,4 +320,21 @@ def _switch_to_layout_with_setup(layout_name, is_first_switch):
     # Try layout switch with retry
     # On first switch: set timeframe to "5 minutes", save layout
     # Track initialization with _nwe_layout_initialized, _obdiv_layout_initialized
+```
+
+### Stock Buddy Webhook Payload Formats (Correct)
+```json
+// NWE (Tier 1) - BATCH format with symbols array
+{
+  "tier": "nwe",
+  "symbols": [
+    {"symbol": "GBPAUD", "direction": "bullish", "timeframes": ["5m", "15m"]},
+    {"symbol": "EURUSD", "direction": "bearish", "timeframes": ["5m"]}
+  ],
+  "timestamp": 1705312800,
+  "count": 2
+}
+
+// OBDIV (Tier 2) - Individual symbol format
+{ "tier": "obdiv", "symbol": "EURUSD", "bull_ob": { "found": true, "tf": "1H", "type": "OB" }, "bull_div": { "found": true, "tf": "5m", "type": "Logic2" }, ... }
 ```

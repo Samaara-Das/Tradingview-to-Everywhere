@@ -332,7 +332,7 @@ Retrieve hot symbols that need OBDIV (Tier 2) processing. Hot symbols are those 
       "_id": "65a5b2c1d4e5f6a7b8c9d0e1",
       "symbol": "GBPAUD",
       "direction": "bullish",
-      "nwe_timeframes": ["H4", "D1"],
+      "nwe_timeframes": ["5m", "15m"],
       "nwe_timestamp": 1705312800,
       "status": "pending_tier2",
       "created_at": "2024-01-15T10:30:00Z",
@@ -383,13 +383,13 @@ Query TTE signals with filtering and pagination.
       "symbol": "EURUSD",
       "direction": "bullish",
       "level": 3,
-      "nwe_tf": ["H4", "D1"],
+      "nwe_tf": ["5m", "15m"],
       "nwe_timestamp": 1705312800,
-      "ob_tf": "H4",
+      "ob_tf": "5m",
       "ob_type": "OB",
       "ob_high": 1.1050,
       "ob_low": 1.1000,
-      "div_tf": "D1",
+      "div_tf": "15m",
       "div_type": "Logic2",
       "screenshot_url": null,
       "status": "pending_screenshot",
@@ -442,7 +442,7 @@ The TTE screeners send webhook payloads to the Stock Buddy API when alerts trigg
 
 ### NWE Webhook (Tier 1)
 
-Receives Nadaraya-Watson Envelope signals and adds symbols to the hot list.
+Receives Nadaraya-Watson Envelope signals and adds symbols to the hot list. NWE screener sends a **batch** of all symbols currently in zones.
 
 **URL**: `POST /api/tte/nwe`
 
@@ -450,11 +450,12 @@ Receives Nadaraya-Watson Envelope signals and adds symbols to the hot list.
 ```json
 {
   "tier": "nwe",
-  "symbol": "EURUSD",
-  "direction": "bullish",
-  "timeframes": ["H4", "D1"],
+  "symbols": [
+    {"symbol": "GBPAUD", "direction": "bullish", "timeframes": ["5m", "15m"]},
+    {"symbol": "EURUSD", "direction": "bearish", "timeframes": ["5m"]}
+  ],
   "timestamp": 1705312800,
-  "secret": "optional_webhook_secret"
+  "count": 2
 }
 ```
 
@@ -462,19 +463,19 @@ Receives Nadaraya-Watson Envelope signals and adds symbols to the hot list.
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `tier` | string | Yes | Must be `"nwe"` |
-| `symbol` | string | Yes | Symbol name (2-20 chars, auto-uppercased) |
-| `direction` | string | Yes | `"bullish"` or `"bearish"` |
-| `timeframes` | array | No | List of timeframes (`H1`, `H4`, `D1`, `W1`, `M15`) |
-| `timestamp` | integer | No | Unix timestamp (defaults to current time) |
-| `secret` | string | No | Optional webhook secret |
+| `symbols` | array | Yes | Array of symbol objects (can be empty) |
+| `symbols[].symbol` | string | Yes | Symbol name (2-20 chars, auto-uppercased) |
+| `symbols[].direction` | string | Yes | `"bullish"` or `"bearish"` |
+| `symbols[].timeframes` | array | Yes | Timeframes where signal triggered (`"5m"`, `"15m"`) |
+| `timestamp` | integer | Yes | Unix timestamp |
+| `count` | integer | Yes | Number of symbols in batch |
 
 **Response**:
 ```json
 {
   "success": true,
-  "message": "Hot list entry created",
-  "symbol": "EURUSD",
-  "direction": "bullish"
+  "message": "Hot list entries created",
+  "count": 2
 }
 ```
 
@@ -493,14 +494,14 @@ Receives Order Block + Divergence confirmation signals and creates confirmed tra
   "symbol": "EURUSD",
   "bull_ob": {
     "found": true,
-    "tf": "H4",
+    "tf": "1H",
     "type": "OB",
     "high": 1.1050,
     "low": 1.1000
   },
   "bull_div": {
     "found": true,
-    "tf": "D1",
+    "tf": "5m",
     "type": "Logic2"
   },
   "bear_ob": {
@@ -509,8 +510,7 @@ Receives Order Block + Divergence confirmation signals and creates confirmed tra
   "bear_div": {
     "found": false
   },
-  "timestamp": 1705316400,
-  "secret": "optional_webhook_secret"
+  "timestamp": 1705316400
 }
 ```
 
@@ -523,21 +523,20 @@ Receives Order Block + Divergence confirmation signals and creates confirmed tra
 | `bull_div` | object | Yes | Bullish divergence finding |
 | `bear_ob` | object | Yes | Bearish order block finding |
 | `bear_div` | object | Yes | Bearish divergence finding |
-| `timestamp` | integer | No | Unix timestamp (defaults to current time) |
-| `secret` | string | No | Optional webhook secret |
+| `timestamp` | integer | Yes | Unix timestamp |
 
 **Order Block Finding Schema**:
 ```json
 {
   "found": true,
-  "tf": "H4",
+  "tf": "1H",
   "type": "OB",
   "high": 1.1050,
   "low": 1.1000
 }
 ```
 - `found`: boolean (required) - Whether OB was found
-- `tf`: string (optional) - Timeframe (`H1`, `H4`, `D1`, `W1`, `M15`)
+- `tf`: string (optional) - Timeframe (`"5m"`, `"15m"`, `"1H"`)
 - `type`: string (optional) - Type: `"OB"`, `"FVG"`, or `"Breaker"`
 - `high`: number (optional) - OB high price
 - `low`: number (optional) - OB low price
@@ -546,12 +545,12 @@ Receives Order Block + Divergence confirmation signals and creates confirmed tra
 ```json
 {
   "found": true,
-  "tf": "D1",
+  "tf": "15m",
   "type": "Logic2"
 }
 ```
 - `found`: boolean (required) - Whether divergence was found
-- `tf`: string (optional) - Timeframe
+- `tf`: string (optional) - Timeframe (`"5m"`, `"15m"`)
 - `type`: string (optional) - Type: `"Logic2"`, `"Internal"`, or `"Logic1"`
 
 **Response**:
@@ -757,10 +756,10 @@ curl "https://stock-buddy-app.vercel.app/api/tte/hot-symbols?limit=8"
 # Get signals
 curl "https://stock-buddy-app.vercel.app/api/tte/signals?limit=10&level=3"
 
-# Test NWE webhook
+# Test NWE webhook (batch format)
 curl -X POST https://stock-buddy-app.vercel.app/api/tte/nwe \
   -H "Content-Type: application/json" \
-  -d '{"tier":"nwe","symbol":"EURUSD","direction":"bullish","timeframes":["H4"]}'
+  -d '{"tier":"nwe","symbols":[{"symbol":"EURUSD","direction":"bullish","timeframes":["5m"]}],"timestamp":1705312800,"count":1}'
 ```
 
 ---

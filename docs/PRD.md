@@ -248,7 +248,7 @@ Hot symbols = symbols that triggered NWE conditions (returned via webhook)
 | 1 | Take up to 8 hot symbols | - | From NWE webhook response |
 | 2 | Input to OBDIV screener | ~5s | `change_settings(symbols, "TTE OBDIV Screener")` |
 | 3 | Create webhook alert | ~3s | `create_webhook_alert()` with OBDIV webhook URL |
-| 4 | Wait for webhook to trigger | ~30s | Webhook fires when screener evaluates symbols |
+| 4 | Wait for webhook to trigger | ~60s | Webhook fires when screener evaluates symbols |
 | 5 | Delete alert | ~2s | `delete_all_alerts()` |
 | 6 | Repeat if more hot symbols | - | Until all hot symbols from batch processed |
 
@@ -444,7 +444,7 @@ GET /api/tte/hot-symbols?limit=50&status=pending_tier2
     {
       "symbol": "OANDA:GBPAUD",
       "direction": "bullish",
-      "nwe_timeframes": ["H4", "D1"],
+      "nwe_timeframes": ["5m", "15m"],
       "status": "pending_tier2",
       "nwe_timestamp": "2026-02-03T10:00:00Z"
     },
@@ -925,13 +925,13 @@ The Pine Script screeners are stored in the `screeners on TV/` folder:
 - **Full Name**: `TTE NWE Screener v2`
 - **Short Title**: `TTE NWE Screener`
 - **Symbol Inputs**: 20 input fields for symbols
-- **Timeframes**: H4 and D1 (uses 40 request.security() calls)
+- **Timeframes**: 5m and 15m (uses 40 request.security() calls)
 - **Webhook URL**: `https://stock-buddy-app.vercel.app/api/nwe`
-- **Output**: JSON payload with symbol, direction, timeframes
+- **Output**: JSON batch payload with symbols array, direction, timeframes
 
-**Payload Format**:
+**Payload Format** (batch - all symbols in single alert):
 ```json
-{"tier":"nwe","symbol":"GBPAUD","direction":"bullish","timeframes":["H4","D1"],"timestamp":1672531200}
+{"tier":"nwe","symbols":[{"symbol":"GBPAUD","direction":"bullish","timeframes":["5m","15m"]},{"symbol":"EURUSD","direction":"bearish","timeframes":["5m"]}],"timestamp":1672531200,"count":2}
 ```
 
 **Layout Setup**:
@@ -956,17 +956,17 @@ The Pine Script screeners are stored in the `screeners on TV/` folder:
 - **Full Name**: `TTE OBDIV Screener v2`
 - **Short Title**: `TTE OBDIV Screener`
 - **Symbol Inputs**: 8 input fields for symbols (usedSymbols default)
-- **Timeframes**: H4, D1, W1 for OB/FVG; H4, D1 for Divergence
+- **Timeframes**: 5m, 15m, 1H for OB/FVG; 5m, 15m for Divergence
 - **Webhook URL**: `https://stock-buddy-app.vercel.app/api/obdiv`
-- **Output**: JSON payload with OB zones and divergence data
+- **Output**: JSON payload with OB zones and divergence data (one alert per symbol)
 
-**Payload Format**:
+**Payload Format** (individual - one alert per symbol):
 ```json
 {
   "tier": "obdiv",
   "symbol": "GBPAUD",
-  "bull_ob": {"found": true, "tf": "W1", "type": "OB", "high": 1.055, "low": 1.050},
-  "bull_div": {"found": true, "tf": "H4", "type": "Logic2"},
+  "bull_ob": {"found": true, "tf": "1H", "type": "OB", "high": 1.055, "low": 1.050},
+  "bull_div": {"found": true, "tf": "5m", "type": "Logic2"},
   "bear_ob": {"found": false},
   "bear_div": {"found": false},
   "timestamp": 1672531200
@@ -1090,7 +1090,7 @@ Managed by Stock Buddy API:
 {
   "symbol": "OANDA:GBPAUD",
   "direction": "bullish",
-  "nwe_timeframes": ["H4", "D1"],
+  "nwe_timeframes": ["5m", "15m"],
   "status": "pending_tier2",
   "nwe_timestamp": "2026-02-03T10:00:00Z",
   "priority": 1
@@ -1120,28 +1120,32 @@ self.obdiv_webhook_url = "..."# Webhook URL for OBDIV
 
 ### NWE Webhook Payload (TTE NWE Screener v2)
 
-Each alert fires independently per symbol when NWE zone state changes:
+Alert fires once on first realtime tick with all symbols currently in zones (batch format):
 
 ```json
 {
   "tier": "nwe",
-  "symbol": "GBPAUD",
-  "direction": "bullish",
-  "timeframes": ["H4", "D1"],
-  "timestamp": 1672531200
+  "symbols": [
+    {"symbol": "GBPAUD", "direction": "bullish", "timeframes": ["5m", "15m"]},
+    {"symbol": "EURUSD", "direction": "bearish", "timeframes": ["5m"]}
+  ],
+  "timestamp": 1672531200,
+  "count": 2
 }
 ```
 
 **Fields**:
 - `tier`: Always "nwe" for Tier 1
-- `symbol`: Trading symbol (without exchange prefix)
-- `direction`: "bullish" or "bearish"
-- `timeframes`: Array of timeframes where signal triggered (H4, D1, or both)
-- `timestamp`: UNIX timestamp (milliseconds / 1000)
+- `symbols`: Array of symbol objects with direction and timeframes
+- `symbols[].symbol`: Trading symbol (without exchange prefix)
+- `symbols[].direction`: "bullish" or "bearish"
+- `symbols[].timeframes`: Array of timeframes where signal triggered ("5m", "15m", or both)
+- `timestamp`: UNIX timestamp (seconds)
+- `count`: Number of symbols in batch
 
 ### OBDIV Webhook Payload (TTE OBDIV Screener v2)
 
-Each alert contains OB/FVG zone data and divergence data for a symbol:
+Each alert contains OB/FVG zone data and divergence data for a symbol (one alert per symbol):
 
 ```json
 {
@@ -1149,14 +1153,14 @@ Each alert contains OB/FVG zone data and divergence data for a symbol:
   "symbol": "GBPAUD",
   "bull_ob": {
     "found": true,
-    "tf": "W1",
+    "tf": "1H",
     "type": "OB",
     "high": 1.055,
     "low": 1.050
   },
   "bull_div": {
     "found": true,
-    "tf": "H4",
+    "tf": "5m",
     "type": "Logic2"
   },
   "bear_ob": {
@@ -1174,13 +1178,13 @@ Each alert contains OB/FVG zone data and divergence data for a symbol:
 - `symbol`: Trading symbol (without exchange prefix)
 - `bull_ob`: Bullish OB/FVG zone data
   - `found`: Boolean - zone found
-  - `tf`: Timeframe (H4, D1, W1)
+  - `tf`: Timeframe ("5m", "15m", "1H")
   - `type`: Zone type ("OB", "FVG", "Unmit OB", "Brk Sup", "Bull FVG")
   - `high`: Zone high price
   - `low`: Zone low price
 - `bull_div`: Bullish divergence data
   - `found`: Boolean - divergence found
-  - `tf`: Timeframe (H4, D1)
+  - `tf`: Timeframe ("5m", "15m")
   - `type`: Divergence type ("Logic2", "Internal")
 - `bear_ob`: Bearish OB/FVG zone data (same structure)
 - `bear_div`: Bearish divergence data (same structure)
@@ -1269,7 +1273,7 @@ def validate(self) -> list[str]:
 2. Add **TTE NWE Screener** indicator
 3. Configure indicator:
    - Enable all 20 symbol inputs
-   - Set timeframes (4H, D, W)
+   - Timeframes are hardcoded to 5m and 15m
 4. **Star/favorite** the indicator
 5. Save layout
 
@@ -1279,7 +1283,7 @@ def validate(self) -> list[str]:
 2. Add **TTE OBDIV Screener** indicator
 3. Configure indicator:
    - Enable all 8 symbol inputs
-   - Set timeframes (4H, D, W)
+   - Timeframes are hardcoded to 5m, 15m, 1H
 4. **Star/favorite** the indicator
 5. Save layout
 
@@ -1370,9 +1374,9 @@ Hot Symbols (pending Tier 2): 15
 Total Signals: 127
 
 Hot Symbols (top 10):
-  - GBPAUD: bullish (H4, D1)
-  - EURUSD: bearish (D1)
-  - BTCUSD: bullish (H4, D1, W)
+  - GBPAUD: bullish (5m, 15m)
+  - EURUSD: bearish (15m)
+  - BTCUSD: bullish (5m, 15m)
 ```
 
 ---
@@ -1392,13 +1396,13 @@ Hot Symbols (top 10):
 
 ### Phase 2: Selenium Integration
 
-**Status**: In Progress
+**Status**: Completed
 
 Tasks:
-- [ ] Implement `create_webhook_alert()` in Browser class
-- [ ] Implement `change_layout()` for NWE/OBDIV switching
-- [ ] Adapt `change_settings()` for 20-symbol input (NWE screener v2)
-- [ ] Test end-to-end NWE batch processing
+- [x] Implement `create_webhook_alert()` in Browser class
+- [x] Implement `change_layout()` for NWE/OBDIV switching
+- [x] Adapt `change_settings()` for 20-symbol input (NWE screener v2)
+- [x] Test end-to-end NWE batch processing
 
 Implementation order:
 1. Test existing `change_settings()` with NWE screener
@@ -1408,32 +1412,32 @@ Implementation order:
 
 ### Phase 3: OBDIV Integration
 
-**Status**: Pending
+**Status**: Completed
 
 Tasks:
-- [ ] Implement OBDIV layout switching
-- [ ] Adapt `change_settings()` for 8-symbol input (OBDIV screener v2)
-- [ ] Test OBDIV webhook flow
-- [ ] Complete OBDIV phase integration
+- [x] Implement OBDIV layout switching
+- [x] Adapt `change_settings()` for 8-symbol input (OBDIV screener v2)
+- [x] Test OBDIV webhook flow
+- [x] Complete OBDIV phase integration
 
 ### Phase 4: Error Handling & Recovery
 
-**Status**: Pending
+**Status**: Partial
 
 Tasks:
-- [ ] Implement retry decorator for critical operations
-- [ ] Add stale element recovery
+- [x] Implement retry decorator for critical operations
+- [x] Add stale element recovery
 - [ ] Handle browser disconnection
 - [ ] Add graceful shutdown
 
 ### Phase 5: Testing & Validation
 
-**Status**: Pending
+**Status**: In Progress
 
 Tasks:
 - [ ] Unit tests for API client
 - [ ] Integration tests with mock server
-- [ ] End-to-end test cycle
+- [x] End-to-end test cycle (`--single-cycle` working)
 - [ ] Performance benchmarking
 
 ---
@@ -1737,17 +1741,20 @@ def _safe_indicator_access(self, shorttitle: str, max_retries: int = 2):
 ```json
 {
   "tier": "nwe",
-  "symbol": "GBPAUD",
-  "direction": "bullish",
-  "timeframes": ["H4", "D1"],
-  "timestamp": 1672531200
+  "symbols": [
+    {"symbol": "GBPAUD", "direction": "bullish", "timeframes": ["5m", "15m"]},
+    {"symbol": "EURUSD", "direction": "bearish", "timeframes": ["5m"]}
+  ],
+  "timestamp": 1672531200,
+  "count": 2
 }
 ```
 
 **Notes**:
-- Fires when price enters NWE zone (bullish = lower zone, bearish = upper zone)
-- `timeframes` array shows which timeframes triggered (can be H4, D1, or both)
-- One alert per symbol per state change
+- Fires ONCE on first realtime tick after alert creation (batch format)
+- Contains ALL symbols currently in NWE zones
+- `timeframes` array shows which timeframes triggered ("5m", "15m", or both)
+- TTE orchestrator deletes and recreates alert for next scan
 
 ### TTE OBDIV Screener v2 Payload
 
@@ -1759,14 +1766,14 @@ def _safe_indicator_access(self, shorttitle: str, max_retries: int = 2):
   "symbol": "GBPAUD",
   "bull_ob": {
     "found": true,
-    "tf": "W1",
+    "tf": "1H",
     "type": "OB",
     "high": 1.055,
     "low": 1.050
   },
   "bull_div": {
     "found": true,
-    "tf": "H4",
+    "tf": "5m",
     "type": "Logic2"
   },
   "bear_ob": {"found": false},
