@@ -177,6 +177,22 @@ python tiered_main.py --stats      # Show system statistics
 - MongoDB symbols must be synced with TradingView alerts
 - Whenever you make a mistake, write what you learnt from it in @AGENTS.md so that it's never repeated in the future
 
+## Documentation Maintenance
+
+When making significant changes to the codebase, update the relevant documentation:
+
+| Change Type | Files to Update |
+|-------------|-----------------|
+| Features or usage changes | `README.md` |
+| Setup/configuration changes | `docs/SETUP.md` |
+| API endpoint changes | `docs/API.md` |
+| Database schema changes | `docs/DATABASE.md` |
+| Architecture/module changes | `docs/ARCHITECTURE.md` |
+| New issues/solutions discovered | `docs/TROUBLESHOOTING.md` |
+| Implementation phase progress | `docs/PRD.md` |
+
+Documentation should be updated as part of the same PR that introduces the code changes.
+
 ## Troubleshooting Commands
 
 ```bash
