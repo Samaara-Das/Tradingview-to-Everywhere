@@ -1044,6 +1044,14 @@ class Browser:
             )
             open_tv_logger.info("Alert creation dialog appeared")
 
+            # Validate condition dropdown on Settings tab (default tab when dialog opens)
+            if not self._validate_alert_condition(popup, indicator_shorttitle):
+                open_tv_logger.error(
+                    f"Screener '{indicator_shorttitle}' not available in condition dropdown - likely has runtime error"
+                )
+                self._close_alert_dialog()
+                return False
+
             # Step 1: Click on the Notifications tab
             notifications_tab = WebDriverWait(popup, 10).until(
                 EC.element_to_be_clickable(
@@ -1126,14 +1134,211 @@ class Browser:
                 By.CSS_SELECTOR, 'div[data-qa-id="alerts-create-edit-dialog"]'
             )
             if popup:
+                # Try Cancel button first (more reliable)
+                cancel_buttons = popup.find_elements(
+                    By.CSS_SELECTOR, 'button[name="cancel"][data-qa-id="cancel"]'
+                )
+                if cancel_buttons:
+                    cancel_buttons[0].click()
+                    open_tv_logger.info("Closed alert dialog via Cancel button")
+                    return
+
+                # Fall back to close (X) button
                 close_buttons = popup.find_elements(
                     By.CSS_SELECTOR, 'button[data-name="close"]'
                 )
                 if close_buttons:
                     close_buttons[0].click()
-                    open_tv_logger.info("Closed alert creation dialog")
-        except Exception:
-            pass
+                    open_tv_logger.info("Closed alert dialog via close button")
+                    return
+
+                open_tv_logger.warning(
+                    "Could not find Cancel or close button in alert dialog"
+                )
+        except Exception as e:
+            open_tv_logger.warning(f"Error closing alert dialog: {e}")
+
+    def _validate_alert_condition(self, popup, indicator_shorttitle: str) -> bool:
+        """
+        Validates the Condition dropdown shows the screener, not 'Price'.
+        If 'Price' is shown, clicks dropdown and selects the screener option.
+
+        Args:
+            popup: The alert dialog popup element
+            indicator_shorttitle: The short title of the indicator to select
+
+        Returns:
+            True if condition is correctly set, False if screener unavailable (runtime error)
+        """
+        try:
+            # Find the condition dropdown on the Settings tab (default tab when dialog opens)
+            # Try multiple selectors since TradingView UI may vary
+            condition_dropdown = None
+            selectors = [
+                'span[data-qa-id="ui-lib-Input main-series-select"]',
+                'span[data-qa-id="ui-kit-disclosure-control main-series-select"]',
+            ]
+
+            for selector in selectors:
+                try:
+                    condition_dropdown = WebDriverWait(popup, 2).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, selector))
+                    )
+                    open_tv_logger.info(
+                        f"Found condition dropdown with selector: {selector}"
+                    )
+                    break
+                except TimeoutException:
+                    continue
+
+            if not condition_dropdown:
+                open_tv_logger.error(
+                    "Could not find condition dropdown with any known selector"
+                )
+                return False
+
+            # Get current label text from inside the dropdown
+            label_element = condition_dropdown.find_element(
+                By.CSS_SELECTOR, ".label-LM2kIa9B"
+            )
+            current_label = label_element.text.strip()
+            open_tv_logger.info(
+                f"Condition dropdown currently shows: '{current_label}'"
+            )
+
+            # Check if already showing the correct screener
+            if indicator_shorttitle in current_label:
+                open_tv_logger.info(
+                    f"Condition dropdown already shows correct screener: '{indicator_shorttitle}'"
+                )
+                return True
+
+            # Need to select the screener - click dropdown to open options
+            open_tv_logger.info(
+                f"Condition shows '{current_label}', need to select '{indicator_shorttitle}'"
+            )
+            condition_dropdown.click()
+
+            # Wait for options menu to appear
+            options_menu = WebDriverWait(self.driver, 5).until(
+                EC.presence_of_element_located(
+                    (
+                        By.CSS_SELECTOR,
+                        'div[data-qa-id*="popup-menu-container main-series-select"]',
+                    )
+                )
+            )
+
+            # Find all option items
+            options = options_menu.find_elements(By.CSS_SELECTOR, 'div[role="option"]')
+            open_tv_logger.info(f"Found {len(options)} options in condition dropdown")
+
+            # Search for option containing the screener name
+            for option in options:
+                option_text = option.text.strip()
+                if indicator_shorttitle in option_text:
+                    open_tv_logger.info(f"Found matching option: '{option_text}'")
+                    option.click()
+                    sleep(0.5)  # Brief pause for UI to update
+                    return True
+
+            # Screener not found in options - likely has runtime error
+            open_tv_logger.error(
+                f"Screener '{indicator_shorttitle}' not found in condition dropdown options"
+            )
+            # Close the dropdown by pressing Escape
+            ActionChains(self.driver).send_keys(Keys.ESCAPE).perform()
+            return False
+
+        except TimeoutException:
+            open_tv_logger.error(
+                "Timeout waiting for condition dropdown or options menu"
+            )
+            return False
+        except Exception as e:
+            open_tv_logger.exception(f"Error validating alert condition: {e}")
+            return False
+
+    def wait_for_webhook_with_monitoring(
+        self, screener_name: str, max_wait_seconds: int, poll_interval: float = 1.5
+    ) -> tuple:
+        """
+        Waits for webhook by monitoring alert log for new messages.
+
+        Args:
+            screener_name: Screener name to look for (e.g., "TTE NWE Screener")
+            max_wait_seconds: Maximum wait time before timeout
+            poll_interval: How often to check (default 1.5s)
+
+        Returns:
+            (webhook_detected: bool, actual_wait_time: float)
+        """
+        try:
+            # Switch to Log tab
+            if not self.utils.open_log_tab(self.driver):
+                open_tv_logger.warning(
+                    "Could not open Log tab, falling back to static wait"
+                )
+                sleep(max_wait_seconds)
+                return (False, float(max_wait_seconds))
+
+            # Get initial count of alert log items
+            log_items = self.driver.find_elements(
+                By.CSS_SELECTOR, 'div[data-name="alert-log-item"]'
+            )
+            initial_count = len(log_items)
+            open_tv_logger.info(f"Initial alert log count: {initial_count}")
+
+            start_time = time()
+
+            while True:
+                elapsed = time() - start_time
+
+                if elapsed >= max_wait_seconds:
+                    open_tv_logger.info(f"Max wait time ({max_wait_seconds}s) reached")
+                    # Switch back to Alerts tab before returning
+                    self.utils.open_alert_tab(self.driver)
+                    return (False, elapsed)
+
+                sleep(poll_interval)
+
+                # Check current count of log items
+                log_items = self.driver.find_elements(
+                    By.CSS_SELECTOR, 'div[data-name="alert-log-item"]'
+                )
+                current_count = len(log_items)
+
+                if current_count > initial_count:
+                    # New log entry appeared - check if it's from our screener
+                    newest_item = log_items[0]  # First item is newest
+                    try:
+                        item_text = newest_item.text
+                        if screener_name in item_text:
+                            elapsed = time() - start_time
+                            open_tv_logger.info(
+                                f"Webhook detected for '{screener_name}' after {elapsed:.1f}s"
+                            )
+                            # Switch back to Alerts tab
+                            self.utils.open_alert_tab(self.driver)
+                            return (True, elapsed)
+                        else:
+                            # New entry but not our screener - update baseline
+                            open_tv_logger.debug(
+                                f"New log entry but not from our screener: {item_text[:50]}..."
+                            )
+                            initial_count = current_count
+                    except StaleElementReferenceException:
+                        # Element became stale, continue monitoring
+                        pass
+
+        except Exception as e:
+            open_tv_logger.exception(f"Error in webhook monitoring: {e}")
+            # Try to switch back to Alerts tab
+            try:
+                self.utils.open_alert_tab(self.driver)
+            except Exception:
+                pass
+            return (False, float(max_wait_seconds))
 
     def indicator_visibility(self, make_visible: bool, shorttitle: str):
         """Makes `shorttitle` indicator visible or hidden by clicking on the indicator's 👁️ button"""
