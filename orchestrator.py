@@ -106,19 +106,14 @@ class TieredOrchestrator:
 
                 if single_cycle:
                     logger.info("Single cycle mode - stopping orchestrator")
+                    print("[DEBUG] Single cycle complete - stopping", flush=True)
                     break
 
-                # Only wait between cycles if we processed hot symbols
-                # If no hot symbols, continue immediately to next batch
-                if had_hot_symbols and self.config.cycle_interval > 0:
-                    logger.info(
-                        f"Waiting {self.config.cycle_interval}s before next cycle..."
-                    )
-                    time.sleep(self.config.cycle_interval)
-                else:
-                    logger.info(
-                        "No hot symbols processed - continuing to next batch immediately"
-                    )
+                # Continue immediately to next cycle (no waiting)
+                print(
+                    "[DEBUG] Cycle complete - starting next cycle immediately",
+                    flush=True,
+                )
 
             except Exception as e:
                 logger.exception(f"Error in cycle #{cycle_count}: {e}")
@@ -573,6 +568,20 @@ def create_orchestrator(config: Optional[Config] = None) -> TieredOrchestrator:
         print("[DEBUG] API health check failed (continuing anyway)", flush=True)
     else:
         print("[DEBUG] API health check passed", flush=True)
+
+    # Delete expired hot symbols at startup
+    print("[DEBUG] Deleting expired hot symbols...", flush=True)
+    result = api_client.delete_expired_hot_symbols()
+    if result.get("success"):
+        deleted = result.get("deleted_count", 0)
+        print(f"[DEBUG] Deleted {deleted} expired hot symbols", flush=True)
+        logger.info(f"Deleted {deleted} expired hot symbols at startup")
+    else:
+        print(
+            f"[DEBUG] Warning: Failed to delete expired symbols: {result.get('error')}",
+            flush=True,
+        )
+        logger.warning(f"Failed to delete expired hot symbols: {result.get('error')}")
 
     # Initialize browser
     # For the tiered orchestrator, we use placeholder values for the legacy screener params
