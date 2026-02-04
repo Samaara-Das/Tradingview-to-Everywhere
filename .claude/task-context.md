@@ -2,7 +2,7 @@
 
 **Last Updated**: 2026-02-04
 **Current Task**: Task 5 - E2E Testing (Phase 1 and Phase 2)
-**Last Session**: Screener timeframe updates and documentation corrections
+**Last Session**: Orchestrator Bug Fixes & Hot Symbol Expiration Design
 
 ---
 
@@ -16,11 +16,11 @@
 | 4 | Fix screener webhooks to fire instantly | **done** | high | 1, 2 |
 | 5 | Test orchestrator E2E - Phase 1 and Phase 2 | pending | high | 3, 4 |
 | 6 | Test signals display on Stock Buddy grid | pending | medium | 5 |
-| 7 | Analyze architecture impact on signal delay | pending | high | - |
+| 7 | Analyze architecture impact on signal delay | **done** | high | - |
 | 8 | Verify TradingView screener signal accuracy | pending | high | - |
 | 9 | Send signal screenshots to Stock Buddy | pending | medium | - |
 
-**Stats**: 9 tasks, 44% complete (4 done, 5 pending)
+**Stats**: 9 tasks, 56% complete (5 done, 4 pending)
 
 ### Task 5 Subtasks
 - 5.1: Prevent price-crossing alerts instead of screener alerts (pending)
@@ -33,6 +33,121 @@
 ---
 
 ## Session History
+
+### Session: 2026-02-04 (Orchestrator Bug Fixes & Hot Symbol Expiration Design)
+
+**Goal**: Fix orchestrator bugs found during E2E testing and design hot symbol expiration logic
+
+#### Chronological Tasks & Discussions
+
+**1. Implemented Plan: Alert Dialog Close & Save Layout Fixes**
+
+From previous plan file, implemented two fixes:
+
+- **Fix 1: `_close_alert_dialog()` in `open_tv.py`** (lines 1130-1159)
+  - Added Cancel button as primary close method (`button[name="cancel"][data-qa-id="cancel"]`)
+  - Falls back to close (X) button if Cancel not found
+  - Added proper logging instead of silent `except: pass`
+
+- **Fix 2: Save layout before switching in `orchestrator.py`** (lines 151-154)
+  - Added `self.browser.save_layout()` before `change_layout()`
+  - Added 1-second pause to ensure save completes
+
+**2. Bug Fix: Condition Dropdown Selector Timeout**
+
+- **Problem**: Alert creation failed with "Timeout waiting for condition dropdown or options menu"
+- **Cause**: TradingView UI changed, old selector `span[data-qa-id="ui-lib-Input main-series-select"]` no longer worked
+- **Fix**: Added alternative selector `span[data-qa-id="ui-kit-disclosure-control main-series-select"]` in `_validate_alert_condition()` (open_tv.py lines 1175-1198)
+- **Result**: Logs now show "Found condition dropdown with selector: span[data-qa-id="ui-kit-disclosure-control main-series-select"]"
+
+**3. Bug Fix: `open_log_tab()` Timeout on Empty Log**
+
+- **Problem**: When switching to Log tab for webhook monitoring, it timed out waiting for `div[data-name="alert-log-item"]` which doesn't exist when log is empty
+- **Location**: `resources/utils.py` lines 135-144
+- **Fix**: Changed verification from waiting for log item to waiting for tab selection (`aria-selected="true"`), matching pattern used in `open_alert_tab()`
+- **Result**: Log tab opens successfully even when empty
+
+**4. E2E Test Run - Phase 1 Success, Phase 2 Timeout**
+
+Test run showed:
+- Phase 1 (NWE): Webhook created and detected after 7.6s ✓
+- Alert deleted successfully ✓
+- API marked 20 symbols as scanned ✓
+- Phase 2 (OBDIV): Layout switch worked, symbols input worked, alert created
+- Phase 2: Webhook wait timed out after 60.6s (no OBDIV signal)
+
+**5. Discussion: Hot Symbol Expiration Logic**
+
+User raised concern about stale hot symbols being processed in OBDIV.
+
+**API Response Fields Explained**:
+| Field | Format | Description |
+|-------|--------|-------------|
+| `_id` | String | MongoDB document ID |
+| `symbol` | String | Trading symbol (e.g., "EURUSD") |
+| `direction` | String | `"bullish"` or `"bearish"` |
+| `nwe_timeframes` | Array | Timeframes where NWE triggered (e.g., `["H4", "D1"]`) |
+| `nwe_timestamp` | Unix epoch (seconds) | When NWE signal was detected |
+| `created_at` | ISO 8601 UTC | When added to database |
+| `updated_at` | ISO 8601 UTC | Last modification time |
+| `expires_at` | ISO 8601 UTC | When signal becomes invalid |
+| `status` | String | `"pending_tier2"`, `"tier2_complete"`, or `"expired"` |
+
+**Current behavior** (per `docs/DATABASE.md`): `expires_at = updated_at + 24h` (refreshed on each NWE appearance)
+
+**6. Design Discussion: New Expiration Logic (In Progress)**
+
+User requirements for new expiration system:
+1. **`expires_at` = `nwe_timestamp` + timeframe duration** (not 24h after update)
+2. **No refresh** - once set, expiration is fixed
+3. **Separate documents per timeframe** - if signal has `["5m", "15m"]`, create 2 hot symbol documents
+4. **Delete expired at orchestrator startup**
+
+Expiration durations:
+| Timeframe | Expiration |
+|-----------|------------|
+| 5m | +5 minutes |
+| 15m | +15 minutes |
+| 1H | +1 hour |
+| H4 | +4 hours |
+| D1 | +1 day |
+
+**Scope**: Requires Stock Buddy API schema changes (separate documents per timeframe) + orchestrator changes (delete expired at startup)
+
+**Status**: Plan in progress - awaiting final specification before implementation
+
+---
+
+### Session: 2026-02-04 (Signal Freshness Documentation)
+
+**Goal**: Create comprehensive documentation explaining how TTE tiered architecture affects signal delay and dashboard freshness
+
+**File Created**:
+- `docs/SIGNAL-FRESHNESS.md` - 597 lines of comprehensive documentation
+
+**Sections Included**:
+1. **Executive Summary** - Key metrics (941 symbols, batch sizes, rotation timing)
+2. **Scanning Architecture** - Two-tier workflow diagram, batch timing breakdown
+3. **Timeframe Staleness Rules** - Bar-close based staleness with examples:
+   - 5m signal → stale after next 5m bar closes (max 5 minutes)
+   - 15m signal → stale after next 15m bar closes (max 15 minutes)
+   - 1H signal → stale after next 1H bar closes (max 60 minutes)
+4. **Dashboard Freshness Interpretation** - Python algorithm, UI recommendations
+5. **Full Rotation Timing Analysis** - Best/average/worst case scenarios
+6. **Priority Rotation System** - A/B/C scan frequencies
+7. **Current System Limitations** - Known gaps and future improvements
+8. **API Reference** - Useful curl commands for freshness queries
+9. **Quick Reference Card** - Condensed cheat sheet
+
+**Key Findings Documented**:
+- Full rotation: ~55 min (best) to ~6+ hours (worst)
+- Priority A (28 symbols): Scanned every batch
+- Priority B (150 symbols): Every 3rd rotation
+- Priority C (763 symbols): Every 10th rotation
+
+**Completes Task 7**: Analyze architecture impact on signal delay
+
+---
 
 ### Session: 2026-02-04 (Screener Timeframe Updates)
 
@@ -230,6 +345,7 @@ After exploring the Stock Buddy App codebase, found significant discrepancies be
 | `docs/PRD.md` | Complete technical specification (1900+ lines) |
 | `docs/API.md` | **Updated** - Stock Buddy API reference with correct schemas |
 | `docs/DATABASE.md` | **Updated** - TTE and Stock Buddy database documentation |
+| `docs/SIGNAL-FRESHNESS.md` | **New** - Signal timing, freshness, and staleness documentation |
 | `orchestrator.py` | TieredOrchestrator class with two-phase workflow |
 | `open_tv.py` | Browser class with all Selenium automation methods |
 | `api_client.py` | Stock Buddy API client |
@@ -264,14 +380,16 @@ python tiered_main.py
 
 ## Next Steps
 
-1. **Test E2E**: Run `--single-cycle` and verify:
+1. **Test E2E** (Task 5): Run `--single-cycle` and verify:
    - Phase 1 webhook fires and sends hot symbols to API
    - Phase 2 receives hot symbols and processes through OBDIV
 2. **Fix Task 5 Subtasks**:
    - 5.1: Prevent price-crossing alerts
    - 5.2: Reduce webhook wait time with alert log monitoring
    - 5.3: Handle data subscription error
-3. **Test Stock Buddy Grid**: Verify signals appear correctly on the grid UI
+3. **Test Stock Buddy Grid** (Task 6): Verify signals appear correctly on the grid UI
+4. **Verify Screener Accuracy** (Task 8): Verify TradingView screeners produce correct signals
+5. **Screenshot Integration** (Task 9): Send signal screenshots to Stock Buddy
 
 ---
 
@@ -288,6 +406,21 @@ python tiered_main.py
 3. **`change_settings()` importing from main.py in tiered mode**:
    - Cause: Timeframe logic always ran, importing constants from main.py
    - Fix: Wrapped in `if screener_shorttitle is None:` to skip for tiered mode
+
+4. **Condition dropdown selector timeout** (2026-02-04):
+   - Cause: TradingView UI changed, old `data-qa-id` selector no longer matched
+   - Fix: Added alternative selector `span[data-qa-id="ui-kit-disclosure-control main-series-select"]`
+   - File: `open_tv.py` lines 1175-1198
+
+5. **`open_log_tab()` timeout on empty log** (2026-02-04):
+   - Cause: Waited for `div[data-name="alert-log-item"]` which doesn't exist when log is empty
+   - Fix: Changed to wait for `aria-selected="true"` on Log tab button
+   - File: `resources/utils.py` lines 135-144
+
+6. **`_close_alert_dialog()` silent failure** (2026-02-04):
+   - Cause: Caught all exceptions with `except: pass`, no logging
+   - Fix: Added Cancel button as primary method, proper error logging
+   - File: `open_tv.py` lines 1130-1159
 
 ---
 
@@ -337,4 +470,21 @@ def _switch_to_layout_with_setup(layout_name, is_first_switch):
 
 // OBDIV (Tier 2) - Individual symbol format
 { "tier": "obdiv", "symbol": "EURUSD", "bull_ob": { "found": true, "tf": "1H", "type": "OB" }, "bull_div": { "found": true, "tf": "5m", "type": "Logic2" }, ... }
+```
+
+### Condition Dropdown Selectors (Working - 2026-02-04)
+```python
+# Try both selectors - TradingView UI may vary
+selectors = [
+    'span[data-qa-id="ui-lib-Input main-series-select"]',  # Old
+    'span[data-qa-id="ui-kit-disclosure-control main-series-select"]',  # New (current)
+]
+```
+
+### Alert Dialog Close Buttons (Working - 2026-02-04)
+```python
+# Cancel button (primary)
+'button[name="cancel"][data-qa-id="cancel"]'
+# Close (X) button (fallback)
+'button[data-name="close"]'
 ```

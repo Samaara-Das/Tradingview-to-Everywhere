@@ -21,7 +21,7 @@ class Utils:
         """
         try:
             # make sure the the Alerts tab is currently open
-            alert_tab_selector = 'div[class="widget-X9EuSe_t widgetbar-widget widgetbar-widget-alerts"] div[class="widgetHeader-X9EuSe_t"] div[id="AlertsHeaderTabs"] button[data-name="light-tab-1"]'
+            alert_tab_selector = 'div[class="widget-X9EuSe_t widgetbar-widget widgetbar-widget-alerts"] div[class="widgetHeader-X9EuSe_t"] button[aria-controls="id_alert-widget-tabs-slots_tabpanel_log"]'
 
             if (
                 WebDriverWait(driver, 5)
@@ -117,7 +117,7 @@ class Utils:
         """This makes sure that the Log tab in the alerts sidebar is open."""
         try:
             # make sure the the Log tab is currently open
-            alert_tab_selector = 'div[class="widget-X9EuSe_t widgetbar-widget widgetbar-widget-alerts"] div[class="widgetHeader-X9EuSe_t"] div[id="AlertsHeaderTabs"] button[data-name="light-tab-1"]'
+            alert_tab_selector = 'div[class="widget-X9EuSe_t widgetbar-widget widgetbar-widget-alerts"] div[class="widgetHeader-X9EuSe_t"] button[aria-controls="id_alert-widget-tabs-slots_tabpanel_log"]'
 
             if (
                 driver.find_element(By.CSS_SELECTOR, alert_tab_selector).get_attribute(
@@ -132,12 +132,15 @@ class Utils:
                     EC.element_to_be_clickable((By.CSS_SELECTOR, alert_tab_selector))
                 ).click()  # open the Log tab
 
-            # Wait until the Logs tab opens
-            WebDriverWait(driver, 5).until(
-                EC.presence_of_element_located(
-                    (By.CSS_SELECTOR, 'div[data-name="alert-log-item"]')
-                )
-            )
+            # Wait until the Log tab is actually selected
+            def log_tab_is_selected(d):
+                try:
+                    el = d.find_element(By.CSS_SELECTOR, alert_tab_selector)
+                    return el.get_attribute("aria-selected") == "true"
+                except:
+                    return False
+
+            WebDriverWait(driver, 5).until(log_tab_is_selected)
             return True
         except Exception as e:
             utils_logger.exception(f"Error occurred when opening the Log tab. Error: ")

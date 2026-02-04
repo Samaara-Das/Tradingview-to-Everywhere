@@ -148,6 +148,11 @@ class TieredOrchestrator:
             flush=True,
         )
 
+        # Save current layout before switching
+        print("[DEBUG] Saving current layout before switching...", flush=True)
+        self.browser.save_layout()
+        time.sleep(1)  # Brief pause to ensure save completes
+
         # Try to change layout (with retry)
         print(f"[DEBUG] Calling browser.change_layout('{layout_name}')...", flush=True)
         result = self.browser.change_layout(layout_name)
@@ -277,14 +282,29 @@ class TieredOrchestrator:
                 return
 
             logger.info(
-                f"Waiting {self.config.nwe_batch_wait}s for NWE webhook to fire..."
+                f"Waiting up to {self.config.nwe_batch_wait}s for NWE webhook to fire..."
             )
             print(
-                f"[DEBUG] Starting {self.config.nwe_batch_wait}s wait for NWE webhook...",
+                f"[DEBUG] Starting monitored wait (max {self.config.nwe_batch_wait}s) for NWE webhook...",
                 flush=True,
             )
-            time.sleep(self.config.nwe_batch_wait)
-            print("[DEBUG] NWE wait complete", flush=True)
+            webhook_detected, actual_wait = (
+                self.browser.wait_for_webhook_with_monitoring(
+                    screener_name=NWE_SCREENER_SHORTTITLE,
+                    max_wait_seconds=self.config.nwe_batch_wait,
+                )
+            )
+            if webhook_detected:
+                logger.info(f"NWE webhook detected after {actual_wait:.1f}s")
+                print(
+                    f"[DEBUG] NWE webhook detected after {actual_wait:.1f}s", flush=True
+                )
+            else:
+                logger.warning(f"NWE webhook wait timed out after {actual_wait:.1f}s")
+                print(
+                    f"[DEBUG] NWE webhook wait timed out after {actual_wait:.1f}s",
+                    flush=True,
+                )
 
             # Delete the alert
             print("[DEBUG] Calling delete_all_alerts()...", flush=True)
@@ -435,9 +455,20 @@ class TieredOrchestrator:
                     continue
 
                 logger.info(
-                    f"Waiting {self.config.obdiv_batch_wait}s for OBDIV webhook to fire..."
+                    f"Waiting up to {self.config.obdiv_batch_wait}s for OBDIV webhook to fire..."
                 )
-                time.sleep(self.config.obdiv_batch_wait)
+                webhook_detected, actual_wait = (
+                    self.browser.wait_for_webhook_with_monitoring(
+                        screener_name=OBDIV_SCREENER_SHORTTITLE,
+                        max_wait_seconds=self.config.obdiv_batch_wait,
+                    )
+                )
+                if webhook_detected:
+                    logger.info(f"OBDIV webhook detected after {actual_wait:.1f}s")
+                else:
+                    logger.warning(
+                        f"OBDIV webhook wait timed out after {actual_wait:.1f}s"
+                    )
 
                 # Delete the alert
                 if not self.browser.delete_all_alerts():
