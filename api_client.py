@@ -152,7 +152,7 @@ class StockBuddyAPIClient:
                 {
                     "symbol": "GBPAUD",
                     "direction": "bullish",
-                    "nwe_timeframes": ["H4", "D1"],
+                    "nwe_timeframe": "5m",
                     "status": "pending_tier2"
                 },
                 ...
@@ -177,6 +177,28 @@ class StockBuddyAPIClient:
             print(f"[DEBUG] get_hot_symbols error: {e}", flush=True)
             logger.error(f"Failed to get hot symbols: {e}")
             return []
+
+    def delete_expired_hot_symbols(self) -> Dict:
+        """
+        Delete all expired hot symbols from the database.
+        Called at startup to clean up stale entries.
+
+        Returns:
+            Response dictionary with deleted_count and success status
+        """
+        try:
+            response = self.session.delete(
+                f"{self.base_url}/hot-symbols/expired",
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            data = response.json()
+            deleted_count = data.get("deleted_count", 0)
+            logger.info(f"Deleted {deleted_count} expired hot symbols")
+            return {"success": True, "deleted_count": deleted_count}
+        except Exception as e:
+            logger.error(f"Failed to delete expired hot symbols: {e}")
+            return {"success": False, "error": str(e)}
 
     def close(self):
         """Close the session."""

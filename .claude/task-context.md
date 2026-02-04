@@ -2,7 +2,7 @@
 
 **Last Updated**: 2026-02-04
 **Current Task**: Task 5 - E2E Testing (Phase 1 and Phase 2)
-**Last Session**: Orchestrator Bug Fixes & Hot Symbol Expiration Design
+**Last Session**: Hot Symbol Expiration System Implementation
 
 ---
 
@@ -33,6 +33,67 @@
 ---
 
 ## Session History
+
+### Session: 2026-02-04 (Hot Symbol Expiration System Implementation)
+
+**Goal**: Implement timeframe-based hot symbol expiration with separate documents per timeframe
+
+**Changes Implemented**:
+
+#### Stock Buddy API (`C:\Users\dassa\Work\Stock-Buddy-App`)
+
+1. **`src/lib/tte/schemas.ts`**:
+   - Changed `HotListDocument.nwe_timeframes` (array) → `nwe_timeframe` (single string)
+   - Removed `updated_at` field (no refresh logic needed)
+   - Added `TIMEFRAME_SECONDS` mapping: `{5m: 300, 15m: 900, 1H: 3600, H4: 14400, D1: 86400}`
+   - Added `getExpirationDate(timestamp, timeframe)` helper function
+   - Added `nweBatchWebhookSchema` for batch webhook format
+
+2. **`src/app/api/tte/nwe/route.ts`** - Complete rewrite:
+   - Handles batch format: `{tier: "nwe", symbols: [{symbol, direction, timeframes}, ...], timestamp}`
+   - Creates separate documents for each symbol+timeframe combination
+   - No-refresh logic: skips if document already exists for symbol+direction+timeframe
+   - Uses `getExpirationDate()` to calculate `expires_at`
+
+3. **`src/app/api/tte/hot-symbols/expired/route.ts`** (NEW):
+   - DELETE endpoint removes all documents where `expires_at < now`
+   - Returns `{success: true, deleted_count: N}`
+
+4. **`src/app/api/tte/hot-symbols/route.ts`**:
+   - Added `include_expired` query parameter (default: false)
+   - Filters out expired symbols by default: `expires_at: { $gt: now }`
+
+5. **`src/lib/tte/collections.ts`**:
+   - Updated `getPendingHotSymbols()` to filter expired by default
+   - Updated `getHotListEntry()` with optional `timeframe` parameter
+   - Updated `markHotListComplete()` with optional `timeframe` parameter
+   - Marked `upsertHotListEntry()` as deprecated
+   - Added `deleteExpiredHotSymbols()` helper function
+
+6. **`src/app/api/tte/obdiv/route.ts`**:
+   - Fixed to use new `nwe_timeframe` field (singular) instead of `nwe_timeframes`
+
+#### TTE Orchestrator (`C:\Users\dassa\Work\For Poolsifi\tradingview to everywhere`)
+
+1. **`api_client.py`**:
+   - Updated `get_hot_symbols()` docstring for new schema
+   - Added `delete_expired_hot_symbols()` method
+
+2. **`orchestrator.py`**:
+   - Added call to `api_client.delete_expired_hot_symbols()` at startup in `create_orchestrator()`
+
+**Commits**:
+- Stock Buddy: `83cf092` - Implement timeframe-based hot symbol expiration system
+
+**Verification Tests (All Passed)**:
+1. ✅ NWE batch webhook - Creates separate documents per timeframe
+2. ✅ Timeframe-based expiration - 5m entry expired after 5 minutes, 15m/1H still valid
+3. ✅ No-refresh logic - `Created 0 hot list entries (3 skipped)` when re-sending
+4. ✅ Filter expired by default - Without param: 3 docs, with `include_expired=true`: 4 docs
+5. ✅ DELETE expired endpoint - `Deleted 40 expired hot symbols`
+6. ✅ New document schema - `nwe_timeframe` (string), no `updated_at`, correct `expires_at`
+
+---
 
 ### Session: 2026-02-04 (Orchestrator Bug Fixes & Hot Symbol Expiration Design)
 
@@ -336,6 +397,8 @@ After exploring the Stock Buddy App codebase, found significant discrepancies be
 
 6. **Signal Levels**: Level 1 (NWE only), Level 2 (NWE + OB or DIV), Level 3 (NWE + OB + DIV)
 
+7. **Hot Symbol Expiration**: `expires_at = nwe_timestamp + timeframe_duration` (no refresh, separate docs per timeframe)
+
 ---
 
 ## Key Reference Files
@@ -487,4 +550,35 @@ selectors = [
 'button[name="cancel"][data-qa-id="cancel"]'
 # Close (X) button (fallback)
 'button[data-name="close"]'
+```
+
+### Hot Symbol Expiration API Tests (Working - 2026-02-04)
+```bash
+# Test NWE webhook (batch format)
+curl -X POST "https://stock-buddy-app.vercel.app/api/tte/nwe" \
+  -H "Content-Type: application/json" \
+  -d '{"tier":"nwe","symbols":[{"symbol":"GBPUSD","direction":"bullish","timeframes":["5m","15m","1H"]}],"timestamp":'$(date +%s)',"count":1}'
+
+# Check hot symbols (excludes expired by default)
+curl "https://stock-buddy-app.vercel.app/api/tte/hot-symbols?limit=10"
+
+# Check hot symbols (includes expired)
+curl "https://stock-buddy-app.vercel.app/api/tte/hot-symbols?limit=10&include_expired=true"
+
+# Delete expired hot symbols
+curl -X DELETE "https://stock-buddy-app.vercel.app/api/tte/hot-symbols/expired"
+```
+
+### New HotListDocument Schema (2026-02-04)
+```typescript
+interface HotListDocument {
+  _id?: string;
+  symbol: string;
+  direction: "bullish" | "bearish";
+  nwe_timeframe: string;      // Single string (NOT array)
+  nwe_timestamp: number;
+  status: "pending_tier2" | "tier2_complete" | "expired";
+  created_at: Date;
+  expires_at: Date;           // NO updated_at field
+}
 ```
