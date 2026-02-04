@@ -44,11 +44,11 @@ import jdehorty/KernelFunctions/2 as kernels
 // INPUTS //
 ////////////
 
-// Timeframes for calculations (TESTING: using short timeframes for faster signals)
-string TF_H4 = "5"      // 5 minute (testing)
-string TF_D1 = "15"     // 15 minute (testing)
+// Timeframes for calculations
+string TF_5M = "5"      // 5 minute
+string TF_15M = "15"    // 15 minute
 
-// Symbol inputs (20 symbols max - uses 40 request.security calls for H4+D1)
+// Symbol inputs (20 symbols max - uses 40 request.security calls for 5m+15m)
 usedSymbols = input.int(20, title = 'Used Symbols', group = 'Symbols', tooltip = 'Number of symbols to scan (max 20)')
 s01 = input.symbol('OANDA:GBPAUD', group='Symbols', inline='s01')
 s02 = input.symbol('OANDA:AUDJPY', group='Symbols', inline='s02')
@@ -114,97 +114,97 @@ calcNWEZone() =>
 // REQUEST SECURITY CALLS //
 ////////////////////////////
 
-// H4 timeframe NWE checks (20 symbols)
-[nweBull01_h4, nweBear01_h4] = request.security(s01, TF_H4, calcNWEZone())
-[nweBull02_h4, nweBear02_h4] = request.security(s02, TF_H4, calcNWEZone())
-[nweBull03_h4, nweBear03_h4] = request.security(s03, TF_H4, calcNWEZone())
-[nweBull04_h4, nweBear04_h4] = request.security(s04, TF_H4, calcNWEZone())
-[nweBull05_h4, nweBear05_h4] = request.security(s05, TF_H4, calcNWEZone())
-[nweBull06_h4, nweBear06_h4] = request.security(s06, TF_H4, calcNWEZone())
-[nweBull07_h4, nweBear07_h4] = request.security(s07, TF_H4, calcNWEZone())
-[nweBull08_h4, nweBear08_h4] = request.security(s08, TF_H4, calcNWEZone())
-[nweBull09_h4, nweBear09_h4] = request.security(s09, TF_H4, calcNWEZone())
-[nweBull10_h4, nweBear10_h4] = request.security(s10, TF_H4, calcNWEZone())
-[nweBull11_h4, nweBear11_h4] = request.security(s11, TF_H4, calcNWEZone())
-[nweBull12_h4, nweBear12_h4] = request.security(s12, TF_H4, calcNWEZone())
-[nweBull13_h4, nweBear13_h4] = request.security(s13, TF_H4, calcNWEZone())
-[nweBull14_h4, nweBear14_h4] = request.security(s14, TF_H4, calcNWEZone())
-[nweBull15_h4, nweBear15_h4] = request.security(s15, TF_H4, calcNWEZone())
-[nweBull16_h4, nweBear16_h4] = request.security(s16, TF_H4, calcNWEZone())
-[nweBull17_h4, nweBear17_h4] = request.security(s17, TF_H4, calcNWEZone())
-[nweBull18_h4, nweBear18_h4] = request.security(s18, TF_H4, calcNWEZone())
-[nweBull19_h4, nweBear19_h4] = request.security(s19, TF_H4, calcNWEZone())
-[nweBull20_h4, nweBear20_h4] = request.security(s20, TF_H4, calcNWEZone())
+// 5m timeframe NWE checks (20 symbols)
+[nweBull01_5m, nweBear01_5m] = request.security(s01, TF_5M, calcNWEZone())
+[nweBull02_5m, nweBear02_5m] = request.security(s02, TF_5M, calcNWEZone())
+[nweBull03_5m, nweBear03_5m] = request.security(s03, TF_5M, calcNWEZone())
+[nweBull04_5m, nweBear04_5m] = request.security(s04, TF_5M, calcNWEZone())
+[nweBull05_5m, nweBear05_5m] = request.security(s05, TF_5M, calcNWEZone())
+[nweBull06_5m, nweBear06_5m] = request.security(s06, TF_5M, calcNWEZone())
+[nweBull07_5m, nweBear07_5m] = request.security(s07, TF_5M, calcNWEZone())
+[nweBull08_5m, nweBear08_5m] = request.security(s08, TF_5M, calcNWEZone())
+[nweBull09_5m, nweBear09_5m] = request.security(s09, TF_5M, calcNWEZone())
+[nweBull10_5m, nweBear10_5m] = request.security(s10, TF_5M, calcNWEZone())
+[nweBull11_5m, nweBear11_5m] = request.security(s11, TF_5M, calcNWEZone())
+[nweBull12_5m, nweBear12_5m] = request.security(s12, TF_5M, calcNWEZone())
+[nweBull13_5m, nweBear13_5m] = request.security(s13, TF_5M, calcNWEZone())
+[nweBull14_5m, nweBear14_5m] = request.security(s14, TF_5M, calcNWEZone())
+[nweBull15_5m, nweBear15_5m] = request.security(s15, TF_5M, calcNWEZone())
+[nweBull16_5m, nweBear16_5m] = request.security(s16, TF_5M, calcNWEZone())
+[nweBull17_5m, nweBear17_5m] = request.security(s17, TF_5M, calcNWEZone())
+[nweBull18_5m, nweBear18_5m] = request.security(s18, TF_5M, calcNWEZone())
+[nweBull19_5m, nweBear19_5m] = request.security(s19, TF_5M, calcNWEZone())
+[nweBull20_5m, nweBear20_5m] = request.security(s20, TF_5M, calcNWEZone())
 
-// D1 timeframe NWE checks (20 symbols)
-[nweBull01_d1, nweBear01_d1] = request.security(s01, TF_D1, calcNWEZone())
-[nweBull02_d1, nweBear02_d1] = request.security(s02, TF_D1, calcNWEZone())
-[nweBull03_d1, nweBear03_d1] = request.security(s03, TF_D1, calcNWEZone())
-[nweBull04_d1, nweBear04_d1] = request.security(s04, TF_D1, calcNWEZone())
-[nweBull05_d1, nweBear05_d1] = request.security(s05, TF_D1, calcNWEZone())
-[nweBull06_d1, nweBear06_d1] = request.security(s06, TF_D1, calcNWEZone())
-[nweBull07_d1, nweBear07_d1] = request.security(s07, TF_D1, calcNWEZone())
-[nweBull08_d1, nweBear08_d1] = request.security(s08, TF_D1, calcNWEZone())
-[nweBull09_d1, nweBear09_d1] = request.security(s09, TF_D1, calcNWEZone())
-[nweBull10_d1, nweBear10_d1] = request.security(s10, TF_D1, calcNWEZone())
-[nweBull11_d1, nweBear11_d1] = request.security(s11, TF_D1, calcNWEZone())
-[nweBull12_d1, nweBear12_d1] = request.security(s12, TF_D1, calcNWEZone())
-[nweBull13_d1, nweBear13_d1] = request.security(s13, TF_D1, calcNWEZone())
-[nweBull14_d1, nweBear14_d1] = request.security(s14, TF_D1, calcNWEZone())
-[nweBull15_d1, nweBear15_d1] = request.security(s15, TF_D1, calcNWEZone())
-[nweBull16_d1, nweBear16_d1] = request.security(s16, TF_D1, calcNWEZone())
-[nweBull17_d1, nweBear17_d1] = request.security(s17, TF_D1, calcNWEZone())
-[nweBull18_d1, nweBear18_d1] = request.security(s18, TF_D1, calcNWEZone())
-[nweBull19_d1, nweBear19_d1] = request.security(s19, TF_D1, calcNWEZone())
-[nweBull20_d1, nweBear20_d1] = request.security(s20, TF_D1, calcNWEZone())
+// 15m timeframe NWE checks (20 symbols)
+[nweBull01_15m, nweBear01_15m] = request.security(s01, TF_15M, calcNWEZone())
+[nweBull02_15m, nweBear02_15m] = request.security(s02, TF_15M, calcNWEZone())
+[nweBull03_15m, nweBear03_15m] = request.security(s03, TF_15M, calcNWEZone())
+[nweBull04_15m, nweBear04_15m] = request.security(s04, TF_15M, calcNWEZone())
+[nweBull05_15m, nweBear05_15m] = request.security(s05, TF_15M, calcNWEZone())
+[nweBull06_15m, nweBear06_15m] = request.security(s06, TF_15M, calcNWEZone())
+[nweBull07_15m, nweBear07_15m] = request.security(s07, TF_15M, calcNWEZone())
+[nweBull08_15m, nweBear08_15m] = request.security(s08, TF_15M, calcNWEZone())
+[nweBull09_15m, nweBear09_15m] = request.security(s09, TF_15M, calcNWEZone())
+[nweBull10_15m, nweBear10_15m] = request.security(s10, TF_15M, calcNWEZone())
+[nweBull11_15m, nweBear11_15m] = request.security(s11, TF_15M, calcNWEZone())
+[nweBull12_15m, nweBear12_15m] = request.security(s12, TF_15M, calcNWEZone())
+[nweBull13_15m, nweBear13_15m] = request.security(s13, TF_15M, calcNWEZone())
+[nweBull14_15m, nweBear14_15m] = request.security(s14, TF_15M, calcNWEZone())
+[nweBull15_15m, nweBear15_15m] = request.security(s15, TF_15M, calcNWEZone())
+[nweBull16_15m, nweBear16_15m] = request.security(s16, TF_15M, calcNWEZone())
+[nweBull17_15m, nweBear17_15m] = request.security(s17, TF_15M, calcNWEZone())
+[nweBull18_15m, nweBear18_15m] = request.security(s18, TF_15M, calcNWEZone())
+[nweBull19_15m, nweBear19_15m] = request.security(s19, TF_15M, calcNWEZone())
+[nweBull20_15m, nweBear20_15m] = request.security(s20, TF_15M, calcNWEZone())
 
 // Total: 40 request.security() calls (20 symbols × 2 timeframes)
 
-////////////////////////////
-// COMBINE H4 + D1 SIGNALS //
-////////////////////////////
+//////////////////////////////
+// COMBINE 5m + 15m SIGNALS //
+//////////////////////////////
 
-// Combined signals (either H4 OR D1 triggers)
-bool nweBull01 = nweBull01_h4 or nweBull01_d1
-bool nweBear01 = nweBear01_h4 or nweBear01_d1
-bool nweBull02 = nweBull02_h4 or nweBull02_d1
-bool nweBear02 = nweBear02_h4 or nweBear02_d1
-bool nweBull03 = nweBull03_h4 or nweBull03_d1
-bool nweBear03 = nweBear03_h4 or nweBear03_d1
-bool nweBull04 = nweBull04_h4 or nweBull04_d1
-bool nweBear04 = nweBear04_h4 or nweBear04_d1
-bool nweBull05 = nweBull05_h4 or nweBull05_d1
-bool nweBear05 = nweBear05_h4 or nweBear05_d1
-bool nweBull06 = nweBull06_h4 or nweBull06_d1
-bool nweBear06 = nweBear06_h4 or nweBear06_d1
-bool nweBull07 = nweBull07_h4 or nweBull07_d1
-bool nweBear07 = nweBear07_h4 or nweBear07_d1
-bool nweBull08 = nweBull08_h4 or nweBull08_d1
-bool nweBear08 = nweBear08_h4 or nweBear08_d1
-bool nweBull09 = nweBull09_h4 or nweBull09_d1
-bool nweBear09 = nweBear09_h4 or nweBear09_d1
-bool nweBull10 = nweBull10_h4 or nweBull10_d1
-bool nweBear10 = nweBear10_h4 or nweBear10_d1
-bool nweBull11 = nweBull11_h4 or nweBull11_d1
-bool nweBear11 = nweBear11_h4 or nweBear11_d1
-bool nweBull12 = nweBull12_h4 or nweBull12_d1
-bool nweBear12 = nweBear12_h4 or nweBear12_d1
-bool nweBull13 = nweBull13_h4 or nweBull13_d1
-bool nweBear13 = nweBear13_h4 or nweBear13_d1
-bool nweBull14 = nweBull14_h4 or nweBull14_d1
-bool nweBear14 = nweBear14_h4 or nweBear14_d1
-bool nweBull15 = nweBull15_h4 or nweBull15_d1
-bool nweBear15 = nweBear15_h4 or nweBear15_d1
-bool nweBull16 = nweBull16_h4 or nweBull16_d1
-bool nweBear16 = nweBear16_h4 or nweBear16_d1
-bool nweBull17 = nweBull17_h4 or nweBull17_d1
-bool nweBear17 = nweBear17_h4 or nweBear17_d1
-bool nweBull18 = nweBull18_h4 or nweBull18_d1
-bool nweBear18 = nweBear18_h4 or nweBear18_d1
-bool nweBull19 = nweBull19_h4 or nweBull19_d1
-bool nweBear19 = nweBear19_h4 or nweBear19_d1
-bool nweBull20 = nweBull20_h4 or nweBull20_d1
-bool nweBear20 = nweBear20_h4 or nweBear20_d1
+// Combined signals (either 5m OR 15m triggers)
+bool nweBull01 = nweBull01_5m or nweBull01_15m
+bool nweBear01 = nweBear01_5m or nweBear01_15m
+bool nweBull02 = nweBull02_5m or nweBull02_15m
+bool nweBear02 = nweBear02_5m or nweBear02_15m
+bool nweBull03 = nweBull03_5m or nweBull03_15m
+bool nweBear03 = nweBear03_5m or nweBear03_15m
+bool nweBull04 = nweBull04_5m or nweBull04_15m
+bool nweBear04 = nweBear04_5m or nweBear04_15m
+bool nweBull05 = nweBull05_5m or nweBull05_15m
+bool nweBear05 = nweBear05_5m or nweBear05_15m
+bool nweBull06 = nweBull06_5m or nweBull06_15m
+bool nweBear06 = nweBear06_5m or nweBear06_15m
+bool nweBull07 = nweBull07_5m or nweBull07_15m
+bool nweBear07 = nweBear07_5m or nweBear07_15m
+bool nweBull08 = nweBull08_5m or nweBull08_15m
+bool nweBear08 = nweBear08_5m or nweBear08_15m
+bool nweBull09 = nweBull09_5m or nweBull09_15m
+bool nweBear09 = nweBear09_5m or nweBear09_15m
+bool nweBull10 = nweBull10_5m or nweBull10_15m
+bool nweBear10 = nweBear10_5m or nweBear10_15m
+bool nweBull11 = nweBull11_5m or nweBull11_15m
+bool nweBear11 = nweBear11_5m or nweBear11_15m
+bool nweBull12 = nweBull12_5m or nweBull12_15m
+bool nweBear12 = nweBear12_5m or nweBear12_15m
+bool nweBull13 = nweBull13_5m or nweBull13_15m
+bool nweBear13 = nweBear13_5m or nweBear13_15m
+bool nweBull14 = nweBull14_5m or nweBull14_15m
+bool nweBear14 = nweBear14_5m or nweBear14_15m
+bool nweBull15 = nweBull15_5m or nweBull15_15m
+bool nweBear15 = nweBear15_5m or nweBear15_15m
+bool nweBull16 = nweBull16_5m or nweBull16_15m
+bool nweBear16 = nweBear16_5m or nweBear16_15m
+bool nweBull17 = nweBull17_5m or nweBull17_15m
+bool nweBear17 = nweBear17_5m or nweBear17_15m
+bool nweBull18 = nweBull18_5m or nweBull18_15m
+bool nweBear18 = nweBear18_5m or nweBear18_15m
+bool nweBull19 = nweBull19_5m or nweBull19_15m
+bool nweBear19 = nweBear19_5m or nweBear19_15m
+bool nweBull20 = nweBull20_5m or nweBull20_15m
+bool nweBear20 = nweBear20_5m or nweBear20_15m
 
 ////////////////////////////
 // HELPER FUNCTIONS       //
@@ -240,162 +240,162 @@ if barstate.isrealtime and not alreadyFired
 
     // Symbol 01
     if nweBull01 and usedSymbols >= 1
-        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s01), "bullish", nweBull01_h4, nweBull01_d1)
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s01), "bullish", nweBull01_5m, nweBull01_15m)
         symbolCount += 1
     if nweBear01 and usedSymbols >= 1
-        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s01), "bearish", nweBear01_h4, nweBear01_d1)
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s01), "bearish", nweBear01_5m, nweBear01_15m)
         symbolCount += 1
 
     // Symbol 02
     if nweBull02 and usedSymbols >= 2
-        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s02), "bullish", nweBull02_h4, nweBull02_d1)
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s02), "bullish", nweBull02_5m, nweBull02_15m)
         symbolCount += 1
     if nweBear02 and usedSymbols >= 2
-        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s02), "bearish", nweBear02_h4, nweBear02_d1)
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s02), "bearish", nweBear02_5m, nweBear02_15m)
         symbolCount += 1
 
     // Symbol 03
     if nweBull03 and usedSymbols >= 3
-        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s03), "bullish", nweBull03_h4, nweBull03_d1)
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s03), "bullish", nweBull03_5m, nweBull03_15m)
         symbolCount += 1
     if nweBear03 and usedSymbols >= 3
-        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s03), "bearish", nweBear03_h4, nweBear03_d1)
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s03), "bearish", nweBear03_5m, nweBear03_15m)
         symbolCount += 1
 
     // Symbol 04
     if nweBull04 and usedSymbols >= 4
-        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s04), "bullish", nweBull04_h4, nweBull04_d1)
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s04), "bullish", nweBull04_5m, nweBull04_15m)
         symbolCount += 1
     if nweBear04 and usedSymbols >= 4
-        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s04), "bearish", nweBear04_h4, nweBear04_d1)
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s04), "bearish", nweBear04_5m, nweBear04_15m)
         symbolCount += 1
 
     // Symbol 05
     if nweBull05 and usedSymbols >= 5
-        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s05), "bullish", nweBull05_h4, nweBull05_d1)
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s05), "bullish", nweBull05_5m, nweBull05_15m)
         symbolCount += 1
     if nweBear05 and usedSymbols >= 5
-        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s05), "bearish", nweBear05_h4, nweBear05_d1)
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s05), "bearish", nweBear05_5m, nweBear05_15m)
         symbolCount += 1
 
     // Symbol 06
     if nweBull06 and usedSymbols >= 6
-        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s06), "bullish", nweBull06_h4, nweBull06_d1)
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s06), "bullish", nweBull06_5m, nweBull06_15m)
         symbolCount += 1
     if nweBear06 and usedSymbols >= 6
-        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s06), "bearish", nweBear06_h4, nweBear06_d1)
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s06), "bearish", nweBear06_5m, nweBear06_15m)
         symbolCount += 1
 
     // Symbol 07
     if nweBull07 and usedSymbols >= 7
-        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s07), "bullish", nweBull07_h4, nweBull07_d1)
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s07), "bullish", nweBull07_5m, nweBull07_15m)
         symbolCount += 1
     if nweBear07 and usedSymbols >= 7
-        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s07), "bearish", nweBear07_h4, nweBear07_d1)
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s07), "bearish", nweBear07_5m, nweBear07_15m)
         symbolCount += 1
 
     // Symbol 08
     if nweBull08 and usedSymbols >= 8
-        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s08), "bullish", nweBull08_h4, nweBull08_d1)
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s08), "bullish", nweBull08_5m, nweBull08_15m)
         symbolCount += 1
     if nweBear08 and usedSymbols >= 8
-        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s08), "bearish", nweBear08_h4, nweBear08_d1)
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s08), "bearish", nweBear08_5m, nweBear08_15m)
         symbolCount += 1
 
     // Symbol 09
     if nweBull09 and usedSymbols >= 9
-        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s09), "bullish", nweBull09_h4, nweBull09_d1)
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s09), "bullish", nweBull09_5m, nweBull09_15m)
         symbolCount += 1
     if nweBear09 and usedSymbols >= 9
-        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s09), "bearish", nweBear09_h4, nweBear09_d1)
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s09), "bearish", nweBear09_5m, nweBear09_15m)
         symbolCount += 1
 
     // Symbol 10
     if nweBull10 and usedSymbols >= 10
-        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s10), "bullish", nweBull10_h4, nweBull10_d1)
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s10), "bullish", nweBull10_5m, nweBull10_15m)
         symbolCount += 1
     if nweBear10 and usedSymbols >= 10
-        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s10), "bearish", nweBear10_h4, nweBear10_d1)
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s10), "bearish", nweBear10_5m, nweBear10_15m)
         symbolCount += 1
 
     // Symbol 11
     if nweBull11 and usedSymbols >= 11
-        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s11), "bullish", nweBull11_h4, nweBull11_d1)
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s11), "bullish", nweBull11_5m, nweBull11_15m)
         symbolCount += 1
     if nweBear11 and usedSymbols >= 11
-        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s11), "bearish", nweBear11_h4, nweBear11_d1)
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s11), "bearish", nweBear11_5m, nweBear11_15m)
         symbolCount += 1
 
     // Symbol 12
     if nweBull12 and usedSymbols >= 12
-        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s12), "bullish", nweBull12_h4, nweBull12_d1)
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s12), "bullish", nweBull12_5m, nweBull12_15m)
         symbolCount += 1
     if nweBear12 and usedSymbols >= 12
-        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s12), "bearish", nweBear12_h4, nweBear12_d1)
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s12), "bearish", nweBear12_5m, nweBear12_15m)
         symbolCount += 1
 
     // Symbol 13
     if nweBull13 and usedSymbols >= 13
-        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s13), "bullish", nweBull13_h4, nweBull13_d1)
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s13), "bullish", nweBull13_5m, nweBull13_15m)
         symbolCount += 1
     if nweBear13 and usedSymbols >= 13
-        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s13), "bearish", nweBear13_h4, nweBear13_d1)
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s13), "bearish", nweBear13_5m, nweBear13_15m)
         symbolCount += 1
 
     // Symbol 14
     if nweBull14 and usedSymbols >= 14
-        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s14), "bullish", nweBull14_h4, nweBull14_d1)
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s14), "bullish", nweBull14_5m, nweBull14_15m)
         symbolCount += 1
     if nweBear14 and usedSymbols >= 14
-        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s14), "bearish", nweBear14_h4, nweBear14_d1)
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s14), "bearish", nweBear14_5m, nweBear14_15m)
         symbolCount += 1
 
     // Symbol 15
     if nweBull15 and usedSymbols >= 15
-        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s15), "bullish", nweBull15_h4, nweBull15_d1)
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s15), "bullish", nweBull15_5m, nweBull15_15m)
         symbolCount += 1
     if nweBear15 and usedSymbols >= 15
-        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s15), "bearish", nweBear15_h4, nweBear15_d1)
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s15), "bearish", nweBear15_5m, nweBear15_15m)
         symbolCount += 1
 
     // Symbol 16
     if nweBull16 and usedSymbols >= 16
-        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s16), "bullish", nweBull16_h4, nweBull16_d1)
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s16), "bullish", nweBull16_5m, nweBull16_15m)
         symbolCount += 1
     if nweBear16 and usedSymbols >= 16
-        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s16), "bearish", nweBear16_h4, nweBear16_d1)
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s16), "bearish", nweBear16_5m, nweBear16_15m)
         symbolCount += 1
 
     // Symbol 17
     if nweBull17 and usedSymbols >= 17
-        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s17), "bullish", nweBull17_h4, nweBull17_d1)
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s17), "bullish", nweBull17_5m, nweBull17_15m)
         symbolCount += 1
     if nweBear17 and usedSymbols >= 17
-        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s17), "bearish", nweBear17_h4, nweBear17_d1)
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s17), "bearish", nweBear17_5m, nweBear17_15m)
         symbolCount += 1
 
     // Symbol 18
     if nweBull18 and usedSymbols >= 18
-        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s18), "bullish", nweBull18_h4, nweBull18_d1)
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s18), "bullish", nweBull18_5m, nweBull18_15m)
         symbolCount += 1
     if nweBear18 and usedSymbols >= 18
-        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s18), "bearish", nweBear18_h4, nweBear18_d1)
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s18), "bearish", nweBear18_5m, nweBear18_15m)
         symbolCount += 1
 
     // Symbol 19
     if nweBull19 and usedSymbols >= 19
-        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s19), "bullish", nweBull19_h4, nweBull19_d1)
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s19), "bullish", nweBull19_5m, nweBull19_15m)
         symbolCount += 1
     if nweBear19 and usedSymbols >= 19
-        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s19), "bearish", nweBear19_h4, nweBear19_d1)
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s19), "bearish", nweBear19_5m, nweBear19_15m)
         symbolCount += 1
 
     // Symbol 20
     if nweBull20 and usedSymbols >= 20
-        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s20), "bullish", nweBull20_h4, nweBull20_d1)
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s20), "bullish", nweBull20_5m, nweBull20_15m)
         symbolCount += 1
     if nweBear20 and usedSymbols >= 20
-        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s20), "bearish", nweBear20_h4, nweBear20_d1)
+        batchJson := batchJson + (symbolCount > 0 ? "," : "") + buildSymbolEntry(getSymbolName(s20), "bearish", nweBear20_5m, nweBear20_15m)
         symbolCount += 1
 
     // Build and send batch payload (always fires, even with empty symbols array)

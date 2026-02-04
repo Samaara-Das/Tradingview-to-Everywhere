@@ -5,14 +5,14 @@
 // Part of TTE Stock Buddy tiered signal system
 //
 // Receives hot symbols from Tier 1 (NWE Screener) and checks for:
-// - OB/FVG zone overlap on H4, D1, W1 timeframes
-// - Kernel AO Divergence (Logic 2 and Internal) on H4, D1 timeframes
+// - OB/FVG zone overlap on 5m, 15m, 1H timeframes
+// - Kernel AO Divergence (Logic 2 and Internal) on 5m, 15m timeframes
 //
 // Sends webhook alerts to Stock Buddy API: POST /api/obdiv
 // Webhook URL: https://stock-buddy-app.vercel.app/api/obdiv
 //
 // Payload format:
-// {"tier":"obdiv","symbol":"GBPAUD","bull_ob":{"found":true,"tf":"W1","type":"OB","high":1.055,"low":1.050},"bull_div":{"found":true,"tf":"H4","type":"Logic2"},"bear_ob":{"found":false},"bear_div":{"found":false},"timestamp":1672531200}
+// {"tier":"obdiv","symbol":"GBPAUD","bull_ob":{"found":true,"tf":"1H","type":"OB","high":1.055,"low":1.050},"bull_div":{"found":true,"tf":"5m","type":"Logic2"},"bear_ob":{"found":false},"bear_div":{"found":false},"timestamp":1672531200}
 
 //@version=5
 indicator("TTE OBDIV Screener v2", 'TTE OBDIV Screener', overlay = true, precision = 5, max_bars_back = 500)
@@ -24,10 +24,10 @@ import jdehorty/KernelFunctions/2 as kernels
 // INPUTS //
 ////////////
 
-// Timeframes for calculations (TESTING: using short timeframes for faster signals)
-string TF_H4 = "5"      // 5 minute (testing)
-string TF_D1 = "15"     // 15 minute (testing)
-string TF_W1 = "60"     // 1 hour (testing)
+// Timeframes for calculations
+string TF_5M = "5"      // 5 minute
+string TF_15M = "15"    // 15 minute
+string TF_1H = "60"     // 1 hour
 
 // Symbol inputs (8 symbols for Tier 2 batch processing)
 usedSymbols = input.int(8, title = 'Used Symbols', group = 'Symbols', tooltip = 'The total number of symbols which will be checked for OB/DIV')
@@ -621,7 +621,7 @@ scanOBRange(simple string tf) =>
     float bearZoneHigh = 0.0
     float bearZoneLow = 0.0
 
-    // D1 timeframe has a 1-bar offset in timestamp reporting via request.security
+    // 15m timeframe has a 1-bar offset in timestamp reporting via request.security
     int timeShift = tf == "D" ? 1 : 0
 
     // Current bar price range for overlap check
@@ -834,7 +834,7 @@ scanOBRange(simple string tf) =>
 // COMBINED CHECKS   //
 ///////////////////////
 
-// OB overlap + Divergence scan for H4/D1 timeframes
+// OB overlap + Divergence scan for 5m/15m timeframes
 // Returns: [bullFound, bullZoneType, bullType, bullZoneTime, bullZoneHigh, bullZoneLow,
 //           bearFound, bearZoneType, bearType, bearZoneTime, bearZoneHigh, bearZoneLow,
 //           bullDivTime, bearDivTime, bullIntDivTime, bearIntDivTime]
@@ -866,37 +866,37 @@ checkOBOnly(simple string tf) =>
 // REQUEST SECURITY CALLS //
 ////////////////////////////
 
-// H4 timeframe - OB + Divergence (8 symbols x 16 values)
-[bullF01_h4, bullZT01_h4, bullT01_h4, bullTm01_h4, bullZH01_h4, bullZL01_h4, bearF01_h4, bearZT01_h4, bearT01_h4, bearTm01_h4, bearZH01_h4, bearZL01_h4, divBullTm01_h4, divBearTm01_h4, intBullTm01_h4, intBearTm01_h4] = request.security(s01, TF_H4, checkOBDivOnly(TF_H4))
-[bullF02_h4, bullZT02_h4, bullT02_h4, bullTm02_h4, bullZH02_h4, bullZL02_h4, bearF02_h4, bearZT02_h4, bearT02_h4, bearTm02_h4, bearZH02_h4, bearZL02_h4, divBullTm02_h4, divBearTm02_h4, intBullTm02_h4, intBearTm02_h4] = request.security(s02, TF_H4, checkOBDivOnly(TF_H4))
-[bullF03_h4, bullZT03_h4, bullT03_h4, bullTm03_h4, bullZH03_h4, bullZL03_h4, bearF03_h4, bearZT03_h4, bearT03_h4, bearTm03_h4, bearZH03_h4, bearZL03_h4, divBullTm03_h4, divBearTm03_h4, intBullTm03_h4, intBearTm03_h4] = request.security(s03, TF_H4, checkOBDivOnly(TF_H4))
-[bullF04_h4, bullZT04_h4, bullT04_h4, bullTm04_h4, bullZH04_h4, bullZL04_h4, bearF04_h4, bearZT04_h4, bearT04_h4, bearTm04_h4, bearZH04_h4, bearZL04_h4, divBullTm04_h4, divBearTm04_h4, intBullTm04_h4, intBearTm04_h4] = request.security(s04, TF_H4, checkOBDivOnly(TF_H4))
-[bullF05_h4, bullZT05_h4, bullT05_h4, bullTm05_h4, bullZH05_h4, bullZL05_h4, bearF05_h4, bearZT05_h4, bearT05_h4, bearTm05_h4, bearZH05_h4, bearZL05_h4, divBullTm05_h4, divBearTm05_h4, intBullTm05_h4, intBearTm05_h4] = request.security(s05, TF_H4, checkOBDivOnly(TF_H4))
-[bullF06_h4, bullZT06_h4, bullT06_h4, bullTm06_h4, bullZH06_h4, bullZL06_h4, bearF06_h4, bearZT06_h4, bearT06_h4, bearTm06_h4, bearZH06_h4, bearZL06_h4, divBullTm06_h4, divBearTm06_h4, intBullTm06_h4, intBearTm06_h4] = request.security(s06, TF_H4, checkOBDivOnly(TF_H4))
-[bullF07_h4, bullZT07_h4, bullT07_h4, bullTm07_h4, bullZH07_h4, bullZL07_h4, bearF07_h4, bearZT07_h4, bearT07_h4, bearTm07_h4, bearZH07_h4, bearZL07_h4, divBullTm07_h4, divBearTm07_h4, intBullTm07_h4, intBearTm07_h4] = request.security(s07, TF_H4, checkOBDivOnly(TF_H4))
-[bullF08_h4, bullZT08_h4, bullT08_h4, bullTm08_h4, bullZH08_h4, bullZL08_h4, bearF08_h4, bearZT08_h4, bearT08_h4, bearTm08_h4, bearZH08_h4, bearZL08_h4, divBullTm08_h4, divBearTm08_h4, intBullTm08_h4, intBearTm08_h4] = request.security(s08, TF_H4, checkOBDivOnly(TF_H4))
+// 5m timeframe - OB + Divergence (8 symbols x 16 values)
+[bullF01_5m, bullZT01_5m, bullT01_5m, bullTm01_5m, bullZH01_5m, bullZL01_5m, bearF01_5m, bearZT01_5m, bearT01_5m, bearTm01_5m, bearZH01_5m, bearZL01_5m, divBullTm01_5m, divBearTm01_5m, intBullTm01_5m, intBearTm01_5m] = request.security(s01, TF_5M, checkOBDivOnly(TF_5M))
+[bullF02_5m, bullZT02_5m, bullT02_5m, bullTm02_5m, bullZH02_5m, bullZL02_5m, bearF02_5m, bearZT02_5m, bearT02_5m, bearTm02_5m, bearZH02_5m, bearZL02_5m, divBullTm02_5m, divBearTm02_5m, intBullTm02_5m, intBearTm02_5m] = request.security(s02, TF_5M, checkOBDivOnly(TF_5M))
+[bullF03_5m, bullZT03_5m, bullT03_5m, bullTm03_5m, bullZH03_5m, bullZL03_5m, bearF03_5m, bearZT03_5m, bearT03_5m, bearTm03_5m, bearZH03_5m, bearZL03_5m, divBullTm03_5m, divBearTm03_5m, intBullTm03_5m, intBearTm03_5m] = request.security(s03, TF_5M, checkOBDivOnly(TF_5M))
+[bullF04_5m, bullZT04_5m, bullT04_5m, bullTm04_5m, bullZH04_5m, bullZL04_5m, bearF04_5m, bearZT04_5m, bearT04_5m, bearTm04_5m, bearZH04_5m, bearZL04_5m, divBullTm04_5m, divBearTm04_5m, intBullTm04_5m, intBearTm04_5m] = request.security(s04, TF_5M, checkOBDivOnly(TF_5M))
+[bullF05_5m, bullZT05_5m, bullT05_5m, bullTm05_5m, bullZH05_5m, bullZL05_5m, bearF05_5m, bearZT05_5m, bearT05_5m, bearTm05_5m, bearZH05_5m, bearZL05_5m, divBullTm05_5m, divBearTm05_5m, intBullTm05_5m, intBearTm05_5m] = request.security(s05, TF_5M, checkOBDivOnly(TF_5M))
+[bullF06_5m, bullZT06_5m, bullT06_5m, bullTm06_5m, bullZH06_5m, bullZL06_5m, bearF06_5m, bearZT06_5m, bearT06_5m, bearTm06_5m, bearZH06_5m, bearZL06_5m, divBullTm06_5m, divBearTm06_5m, intBullTm06_5m, intBearTm06_5m] = request.security(s06, TF_5M, checkOBDivOnly(TF_5M))
+[bullF07_5m, bullZT07_5m, bullT07_5m, bullTm07_5m, bullZH07_5m, bullZL07_5m, bearF07_5m, bearZT07_5m, bearT07_5m, bearTm07_5m, bearZH07_5m, bearZL07_5m, divBullTm07_5m, divBearTm07_5m, intBullTm07_5m, intBearTm07_5m] = request.security(s07, TF_5M, checkOBDivOnly(TF_5M))
+[bullF08_5m, bullZT08_5m, bullT08_5m, bullTm08_5m, bullZH08_5m, bullZL08_5m, bearF08_5m, bearZT08_5m, bearT08_5m, bearTm08_5m, bearZH08_5m, bearZL08_5m, divBullTm08_5m, divBearTm08_5m, intBullTm08_5m, intBearTm08_5m] = request.security(s08, TF_5M, checkOBDivOnly(TF_5M))
 
-// D1 timeframe - OB + Divergence (8 symbols x 16 values)
-[bullF01_d1, bullZT01_d1, bullT01_d1, bullTm01_d1, bullZH01_d1, bullZL01_d1, bearF01_d1, bearZT01_d1, bearT01_d1, bearTm01_d1, bearZH01_d1, bearZL01_d1, divBullTm01_d1, divBearTm01_d1, intBullTm01_d1, intBearTm01_d1] = request.security(s01, TF_D1, checkOBDivOnly(TF_D1))
-[bullF02_d1, bullZT02_d1, bullT02_d1, bullTm02_d1, bullZH02_d1, bullZL02_d1, bearF02_d1, bearZT02_d1, bearT02_d1, bearTm02_d1, bearZH02_d1, bearZL02_d1, divBullTm02_d1, divBearTm02_d1, intBullTm02_d1, intBearTm02_d1] = request.security(s02, TF_D1, checkOBDivOnly(TF_D1))
-[bullF03_d1, bullZT03_d1, bullT03_d1, bullTm03_d1, bullZH03_d1, bullZL03_d1, bearF03_d1, bearZT03_d1, bearT03_d1, bearTm03_d1, bearZH03_d1, bearZL03_d1, divBullTm03_d1, divBearTm03_d1, intBullTm03_d1, intBearTm03_d1] = request.security(s03, TF_D1, checkOBDivOnly(TF_D1))
-[bullF04_d1, bullZT04_d1, bullT04_d1, bullTm04_d1, bullZH04_d1, bullZL04_d1, bearF04_d1, bearZT04_d1, bearT04_d1, bearTm04_d1, bearZH04_d1, bearZL04_d1, divBullTm04_d1, divBearTm04_d1, intBullTm04_d1, intBearTm04_d1] = request.security(s04, TF_D1, checkOBDivOnly(TF_D1))
-[bullF05_d1, bullZT05_d1, bullT05_d1, bullTm05_d1, bullZH05_d1, bullZL05_d1, bearF05_d1, bearZT05_d1, bearT05_d1, bearTm05_d1, bearZH05_d1, bearZL05_d1, divBullTm05_d1, divBearTm05_d1, intBullTm05_d1, intBearTm05_d1] = request.security(s05, TF_D1, checkOBDivOnly(TF_D1))
-[bullF06_d1, bullZT06_d1, bullT06_d1, bullTm06_d1, bullZH06_d1, bullZL06_d1, bearF06_d1, bearZT06_d1, bearT06_d1, bearTm06_d1, bearZH06_d1, bearZL06_d1, divBullTm06_d1, divBearTm06_d1, intBullTm06_d1, intBearTm06_d1] = request.security(s06, TF_D1, checkOBDivOnly(TF_D1))
-[bullF07_d1, bullZT07_d1, bullT07_d1, bullTm07_d1, bullZH07_d1, bullZL07_d1, bearF07_d1, bearZT07_d1, bearT07_d1, bearTm07_d1, bearZH07_d1, bearZL07_d1, divBullTm07_d1, divBearTm07_d1, intBullTm07_d1, intBearTm07_d1] = request.security(s07, TF_D1, checkOBDivOnly(TF_D1))
-[bullF08_d1, bullZT08_d1, bullT08_d1, bullTm08_d1, bullZH08_d1, bullZL08_d1, bearF08_d1, bearZT08_d1, bearT08_d1, bearTm08_d1, bearZH08_d1, bearZL08_d1, divBullTm08_d1, divBearTm08_d1, intBullTm08_d1, intBearTm08_d1] = request.security(s08, TF_D1, checkOBDivOnly(TF_D1))
+// 15m timeframe - OB + Divergence (8 symbols x 16 values)
+[bullF01_15m, bullZT01_15m, bullT01_15m, bullTm01_15m, bullZH01_15m, bullZL01_15m, bearF01_15m, bearZT01_15m, bearT01_15m, bearTm01_15m, bearZH01_15m, bearZL01_15m, divBullTm01_15m, divBearTm01_15m, intBullTm01_15m, intBearTm01_15m] = request.security(s01, TF_15M, checkOBDivOnly(TF_15M))
+[bullF02_15m, bullZT02_15m, bullT02_15m, bullTm02_15m, bullZH02_15m, bullZL02_15m, bearF02_15m, bearZT02_15m, bearT02_15m, bearTm02_15m, bearZH02_15m, bearZL02_15m, divBullTm02_15m, divBearTm02_15m, intBullTm02_15m, intBearTm02_15m] = request.security(s02, TF_15M, checkOBDivOnly(TF_15M))
+[bullF03_15m, bullZT03_15m, bullT03_15m, bullTm03_15m, bullZH03_15m, bullZL03_15m, bearF03_15m, bearZT03_15m, bearT03_15m, bearTm03_15m, bearZH03_15m, bearZL03_15m, divBullTm03_15m, divBearTm03_15m, intBullTm03_15m, intBearTm03_15m] = request.security(s03, TF_15M, checkOBDivOnly(TF_15M))
+[bullF04_15m, bullZT04_15m, bullT04_15m, bullTm04_15m, bullZH04_15m, bullZL04_15m, bearF04_15m, bearZT04_15m, bearT04_15m, bearTm04_15m, bearZH04_15m, bearZL04_15m, divBullTm04_15m, divBearTm04_15m, intBullTm04_15m, intBearTm04_15m] = request.security(s04, TF_15M, checkOBDivOnly(TF_15M))
+[bullF05_15m, bullZT05_15m, bullT05_15m, bullTm05_15m, bullZH05_15m, bullZL05_15m, bearF05_15m, bearZT05_15m, bearT05_15m, bearTm05_15m, bearZH05_15m, bearZL05_15m, divBullTm05_15m, divBearTm05_15m, intBullTm05_15m, intBearTm05_15m] = request.security(s05, TF_15M, checkOBDivOnly(TF_15M))
+[bullF06_15m, bullZT06_15m, bullT06_15m, bullTm06_15m, bullZH06_15m, bullZL06_15m, bearF06_15m, bearZT06_15m, bearT06_15m, bearTm06_15m, bearZH06_15m, bearZL06_15m, divBullTm06_15m, divBearTm06_15m, intBullTm06_15m, intBearTm06_15m] = request.security(s06, TF_15M, checkOBDivOnly(TF_15M))
+[bullF07_15m, bullZT07_15m, bullT07_15m, bullTm07_15m, bullZH07_15m, bullZL07_15m, bearF07_15m, bearZT07_15m, bearT07_15m, bearTm07_15m, bearZH07_15m, bearZL07_15m, divBullTm07_15m, divBearTm07_15m, intBullTm07_15m, intBearTm07_15m] = request.security(s07, TF_15M, checkOBDivOnly(TF_15M))
+[bullF08_15m, bullZT08_15m, bullT08_15m, bullTm08_15m, bullZH08_15m, bullZL08_15m, bearF08_15m, bearZT08_15m, bearT08_15m, bearTm08_15m, bearZH08_15m, bearZL08_15m, divBullTm08_15m, divBearTm08_15m, intBullTm08_15m, intBearTm08_15m] = request.security(s08, TF_15M, checkOBDivOnly(TF_15M))
 
-// W1 timeframe - OB only, no divergence (8 symbols x 12 values)
-[bullF01_w1, bullZT01_w1, bullT01_w1, bullTm01_w1, bullZH01_w1, bullZL01_w1, bearF01_w1, bearZT01_w1, bearT01_w1, bearTm01_w1, bearZH01_w1, bearZL01_w1] = request.security(s01, TF_W1, checkOBOnly(TF_W1))
-[bullF02_w1, bullZT02_w1, bullT02_w1, bullTm02_w1, bullZH02_w1, bullZL02_w1, bearF02_w1, bearZT02_w1, bearT02_w1, bearTm02_w1, bearZH02_w1, bearZL02_w1] = request.security(s02, TF_W1, checkOBOnly(TF_W1))
-[bullF03_w1, bullZT03_w1, bullT03_w1, bullTm03_w1, bullZH03_w1, bullZL03_w1, bearF03_w1, bearZT03_w1, bearT03_w1, bearTm03_w1, bearZH03_w1, bearZL03_w1] = request.security(s03, TF_W1, checkOBOnly(TF_W1))
-[bullF04_w1, bullZT04_w1, bullT04_w1, bullTm04_w1, bullZH04_w1, bullZL04_w1, bearF04_w1, bearZT04_w1, bearT04_w1, bearTm04_w1, bearZH04_w1, bearZL04_w1] = request.security(s04, TF_W1, checkOBOnly(TF_W1))
-[bullF05_w1, bullZT05_w1, bullT05_w1, bullTm05_w1, bullZH05_w1, bullZL05_w1, bearF05_w1, bearZT05_w1, bearT05_w1, bearTm05_w1, bearZH05_w1, bearZL05_w1] = request.security(s05, TF_W1, checkOBOnly(TF_W1))
-[bullF06_w1, bullZT06_w1, bullT06_w1, bullTm06_w1, bullZH06_w1, bullZL06_w1, bearF06_w1, bearZT06_w1, bearT06_w1, bearTm06_w1, bearZH06_w1, bearZL06_w1] = request.security(s06, TF_W1, checkOBOnly(TF_W1))
-[bullF07_w1, bullZT07_w1, bullT07_w1, bullTm07_w1, bullZH07_w1, bullZL07_w1, bearF07_w1, bearZT07_w1, bearT07_w1, bearTm07_w1, bearZH07_w1, bearZL07_w1] = request.security(s07, TF_W1, checkOBOnly(TF_W1))
-[bullF08_w1, bullZT08_w1, bullT08_w1, bullTm08_w1, bullZH08_w1, bullZL08_w1, bearF08_w1, bearZT08_w1, bearT08_w1, bearTm08_w1, bearZH08_w1, bearZL08_w1] = request.security(s08, TF_W1, checkOBOnly(TF_W1))
+// 1H timeframe - OB only, no divergence (8 symbols x 12 values)
+[bullF01_1h, bullZT01_1h, bullT01_1h, bullTm01_1h, bullZH01_1h, bullZL01_1h, bearF01_1h, bearZT01_1h, bearT01_1h, bearTm01_1h, bearZH01_1h, bearZL01_1h] = request.security(s01, TF_1H, checkOBOnly(TF_1H))
+[bullF02_1h, bullZT02_1h, bullT02_1h, bullTm02_1h, bullZH02_1h, bullZL02_1h, bearF02_1h, bearZT02_1h, bearT02_1h, bearTm02_1h, bearZH02_1h, bearZL02_1h] = request.security(s02, TF_1H, checkOBOnly(TF_1H))
+[bullF03_1h, bullZT03_1h, bullT03_1h, bullTm03_1h, bullZH03_1h, bullZL03_1h, bearF03_1h, bearZT03_1h, bearT03_1h, bearTm03_1h, bearZH03_1h, bearZL03_1h] = request.security(s03, TF_1H, checkOBOnly(TF_1H))
+[bullF04_1h, bullZT04_1h, bullT04_1h, bullTm04_1h, bullZH04_1h, bullZL04_1h, bearF04_1h, bearZT04_1h, bearT04_1h, bearTm04_1h, bearZH04_1h, bearZL04_1h] = request.security(s04, TF_1H, checkOBOnly(TF_1H))
+[bullF05_1h, bullZT05_1h, bullT05_1h, bullTm05_1h, bullZH05_1h, bullZL05_1h, bearF05_1h, bearZT05_1h, bearT05_1h, bearTm05_1h, bearZH05_1h, bearZL05_1h] = request.security(s05, TF_1H, checkOBOnly(TF_1H))
+[bullF06_1h, bullZT06_1h, bullT06_1h, bullTm06_1h, bullZH06_1h, bullZL06_1h, bearF06_1h, bearZT06_1h, bearT06_1h, bearTm06_1h, bearZH06_1h, bearZL06_1h] = request.security(s06, TF_1H, checkOBOnly(TF_1H))
+[bullF07_1h, bullZT07_1h, bullT07_1h, bullTm07_1h, bullZH07_1h, bullZL07_1h, bearF07_1h, bearZT07_1h, bearT07_1h, bearTm07_1h, bearZH07_1h, bearZL07_1h] = request.security(s07, TF_1H, checkOBOnly(TF_1H))
+[bullF08_1h, bullZT08_1h, bullT08_1h, bullTm08_1h, bullZH08_1h, bullZL08_1h, bearF08_1h, bearZT08_1h, bearT08_1h, bearTm08_1h, bearZH08_1h, bearZL08_1h] = request.security(s08, TF_1H, checkOBOnly(TF_1H))
 
-// Total request.security() calls: 24 (8 H4 + 8 D1 + 8 W1)
+// Total request.security() calls: 24 (8 5m + 8 15m + 8 1H)
 
 ////////////////////////////
 // WEBHOOK PAYLOAD BUILDER //
@@ -952,34 +952,34 @@ var bool isFirstRealtimeBar = true
 // Alert firing on realtime tick (immediate)
 if barstate.isrealtime
     // Symbol 01
-    bool bullOb01 = bullF01_h4 == 1 or bullF01_d1 == 1 or bullF01_w1 == 1
-    bool bearOb01 = bearF01_h4 == 1 or bearF01_d1 == 1 or bearF01_w1 == 1
-    bool bullDiv01_logic2 = divBullTm01_h4 == time or divBullTm01_d1 == time
-    bool bullDiv01_int = intBullTm01_h4 == time or intBullTm01_d1 == time
+    bool bullOb01 = bullF01_5m == 1 or bullF01_15m == 1 or bullF01_1h == 1
+    bool bearOb01 = bearF01_5m == 1 or bearF01_15m == 1 or bearF01_1h == 1
+    bool bullDiv01_logic2 = divBullTm01_5m == time or divBullTm01_15m == time
+    bool bullDiv01_int = intBullTm01_5m == time or intBullTm01_15m == time
     bool bullDiv01 = bullDiv01_logic2 or bullDiv01_int
-    bool bearDiv01_logic2 = divBearTm01_h4 == time or divBearTm01_d1 == time
-    bool bearDiv01_int = intBearTm01_h4 == time or intBearTm01_d1 == time
+    bool bearDiv01_logic2 = divBearTm01_5m == time or divBearTm01_15m == time
+    bool bearDiv01_int = intBearTm01_5m == time or intBearTm01_15m == time
     bool bearDiv01 = bearDiv01_logic2 or bearDiv01_int
 
     bool hasSignal01 = bullOb01 or bearOb01  // OB/FVG required per Regime 1 logic
     bool stateChanged01 = (bullOb01 != prevBullOb01) or (bearOb01 != prevBearOb01) or (bullDiv01 != prevBullDiv01) or (bearDiv01 != prevBearDiv01)
 
     if hasSignal01 and usedSymbols >= 1 and (isFirstRealtimeBar or stateChanged01)
-        // Determine best OB timeframe (prefer higher TF: W1 > D1 > H4)
-        string bullObTf01 = bullF01_w1 == 1 ? "W1" : (bullF01_d1 == 1 ? "D1" : "H4")
-        string bullObType01 = bullF01_w1 == 1 ? getObTypeStrJson(bullT01_w1) : (bullF01_d1 == 1 ? getObTypeStrJson(bullT01_d1) : getObTypeStrJson(bullT01_h4))
-        float bullObHigh01 = bullF01_w1 == 1 ? bullZH01_w1 : (bullF01_d1 == 1 ? bullZH01_d1 : bullZH01_h4)
-        float bullObLow01 = bullF01_w1 == 1 ? bullZL01_w1 : (bullF01_d1 == 1 ? bullZL01_d1 : bullZL01_h4)
+        // Determine best OB timeframe (prefer higher TF: 1H > 15m > 5m)
+        string bullObTf01 = bullF01_1h == 1 ? "1H" : (bullF01_15m == 1 ? "15m" : "5m")
+        string bullObType01 = bullF01_1h == 1 ? getObTypeStrJson(bullT01_1h) : (bullF01_15m == 1 ? getObTypeStrJson(bullT01_15m) : getObTypeStrJson(bullT01_5m))
+        float bullObHigh01 = bullF01_1h == 1 ? bullZH01_1h : (bullF01_15m == 1 ? bullZH01_15m : bullZH01_5m)
+        float bullObLow01 = bullF01_1h == 1 ? bullZL01_1h : (bullF01_15m == 1 ? bullZL01_15m : bullZL01_5m)
 
-        string bearObTf01 = bearF01_w1 == 1 ? "W1" : (bearF01_d1 == 1 ? "D1" : "H4")
-        string bearObType01 = bearF01_w1 == 1 ? getObTypeStrJson(bearT01_w1) : (bearF01_d1 == 1 ? getObTypeStrJson(bearT01_d1) : getObTypeStrJson(bearT01_h4))
-        float bearObHigh01 = bearF01_w1 == 1 ? bearZH01_w1 : (bearF01_d1 == 1 ? bearZH01_d1 : bearZH01_h4)
-        float bearObLow01 = bearF01_w1 == 1 ? bearZL01_w1 : (bearF01_d1 == 1 ? bearZL01_d1 : bearZL01_h4)
+        string bearObTf01 = bearF01_1h == 1 ? "1H" : (bearF01_15m == 1 ? "15m" : "5m")
+        string bearObType01 = bearF01_1h == 1 ? getObTypeStrJson(bearT01_1h) : (bearF01_15m == 1 ? getObTypeStrJson(bearT01_15m) : getObTypeStrJson(bearT01_5m))
+        float bearObHigh01 = bearF01_1h == 1 ? bearZH01_1h : (bearF01_15m == 1 ? bearZH01_15m : bearZH01_5m)
+        float bearObLow01 = bearF01_1h == 1 ? bearZL01_1h : (bearF01_15m == 1 ? bearZL01_15m : bearZL01_5m)
 
         // Determine divergence timeframe and type
-        string bullDivTf01 = (divBullTm01_d1 == time or intBullTm01_d1 == time) ? "D1" : "H4"
+        string bullDivTf01 = (divBullTm01_15m == time or intBullTm01_15m == time) ? "15m" : "5m"
         string bullDivType01 = bullDiv01_logic2 ? "Logic2" : "Internal"
-        string bearDivTf01 = (divBearTm01_d1 == time or intBearTm01_d1 == time) ? "D1" : "H4"
+        string bearDivTf01 = (divBearTm01_15m == time or intBearTm01_15m == time) ? "15m" : "5m"
         string bearDivType01 = bearDiv01_logic2 ? "Logic2" : "Internal"
 
         alert(buildObdivPayload(getSymbolName(s01), bullOb01, bullObTf01, bullObType01, bullObHigh01, bullObLow01, bullDiv01, bullDivTf01, bullDivType01, bearOb01, bearObTf01, bearObType01, bearObHigh01, bearObLow01, bearDiv01, bearDivTf01, bearDivType01), alert.freq_once_per_bar)
@@ -990,32 +990,32 @@ if barstate.isrealtime
     prevBearDiv01 := bearDiv01
 
     // Symbol 02
-    bool bullOb02 = bullF02_h4 == 1 or bullF02_d1 == 1 or bullF02_w1 == 1
-    bool bearOb02 = bearF02_h4 == 1 or bearF02_d1 == 1 or bearF02_w1 == 1
-    bool bullDiv02_logic2 = divBullTm02_h4 == time or divBullTm02_d1 == time
-    bool bullDiv02_int = intBullTm02_h4 == time or intBullTm02_d1 == time
+    bool bullOb02 = bullF02_5m == 1 or bullF02_15m == 1 or bullF02_1h == 1
+    bool bearOb02 = bearF02_5m == 1 or bearF02_15m == 1 or bearF02_1h == 1
+    bool bullDiv02_logic2 = divBullTm02_5m == time or divBullTm02_15m == time
+    bool bullDiv02_int = intBullTm02_5m == time or intBullTm02_15m == time
     bool bullDiv02 = bullDiv02_logic2 or bullDiv02_int
-    bool bearDiv02_logic2 = divBearTm02_h4 == time or divBearTm02_d1 == time
-    bool bearDiv02_int = intBearTm02_h4 == time or intBearTm02_d1 == time
+    bool bearDiv02_logic2 = divBearTm02_5m == time or divBearTm02_15m == time
+    bool bearDiv02_int = intBearTm02_5m == time or intBearTm02_15m == time
     bool bearDiv02 = bearDiv02_logic2 or bearDiv02_int
 
     bool hasSignal02 = bullOb02 or bearOb02  // OB/FVG required per Regime 1 logic
     bool stateChanged02 = (bullOb02 != prevBullOb02) or (bearOb02 != prevBearOb02) or (bullDiv02 != prevBullDiv02) or (bearDiv02 != prevBearDiv02)
 
     if hasSignal02 and usedSymbols >= 2 and (isFirstRealtimeBar or stateChanged02)
-        string bullObTf02 = bullF02_w1 == 1 ? "W1" : (bullF02_d1 == 1 ? "D1" : "H4")
-        string bullObType02 = bullF02_w1 == 1 ? getObTypeStrJson(bullT02_w1) : (bullF02_d1 == 1 ? getObTypeStrJson(bullT02_d1) : getObTypeStrJson(bullT02_h4))
-        float bullObHigh02 = bullF02_w1 == 1 ? bullZH02_w1 : (bullF02_d1 == 1 ? bullZH02_d1 : bullZH02_h4)
-        float bullObLow02 = bullF02_w1 == 1 ? bullZL02_w1 : (bullF02_d1 == 1 ? bullZL02_d1 : bullZL02_h4)
+        string bullObTf02 = bullF02_1h == 1 ? "1H" : (bullF02_15m == 1 ? "15m" : "5m")
+        string bullObType02 = bullF02_1h == 1 ? getObTypeStrJson(bullT02_1h) : (bullF02_15m == 1 ? getObTypeStrJson(bullT02_15m) : getObTypeStrJson(bullT02_5m))
+        float bullObHigh02 = bullF02_1h == 1 ? bullZH02_1h : (bullF02_15m == 1 ? bullZH02_15m : bullZH02_5m)
+        float bullObLow02 = bullF02_1h == 1 ? bullZL02_1h : (bullF02_15m == 1 ? bullZL02_15m : bullZL02_5m)
 
-        string bearObTf02 = bearF02_w1 == 1 ? "W1" : (bearF02_d1 == 1 ? "D1" : "H4")
-        string bearObType02 = bearF02_w1 == 1 ? getObTypeStrJson(bearT02_w1) : (bearF02_d1 == 1 ? getObTypeStrJson(bearT02_d1) : getObTypeStrJson(bearT02_h4))
-        float bearObHigh02 = bearF02_w1 == 1 ? bearZH02_w1 : (bearF02_d1 == 1 ? bearZH02_d1 : bearZH02_h4)
-        float bearObLow02 = bearF02_w1 == 1 ? bearZL02_w1 : (bearF02_d1 == 1 ? bearZL02_d1 : bearZL02_h4)
+        string bearObTf02 = bearF02_1h == 1 ? "1H" : (bearF02_15m == 1 ? "15m" : "5m")
+        string bearObType02 = bearF02_1h == 1 ? getObTypeStrJson(bearT02_1h) : (bearF02_15m == 1 ? getObTypeStrJson(bearT02_15m) : getObTypeStrJson(bearT02_5m))
+        float bearObHigh02 = bearF02_1h == 1 ? bearZH02_1h : (bearF02_15m == 1 ? bearZH02_15m : bearZH02_5m)
+        float bearObLow02 = bearF02_1h == 1 ? bearZL02_1h : (bearF02_15m == 1 ? bearZL02_15m : bearZL02_5m)
 
-        string bullDivTf02 = (divBullTm02_d1 == time or intBullTm02_d1 == time) ? "D1" : "H4"
+        string bullDivTf02 = (divBullTm02_15m == time or intBullTm02_15m == time) ? "15m" : "5m"
         string bullDivType02 = bullDiv02_logic2 ? "Logic2" : "Internal"
-        string bearDivTf02 = (divBearTm02_d1 == time or intBearTm02_d1 == time) ? "D1" : "H4"
+        string bearDivTf02 = (divBearTm02_15m == time or intBearTm02_15m == time) ? "15m" : "5m"
         string bearDivType02 = bearDiv02_logic2 ? "Logic2" : "Internal"
 
         alert(buildObdivPayload(getSymbolName(s02), bullOb02, bullObTf02, bullObType02, bullObHigh02, bullObLow02, bullDiv02, bullDivTf02, bullDivType02, bearOb02, bearObTf02, bearObType02, bearObHigh02, bearObLow02, bearDiv02, bearDivTf02, bearDivType02), alert.freq_once_per_bar)
@@ -1026,32 +1026,32 @@ if barstate.isrealtime
     prevBearDiv02 := bearDiv02
 
     // Symbol 03
-    bool bullOb03 = bullF03_h4 == 1 or bullF03_d1 == 1 or bullF03_w1 == 1
-    bool bearOb03 = bearF03_h4 == 1 or bearF03_d1 == 1 or bearF03_w1 == 1
-    bool bullDiv03_logic2 = divBullTm03_h4 == time or divBullTm03_d1 == time
-    bool bullDiv03_int = intBullTm03_h4 == time or intBullTm03_d1 == time
+    bool bullOb03 = bullF03_5m == 1 or bullF03_15m == 1 or bullF03_1h == 1
+    bool bearOb03 = bearF03_5m == 1 or bearF03_15m == 1 or bearF03_1h == 1
+    bool bullDiv03_logic2 = divBullTm03_5m == time or divBullTm03_15m == time
+    bool bullDiv03_int = intBullTm03_5m == time or intBullTm03_15m == time
     bool bullDiv03 = bullDiv03_logic2 or bullDiv03_int
-    bool bearDiv03_logic2 = divBearTm03_h4 == time or divBearTm03_d1 == time
-    bool bearDiv03_int = intBearTm03_h4 == time or intBearTm03_d1 == time
+    bool bearDiv03_logic2 = divBearTm03_5m == time or divBearTm03_15m == time
+    bool bearDiv03_int = intBearTm03_5m == time or intBearTm03_15m == time
     bool bearDiv03 = bearDiv03_logic2 or bearDiv03_int
 
     bool hasSignal03 = bullOb03 or bearOb03  // OB/FVG required per Regime 1 logic
     bool stateChanged03 = (bullOb03 != prevBullOb03) or (bearOb03 != prevBearOb03) or (bullDiv03 != prevBullDiv03) or (bearDiv03 != prevBearDiv03)
 
     if hasSignal03 and usedSymbols >= 3 and (isFirstRealtimeBar or stateChanged03)
-        string bullObTf03 = bullF03_w1 == 1 ? "W1" : (bullF03_d1 == 1 ? "D1" : "H4")
-        string bullObType03 = bullF03_w1 == 1 ? getObTypeStrJson(bullT03_w1) : (bullF03_d1 == 1 ? getObTypeStrJson(bullT03_d1) : getObTypeStrJson(bullT03_h4))
-        float bullObHigh03 = bullF03_w1 == 1 ? bullZH03_w1 : (bullF03_d1 == 1 ? bullZH03_d1 : bullZH03_h4)
-        float bullObLow03 = bullF03_w1 == 1 ? bullZL03_w1 : (bullF03_d1 == 1 ? bullZL03_d1 : bullZL03_h4)
+        string bullObTf03 = bullF03_1h == 1 ? "1H" : (bullF03_15m == 1 ? "15m" : "5m")
+        string bullObType03 = bullF03_1h == 1 ? getObTypeStrJson(bullT03_1h) : (bullF03_15m == 1 ? getObTypeStrJson(bullT03_15m) : getObTypeStrJson(bullT03_5m))
+        float bullObHigh03 = bullF03_1h == 1 ? bullZH03_1h : (bullF03_15m == 1 ? bullZH03_15m : bullZH03_5m)
+        float bullObLow03 = bullF03_1h == 1 ? bullZL03_1h : (bullF03_15m == 1 ? bullZL03_15m : bullZL03_5m)
 
-        string bearObTf03 = bearF03_w1 == 1 ? "W1" : (bearF03_d1 == 1 ? "D1" : "H4")
-        string bearObType03 = bearF03_w1 == 1 ? getObTypeStrJson(bearT03_w1) : (bearF03_d1 == 1 ? getObTypeStrJson(bearT03_d1) : getObTypeStrJson(bearT03_h4))
-        float bearObHigh03 = bearF03_w1 == 1 ? bearZH03_w1 : (bearF03_d1 == 1 ? bearZH03_d1 : bearZH03_h4)
-        float bearObLow03 = bearF03_w1 == 1 ? bearZL03_w1 : (bearF03_d1 == 1 ? bearZL03_d1 : bearZL03_h4)
+        string bearObTf03 = bearF03_1h == 1 ? "1H" : (bearF03_15m == 1 ? "15m" : "5m")
+        string bearObType03 = bearF03_1h == 1 ? getObTypeStrJson(bearT03_1h) : (bearF03_15m == 1 ? getObTypeStrJson(bearT03_15m) : getObTypeStrJson(bearT03_5m))
+        float bearObHigh03 = bearF03_1h == 1 ? bearZH03_1h : (bearF03_15m == 1 ? bearZH03_15m : bearZH03_5m)
+        float bearObLow03 = bearF03_1h == 1 ? bearZL03_1h : (bearF03_15m == 1 ? bearZL03_15m : bearZL03_5m)
 
-        string bullDivTf03 = (divBullTm03_d1 == time or intBullTm03_d1 == time) ? "D1" : "H4"
+        string bullDivTf03 = (divBullTm03_15m == time or intBullTm03_15m == time) ? "15m" : "5m"
         string bullDivType03 = bullDiv03_logic2 ? "Logic2" : "Internal"
-        string bearDivTf03 = (divBearTm03_d1 == time or intBearTm03_d1 == time) ? "D1" : "H4"
+        string bearDivTf03 = (divBearTm03_15m == time or intBearTm03_15m == time) ? "15m" : "5m"
         string bearDivType03 = bearDiv03_logic2 ? "Logic2" : "Internal"
 
         alert(buildObdivPayload(getSymbolName(s03), bullOb03, bullObTf03, bullObType03, bullObHigh03, bullObLow03, bullDiv03, bullDivTf03, bullDivType03, bearOb03, bearObTf03, bearObType03, bearObHigh03, bearObLow03, bearDiv03, bearDivTf03, bearDivType03), alert.freq_once_per_bar)
@@ -1062,32 +1062,32 @@ if barstate.isrealtime
     prevBearDiv03 := bearDiv03
 
     // Symbol 04
-    bool bullOb04 = bullF04_h4 == 1 or bullF04_d1 == 1 or bullF04_w1 == 1
-    bool bearOb04 = bearF04_h4 == 1 or bearF04_d1 == 1 or bearF04_w1 == 1
-    bool bullDiv04_logic2 = divBullTm04_h4 == time or divBullTm04_d1 == time
-    bool bullDiv04_int = intBullTm04_h4 == time or intBullTm04_d1 == time
+    bool bullOb04 = bullF04_5m == 1 or bullF04_15m == 1 or bullF04_1h == 1
+    bool bearOb04 = bearF04_5m == 1 or bearF04_15m == 1 or bearF04_1h == 1
+    bool bullDiv04_logic2 = divBullTm04_5m == time or divBullTm04_15m == time
+    bool bullDiv04_int = intBullTm04_5m == time or intBullTm04_15m == time
     bool bullDiv04 = bullDiv04_logic2 or bullDiv04_int
-    bool bearDiv04_logic2 = divBearTm04_h4 == time or divBearTm04_d1 == time
-    bool bearDiv04_int = intBearTm04_h4 == time or intBearTm04_d1 == time
+    bool bearDiv04_logic2 = divBearTm04_5m == time or divBearTm04_15m == time
+    bool bearDiv04_int = intBearTm04_5m == time or intBearTm04_15m == time
     bool bearDiv04 = bearDiv04_logic2 or bearDiv04_int
 
     bool hasSignal04 = bullOb04 or bearOb04  // OB/FVG required per Regime 1 logic
     bool stateChanged04 = (bullOb04 != prevBullOb04) or (bearOb04 != prevBearOb04) or (bullDiv04 != prevBullDiv04) or (bearDiv04 != prevBearDiv04)
 
     if hasSignal04 and usedSymbols >= 4 and (isFirstRealtimeBar or stateChanged04)
-        string bullObTf04 = bullF04_w1 == 1 ? "W1" : (bullF04_d1 == 1 ? "D1" : "H4")
-        string bullObType04 = bullF04_w1 == 1 ? getObTypeStrJson(bullT04_w1) : (bullF04_d1 == 1 ? getObTypeStrJson(bullT04_d1) : getObTypeStrJson(bullT04_h4))
-        float bullObHigh04 = bullF04_w1 == 1 ? bullZH04_w1 : (bullF04_d1 == 1 ? bullZH04_d1 : bullZH04_h4)
-        float bullObLow04 = bullF04_w1 == 1 ? bullZL04_w1 : (bullF04_d1 == 1 ? bullZL04_d1 : bullZL04_h4)
+        string bullObTf04 = bullF04_1h == 1 ? "1H" : (bullF04_15m == 1 ? "15m" : "5m")
+        string bullObType04 = bullF04_1h == 1 ? getObTypeStrJson(bullT04_1h) : (bullF04_15m == 1 ? getObTypeStrJson(bullT04_15m) : getObTypeStrJson(bullT04_5m))
+        float bullObHigh04 = bullF04_1h == 1 ? bullZH04_1h : (bullF04_15m == 1 ? bullZH04_15m : bullZH04_5m)
+        float bullObLow04 = bullF04_1h == 1 ? bullZL04_1h : (bullF04_15m == 1 ? bullZL04_15m : bullZL04_5m)
 
-        string bearObTf04 = bearF04_w1 == 1 ? "W1" : (bearF04_d1 == 1 ? "D1" : "H4")
-        string bearObType04 = bearF04_w1 == 1 ? getObTypeStrJson(bearT04_w1) : (bearF04_d1 == 1 ? getObTypeStrJson(bearT04_d1) : getObTypeStrJson(bearT04_h4))
-        float bearObHigh04 = bearF04_w1 == 1 ? bearZH04_w1 : (bearF04_d1 == 1 ? bearZH04_d1 : bearZH04_h4)
-        float bearObLow04 = bearF04_w1 == 1 ? bearZL04_w1 : (bearF04_d1 == 1 ? bearZL04_d1 : bearZL04_h4)
+        string bearObTf04 = bearF04_1h == 1 ? "1H" : (bearF04_15m == 1 ? "15m" : "5m")
+        string bearObType04 = bearF04_1h == 1 ? getObTypeStrJson(bearT04_1h) : (bearF04_15m == 1 ? getObTypeStrJson(bearT04_15m) : getObTypeStrJson(bearT04_5m))
+        float bearObHigh04 = bearF04_1h == 1 ? bearZH04_1h : (bearF04_15m == 1 ? bearZH04_15m : bearZH04_5m)
+        float bearObLow04 = bearF04_1h == 1 ? bearZL04_1h : (bearF04_15m == 1 ? bearZL04_15m : bearZL04_5m)
 
-        string bullDivTf04 = (divBullTm04_d1 == time or intBullTm04_d1 == time) ? "D1" : "H4"
+        string bullDivTf04 = (divBullTm04_15m == time or intBullTm04_15m == time) ? "15m" : "5m"
         string bullDivType04 = bullDiv04_logic2 ? "Logic2" : "Internal"
-        string bearDivTf04 = (divBearTm04_d1 == time or intBearTm04_d1 == time) ? "D1" : "H4"
+        string bearDivTf04 = (divBearTm04_15m == time or intBearTm04_15m == time) ? "15m" : "5m"
         string bearDivType04 = bearDiv04_logic2 ? "Logic2" : "Internal"
 
         alert(buildObdivPayload(getSymbolName(s04), bullOb04, bullObTf04, bullObType04, bullObHigh04, bullObLow04, bullDiv04, bullDivTf04, bullDivType04, bearOb04, bearObTf04, bearObType04, bearObHigh04, bearObLow04, bearDiv04, bearDivTf04, bearDivType04), alert.freq_once_per_bar)
@@ -1098,32 +1098,32 @@ if barstate.isrealtime
     prevBearDiv04 := bearDiv04
 
     // Symbol 05
-    bool bullOb05 = bullF05_h4 == 1 or bullF05_d1 == 1 or bullF05_w1 == 1
-    bool bearOb05 = bearF05_h4 == 1 or bearF05_d1 == 1 or bearF05_w1 == 1
-    bool bullDiv05_logic2 = divBullTm05_h4 == time or divBullTm05_d1 == time
-    bool bullDiv05_int = intBullTm05_h4 == time or intBullTm05_d1 == time
+    bool bullOb05 = bullF05_5m == 1 or bullF05_15m == 1 or bullF05_1h == 1
+    bool bearOb05 = bearF05_5m == 1 or bearF05_15m == 1 or bearF05_1h == 1
+    bool bullDiv05_logic2 = divBullTm05_5m == time or divBullTm05_15m == time
+    bool bullDiv05_int = intBullTm05_5m == time or intBullTm05_15m == time
     bool bullDiv05 = bullDiv05_logic2 or bullDiv05_int
-    bool bearDiv05_logic2 = divBearTm05_h4 == time or divBearTm05_d1 == time
-    bool bearDiv05_int = intBearTm05_h4 == time or intBearTm05_d1 == time
+    bool bearDiv05_logic2 = divBearTm05_5m == time or divBearTm05_15m == time
+    bool bearDiv05_int = intBearTm05_5m == time or intBearTm05_15m == time
     bool bearDiv05 = bearDiv05_logic2 or bearDiv05_int
 
     bool hasSignal05 = bullOb05 or bearOb05  // OB/FVG required per Regime 1 logic
     bool stateChanged05 = (bullOb05 != prevBullOb05) or (bearOb05 != prevBearOb05) or (bullDiv05 != prevBullDiv05) or (bearDiv05 != prevBearDiv05)
 
     if hasSignal05 and usedSymbols >= 5 and (isFirstRealtimeBar or stateChanged05)
-        string bullObTf05 = bullF05_w1 == 1 ? "W1" : (bullF05_d1 == 1 ? "D1" : "H4")
-        string bullObType05 = bullF05_w1 == 1 ? getObTypeStrJson(bullT05_w1) : (bullF05_d1 == 1 ? getObTypeStrJson(bullT05_d1) : getObTypeStrJson(bullT05_h4))
-        float bullObHigh05 = bullF05_w1 == 1 ? bullZH05_w1 : (bullF05_d1 == 1 ? bullZH05_d1 : bullZH05_h4)
-        float bullObLow05 = bullF05_w1 == 1 ? bullZL05_w1 : (bullF05_d1 == 1 ? bullZL05_d1 : bullZL05_h4)
+        string bullObTf05 = bullF05_1h == 1 ? "1H" : (bullF05_15m == 1 ? "15m" : "5m")
+        string bullObType05 = bullF05_1h == 1 ? getObTypeStrJson(bullT05_1h) : (bullF05_15m == 1 ? getObTypeStrJson(bullT05_15m) : getObTypeStrJson(bullT05_5m))
+        float bullObHigh05 = bullF05_1h == 1 ? bullZH05_1h : (bullF05_15m == 1 ? bullZH05_15m : bullZH05_5m)
+        float bullObLow05 = bullF05_1h == 1 ? bullZL05_1h : (bullF05_15m == 1 ? bullZL05_15m : bullZL05_5m)
 
-        string bearObTf05 = bearF05_w1 == 1 ? "W1" : (bearF05_d1 == 1 ? "D1" : "H4")
-        string bearObType05 = bearF05_w1 == 1 ? getObTypeStrJson(bearT05_w1) : (bearF05_d1 == 1 ? getObTypeStrJson(bearT05_d1) : getObTypeStrJson(bearT05_h4))
-        float bearObHigh05 = bearF05_w1 == 1 ? bearZH05_w1 : (bearF05_d1 == 1 ? bearZH05_d1 : bearZH05_h4)
-        float bearObLow05 = bearF05_w1 == 1 ? bearZL05_w1 : (bearF05_d1 == 1 ? bearZL05_d1 : bearZL05_h4)
+        string bearObTf05 = bearF05_1h == 1 ? "1H" : (bearF05_15m == 1 ? "15m" : "5m")
+        string bearObType05 = bearF05_1h == 1 ? getObTypeStrJson(bearT05_1h) : (bearF05_15m == 1 ? getObTypeStrJson(bearT05_15m) : getObTypeStrJson(bearT05_5m))
+        float bearObHigh05 = bearF05_1h == 1 ? bearZH05_1h : (bearF05_15m == 1 ? bearZH05_15m : bearZH05_5m)
+        float bearObLow05 = bearF05_1h == 1 ? bearZL05_1h : (bearF05_15m == 1 ? bearZL05_15m : bearZL05_5m)
 
-        string bullDivTf05 = (divBullTm05_d1 == time or intBullTm05_d1 == time) ? "D1" : "H4"
+        string bullDivTf05 = (divBullTm05_15m == time or intBullTm05_15m == time) ? "15m" : "5m"
         string bullDivType05 = bullDiv05_logic2 ? "Logic2" : "Internal"
-        string bearDivTf05 = (divBearTm05_d1 == time or intBearTm05_d1 == time) ? "D1" : "H4"
+        string bearDivTf05 = (divBearTm05_15m == time or intBearTm05_15m == time) ? "15m" : "5m"
         string bearDivType05 = bearDiv05_logic2 ? "Logic2" : "Internal"
 
         alert(buildObdivPayload(getSymbolName(s05), bullOb05, bullObTf05, bullObType05, bullObHigh05, bullObLow05, bullDiv05, bullDivTf05, bullDivType05, bearOb05, bearObTf05, bearObType05, bearObHigh05, bearObLow05, bearDiv05, bearDivTf05, bearDivType05), alert.freq_once_per_bar)
@@ -1134,32 +1134,32 @@ if barstate.isrealtime
     prevBearDiv05 := bearDiv05
 
     // Symbol 06
-    bool bullOb06 = bullF06_h4 == 1 or bullF06_d1 == 1 or bullF06_w1 == 1
-    bool bearOb06 = bearF06_h4 == 1 or bearF06_d1 == 1 or bearF06_w1 == 1
-    bool bullDiv06_logic2 = divBullTm06_h4 == time or divBullTm06_d1 == time
-    bool bullDiv06_int = intBullTm06_h4 == time or intBullTm06_d1 == time
+    bool bullOb06 = bullF06_5m == 1 or bullF06_15m == 1 or bullF06_1h == 1
+    bool bearOb06 = bearF06_5m == 1 or bearF06_15m == 1 or bearF06_1h == 1
+    bool bullDiv06_logic2 = divBullTm06_5m == time or divBullTm06_15m == time
+    bool bullDiv06_int = intBullTm06_5m == time or intBullTm06_15m == time
     bool bullDiv06 = bullDiv06_logic2 or bullDiv06_int
-    bool bearDiv06_logic2 = divBearTm06_h4 == time or divBearTm06_d1 == time
-    bool bearDiv06_int = intBearTm06_h4 == time or intBearTm06_d1 == time
+    bool bearDiv06_logic2 = divBearTm06_5m == time or divBearTm06_15m == time
+    bool bearDiv06_int = intBearTm06_5m == time or intBearTm06_15m == time
     bool bearDiv06 = bearDiv06_logic2 or bearDiv06_int
 
     bool hasSignal06 = bullOb06 or bearOb06  // OB/FVG required per Regime 1 logic
     bool stateChanged06 = (bullOb06 != prevBullOb06) or (bearOb06 != prevBearOb06) or (bullDiv06 != prevBullDiv06) or (bearDiv06 != prevBearDiv06)
 
     if hasSignal06 and usedSymbols >= 6 and (isFirstRealtimeBar or stateChanged06)
-        string bullObTf06 = bullF06_w1 == 1 ? "W1" : (bullF06_d1 == 1 ? "D1" : "H4")
-        string bullObType06 = bullF06_w1 == 1 ? getObTypeStrJson(bullT06_w1) : (bullF06_d1 == 1 ? getObTypeStrJson(bullT06_d1) : getObTypeStrJson(bullT06_h4))
-        float bullObHigh06 = bullF06_w1 == 1 ? bullZH06_w1 : (bullF06_d1 == 1 ? bullZH06_d1 : bullZH06_h4)
-        float bullObLow06 = bullF06_w1 == 1 ? bullZL06_w1 : (bullF06_d1 == 1 ? bullZL06_d1 : bullZL06_h4)
+        string bullObTf06 = bullF06_1h == 1 ? "1H" : (bullF06_15m == 1 ? "15m" : "5m")
+        string bullObType06 = bullF06_1h == 1 ? getObTypeStrJson(bullT06_1h) : (bullF06_15m == 1 ? getObTypeStrJson(bullT06_15m) : getObTypeStrJson(bullT06_5m))
+        float bullObHigh06 = bullF06_1h == 1 ? bullZH06_1h : (bullF06_15m == 1 ? bullZH06_15m : bullZH06_5m)
+        float bullObLow06 = bullF06_1h == 1 ? bullZL06_1h : (bullF06_15m == 1 ? bullZL06_15m : bullZL06_5m)
 
-        string bearObTf06 = bearF06_w1 == 1 ? "W1" : (bearF06_d1 == 1 ? "D1" : "H4")
-        string bearObType06 = bearF06_w1 == 1 ? getObTypeStrJson(bearT06_w1) : (bearF06_d1 == 1 ? getObTypeStrJson(bearT06_d1) : getObTypeStrJson(bearT06_h4))
-        float bearObHigh06 = bearF06_w1 == 1 ? bearZH06_w1 : (bearF06_d1 == 1 ? bearZH06_d1 : bearZH06_h4)
-        float bearObLow06 = bearF06_w1 == 1 ? bearZL06_w1 : (bearF06_d1 == 1 ? bearZL06_d1 : bearZL06_h4)
+        string bearObTf06 = bearF06_1h == 1 ? "1H" : (bearF06_15m == 1 ? "15m" : "5m")
+        string bearObType06 = bearF06_1h == 1 ? getObTypeStrJson(bearT06_1h) : (bearF06_15m == 1 ? getObTypeStrJson(bearT06_15m) : getObTypeStrJson(bearT06_5m))
+        float bearObHigh06 = bearF06_1h == 1 ? bearZH06_1h : (bearF06_15m == 1 ? bearZH06_15m : bearZH06_5m)
+        float bearObLow06 = bearF06_1h == 1 ? bearZL06_1h : (bearF06_15m == 1 ? bearZL06_15m : bearZL06_5m)
 
-        string bullDivTf06 = (divBullTm06_d1 == time or intBullTm06_d1 == time) ? "D1" : "H4"
+        string bullDivTf06 = (divBullTm06_15m == time or intBullTm06_15m == time) ? "15m" : "5m"
         string bullDivType06 = bullDiv06_logic2 ? "Logic2" : "Internal"
-        string bearDivTf06 = (divBearTm06_d1 == time or intBearTm06_d1 == time) ? "D1" : "H4"
+        string bearDivTf06 = (divBearTm06_15m == time or intBearTm06_15m == time) ? "15m" : "5m"
         string bearDivType06 = bearDiv06_logic2 ? "Logic2" : "Internal"
 
         alert(buildObdivPayload(getSymbolName(s06), bullOb06, bullObTf06, bullObType06, bullObHigh06, bullObLow06, bullDiv06, bullDivTf06, bullDivType06, bearOb06, bearObTf06, bearObType06, bearObHigh06, bearObLow06, bearDiv06, bearDivTf06, bearDivType06), alert.freq_once_per_bar)
@@ -1170,32 +1170,32 @@ if barstate.isrealtime
     prevBearDiv06 := bearDiv06
 
     // Symbol 07
-    bool bullOb07 = bullF07_h4 == 1 or bullF07_d1 == 1 or bullF07_w1 == 1
-    bool bearOb07 = bearF07_h4 == 1 or bearF07_d1 == 1 or bearF07_w1 == 1
-    bool bullDiv07_logic2 = divBullTm07_h4 == time or divBullTm07_d1 == time
-    bool bullDiv07_int = intBullTm07_h4 == time or intBullTm07_d1 == time
+    bool bullOb07 = bullF07_5m == 1 or bullF07_15m == 1 or bullF07_1h == 1
+    bool bearOb07 = bearF07_5m == 1 or bearF07_15m == 1 or bearF07_1h == 1
+    bool bullDiv07_logic2 = divBullTm07_5m == time or divBullTm07_15m == time
+    bool bullDiv07_int = intBullTm07_5m == time or intBullTm07_15m == time
     bool bullDiv07 = bullDiv07_logic2 or bullDiv07_int
-    bool bearDiv07_logic2 = divBearTm07_h4 == time or divBearTm07_d1 == time
-    bool bearDiv07_int = intBearTm07_h4 == time or intBearTm07_d1 == time
+    bool bearDiv07_logic2 = divBearTm07_5m == time or divBearTm07_15m == time
+    bool bearDiv07_int = intBearTm07_5m == time or intBearTm07_15m == time
     bool bearDiv07 = bearDiv07_logic2 or bearDiv07_int
 
     bool hasSignal07 = bullOb07 or bearOb07  // OB/FVG required per Regime 1 logic
     bool stateChanged07 = (bullOb07 != prevBullOb07) or (bearOb07 != prevBearOb07) or (bullDiv07 != prevBullDiv07) or (bearDiv07 != prevBearDiv07)
 
     if hasSignal07 and usedSymbols >= 7 and (isFirstRealtimeBar or stateChanged07)
-        string bullObTf07 = bullF07_w1 == 1 ? "W1" : (bullF07_d1 == 1 ? "D1" : "H4")
-        string bullObType07 = bullF07_w1 == 1 ? getObTypeStrJson(bullT07_w1) : (bullF07_d1 == 1 ? getObTypeStrJson(bullT07_d1) : getObTypeStrJson(bullT07_h4))
-        float bullObHigh07 = bullF07_w1 == 1 ? bullZH07_w1 : (bullF07_d1 == 1 ? bullZH07_d1 : bullZH07_h4)
-        float bullObLow07 = bullF07_w1 == 1 ? bullZL07_w1 : (bullF07_d1 == 1 ? bullZL07_d1 : bullZL07_h4)
+        string bullObTf07 = bullF07_1h == 1 ? "1H" : (bullF07_15m == 1 ? "15m" : "5m")
+        string bullObType07 = bullF07_1h == 1 ? getObTypeStrJson(bullT07_1h) : (bullF07_15m == 1 ? getObTypeStrJson(bullT07_15m) : getObTypeStrJson(bullT07_5m))
+        float bullObHigh07 = bullF07_1h == 1 ? bullZH07_1h : (bullF07_15m == 1 ? bullZH07_15m : bullZH07_5m)
+        float bullObLow07 = bullF07_1h == 1 ? bullZL07_1h : (bullF07_15m == 1 ? bullZL07_15m : bullZL07_5m)
 
-        string bearObTf07 = bearF07_w1 == 1 ? "W1" : (bearF07_d1 == 1 ? "D1" : "H4")
-        string bearObType07 = bearF07_w1 == 1 ? getObTypeStrJson(bearT07_w1) : (bearF07_d1 == 1 ? getObTypeStrJson(bearT07_d1) : getObTypeStrJson(bearT07_h4))
-        float bearObHigh07 = bearF07_w1 == 1 ? bearZH07_w1 : (bearF07_d1 == 1 ? bearZH07_d1 : bearZH07_h4)
-        float bearObLow07 = bearF07_w1 == 1 ? bearZL07_w1 : (bearF07_d1 == 1 ? bearZL07_d1 : bearZL07_h4)
+        string bearObTf07 = bearF07_1h == 1 ? "1H" : (bearF07_15m == 1 ? "15m" : "5m")
+        string bearObType07 = bearF07_1h == 1 ? getObTypeStrJson(bearT07_1h) : (bearF07_15m == 1 ? getObTypeStrJson(bearT07_15m) : getObTypeStrJson(bearT07_5m))
+        float bearObHigh07 = bearF07_1h == 1 ? bearZH07_1h : (bearF07_15m == 1 ? bearZH07_15m : bearZH07_5m)
+        float bearObLow07 = bearF07_1h == 1 ? bearZL07_1h : (bearF07_15m == 1 ? bearZL07_15m : bearZL07_5m)
 
-        string bullDivTf07 = (divBullTm07_d1 == time or intBullTm07_d1 == time) ? "D1" : "H4"
+        string bullDivTf07 = (divBullTm07_15m == time or intBullTm07_15m == time) ? "15m" : "5m"
         string bullDivType07 = bullDiv07_logic2 ? "Logic2" : "Internal"
-        string bearDivTf07 = (divBearTm07_d1 == time or intBearTm07_d1 == time) ? "D1" : "H4"
+        string bearDivTf07 = (divBearTm07_15m == time or intBearTm07_15m == time) ? "15m" : "5m"
         string bearDivType07 = bearDiv07_logic2 ? "Logic2" : "Internal"
 
         alert(buildObdivPayload(getSymbolName(s07), bullOb07, bullObTf07, bullObType07, bullObHigh07, bullObLow07, bullDiv07, bullDivTf07, bullDivType07, bearOb07, bearObTf07, bearObType07, bearObHigh07, bearObLow07, bearDiv07, bearDivTf07, bearDivType07), alert.freq_once_per_bar)
@@ -1206,32 +1206,32 @@ if barstate.isrealtime
     prevBearDiv07 := bearDiv07
 
     // Symbol 08
-    bool bullOb08 = bullF08_h4 == 1 or bullF08_d1 == 1 or bullF08_w1 == 1
-    bool bearOb08 = bearF08_h4 == 1 or bearF08_d1 == 1 or bearF08_w1 == 1
-    bool bullDiv08_logic2 = divBullTm08_h4 == time or divBullTm08_d1 == time
-    bool bullDiv08_int = intBullTm08_h4 == time or intBullTm08_d1 == time
+    bool bullOb08 = bullF08_5m == 1 or bullF08_15m == 1 or bullF08_1h == 1
+    bool bearOb08 = bearF08_5m == 1 or bearF08_15m == 1 or bearF08_1h == 1
+    bool bullDiv08_logic2 = divBullTm08_5m == time or divBullTm08_15m == time
+    bool bullDiv08_int = intBullTm08_5m == time or intBullTm08_15m == time
     bool bullDiv08 = bullDiv08_logic2 or bullDiv08_int
-    bool bearDiv08_logic2 = divBearTm08_h4 == time or divBearTm08_d1 == time
-    bool bearDiv08_int = intBearTm08_h4 == time or intBearTm08_d1 == time
+    bool bearDiv08_logic2 = divBearTm08_5m == time or divBearTm08_15m == time
+    bool bearDiv08_int = intBearTm08_5m == time or intBearTm08_15m == time
     bool bearDiv08 = bearDiv08_logic2 or bearDiv08_int
 
     bool hasSignal08 = bullOb08 or bearOb08  // OB/FVG required per Regime 1 logic
     bool stateChanged08 = (bullOb08 != prevBullOb08) or (bearOb08 != prevBearOb08) or (bullDiv08 != prevBullDiv08) or (bearDiv08 != prevBearDiv08)
 
     if hasSignal08 and usedSymbols >= 8 and (isFirstRealtimeBar or stateChanged08)
-        string bullObTf08 = bullF08_w1 == 1 ? "W1" : (bullF08_d1 == 1 ? "D1" : "H4")
-        string bullObType08 = bullF08_w1 == 1 ? getObTypeStrJson(bullT08_w1) : (bullF08_d1 == 1 ? getObTypeStrJson(bullT08_d1) : getObTypeStrJson(bullT08_h4))
-        float bullObHigh08 = bullF08_w1 == 1 ? bullZH08_w1 : (bullF08_d1 == 1 ? bullZH08_d1 : bullZH08_h4)
-        float bullObLow08 = bullF08_w1 == 1 ? bullZL08_w1 : (bullF08_d1 == 1 ? bullZL08_d1 : bullZL08_h4)
+        string bullObTf08 = bullF08_1h == 1 ? "1H" : (bullF08_15m == 1 ? "15m" : "5m")
+        string bullObType08 = bullF08_1h == 1 ? getObTypeStrJson(bullT08_1h) : (bullF08_15m == 1 ? getObTypeStrJson(bullT08_15m) : getObTypeStrJson(bullT08_5m))
+        float bullObHigh08 = bullF08_1h == 1 ? bullZH08_1h : (bullF08_15m == 1 ? bullZH08_15m : bullZH08_5m)
+        float bullObLow08 = bullF08_1h == 1 ? bullZL08_1h : (bullF08_15m == 1 ? bullZL08_15m : bullZL08_5m)
 
-        string bearObTf08 = bearF08_w1 == 1 ? "W1" : (bearF08_d1 == 1 ? "D1" : "H4")
-        string bearObType08 = bearF08_w1 == 1 ? getObTypeStrJson(bearT08_w1) : (bearF08_d1 == 1 ? getObTypeStrJson(bearT08_d1) : getObTypeStrJson(bearT08_h4))
-        float bearObHigh08 = bearF08_w1 == 1 ? bearZH08_w1 : (bearF08_d1 == 1 ? bearZH08_d1 : bearZH08_h4)
-        float bearObLow08 = bearF08_w1 == 1 ? bearZL08_w1 : (bearF08_d1 == 1 ? bearZL08_d1 : bearZL08_h4)
+        string bearObTf08 = bearF08_1h == 1 ? "1H" : (bearF08_15m == 1 ? "15m" : "5m")
+        string bearObType08 = bearF08_1h == 1 ? getObTypeStrJson(bearT08_1h) : (bearF08_15m == 1 ? getObTypeStrJson(bearT08_15m) : getObTypeStrJson(bearT08_5m))
+        float bearObHigh08 = bearF08_1h == 1 ? bearZH08_1h : (bearF08_15m == 1 ? bearZH08_15m : bearZH08_5m)
+        float bearObLow08 = bearF08_1h == 1 ? bearZL08_1h : (bearF08_15m == 1 ? bearZL08_15m : bearZL08_5m)
 
-        string bullDivTf08 = (divBullTm08_d1 == time or intBullTm08_d1 == time) ? "D1" : "H4"
+        string bullDivTf08 = (divBullTm08_15m == time or intBullTm08_15m == time) ? "15m" : "5m"
         string bullDivType08 = bullDiv08_logic2 ? "Logic2" : "Internal"
-        string bearDivTf08 = (divBearTm08_d1 == time or intBearTm08_d1 == time) ? "D1" : "H4"
+        string bearDivTf08 = (divBearTm08_15m == time or intBearTm08_15m == time) ? "15m" : "5m"
         string bearDivType08 = bearDiv08_logic2 ? "Logic2" : "Internal"
 
         alert(buildObdivPayload(getSymbolName(s08), bullOb08, bullObTf08, bullObType08, bullObHigh08, bullObLow08, bullDiv08, bullDivTf08, bullDivType08, bearOb08, bearObTf08, bearObType08, bearObHigh08, bearObLow08, bearDiv08, bearDivTf08, bearDivType08), alert.freq_once_per_bar)
