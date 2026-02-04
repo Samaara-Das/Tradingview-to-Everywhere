@@ -166,6 +166,7 @@ python tiered_main.py --stats      # Show system statistics
 4. Test browser automation thoroughly before deployment
 5. Handle API rate limits appropriately
 6. Never commit credentials or sensitive information
+7. **Always add logging**: Every new function or significant code block should include debug logging (using `print(..., flush=True)` for immediate output or `logger.info/debug/error()` for file logging). This is essential for debugging browser automation issues.
 
 ## Critical Notes
 
