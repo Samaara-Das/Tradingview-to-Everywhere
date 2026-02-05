@@ -1,8 +1,8 @@
 # Task Context Tracker
 
-**Last Updated**: 2026-02-04
-**Current Task**: Task 6 - Test signals display on Stock Buddy grid
-**Last Session**: E2E Testing completed (Task 5)
+**Last Updated**: 2026-02-05
+**Current Task**: Task 8 - Verify TradingView screener signal accuracy
+**Last Session**: TTE Screener consolidation and divergence debugging
 
 ---
 
@@ -33,6 +33,38 @@
 ---
 
 ## Session History
+
+### Session: 2026-02-05 (TTE Screener Consolidation & Divergence Debugging)
+
+**Goal**: Consolidate NWE and OBDIV screeners into single TTE Screener, debug divergence detection
+
+**Changes Implemented**:
+
+1. **Consolidated Screener** (`screeners on TV/TTE Screener.txt`):
+   - Combined NWE + OB/FVG + Divergence detection into single indicator
+   - Signal levels: Level 1 (NWE only) → Level 2 (NWE + OB) → Level 3 (NWE + OB + DIV)
+   - Hierarchical signal logic: `buyLvl = nweBull ? (obBull ? (divBull ? 3 : 2) : 1) : 0`
+   - Timeframes: H4, D1 for NWE/Divergence; H4, D1, W1 for OB/FVG
+
+2. **Divergence Debugging Session**:
+   - Added `getBullDivDebug()` function to return intermediate values
+   - Added debug `request.security` call for EURCAD H4
+   - Created expanded debug table showing: BullTm, CurrTm, cLowS, inDL, LL, prevAO, currAO
+   - **Finding**: Divergence detection IS working correctly
+   - **Root Cause of "missing" Level 3**: Signal requires OB overlap (Level 2) before divergence can boost to Level 3
+   - This is intended behavior - removed debug code after verification
+
+3. **Symbol Count Adjustments**:
+   - Started with 8 symbols, reduced to 4 for testing
+   - Temporarily reduced to 3 for debugging
+   - Final: 4 symbols (GBPAUD, AUDJPY, EURCAD, EURGBP)
+
+**Key Files Modified**:
+- `screeners on TV/TTE Screener.txt` - Main consolidated screener (1000+ lines)
+
+**Next Step**: Test if signal table displays correct NWE, OB, and Divergence signals
+
+---
 
 ### Session: 2026-02-04 (Data Subscription Error Handling - Task 5.3)
 
@@ -457,8 +489,9 @@ After exploring the Stock Buddy App codebase, found significant discrepancies be
 | `config.py` | Configuration with validation |
 | `tiered_main.py` | CLI entry point |
 | `env.py` | Environment configuration (PROFILE = "Profile 4") |
-| `screeners on TV/TTE NWE Screener v2.txt` | Pine Script for Tier 1 NWE screening |
-| `screeners on TV/TTE OBDIV Screener v2.txt` | Pine Script for Tier 2 OBDIV screening |
+| `screeners on TV/TTE Screener.txt` | **Consolidated** Pine Script screener (NWE + OB + DIV) |
+| `screeners on TV/TTE NWE Screener v2.txt` | (Deprecated) Tier 1 NWE screening |
+| `screeners on TV/TTE OBDIV Screener v2.txt` | (Deprecated) Tier 2 OBDIV screening |
 
 ---
 
@@ -485,16 +518,12 @@ python tiered_main.py
 
 ## Next Steps
 
-1. **Test E2E** (Task 5): Run `--single-cycle` and verify:
-   - Phase 1 webhook fires and sends hot symbols to API
-   - Phase 2 receives hot symbols and processes through OBDIV
-2. **Fix Task 5 Subtasks**:
-   - 5.1: Prevent price-crossing alerts
-   - 5.2: Reduce webhook wait time with alert log monitoring
-   - 5.3: Handle data subscription error
-3. **Test Stock Buddy Grid** (Task 6): Verify signals appear correctly on the grid UI
-4. **Verify Screener Accuracy** (Task 8): Verify TradingView screeners produce correct signals
-5. **Screenshot Integration** (Task 9): Send signal screenshots to Stock Buddy
+1. **Verify Screener Accuracy** (Task 8 - IN PROGRESS): Test TTE Screener signal table correctness
+   - Verify NWE zone detection matches chart
+   - Verify OB/FVG overlap detection matches chart
+   - Verify Divergence detection matches Kernel AO Divergence indicator
+2. **Test Stock Buddy Grid** (Task 6): Verify signals appear correctly on the grid UI
+3. **Screenshot Integration** (Task 9): Send signal screenshots to Stock Buddy
 
 ---
 
@@ -640,4 +669,22 @@ interface HotListDocument {
   created_at: Date;
   expires_at: Date;           // NO updated_at field
 }
+```
+
+### TTE Screener Signal Levels (2026-02-05)
+```
+Level 0: No signal (price not in NWE zone)
+Level 1: NWE zone only (price in NWE zone on H4 or D1)
+Level 2: NWE + OB/FVG overlap (unmitigated OB or unfilled FVG on H4/D1/W1)
+Level 3: NWE + OB + Divergence (Kernel AO divergence on current bar)
+
+Logic: buyLvl = nweBull ? (obBull ? (divBull ? 3 : 2) : 1) : 0
+Note: Divergence requires OB overlap first - it cannot boost Level 1 directly to Level 3
+```
+
+### TTE Screener Configuration (2026-02-05)
+```
+Symbols: 4 (GBPAUD, AUDJPY, EURCAD, EURGBP)
+Timeframes: H4, D1 for NWE/Divergence; H4, D1, W1 for OB/FVG
+Signal Table: position.top_right, 4 columns (Symbol, Signal, Lvl, Details)
 ```
