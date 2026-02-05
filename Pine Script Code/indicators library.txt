@@ -1,0 +1,464 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © sammie123567858
+
+//@version=5
+
+// @description this has a calculation for the most used indicators.
+library("Indicators", overlay = true)
+
+import jdehorty/KernelFunctions/2 as kernels
+import jdehorty/MLExtensions/2 as ml
+
+
+// FUNCTIONS USED BY THE EXPORTED FUNCTIONS
+
+kernel_regression(_src, _size, _h, r, x_0) =>
+    float _currentWeight = 0.
+    float _cumulativeWeight = 0.
+    for i = 0 to _size + x_0
+        y = _src[i] 
+        w = math.pow(1 + (math.pow(i, 2) / ((math.pow(_h, 2) * 2 * r))), -r)
+        _currentWeight += y*w
+        _cumulativeWeight += w
+    _currentWeight / _cumulativeWeight
+//
+
+
+
+// FOR DRAWING THE SWING HIGH/LOW LINES 
+// @function draws swing high/low based on the oscillator given
+// @returns (in this order) current high, current low
+export drawSwings(float osc, bool isRsi = false, float rsiOb = 70, float rsiOs = 20) =>
+
+    // for the bar index of the oscillator range (The start of the oscillator range)
+    var int negativeStart = int(na)
+    var int positiveStart = int(na)
+
+    // for the lowest/highest value in the current oscillator range
+    var float lowestVal = float(na)
+    var float highestVal = float(na)
+
+    // for the lowest/highest bar on the chart in the current oscillator range
+    var int lowestBar = int(na)
+    var int highestBar = int(na)
+
+    // for checking if we are drawing lines from the same point
+    var int uplineRange = 0
+    var int dwnlineRange = 0
+
+    // for knowing which range we are in (this is only for rsi)
+    var bool isBullRange = bool(na)
+
+    // variables for keeping a track of the last 2 highs/lows
+    var int previousLow = 0
+    var int previousLowHigh = 0
+    var int currentLow = 0
+
+    var int previousHigh = 0
+    var int previousHighLow = 0
+    var int currentHigh = 0
+
+    
+    // to make sure it gets the bar index of when the range starts when the crossover condition cant find it
+    if (osc < 0 and na(osc[1]) and not isRsi) or (isRsi and not isBullRange and osc >= rsiOb and not na(osc))
+        if isRsi
+            isBullRange := true
+            positiveStart := bar_index
+            highestVal := high
+        else
+            negativeStart := bar_index
+            lowestVal := low
+    //
+
+    if (osc > 0 and na(osc[1]) and not isRsi) or (isRsi and isBullRange and osc <= rsiOs and not na(osc))
+        if isRsi
+            isBullRange := false
+            negativeStart := bar_index
+            lowestVal := low
+        else
+            positiveStart := bar_index
+            highestVal := high
+    //
+
+
+    // to record the start of the range
+    if osc < 0 and osc[1] > 0 and not isRsi
+        negativeStart := bar_index
+        lowestVal := low
+    //
+
+    if osc > 0 and osc[1] < 0 and not isRsi
+        positiveStart := bar_index
+        highestVal := high
+    //
+
+
+
+    // to find the highest/lowest bar and its price in the range
+    if (osc < 0 and na(osc[1]) == false and not isRsi) or (isRsi and not isBullRange)
+        if low <= lowestVal
+            lowestVal := low
+            lowestBar := bar_index
+    //
+
+    if (osc > 0 and na(osc[1]) == false and not isRsi) or (isRsi and isBullRange)
+        if high >= highestVal
+            highestVal := high
+            highestBar := bar_index
+    //
+
+
+
+    // Draw lines based on the conditions (i had to comment this out because i can't use lines in a function which is being used in the security function)
+    // var line upline = line(na)
+    // var line dwnline = line(na)
+
+    // if negativeStart < positiveStart
+    //     if negativeStart != uplineRange
+    //         upline := line.new(time[bar_index - lowestBar], lowestVal, time[bar_index - highestBar], highestVal, color = lineColor, xloc = xloc.bar_time, width = lineWidth)
+    //         uplineRange := negativeStart
+    //     else
+    //         upline.set_x2(time[bar_index - highestBar])
+    //         upline.set_y2(highestVal)
+
+    // if positiveStart < negativeStart
+    //     if positiveStart != dwnlineRange
+    //         dwnline := line.new(time[bar_index - highestBar], highestVal, time[bar_index - lowestBar], lowestVal, color = lineColor, xloc = xloc.bar_time, width = lineWidth)
+    //         dwnlineRange := positiveStart
+    //     else
+    //         dwnline.set_x2(time[bar_index - lowestBar])
+    //         dwnline.set_y2(lowestVal)
+    // //
+
+
+    // to get the latest 2 lows
+    currentLow := lowestBar
+    if lowestBar >= highestBar and previousLow != lowestBar[1] and previousLowHigh != highestBar 
+        previousLow := lowestBar[1]
+        previousLowHigh := highestBar
+    //
+
+    // to get the latest 2 highs
+    currentHigh := highestBar
+    if highestBar >= lowestBar and previousHigh != highestBar[1] and previousHighLow != lowestBar 
+        previousHigh := highestBar[1]
+        previousHighLow := lowestBar 
+    //
+
+
+    [highestVal, lowestVal]
+//
+
+
+
+type Label
+    int long
+    int short
+    int neutral
+
+type FeatureArrays
+    array<float> f1
+    array<float> f2
+    array<float> f3
+    array<float> f4
+    array<float> f5
+
+type FeatureSeries
+    float f1
+    float f2
+    float f3
+    float f4
+    float f5
+
+type Filter
+    bool volatility
+    bool regime
+    bool adx 
+//
+
+series_from(feature_string, _close, _high, _low, _hlc3, simple int f_paramA, simple int f_paramB) =>
+    switch feature_string
+        "RSI" => ml.n_rsi(_close, f_paramA, f_paramB)
+        "WT" => ml.n_wt(_hlc3, f_paramA, f_paramB)
+        "CCI" => ml.n_cci(_close, f_paramA, f_paramB)
+        "ADX" => ml.n_adx(_high, _low, _close, f_paramA)
+
+get_lorentzian_distance(int i, int featureCount, FeatureSeries featureSeries, FeatureArrays featureArrays) =>
+    switch featureCount
+        5 => math.log(1+math.abs(featureSeries.f1 - array.get(featureArrays.f1, i))) + 
+             math.log(1+math.abs(featureSeries.f2 - array.get(featureArrays.f2, i))) +
+             math.log(1+math.abs(featureSeries.f3 - array.get(featureArrays.f3, i))) +
+             math.log(1+math.abs(featureSeries.f4 - array.get(featureArrays.f4, i))) + 
+             math.log(1+math.abs(featureSeries.f5 - array.get(featureArrays.f5, i)))
+        4 => math.log(1+math.abs(featureSeries.f1 - array.get(featureArrays.f1, i))) +
+             math.log(1+math.abs(featureSeries.f2 - array.get(featureArrays.f2, i))) +
+             math.log(1+math.abs(featureSeries.f3 - array.get(featureArrays.f3, i))) +
+             math.log(1+math.abs(featureSeries.f4 - array.get(featureArrays.f4, i)))
+        3 => math.log(1+math.abs(featureSeries.f1 - array.get(featureArrays.f1, i))) +
+             math.log(1+math.abs(featureSeries.f2 - array.get(featureArrays.f2, i))) +
+             math.log(1+math.abs(featureSeries.f3 - array.get(featureArrays.f3, i)))
+        2 => math.log(1+math.abs(featureSeries.f1 - array.get(featureArrays.f1, i))) +
+             math.log(1+math.abs(featureSeries.f2 - array.get(featureArrays.f2, i)))
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// @function this calculates macd 4c
+// @param fastMa is the period for the fast ma. the minimum value is 7
+// @param slowMa is the period for the slow ma. the minimum value is 7
+// @returns the macd 4c value for the current bar
+export macd4C(int fastMa=12, int slowMa=26) =>
+	[_macd,_,_] = ta.macd(close[0], fastMa, slowMa, 9)
+	_macd
+//
+
+
+// @function this calculates rsi
+// @param rsiSourceInput is the source for the rsi
+// @param rsiLengthInput is the period for the rsi
+// @returns the rsi value for the current bar
+export rsi(float rsiSourceInput=close, simple int rsiLengthInput=14) =>
+	up = ta.rma(math.max(ta.change(rsiSourceInput), 0), rsiLengthInput)
+    down = ta.rma(-math.min(ta.change(rsiSourceInput), 0), rsiLengthInput)
+    rsi = down == 0 ? 100 : up == 0 ? 0 : 100 - (100 / (1 + up / down))
+	rsi
+//
+
+
+// @function this calculates ao
+// @param source is the source for the ao
+// @param fastPeriod is the period for the fast ma
+// @param slowPeriod is the period for the slow ma
+// @returns the ao value for the current bar
+export ao(float source=hl2, int fastPeriod=5, int slowPeriod=34) =>
+	ao = ta.sma(source,fastPeriod) - ta.sma(source,slowPeriod)
+	ao
+//
+
+
+
+// @function this calculates nadaraya watson kernel indicator a.k.a signal line
+// @returns the signal line value for the current bar and some other irrelevent stuff (except for _plotColor)
+export signalLineKernel(int lag, float h, float r, int x_0, bool smoothColors, float _src=close, color c_bullish=#3AFF17, color c_bearish=#FD1707) =>
+	_size = array.size(array.from(_src)) // size of the data series
+	_yhat1 = kernel_regression(_src, _size, h, r, x_0)
+	_yhat2 = kernel_regression(_src, _size, h - lag, r, x_0)
+	bool _isBullish = _yhat1[1] < _yhat1
+	bool _isBullishSmooth = _yhat2 > _yhat1
+	color _colorByCross = _isBullishSmooth ? c_bullish : c_bearish
+	color _colorByRate = _isBullish ? c_bullish : c_bearish
+	color _plotColor = smoothColors ? _colorByCross : _colorByRate
+	[_yhat1, lag, smoothColors, c_bullish, c_bearish, _plotColor]
+//
+
+
+
+// @function this calculates zigzag and draws it on the chart (if allowed)
+// @returns a bool value which checks if the current swing is a high or a low
+export zigzagCalc(int Depth, int Deviation, int Backstep, bool repaint, bool Show_zz, int line_thick=1, color text_color=color.white) =>
+    var track = 0
+    var bool swingHigh = false
+
+    var last_h1 = 1, last_h1 := last_h1 + 1
+    var last_l1 = 1, last_l1 := last_l1 + 1
+    var lw1 = 1, var hg1 = 1
+    lw1 := lw1 + 1, hg1 := hg1 + 1
+    p_lw1 = -ta.lowestbars(Depth), p_hg1 = -ta.highestbars(Depth)
+    lowing1 = lw1 == p_lw1 or low - low[p_lw1] > Deviation*syminfo.mintick
+    highing1 = hg1 == p_hg1 or high[p_hg1] - high > Deviation*syminfo.mintick
+    lh1 = ta.barssince(not highing1[1]), ll1 = ta.barssince(not lowing1[1])
+    down1 = ta.barssince(not (lh1 > ll1)) >= Backstep, lower1 = low[lw1] > low[p_lw1], higher1 = high[hg1] < high[p_hg1]
+    if lw1 != p_lw1 and (not down1[1] or lower1)
+        lw1 := p_lw1 < hg1 ? p_lw1 : 0
+    if hg1 != p_hg1 and (down1[1] or higher1)
+        hg1 := p_hg1 < lw1 ? p_hg1 : 0
+
+    line zz1 = na
+    label point1 = na
+    x11 = down1 ? lw1 : hg1
+    y11 = down1 ? low[lw1] : high[hg1]
+
+    if down1 == down1[1]
+        if repaint
+            label.delete(point1[1])
+            line.delete(zz1[1])
+        down1
+    if down1 != down1[1]
+        if down1
+            last_h1 := hg1
+        else
+            last_l1 := lw1
+        if not repaint
+            nx = down1?last_h1:last_l1
+            track := bar_index-nx
+            swingHigh := down1 ? true: false
+            if Show_zz == true
+                zz1 := line.new(bar_index-nx, down1 ? high[nx] : low[nx], bar_index-(down1?last_l1:last_h1), down1 ? low[last_l1] : high[last_h1], width=line_thick, color=down1?color.lime:color.red)
+                point1 := label.new(bar_index-nx, down1 ? high[nx] : low[nx], down1 ? (high[nx] > high[last_h1[1]]?"HH":"LH") : (low[nx] < low[last_l1[1]] ? "LL" : "HL"), style=down1?label.style_label_down:label.style_label_up, size=size.tiny, color=down1?color.red:color.lime, textcolor=color.new(text_color, 0), tooltip = down1 ? (high[nx] > high[last_h1[1]]?"Higher High":"Lower High") : (low[nx] < low[last_l1[1]] ? "Lower Low" : "Higher Low"))
+
+        down1
+        
+    if repaint
+        track := bar_index-x11
+        swingHigh := down1 ? false: true
+        if Show_zz == true
+            zz1 := line.new(bar_index-(down1?last_h1:last_l1), down1 ? high[last_h1] : low[last_l1], bar_index-x11, y11, width=line_thick, color=down1?color.red:color.lime)
+            point1 := label.new(bar_index-x11, y11, down1 ? (low[x11] < low[last_l1] ? "LL" : "HL") : (high[x11] > high[last_h1]?"HH":"LH"), style=down1?label.style_label_up:label.style_label_down, size=size.tiny, color=down1?color.lime:color.red, textcolor=color.new(text_color, 0), tooltip = down1 ? (low[x11] < low[last_l1] ? "Lower Low" : "Higher Low") : (high[x11] > high[last_h1]?"Higher High":"Lower High"))
+            
+    // 
+
+    swingHigh
+//
+
+
+
+// @function this calculates LC labels and LC kernel line
+// @returns a tuple of the long and short signal. you can choose which bar you want it from. the default is 1. this means that it will give those signals from shift 1.
+export lc(bool useVolatilityFilter, float regimeThreshold, bool useRegimeFilter, float source, int adxThreshold, bool useAdxFilter, string f1_string, simple int f1_paramA, simple int f1_paramB, string f2_string, simple int f2_paramA, simple int f2_paramB, string f3_string, simple int f3_paramA, simple int f3_paramB, string f4_string, simple int f4_paramA, simple int f4_paramB, string f5_string, simple int f5_paramA, simple int f5_paramB, int maxBarsBack, bool useEmaFilter, bool useSmaFilter, simple int emaPeriod, simple int smaPeriod, int featureCount, int neighborsCount, simple int h1, simple float r1, simple int x, simple int lag1, bool useKernelSmoothing, bool useKernelFilter, int shift=1) =>
+    var prediction = 0.0
+    Filter filter = Filter.new(ml.filter_volatility(1, 10, useVolatilityFilter), ml.regime_filter(ohlc4, regimeThreshold, useRegimeFilter), ml.filter_adx(source, 14, adxThreshold, useAdxFilter))
+    //
+
+    // FeatureSeries Object: Calculated Feature Series based on Feature Variables
+    featureSeries = FeatureSeries.new(
+         series_from(f1_string, close, high, low, hlc3, f1_paramA, f1_paramB), // f1
+         series_from(f2_string, close, high, low, hlc3, f2_paramA, f2_paramB), // f2 
+         series_from(f3_string, close, high, low, hlc3, f3_paramA, f3_paramB), // f3
+         series_from(f4_string, close, high, low, hlc3, f4_paramA, f4_paramB), // f4
+         series_from(f5_string, close, high, low, hlc3, f5_paramA, f5_paramB)  // f5
+         )
+    //
+
+    var f1Array = array.new_float()
+    var f2Array = array.new_float()
+    var f3Array = array.new_float()
+    var f4Array = array.new_float()
+    var f5Array = array.new_float()
+    array.push(f1Array, featureSeries.f1)
+    array.push(f2Array, featureSeries.f2)
+    array.push(f3Array, featureSeries.f3)
+    array.push(f4Array, featureSeries.f4)
+    array.push(f5Array, featureSeries.f5)
+
+    featureArrays = FeatureArrays.new(
+         f1Array, // f1
+         f2Array, // f2
+         f3Array, // f3
+         f4Array, // f4
+         f5Array  // f5
+         )
+
+
+    Label direction = Label.new(
+         long=1, 
+         short=-1, 
+         neutral=0
+         )
+
+
+    _ema = ta.ema(close, emaPeriod)
+    _sma = ta.ema(close, smaPeriod)
+    maxBarsBackIndex = last_bar_index >= maxBarsBack ? last_bar_index - maxBarsBack : 0
+    isEmaUptrend = useEmaFilter ? close > _ema : true
+    isEmaDowntrend = useEmaFilter ? close < _ema : true
+    isSmaUptrend = useSmaFilter ? close > _sma : true
+    isSmaDowntrend = useSmaFilter ? close < _sma : true
+
+    src = source
+    y_train_series = src[4] < src[0] ? direction.short : src[4] > src[0] ? direction.long : direction.neutral
+    var y_train_array = array.new_int(0)
+
+    // Variables used for ML Logic
+    var predictions = array.new_float(0)
+    var signal = direction.neutral
+    var distances = array.new_float(0)
+
+    array.push(y_train_array, y_train_series)
+
+    lastDistance = -1.0
+    size = math.min(maxBarsBack-1, array.size(y_train_array)-1)
+    sizeLoop = math.min(maxBarsBack-1, size)
+
+    if bar_index >= maxBarsBackIndex //{
+        for i = 0 to sizeLoop //{
+            d = get_lorentzian_distance(i, featureCount, featureSeries, featureArrays) 
+            if d >= lastDistance and i%4 //{
+                lastDistance := d            
+                array.push(distances, d)
+                array.push(predictions, math.round(array.get(y_train_array, i)))
+                if array.size(predictions) > neighborsCount //{
+                    lastDistance := array.get(distances, math.round(neighborsCount*3/4))
+                    array.shift(distances)
+                    array.shift(predictions)
+                //}
+            //}
+        //}
+        prediction := array.sum(predictions)
+    //}
+
+
+    filter_all = filter.volatility and filter.regime and filter.adx
+    signal := prediction > 0 and filter_all ? direction.long : prediction < 0 and filter_all ? direction.short : nz(signal[1])
+
+    var int barsHeld = 0
+    barsHeld := ta.change(signal) ? 0 : barsHeld + 1
+    isHeldFourBars = barsHeld == 4
+    isHeldLessThanFourBars = 0 < barsHeld and barsHeld < 4
+
+    // Fractal Filters: Derived from relative appearances of signals in a given time series fractal/segment with a default length of 4 bars
+    isDifferentSignalType = ta.change(signal)
+    isEarlySignalFlip = ta.change(signal) and (ta.change(signal[1]) or ta.change(signal[2]) or ta.change(signal[3]))
+    isBuySignal = signal == direction.long and isEmaUptrend and isSmaUptrend
+    isSellSignal = signal == direction.short and isEmaDowntrend and isSmaDowntrend
+    isLastSignalBuy = signal[4] == direction.long and isEmaUptrend[4] and isSmaUptrend[4]
+    isLastSignalSell = signal[4] == direction.short and isEmaDowntrend[4] and isSmaDowntrend[4]
+    isNewBuySignal = isBuySignal and isDifferentSignalType
+    isNewSellSignal = isSellSignal and isDifferentSignalType
+
+    c_green = color.new(#009988, 20)
+    c_red = color.new(#CC3311, 20)
+    transparent = color.new(#000000, 100)
+    yhat1 = kernels.rationalQuadratic(source, h1, r1, x)
+    yhat2 = kernels.gaussian(source, h1-lag1, x)
+    kernelEstimate = yhat1
+    // Kernel Rates of Change
+    bool wasBearishRate = yhat1[2] > yhat1[1]
+    bool wasBullishRate = yhat1[2] < yhat1[1]
+    bool isBearishRate = yhat1[1] > yhat1
+    bool isBullishRate = yhat1[1] < yhat1
+    isBearishChange = isBearishRate and wasBullishRate
+    isBullishChange = isBullishRate and wasBearishRate
+    // Kernel Crossovers
+    bool isBullishSmooth = yhat2 >= yhat1
+    bool isBearishSmooth = yhat2 <= yhat1
+
+    // Bullish and Bearish Filters based on Kernel
+    isBullish = useKernelFilter ? (useKernelSmoothing ? isBullishSmooth : isBullishRate) : true
+    isBearish = useKernelFilter ? (useKernelSmoothing ? isBearishSmooth : isBearishRate) : true
+
+    // Entry Conditions: Booleans for ML Model Position Entries
+    startLongTrade = isNewBuySignal and isBullish and isEmaUptrend and isSmaUptrend
+    startShortTrade = isNewSellSignal and isBearish and isEmaDowntrend and isSmaDowntrend
+    [startLongTrade[shift], startShortTrade[shift]]
+    //
+
