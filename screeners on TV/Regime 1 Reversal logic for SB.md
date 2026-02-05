@@ -27,12 +27,12 @@ Note: Here are the possible fields and values in the JSON alert message
 
 	Kernel AO DIV: {
 		{
-			divType: Internal | Logic 1 | Logic 2,
+			divType: Logic 2,
 			type: bullish | bearish,
 			Timestamp: [timestamp of div's 2nd high/low],
 			timeframe: H4 or Daily
 		},
-		
+
 		*add another object if this indicator's condition was true on the other timeframe
 	}
 }
@@ -43,7 +43,7 @@ Note: Here are the possible fields and values in the JSON alert message
 	
 	2. check if price on shift 0 overlaps with any OB/FVG (bullish ob, bullish fvg, breaker support) on the H4, Daily and Weekly timeframes. This condition has to be true on at least 1 timeframe to proceed to the next condition but all 3 timeframes must be checked.
 
-		3. check if a bullish regular divergence's 2nd low (be it internal, logic 1 or logic 2) on H4 and Daily timeframes is on shift 0. This condition has to be true on at least 1 timeframe to proceed to the next condition but both timeframes must be checked. 
+		3. check if a bullish regular divergence's 2nd low (logic 2) on H4 and Daily timeframes is on shift 0. This condition has to be true on at least 1 timeframe to proceed to the next condition but both timeframes must be checked. 
 
 Send an alert message if at least 1 condition in this particular order is true. 
 
@@ -54,6 +54,6 @@ Send an alert message if at least 1 condition in this particular order is true.
 	
 	2. check if price on shift 0 overlaps with any OB/FVG (bearish ob, bearish fvg, breaker resistance) on the H4, Daily and Weekly timeframes. This condition has to be true on at least 1 timeframe to proceed to the next condition but all 3 timeframes must be checked.
 
-		3. check if a bearish regular divergence's 2nd high (be it internal, logic 1 or logic 2) on H4 and Daily timeframes is on shift 0. This condition has to be true on at least 1 timeframe to proceed to the next condition but both timeframes must be checked. 
+		3. check if a bearish regular divergence's 2nd high (logic 2) on H4 and Daily timeframes is on shift 0. This condition has to be true on at least 1 timeframe to proceed to the next condition but both timeframes must be checked. 
 
 Send an alert message if at least 1 condition in this particular order is true. 
