@@ -1,0 +1,55 @@
+# Environment and credentials
+.env
+.env.*
+*.pem
+*.key
+firestore.indexes.json
+
+# Python virtual environments and dependencies
+.venv/
+venv/
+ENV/
+env/
+
+# Python caches and compiled files
+__pycache__/
+*.py[cod]
+*.so
+*.egg
+*.egg-info/
+.eggs/
+
+# Linting and formatting caches
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+
+# IDE and editor configurations
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Log files
+*.log
+logs/
+
+# Task/workflow management and Claude Code metadata
+.taskmaster/
+.claude/
+.playwright-mcp/
+
+# Build and distribution
+dist/
+build/
+node_modules/
+
+# Version control
+.git/
