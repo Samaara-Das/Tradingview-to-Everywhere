@@ -969,7 +969,7 @@ class Browser:
                     EC.presence_of_element_located(
                         (
                             By.CSS_SELECTOR,
-                            'div[data-qa-id="alerts-create-edit-dialog"] div[data-name="error-hint"]',
+                            'div[data-qa-id="alerts-create-edit-dialog"] div[data-qa-id="error-hint"]',
                         )
                     )
                 )
@@ -1004,7 +1004,9 @@ class Browser:
             )
             return False
 
-    def create_webhook_alert(self, indicator_shorttitle: str, webhook_url: str):
+    def create_webhook_alert(
+        self, indicator_shorttitle: str, webhook_url: str
+    ) -> tuple[bool, str | None]:
         """Creates a TradingView alert with webhook notification for the specified indicator.
 
         IMPORTANT: The indicator must be clicked/selected BEFORE calling this method.
@@ -1022,7 +1024,11 @@ class Browser:
             webhook_url: The URL that TradingView will POST to when the alert triggers
 
         Returns:
-            bool: True if the alert was created successfully, False otherwise
+            tuple[bool, str | None]: (success, error_type)
+                - (True, None) - Success
+                - (False, None) - Generic error
+                - (False, "data_subscription") - Data subscription error
+                - (False, "condition_invalid") - Screener not in dropdown
         """
         try:
             self.utils.open_alert_tab(self.driver)
@@ -1050,7 +1056,7 @@ class Browser:
                     f"Screener '{indicator_shorttitle}' not available in condition dropdown - likely has runtime error"
                 )
                 self._close_alert_dialog()
-                return False
+                return (False, "condition_invalid")
 
             # Step 1: Click on the Notifications tab
             notifications_tab = WebDriverWait(popup, 10).until(
@@ -1103,29 +1109,42 @@ class Browser:
 
             # Check for errors
             try:
-                WebDriverWait(self.driver, 2.5).until(
+                error_element = WebDriverWait(self.driver, 2.5).until(
                     EC.presence_of_element_located(
                         (
                             By.CSS_SELECTOR,
-                            'div[data-qa-id="alerts-create-edit-dialog"] div[data-name="error-hint"]',
+                            'div[data-qa-id="alerts-create-edit-dialog"] div[data-qa-id="error-hint"]',
                         )
                     )
                 )
-                open_tv_logger.error("Error occurred while creating webhook alert")
+
+                # Get error text to determine error type
+                error_text = error_element.text.lower()
+                open_tv_logger.error(f"Error in alert dialog: {error_text}")
+
+                if "data subscription" in error_text:
+                    open_tv_logger.warning(
+                        "Data subscription error - symbol not available in plan"
+                    )
+                    self._close_alert_dialog()
+                    return (False, "data_subscription")
+
+                open_tv_logger.error("Unknown error while creating webhook alert")
                 self._close_alert_dialog()
-                return False
+                return (False, None)
+
             except TimeoutException:
                 open_tv_logger.info(
                     f"Webhook alert created successfully for {indicator_shorttitle}"
                 )
-                return True
+                return (True, None)
 
         except Exception as e:
             open_tv_logger.exception(
                 f"Error occurred when creating webhook alert for {indicator_shorttitle}. Error:"
             )
             self._close_alert_dialog()
-            return False
+            return (False, None)
 
     def _close_alert_dialog(self):
         """Helper method to close the alert creation dialog if it's open."""
