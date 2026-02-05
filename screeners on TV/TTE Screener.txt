@@ -1,0 +1,1483 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © SamaaraDas
+
+// @description
+// This screener monitors up to 8 symbols for entry signals using:
+// - Nadaraya-Watson Envelope (NWE) on H4 and Daily
+// - Order Block & FVG detection on H4, Daily, and Weekly
+// - Kernel AO Divergence (Logic 2 and Internal) on H4 and Daily
+// When signal levels change, a JSON alert is fired (non-repainting, on bar close).
+// Alert format: {"symbol":"XXX","signal":"BUY","level":3,"details":"NWE:H4,D1 OB:W1 DIV:H4"}
+
+//@version=5
+indicator("TTE Screener", 'Screener', overlay = true, precision = 5, max_bars_back = 500)
+
+// Libraries
+import jdehorty/KernelFunctions/2 as kernels
+
+////////////
+// INPUTS //
+////////////
+
+// Filler inputs to make the indicator panel longer for Python/Selenium to click
+int f1 = input.int(1000, 'fill1')
+int f2 = input.int(1000, 'fill2')
+int f3 = input.int(1000, 'fill3')
+int f4 = input.int(1000, 'fill4')
+int f5 = input.int(1000, 'fill5')
+
+// Timeframes for calculations
+string TF_H4 = "240"    // 4 hour
+string TF_D1 = "D"      // Daily
+string TF_W1 = "W"      // Weekly
+
+// Symbol inputs
+usedSymbols = input.int(8, title = 'Used Symbols', group = 'Symbols', tooltip = 'The total number of symbols which will be checked for entries')
+s01 = input.symbol('GBPAUD', group='Symbols', inline='s01')
+s02 = input.symbol('AUDJPY', group='Symbols', inline='s02')
+s03 = input.symbol('EURCAD', group='Symbols', inline='s03')
+s04 = input.symbol('EURGBP', group='Symbols', inline='s04')
+s05 = input.symbol('USDCHF', group='Symbols', inline='s05')
+s06 = input.symbol('GBPUSD', group='Symbols', inline='s06')
+s07 = input.symbol('EURUSD', group='Symbols', inline='s07')
+s08 = input.symbol('USDJPY', group='Symbols', inline='s08')
+s09 = input.symbol('AUDUSD', group='Symbols', inline='s09')
+s10 = input.symbol('NZDUSD', group='Symbols', inline='s10')
+s11 = input.symbol('BTCUSDT', group='Symbols', inline='s11')
+s12 = input.symbol('BTCUSDT', group='Symbols', inline='s12')
+s13 = input.symbol('BTCUSDT', group='Symbols', inline='s13')
+s14 = input.symbol('BTCUSDT', group='Symbols', inline='s14')
+s15 = input.symbol('BTCUSDT', group='Symbols', inline='s15')
+s16 = input.symbol('BTCUSDT', group='Symbols', inline='s16')
+s17 = input.symbol('BTCUSDT', group='Symbols', inline='s17')
+s18 = input.symbol('BTCUSDT', group='Symbols', inline='s18')
+s19 = input.symbol('BTCUSDT', group='Symbols', inline='s19')
+s20 = input.symbol('BTCUSDT', group='Symbols', inline='s20')
+
+// NWE (Nadaraya-Watson Envelope) Settings
+nwe_h = input.int(8, 'NWE Lookback Window', minval=3, maxval=50, group='NWE Settings', tooltip='The number of bars used for the kernel estimation. Recommended: 3-50')
+nwe_alpha = input.float(8., 'NWE Relative Weighting', step=0.25, minval=0.25, maxval=25, group='NWE Settings', tooltip='Relative weighting of time frames. Recommended: 0.25-25')
+nwe_x0 = input.int(25, 'NWE Start Regression Bar', minval=5, maxval=50, group='NWE Settings', tooltip='Bar index to start regression. Recommended: 5-25')
+nwe_atrLen = input.int(60, 'NWE ATR Length', minval=1, group='NWE Settings', tooltip='ATR period for envelope bounds')
+nwe_nearFactor = input.float(1.5, 'NWE Near ATR Factor', minval=0.5, step=0.25, group='NWE Settings', tooltip='Multiplier for near envelope bounds. Recommended: 0.5-2.0')
+nwe_farFactor = input.float(8.0, 'NWE Far ATR Factor', minval=1.0, step=0.25, group='NWE Settings', tooltip='Multiplier for far envelope bounds. Recommended: 6.0-8.0')
+
+// OB & FVG Settings
+ob_testPercent = input.float(30.0, "OB Test Percentage", minval=1, maxval=100, step=1, group='OB & FVG Settings', tooltip='Percentage price must wick into OB zone to be considered mitigated/tested')
+fvg_fillPercent = input.float(50.0, "FVG Fill Percentage", minval=1, maxval=100, step=1, group='OB & FVG Settings', tooltip='Percentage price must wick into FVG zone to be considered filled')
+ob_scanDepth = input.int(100, "OB Scan Depth (bars)", minval=10, maxval=200, step=10, group='OB & FVG Settings', tooltip='Number of bars to scan for OBs. Lower = faster loading. Default: 100')
+ob_lifecycleDepth = input.int(100, "OB Lifecycle Check Depth", minval=10, maxval=200, step=10, group='OB & FVG Settings', tooltip='Max bars to check for OB state changes (broken/mitigated). Lower = faster. Default: 100')
+
+/////////////////////
+// HELPER FUNCTIONS //
+/////////////////////
+
+// Kernel ATR calculation using kernel-smoothed high/low/close
+kernel_atr(int length, float _high, float _low, float _close) =>
+    float trueRange = na(_high[1]) ? _high - _low : math.max(math.max(_high - _low, math.abs(_high - _close[1])), math.abs(_low - _close[1]))
+    ta.rma(trueRange, length)
+
+// Calculate NWE envelope bounds
+// Returns: [yhat, upper_near, upper_far, upper_avg, lower_near, lower_far, lower_avg]
+calcNWE(float _close, float _high, float _low, int h, float alpha, int x0, int atrLen, float nearF, float farF) =>
+    // Kernel regression on price
+    float yhat_close = kernels.rationalQuadratic(_close, h, alpha, x0)
+    float yhat_high = kernels.rationalQuadratic(_high, h, alpha, x0)
+    float yhat_low = kernels.rationalQuadratic(_low, h, alpha, x0)
+
+    // Kernel ATR
+    float ktr = kernel_atr(atrLen, yhat_high, yhat_low, yhat_close)
+
+    // Envelope bounds
+    float upper_far = yhat_close + farF * ktr
+    float upper_near = yhat_close + nearF * ktr
+    float upper_avg = (upper_far + upper_near) / 2
+    float lower_near = yhat_close - nearF * ktr
+    float lower_far = yhat_close - farF * ktr
+    float lower_avg = (lower_far + lower_near) / 2
+
+    [yhat_close, upper_near, upper_far, upper_avg, lower_near, lower_far, lower_avg]
+
+//////////////////////////
+// KERNEL AO DIVERGENCE //
+//////////////////////////
+
+// Calculate Kernel AO Oscillator (matches original Kernel AO Divergence indicator settings)
+// Fast kernel: h=5, alpha=8, x0=25, SMA(4) smoothing
+// Slow kernel: h=34, alpha=3, x0=120, SMA(40) smoothing
+calcKernelOsc() =>
+    float kernelFast = kernels.rationalQuadratic(close, 5, 8, 25)
+    kernelFast := ta.sma(kernelFast, 4)
+
+    float kernelSlow = kernels.rationalQuadratic(close, 34, 3, 120)
+    kernelSlow := ta.sma(kernelSlow, 40)
+
+    kernelFast - kernelSlow
+
+// Find lowest AO value in a range (for downlegs)
+// startShift = older/left side (larger shift)
+// endShift = newer/right side (smaller shift, usually 0)
+findLowestAoInRange(float osc, int startShift, int endShift) =>
+    float lowest = 0.0
+    for i = endShift to startShift
+        if not na(osc[i]) and osc[i] < lowest
+            lowest := osc[i]
+    lowest
+
+// Find highest AO value in a range (for uplegs)
+// startShift = older/left side (larger shift)
+// endShift = newer/right side (smaller shift, usually 0)
+findHighestAoInRange(float osc, int startShift, int endShift) =>
+    float highest = 0.0
+    for i = endShift to startShift
+        if not na(osc[i]) and osc[i] > highest
+            highest := osc[i]
+    highest
+
+// Find lowest price and its shift in a range
+// startShift = newer/right side (smaller shift)
+// endShift = older/left side (larger shift)
+findLowestPriceInRange(int startShift, int endShift) =>
+    float lowest = low[endShift]
+    int lowestShift = endShift
+    for i = endShift to startShift
+        if low[i] < lowest
+            lowest := low[i]
+            lowestShift := i
+    [lowest, lowestShift]
+
+// Find highest price and its shift in a range
+// startShift = newer/right side (smaller shift)
+// endShift = older/left side (larger shift)
+findHighestPriceInRange(int startShift, int endShift) =>
+    float highest = high[endShift]
+    int highestShift = endShift
+    for i = endShift to startShift
+        if high[i] > highest
+            highest := high[i]
+            highestShift := i
+    [highest, highestShift]
+
+// Track swing points from the latest 2 AO ranges of each type
+// Scans backwards from shift 0 to find:
+// - 2 most recent negative ranges → gives prevLow and currLow (swing lows)
+// - 2 most recent positive ranges → gives prevHigh and currHigh (swing highs)
+// Returns: [prevHighShift, currHighShift, prevLowShift, currLowShift, negRangeStartShift, posRangeStartShift]
+trackSwingPoints(float osc, int maxLookback) =>
+    // Find first valid (non-NaN) oscillator bar
+    int validStart = 0
+    for i = 0 to maxLookback
+        if not na(osc[i])
+            validStart := i
+            break
+
+    // Track negative ranges for swing lows
+    int negRange1StartShift = 0    // Current/most recent negative range start
+    int negRange1LowShift = 0      // Lowest price shift in range 1
+    float negRange1LowPrice = 10e10
+    int negRange2LowShift = 0      // Lowest price shift in range 2 (previous)
+    float negRange2LowPrice = 10e10
+    int negRangesFound = 0
+
+    // Track positive ranges for swing highs
+    int posRange1StartShift = 0    // Current/most recent positive range start
+    int posRange1HighShift = 0     // Highest price shift in range 1
+    float posRange1HighPrice = 0.0
+    int posRange2HighShift = 0     // Highest price shift in range 2 (previous)
+    float posRange2HighPrice = 0.0
+    int posRangesFound = 0
+
+    // Current state
+    bool inNegRange = false
+    bool inPosRange = false
+    bool wasInNegRange = false
+    bool wasInPosRange = false
+
+    // Initialize state from shift 0
+    if not na(osc[validStart])
+        inNegRange := osc[validStart] < 0
+        inPosRange := osc[validStart] > 0
+
+    // Scan backwards to find the latest 2 ranges of each type
+    for i = validStart to maxLookback
+        if na(osc[i])
+            continue
+
+        float oscVal = osc[i]
+        bool currNeg = oscVal < 0
+        bool currPos = oscVal > 0
+
+        // Detect range transitions
+        bool justEnteredNeg = currNeg and not inNegRange
+        bool justEnteredPos = currPos and not inPosRange
+        bool justLeftNeg = not currNeg and inNegRange
+        bool justLeftPos = not currPos and inPosRange
+
+        // When we leave a negative range (entering positive), finalize the neg range
+        if justLeftNeg and negRangesFound < 2
+            negRangesFound := negRangesFound + 1
+            if negRangesFound == 1
+                // This is the most recent completed negative range
+                // (but we're scanning backwards, so it's actually the 2nd most recent)
+                negRange2LowShift := negRange1LowShift
+                negRange2LowPrice := negRange1LowPrice
+            // Reset for potential next range
+            negRange1LowPrice := 10e10
+
+        // When we leave a positive range (entering negative), finalize the pos range
+        if justLeftPos and posRangesFound < 2
+            posRangesFound := posRangesFound + 1
+            if posRangesFound == 1
+                posRange2HighShift := posRange1HighShift
+                posRange2HighPrice := posRange1HighPrice
+            // Reset for potential next range
+            posRange1HighPrice := 0.0
+
+        // Track extremes within current range (only while we still need that range type)
+        if currNeg and negRangesFound < 2
+            if negRangesFound == 0
+                negRange1StartShift := i
+            if low[i] < negRange1LowPrice
+                negRange1LowPrice := low[i]
+                negRange1LowShift := i
+
+        if currPos and posRangesFound < 2
+            if posRangesFound == 0
+                posRange1StartShift := i
+            if high[i] > posRange1HighPrice
+                posRange1HighPrice := high[i]
+                posRange1HighShift := i
+
+        // Update state
+        wasInNegRange := inNegRange
+        wasInPosRange := inPosRange
+        inNegRange := currNeg
+        inPosRange := currPos
+
+        // Exit early if we have enough data
+        if negRangesFound >= 2 and posRangesFound >= 2
+            break
+
+    // Note: Due to backwards scanning:
+    // negRange2 = MORE RECENT completed negative range (closer to shift 0) = currLow
+    // negRange1 = OLDER completed negative range (farther from shift 0) = prevLow
+    // Same for positive ranges
+
+    // Return order: [prevHigh, currHigh, prevLow, currLow, negStart, posStart]
+    // prevHigh/prevLow = older (larger shifts), currHigh/currLow = more recent (smaller shifts)
+    [posRange1HighShift, posRange2HighShift, negRange1LowShift, negRange2LowShift, negRange1StartShift, posRange1StartShift]
+
+// Get swing point timestamps for debugging
+// Returns: [prevLowTime, currLowTime, prevHighTime, currHighTime]
+getSwingPointTimes(float osc, int maxLookback) =>
+    [prevHighShift, currHighShift, prevLowShift, currLowShift, negStartShift, posStartShift] = trackSwingPoints(osc, maxLookback)
+
+    int prevLowTime = prevLowShift > 0 ? time[prevLowShift] : 0
+    int currLowTime = currLowShift > 0 ? time[currLowShift] : 0
+    int prevHighTime = prevHighShift > 0 ? time[prevHighShift] : 0
+    int currHighTime = currHighShift > 0 ? time[currHighShift] : 0
+
+    [prevLowTime, currLowTime, prevHighTime, currHighTime]
+
+// Detect bullish divergence (Logic 2)
+// Returns timestamp if divergence found, 0 otherwise
+detectBullishDiv(float osc, int maxLookback) =>
+    [prevHighShift, currHighShift, prevLowShift, currLowShift, negStartShift, posStartShift] = trackSwingPoints(osc, maxLookback)
+
+    int result = 0
+
+    // Must be in a downleg: currLow is more recent (smaller shift) than or equal to currHigh
+    bool inDownleg = currLowShift <= currHighShift
+
+    // Price made lower low
+    bool lowerLow = prevLowShift > 0 and low[currLowShift] < low[prevLowShift]
+
+    // Call functions unconditionally at function level (Pine Script best practice)
+    // prevDownleg: from currHigh back to prevLow
+    float prevDownlegAO = findLowestAoInRange(osc, prevLowShift, currHighShift)
+    // currDownleg: from negStart (current negative range) to now (shift 0)
+    float currDownlegAO = findLowestAoInRange(osc, negStartShift, 0)
+
+    if inDownleg and lowerLow
+        // Higher AO low (less negative) = bullish divergence
+        if prevDownlegAO < -0.0001 and currDownlegAO > prevDownlegAO
+            result := time[currLowShift]
+
+    result
+
+// Detect bearish divergence (Logic 2)
+// Returns timestamp if divergence found, 0 otherwise
+detectBearishDiv(float osc, int maxLookback) =>
+    [prevHighShift, currHighShift, prevLowShift, currLowShift, negStartShift, posStartShift] = trackSwingPoints(osc, maxLookback)
+
+    int result = 0
+
+    // Must be in an upleg: currHigh is more recent (smaller shift) than currLow
+    bool inUpleg = currHighShift < currLowShift
+
+    // Price made higher high
+    bool higherHigh = prevHighShift > 0 and high[currHighShift] > high[prevHighShift]
+
+    // Call functions unconditionally at function level (Pine Script best practice)
+    // prevUpleg: from currLow back to prevHigh
+    float prevUplegAO = findHighestAoInRange(osc, prevHighShift, currLowShift)
+    // currUpleg: from posStart (current positive range) to now (shift 0)
+    float currUplegAO = findHighestAoInRange(osc, posStartShift, 0)
+
+    if inUpleg and higherHigh
+        // Lower AO high = bearish divergence
+        if prevUplegAO > 0.0001 and currUplegAO < prevUplegAO
+            result := time[currHighShift]
+
+    result
+
+/////////////////////////////////
+// INTERNAL DIVERGENCE (SAME-SIDE)
+/////////////////////////////////
+
+// Detect bullish internal divergence within the most recent negative AO range
+// Compares pink sub-ranges (AO falling) within the same negative range
+// Returns timestamp of 2nd low if divergence found, else 0
+// NOTE: Works even if current bar is no longer in negative range (scans backwards)
+detectBullishIntDiv(float osc, int maxLookback) =>
+    int result = 0
+
+    // Find first valid bar
+    int validStart = 0
+    for i = 0 to maxLookback
+        if not na(osc[i])
+            validStart := i
+            break
+
+    // Find the most recent negative range
+    // If current bar is in negative range, use it; otherwise scan backwards
+    int negRangeStart = -1  // Shift where negative range starts (closest to shift 0)
+    int negRangeEnd = -1    // Shift where negative range ends (farthest from shift 0)
+
+    if not na(osc[validStart]) and osc[validStart] < 0
+        // Currently in negative range - find its boundaries
+        negRangeStart := validStart
+        for i = validStart to maxLookback
+            if na(osc[i]) or osc[i] >= 0
+                negRangeEnd := i - 1
+                break
+            negRangeEnd := i
+    else
+        // Not in negative range - scan backwards to find most recent one
+        bool foundNeg = false
+        for i = validStart to maxLookback
+            if na(osc[i])
+                continue
+            if osc[i] < 0
+                if not foundNeg
+                    negRangeStart := i
+                    foundNeg := true
+                negRangeEnd := i
+            else if foundNeg
+                // Just left the negative range
+                break
+
+    // Check if we found a negative range
+    if negRangeStart < 0 or negRangeEnd < 0
+        result
+    else
+        // Now scan within this negative range to find all pink sub-ranges
+        // Pink = AO falling (osc <= osc[1])
+        // Purple = AO rising (osc > osc[1])
+
+        // Collect all pink sub-ranges with their lowest AO and price
+        // We'll store up to 10 pink ranges (should be enough)
+        var array<float> pinkAos = array.new_float(10, 0.0)
+        var array<float> pinkPrices = array.new_float(10, 0.0)
+        var array<int> pinkPriceShifts = array.new_int(10, 0)
+        int pinkCount = 0
+
+        bool inPink = false
+        int currPinkStartShift = 0
+        float currPinkLowestAo = 0.0
+
+        // Scan from negRangeStart (closest to shift 0) to negRangeEnd (farthest)
+        for i = negRangeStart to negRangeEnd
+            if na(osc[i])
+                continue
+
+            // Determine if this bar is pink or purple
+            // Pink = AO falling: osc[i] <= osc[i+1] (comparing to older bar)
+            // Purple = AO rising: osc[i] > osc[i+1]
+            bool isPurple = not na(osc[i + 1]) and osc[i] > osc[i + 1]
+
+            if not isPurple  // In pink
+                if not inPink
+                    // Starting a new pink sub-range
+                    currPinkStartShift := i
+                    currPinkLowestAo := osc[i]
+                    inPink := true
+                else
+                    // Continuing pink - track lowest AO
+                    if osc[i] < currPinkLowestAo
+                        currPinkLowestAo := osc[i]
+            else  // In purple
+                if inPink
+                    // Pink just ended - record it
+                    if pinkCount < 10
+                        // Find lowest price in this pink range
+                        [pLowest, pShift] = findLowestPriceInRange(currPinkStartShift, i - 1)
+                        array.set(pinkAos, pinkCount, currPinkLowestAo)
+                        array.set(pinkPrices, pinkCount, pLowest)
+                        array.set(pinkPriceShifts, pinkCount, pShift)
+                        pinkCount := pinkCount + 1
+                    inPink := false
+
+        // Handle case where we ended inside a pink range
+        if inPink and pinkCount < 10
+            [pLowest, pShift] = findLowestPriceInRange(currPinkStartShift, negRangeEnd)
+            array.set(pinkAos, pinkCount, currPinkLowestAo)
+            array.set(pinkPrices, pinkCount, pLowest)
+            array.set(pinkPriceShifts, pinkCount, pShift)
+            pinkCount := pinkCount + 1
+
+        // Now check for divergence
+        // Pink ranges are stored from closest to shift 0 (index 0) to farthest (higher indices)
+        // Bullish internal div: deepest pink (lowest AO) has HIGHER price,
+        //                      subsequent pink has LESS negative AO but LOWER price
+
+        if pinkCount >= 2
+            // Find the deepest pink (most negative AO)
+            int deepestIdx = 0
+            float deepestAo = array.get(pinkAos, 0)
+            for i = 1 to pinkCount - 1
+                if array.get(pinkAos, i) < deepestAo
+                    deepestAo := array.get(pinkAos, i)
+                    deepestIdx := i
+
+            float deepestPrice = array.get(pinkPrices, deepestIdx)
+            int deepestPriceShift = array.get(pinkPriceShifts, deepestIdx)
+
+            // Check each pink that comes AFTER the deepest (closer to shift 0, i.e., lower index)
+            // Guard: if deepestIdx is 0, there are no pinks with lower index, so skip
+            if deepestIdx > 0
+                for i = 0 to deepestIdx - 1
+                    float thisAo = array.get(pinkAos, i)
+                    float thisPrice = array.get(pinkPrices, i)
+                    int thisPriceShift = array.get(pinkPriceShifts, i)
+
+                    // Divergence conditions:
+                    // - This pink has higher AO (less negative) than deepest
+                    // - This pink has lower price than deepest
+                    if thisAo > deepestAo and thisPrice < deepestPrice
+                        result := time[thisPriceShift]
+                        break  // Take the first (most recent) divergence
+
+    result
+
+// Detect bearish internal divergence within the most recent positive AO range
+// Compares purple sub-ranges (AO rising) within the same positive range
+// Returns timestamp of 2nd high if divergence found, else 0
+// NOTE: Works even if current bar is no longer in positive range (scans backwards)
+detectBearishIntDiv(float osc, int maxLookback) =>
+    int result = 0
+
+    // Find first valid bar
+    int validStart = 0
+    for i = 0 to maxLookback
+        if not na(osc[i])
+            validStart := i
+            break
+
+    // Find the most recent positive range
+    // If current bar is in positive range, use it; otherwise scan backwards
+    int posRangeStart = -1  // Shift where positive range starts (closest to shift 0)
+    int posRangeEnd = -1    // Shift where positive range ends (farthest from shift 0)
+
+    if not na(osc[validStart]) and osc[validStart] > 0
+        // Currently in positive range - find its boundaries
+        posRangeStart := validStart
+        for i = validStart to maxLookback
+            if na(osc[i]) or osc[i] <= 0
+                posRangeEnd := i - 1
+                break
+            posRangeEnd := i
+    else
+        // Not in positive range - scan backwards to find most recent one
+        bool foundPos = false
+        for i = validStart to maxLookback
+            if na(osc[i])
+                continue
+            if osc[i] > 0
+                if not foundPos
+                    posRangeStart := i
+                    foundPos := true
+                posRangeEnd := i
+            else if foundPos
+                // Just left the positive range
+                break
+
+    // Check if we found a positive range
+    if posRangeStart < 0 or posRangeEnd < 0
+        result
+    else
+        // Now scan within this positive range to find all purple sub-ranges
+        // Purple = AO rising (osc > osc[1])
+        // Pink = AO falling (osc <= osc[1])
+
+        // Collect all purple sub-ranges with their highest AO and price
+        // We'll store up to 10 purple ranges (should be enough)
+        var array<float> purpleAos = array.new_float(10, 0.0)
+        var array<float> purplePrices = array.new_float(10, 0.0)
+        var array<int> purplePriceShifts = array.new_int(10, 0)
+        int purpleCount = 0
+
+        bool inPurple = false
+        int currPurpleStartShift = 0
+        float currPurpleHighestAo = 0.0
+
+        // Scan from posRangeStart (closest to shift 0) to posRangeEnd (farthest)
+        for i = posRangeStart to posRangeEnd
+            if na(osc[i])
+                continue
+
+            // Determine if this bar is purple or pink
+            // Purple = AO rising: osc[i] > osc[i+1] (comparing to older bar)
+            // Pink = AO falling: osc[i] <= osc[i+1]
+            bool isPurple = not na(osc[i + 1]) and osc[i] > osc[i + 1]
+
+            if isPurple  // In purple
+                if not inPurple
+                    // Starting a new purple sub-range
+                    currPurpleStartShift := i
+                    currPurpleHighestAo := osc[i]
+                    inPurple := true
+                else
+                    // Continuing purple - track highest AO
+                    if osc[i] > currPurpleHighestAo
+                        currPurpleHighestAo := osc[i]
+            else  // In pink
+                if inPurple
+                    // Purple just ended - record it
+                    if purpleCount < 10
+                        // Find highest price in this purple range
+                        [pHighest, pShift] = findHighestPriceInRange(currPurpleStartShift, i - 1)
+                        array.set(purpleAos, purpleCount, currPurpleHighestAo)
+                        array.set(purplePrices, purpleCount, pHighest)
+                        array.set(purplePriceShifts, purpleCount, pShift)
+                        purpleCount := purpleCount + 1
+                    inPurple := false
+
+        // Handle case where we ended inside a purple range
+        if inPurple and purpleCount < 10
+            [pHighest, pShift] = findHighestPriceInRange(currPurpleStartShift, posRangeEnd)
+            array.set(purpleAos, purpleCount, currPurpleHighestAo)
+            array.set(purplePrices, purpleCount, pHighest)
+            array.set(purplePriceShifts, purpleCount, pShift)
+            purpleCount := purpleCount + 1
+
+        // Now check for divergence
+        // Purple ranges are stored from closest to shift 0 (index 0) to farthest (higher indices)
+        // Bearish internal div: highest purple (highest AO) has LOWER price,
+        //                       subsequent purple has LOWER AO but HIGHER price
+
+        if purpleCount >= 2
+            // Find the highest purple (most positive AO)
+            int highestIdx = 0
+            float highestAo = array.get(purpleAos, 0)
+            for i = 1 to purpleCount - 1
+                if array.get(purpleAos, i) > highestAo
+                    highestAo := array.get(purpleAos, i)
+                    highestIdx := i
+
+            float highestPrice = array.get(purplePrices, highestIdx)
+            int highestPriceShift = array.get(purplePriceShifts, highestIdx)
+
+            // Check each purple that comes AFTER the highest (closer to shift 0, i.e., lower index)
+            // Guard: if highestIdx is 0, there are no purples with lower index, so skip
+            if highestIdx > 0
+                for i = 0 to highestIdx - 1
+                    float thisAo = array.get(purpleAos, i)
+                    float thisPrice = array.get(purplePrices, i)
+                    int thisPriceShift = array.get(purplePriceShifts, i)
+
+                    // Divergence conditions:
+                    // - This purple has lower AO than highest
+                    // - This purple has higher price than highest
+                    if thisAo < highestAo and thisPrice > highestPrice
+                        result := time[thisPriceShift]
+                        break  // Take the first (most recent) divergence
+
+    result
+
+//////////////////////////
+// OB & FVG DETECTION   //
+//////////////////////////
+
+// Scan up to ob_scanDepth bars (100) for zones where CURRENT PRICE (shift 0) OVERLAPS
+//
+// For BULLISH conditions, we look for zones price can bounce from:
+// - Unmitigated Bullish OB: pristine demand zone (not yet tested)
+// - Unfilled Bullish FVG: gap that acts as support
+// - Breaker Support: former supply that became support after breaking
+//
+// For BEARISH conditions, we look for zones price can reject from:
+// - Unmitigated Bearish OB: pristine supply zone (not yet tested)
+// - Unfilled Bearish FVG: gap that acts as resistance
+// - Breaker Resistance: former demand that became resistance after breaking
+//
+// Returns: [bullFound, bullZoneType, bullType, bullZoneTime, bearFound, bearZoneType, bearType, bearZoneTime]
+// - bullFound/bearFound: 1 if overlap found, 0 otherwise
+// - bullZoneType/bearZoneType: 1=OB, 2=FVG
+// - bullType: 1=unmit OB, 3=breaker support, 4=unfilled bullish FVG
+// - bearType: 1=unmit OB, 3=breaker resistance, 4=unfilled bearish FVG
+// - bullZoneTime/bearZoneTime: timestamp of zone formation bar
+//
+// Price overlap check: current bar (shift 0) low <= zone_high AND high >= zone_low
+
+scanOBRange(simple string tf) =>
+    // Bullish overlap info (zones for bullish signals: bullish OB, breaker support, bullish FVG)
+    int bullFound = 0
+    int bullZoneType = 0      // 1=OB, 2=FVG
+    int bullType = 0          // 1=unmit OB, 2=mit OB, 3=breaker support, 4=bullish FVG
+    int bullZoneTime = 0
+    float bullZoneHigh = 0.0
+    float bullZoneLow = 0.0
+
+    // Bearish overlap info (zones for bearish signals: bearish OB, breaker resistance, bearish FVG)
+    int bearFound = 0
+    int bearZoneType = 0      // 1=OB, 2=FVG
+    int bearType = 0          // 1=unmit OB, 2=mit OB, 3=breaker resistance, 4=bearish FVG
+    int bearZoneTime = 0
+    float bearZoneHigh = 0.0
+    float bearZoneLow = 0.0
+
+    // D1 timeframe has a 1-bar offset in timestamp reporting via request.security
+    int timeShift = tf == "D" ? 1 : 0
+
+    // Current bar price range for overlap check
+    float currHigh = high
+    float currLow = low
+
+    // ==========================================
+    // HANDLE i=2 SEPARATELY (only bar[2] pattern)
+    // ==========================================
+    // At i=2, we cannot check bar[3] pattern (would access low[-1])
+
+    // BULLISH OB at shift 2 - NO overlap check (shift 0 is part of formation)
+    // Gap uses low[0], so current bar is part of zone definition
+    // bool bullSweep2 = low[2] < low[1] and low[2] < low[3]
+    // bool bullGap2_at2 = high[2] < low[0]  // <-- uses shift 0!
+    // Overlap check skipped for i=2
+
+    // BEARISH OB at shift 2 - NO overlap check (shift 0 is part of formation)
+    // Gap uses high[0], so current bar is part of zone definition
+    // bool bearSweep2 = high[2] > high[1] and high[2] > high[3]
+    // bool bearGap2_at2 = low[2] > high[0]  // <-- uses shift 0!
+    // Overlap check skipped for i=2
+
+    // ==========================================
+    // MAIN LOOP: i=3 to ob_scanDepth
+    // ==========================================
+    for i = 3 to ob_scanDepth
+        // Early exit if both overlaps found
+        if bullFound > 0 and bearFound > 0
+            break
+
+        //////////////////////////////////////////
+        // BULLISH OB DETECTION (Demand Zone)
+        //////////////////////////////////////////
+        bool bullSweep = low[i] < low[i-1] and low[i] < low[i+1]
+        bool bullGap2 = high[i] < low[i-2]
+        bool bullGap3 = high[i] < low[i-3]
+        bool bullGapAtFormation = bullGap2 or bullGap3
+        bool bullOBFormed = bullSweep and bullGapAtFormation
+
+        if bullOBFormed
+            float obHigh = high[i]
+            float obLow = low[i]
+            float gapLevel = bullGap3 ? low[i-3] : low[i-2]
+            float fvgTop = gapLevel
+            float fvgBottom = obHigh
+            float fvgHeight = fvgTop - fvgBottom
+            float testPrice = obHigh - ((obHigh - obLow) * ob_testPercent / 100)
+
+            // Check OB lifecycle
+            bool isBroken = false
+            bool isReversed = false
+            bool hasReachedTestLevel = false
+            bool isTested = false
+            bool isFVGFilled = false
+            int startBar = bullGap3 ? i - 4 : i - 3
+            int endBar = math.max(0, startBar - ob_lifecycleDepth)
+            int j = startBar
+            while j >= endBar
+                if not isBroken
+                    if close[j] < obLow
+                        isBroken := true
+                    else
+                        if not hasReachedTestLevel and low[j] <= testPrice
+                            hasReachedTestLevel := true
+                        if hasReachedTestLevel and not isTested
+                            if low[j] >= obLow or (low[j] < obLow and high[j] >= obLow)
+                                isTested := true
+                else if not isReversed
+                    if close[j] > obHigh
+                        isReversed := true
+                if not isFVGFilled and fvgHeight > 0
+                    float fillLevel = fvgTop - (fvgHeight * fvg_fillPercent / 100)
+                    if low[j] <= fillLevel
+                        isFVGFilled := true
+                j := j - 1
+
+            // If we detected a breaker but stopped early, continue checking for reversal
+            // Bullish OB breaker (resistance) reverses when close > obHigh
+            if isBroken and not isReversed and endBar > 0
+                int k = endBar - 1
+                while k >= 0
+                    if close[k] > obHigh
+                        isReversed := true
+                        break
+                    k := k - 1
+
+            // Check overlap for BULLISH zones:
+            // - Unmitigated bullish OB (not tested)
+            // - Unfilled bullish FVG
+            // NOT breaker resistance - that's a bearish zone!
+            // NOTE: Only check overlap for i >= 4 (zones at i=2,3 use shift 0 in formation)
+            if i >= 4 and not isReversed and bullFound == 0
+                bool obOverlaps = currLow <= obHigh and currHigh >= obLow
+                bool fvgOverlaps = not isFVGFilled and fvgHeight > 0 and currLow <= fvgTop and currHigh >= fvgBottom
+
+                if not isBroken and not isTested
+                    // Unmitigated bullish OB - check overlap
+                    if obOverlaps
+                        bullFound := 1
+                        bullZoneType := 1  // OB
+                        bullType := 1      // unmit OB
+                        bullZoneTime := time[i - timeShift]
+                        bullZoneHigh := obHigh
+                        bullZoneLow := obLow
+
+                // Unfilled bullish FVG - check overlap (regardless of OB state)
+                if bullFound == 0 and fvgOverlaps
+                    bullFound := 1
+                    bullZoneType := 2  // FVG
+                    bullType := 4      // bullish FVG
+                    bullZoneTime := time[i - timeShift]
+                    bullZoneHigh := fvgTop
+                    bullZoneLow := fvgBottom
+
+            // Check for BREAKER RESISTANCE (broken bullish OB = bearish zone)
+            // NOTE: Only check overlap for i >= 4
+            if i >= 4 and isBroken and not isReversed and bearFound == 0
+                bool brkOverlaps = currLow <= obHigh and currHigh >= obLow
+                if brkOverlaps
+                    bearFound := 1
+                    bearZoneType := 1  // OB (breaker)
+                    bearType := 3      // breaker resistance
+                    bearZoneTime := time[i - timeShift]
+                    bearZoneHigh := obHigh
+                    bearZoneLow := obLow
+
+        //////////////////////////////////////////
+        // BEARISH OB DETECTION (Supply Zone)
+        //////////////////////////////////////////
+        bool bearSweep = high[i] > high[i-1] and high[i] > high[i+1]
+        bool bearGap2 = low[i] > high[i-2]
+        bool bearGap3 = low[i] > high[i-3]
+        bool bearGapAtFormation = bearGap2 or bearGap3
+        bool bearOBFormed = bearSweep and bearGapAtFormation
+
+        if bearOBFormed
+            float obHigh = high[i]
+            float obLow = low[i]
+            float gapLevel = bearGap3 ? high[i-3] : high[i-2]
+            float fvgTop = obLow
+            float fvgBottom = gapLevel
+            float fvgHeight = fvgTop - fvgBottom
+            float testPrice = obLow + ((obHigh - obLow) * ob_testPercent / 100)
+
+            // Check OB lifecycle
+            bool isBroken = false
+            bool isReversed = false
+            bool hasReachedTestLevel = false
+            bool isTested = false
+            bool isFVGFilled = false
+            int startBar = bearGap3 ? i - 4 : i - 3
+            int endBar = math.max(0, startBar - ob_lifecycleDepth)
+            int j = startBar
+            while j >= endBar
+                if not isBroken
+                    if close[j] > obHigh
+                        isBroken := true
+                    else
+                        if not hasReachedTestLevel and high[j] >= testPrice
+                            hasReachedTestLevel := true
+                        if hasReachedTestLevel and not isTested
+                            if high[j] <= obHigh or (high[j] > obHigh and low[j] <= obHigh)
+                                isTested := true
+                else if not isReversed
+                    if close[j] < obLow
+                        isReversed := true
+                if not isFVGFilled and fvgHeight > 0
+                    float fillLevel = fvgBottom + (fvgHeight * fvg_fillPercent / 100)
+                    if high[j] >= fillLevel
+                        isFVGFilled := true
+                j := j - 1
+
+            // If we detected a breaker but stopped early, continue checking for reversal
+            // Bearish OB breaker (support) reverses when close < obLow
+            if isBroken and not isReversed and endBar > 0
+                int k = endBar - 1
+                while k >= 0
+                    if close[k] < obLow
+                        isReversed := true
+                        break
+                    k := k - 1
+
+            // Check overlap for BEARISH zones:
+            // - Unmitigated bearish OB (not tested)
+            // - Unfilled bearish FVG
+            // NOT breaker support - that's a bullish zone!
+            // NOTE: Only check overlap for i >= 4 (zones at i=2,3 use shift 0 in formation)
+            if i >= 4 and not isReversed and bearFound == 0
+                bool obOverlaps = currLow <= obHigh and currHigh >= obLow
+                bool fvgOverlaps = not isFVGFilled and fvgHeight > 0 and currLow <= fvgTop and currHigh >= fvgBottom
+
+                if not isBroken and not isTested
+                    // Unmitigated bearish OB - check overlap
+                    if obOverlaps
+                        bearFound := 1
+                        bearZoneType := 1  // OB
+                        bearType := 1      // unmit OB
+                        bearZoneTime := time[i - timeShift]
+                        bearZoneHigh := obHigh
+                        bearZoneLow := obLow
+
+                // Unfilled bearish FVG - check overlap (regardless of OB state)
+                if bearFound == 0 and fvgOverlaps
+                    bearFound := 1
+                    bearZoneType := 2  // FVG
+                    bearType := 4      // bearish FVG
+                    bearZoneTime := time[i - timeShift]
+                    bearZoneHigh := fvgTop
+                    bearZoneLow := fvgBottom
+
+            // Check for BREAKER SUPPORT (broken bearish OB = bullish zone)
+            // NOTE: Only check overlap for i >= 4
+            if i >= 4 and isBroken and not isReversed and bullFound == 0
+                bool brkOverlaps = currLow <= obHigh and currHigh >= obLow
+                if brkOverlaps
+                    bullFound := 1
+                    bullZoneType := 1  // OB (breaker)
+                    bullType := 3      // breaker support
+                    bullZoneTime := time[i - timeShift]
+                    bullZoneHigh := obHigh
+                    bullZoneLow := obLow
+
+    [bullFound, bullZoneType, bullType, bullZoneTime, bullZoneHigh, bullZoneLow, bearFound, bearZoneType, bearType, bearZoneTime, bearZoneHigh, bearZoneLow]
+
+///////////////////////
+// SIGNAL DETECTION  //
+///////////////////////
+
+// Combined NWE + OB overlap + Divergence scan for H4 and D1 timeframes
+// Returns: [nweBull, nweBear, lowerNear, lowerAvg, upperNear, upperAvg,
+//           bullFound, bullZoneType, bullType, bullZoneTime, bullZoneHigh, bullZoneLow,
+//           bearFound, bearZoneType, bearType, bearZoneTime, bearZoneHigh, bearZoneLow,
+//           bullDivTime, bearDivTime, bullIntDivTime, bearIntDivTime]
+// Total: 22 values (2 NWE zone booleans + 4 NWE band prices + 12 OB overlap info + 4 div timestamps)
+// NWE zone check is done INSIDE this function where low/high are in the correct TF context
+checkSignalWithOB(simple string tf) =>
+    // Calculate NWE envelope for zone boundary detection
+    [yhat, upper_near, upper_far, upper_avg, lower_near, lower_far, lower_avg] = calcNWE(close, high, low, nwe_h, nwe_alpha, nwe_x0, nwe_atrLen, nwe_nearFactor, nwe_farFactor)
+
+    // NWE zone overlap check - done HERE where low/high are in correct TF context (shift 0)
+    // Zone structure: upper_far > upper_avg > upper_near > yhat > lower_near > lower_avg > lower_far
+    // Bullish: bar overlaps lower_avg zone (lower_near to lower_avg) OR lower_far zone (lower_avg to lower_far)
+    bool nweBull = (low <= lower_near and high >= lower_avg) or (low <= lower_avg and high >= lower_far)
+    // Bearish: bar overlaps upper_avg zone (upper_near to upper_avg) OR upper_far zone (upper_avg to upper_far)
+    bool nweBear = (high >= upper_near and low <= upper_avg) or (high >= upper_avg and low <= upper_far)
+
+    // Scan for OB/FVG overlap with current price (pass timeframe for timestamp correction)
+    [bullFound, bullZoneType, bullType, bullZoneTime, bullZoneHigh, bullZoneLow, bearFound, bearZoneType, bearType, bearZoneTime, bearZoneHigh, bearZoneLow] = scanOBRange(tf)
+
+    // Divergence detection (Logic 2)
+    float osc = calcKernelOsc()
+    int maxLookback = 300
+
+    int bullDivTime = detectBullishDiv(osc, maxLookback)
+    int bearDivTime = detectBearishDiv(osc, maxLookback)
+
+    // Internal divergence detection (Same-Side)
+    int bullIntDivTime = detectBullishIntDiv(osc, maxLookback)
+    int bearIntDivTime = detectBearishIntDiv(osc, maxLookback)
+
+    // Return NWE zone booleans + band prices + OB overlap + divergence data (22 values)
+    [nweBull, nweBear, lower_near, lower_avg, upper_near, upper_avg, bullFound, bullZoneType, bullType, bullZoneTime, bullZoneHigh, bullZoneLow, bearFound, bearZoneType, bearType, bearZoneTime, bearZoneHigh, bearZoneLow, bullDivTime, bearDivTime, bullIntDivTime, bearIntDivTime]
+
+// OB overlap scan only (for Weekly timeframe - no NWE)
+// Returns: [bullFound, bullZoneType, bullType, bullZoneTime, bullZoneHigh, bullZoneLow,
+//           bearFound, bearZoneType, bearType, bearZoneTime, bearZoneHigh, bearZoneLow]
+// Total: 12 values
+checkOBOnly(simple string tf) =>
+    [bullFound, bullZoneType, bullType, bullZoneTime, bullZoneHigh, bullZoneLow, bearFound, bearZoneType, bearType, bearZoneTime, bearZoneHigh, bearZoneLow] = scanOBRange(tf)
+    [bullFound, bullZoneType, bullType, bullZoneTime, bullZoneHigh, bullZoneLow, bearFound, bearZoneType, bearType, bearZoneTime, bearZoneHigh, bearZoneLow]
+
+////////////////////////////
+// REQUEST SECURITY CALLS //
+////////////////////////////
+
+// Combined NWE + OB overlap + Divergence scan from each symbol on H4 and Daily timeframes
+// Returns: [nweBull, nweBear, lowerNear, lowerAvg, upperNear, upperAvg,
+//           bullFound, bullZoneType, bullType, bullZoneTime, bullZoneHigh, bullZoneLow,
+//           bearFound, bearZoneType, bearType, bearZoneTime, bearZoneHigh, bearZoneLow,
+//           bullDivTime, bearDivTime, bullIntDivTime, bearIntDivTime]
+// - nweBull/nweBear: boolean (1/0) - price in NWE zone on shift 0 (checked inside request.security context)
+// - lowerNear/lowerAvg: NWE lower band prices (for bullish zone tooltip)
+// - upperNear/upperAvg: NWE upper band prices (for bearish zone tooltip)
+// - bullFound/bearFound: 1 if price overlaps a bullish/bearish zone, 0 otherwise
+// - bullZoneType/bearZoneType: 1=OB, 2=FVG
+// - bullType: 1=unmit OB, 2=mit OB, 3=breaker support, 4=bullish FVG
+// - bearType: 1=unmit OB, 2=mit OB, 3=breaker resistance, 4=bearish FVG
+// - bullZoneTime/bearZoneTime: timestamp of zone formation
+// - bullZoneHigh/bullZoneLow: OB/FVG zone price range for bullish zones
+// - bearZoneHigh/bearZoneLow: OB/FVG zone price range for bearish zones
+// - bullDivTime/bearDivTime: Logic 2 divergence timestamp (0 if none)
+// - bullIntDivTime/bearIntDivTime: Internal divergence timestamp (0 if none)
+// Total: 20 calls (10 symbols × 2 TFs)
+
+// H4 timeframe - Combined NWE + OB overlap + Divergence (22 values each)
+[nweBull01_h4, nweBear01_h4, lnNear01_h4, lnAvg01_h4, unNear01_h4, unAvg01_h4, bullF01_h4, bullZT01_h4, bullT01_h4, bullTm01_h4, bullZH01_h4, bullZL01_h4, bearF01_h4, bearZT01_h4, bearT01_h4, bearTm01_h4, bearZH01_h4, bearZL01_h4, divBullTm01_h4, divBearTm01_h4, intBullTm01_h4, intBearTm01_h4] = request.security(s01, TF_H4, checkSignalWithOB(TF_H4))
+[nweBull02_h4, nweBear02_h4, lnNear02_h4, lnAvg02_h4, unNear02_h4, unAvg02_h4, bullF02_h4, bullZT02_h4, bullT02_h4, bullTm02_h4, bullZH02_h4, bullZL02_h4, bearF02_h4, bearZT02_h4, bearT02_h4, bearTm02_h4, bearZH02_h4, bearZL02_h4, divBullTm02_h4, divBearTm02_h4, intBullTm02_h4, intBearTm02_h4] = request.security(s02, TF_H4, checkSignalWithOB(TF_H4))
+[nweBull03_h4, nweBear03_h4, lnNear03_h4, lnAvg03_h4, unNear03_h4, unAvg03_h4, bullF03_h4, bullZT03_h4, bullT03_h4, bullTm03_h4, bullZH03_h4, bullZL03_h4, bearF03_h4, bearZT03_h4, bearT03_h4, bearTm03_h4, bearZH03_h4, bearZL03_h4, divBullTm03_h4, divBearTm03_h4, intBullTm03_h4, intBearTm03_h4] = request.security(s03, TF_H4, checkSignalWithOB(TF_H4))
+[nweBull04_h4, nweBear04_h4, lnNear04_h4, lnAvg04_h4, unNear04_h4, unAvg04_h4, bullF04_h4, bullZT04_h4, bullT04_h4, bullTm04_h4, bullZH04_h4, bullZL04_h4, bearF04_h4, bearZT04_h4, bearT04_h4, bearTm04_h4, bearZH04_h4, bearZL04_h4, divBullTm04_h4, divBearTm04_h4, intBullTm04_h4, intBearTm04_h4] = request.security(s04, TF_H4, checkSignalWithOB(TF_H4))
+[nweBull05_h4, nweBear05_h4, lnNear05_h4, lnAvg05_h4, unNear05_h4, unAvg05_h4, bullF05_h4, bullZT05_h4, bullT05_h4, bullTm05_h4, bullZH05_h4, bullZL05_h4, bearF05_h4, bearZT05_h4, bearT05_h4, bearTm05_h4, bearZH05_h4, bearZL05_h4, divBullTm05_h4, divBearTm05_h4, intBullTm05_h4, intBearTm05_h4] = request.security(s05, TF_H4, checkSignalWithOB(TF_H4))
+[nweBull06_h4, nweBear06_h4, lnNear06_h4, lnAvg06_h4, unNear06_h4, unAvg06_h4, bullF06_h4, bullZT06_h4, bullT06_h4, bullTm06_h4, bullZH06_h4, bullZL06_h4, bearF06_h4, bearZT06_h4, bearT06_h4, bearTm06_h4, bearZH06_h4, bearZL06_h4, divBullTm06_h4, divBearTm06_h4, intBullTm06_h4, intBearTm06_h4] = request.security(s06, TF_H4, checkSignalWithOB(TF_H4))
+[nweBull07_h4, nweBear07_h4, lnNear07_h4, lnAvg07_h4, unNear07_h4, unAvg07_h4, bullF07_h4, bullZT07_h4, bullT07_h4, bullTm07_h4, bullZH07_h4, bullZL07_h4, bearF07_h4, bearZT07_h4, bearT07_h4, bearTm07_h4, bearZH07_h4, bearZL07_h4, divBullTm07_h4, divBearTm07_h4, intBullTm07_h4, intBearTm07_h4] = request.security(s07, TF_H4, checkSignalWithOB(TF_H4))
+[nweBull08_h4, nweBear08_h4, lnNear08_h4, lnAvg08_h4, unNear08_h4, unAvg08_h4, bullF08_h4, bullZT08_h4, bullT08_h4, bullTm08_h4, bullZH08_h4, bullZL08_h4, bearF08_h4, bearZT08_h4, bearT08_h4, bearTm08_h4, bearZH08_h4, bearZL08_h4, divBullTm08_h4, divBearTm08_h4, intBullTm08_h4, intBearTm08_h4] = request.security(s08, TF_H4, checkSignalWithOB(TF_H4))
+
+// Daily timeframe - Combined NWE + OB overlap + Divergence (22 values each)
+[nweBull01_d1, nweBear01_d1, lnNear01_d1, lnAvg01_d1, unNear01_d1, unAvg01_d1, bullF01_d1, bullZT01_d1, bullT01_d1, bullTm01_d1, bullZH01_d1, bullZL01_d1, bearF01_d1, bearZT01_d1, bearT01_d1, bearTm01_d1, bearZH01_d1, bearZL01_d1, divBullTm01_d1, divBearTm01_d1, intBullTm01_d1, intBearTm01_d1] = request.security(s01, TF_D1, checkSignalWithOB(TF_D1))
+[nweBull02_d1, nweBear02_d1, lnNear02_d1, lnAvg02_d1, unNear02_d1, unAvg02_d1, bullF02_d1, bullZT02_d1, bullT02_d1, bullTm02_d1, bullZH02_d1, bullZL02_d1, bearF02_d1, bearZT02_d1, bearT02_d1, bearTm02_d1, bearZH02_d1, bearZL02_d1, divBullTm02_d1, divBearTm02_d1, intBullTm02_d1, intBearTm02_d1] = request.security(s02, TF_D1, checkSignalWithOB(TF_D1))
+[nweBull03_d1, nweBear03_d1, lnNear03_d1, lnAvg03_d1, unNear03_d1, unAvg03_d1, bullF03_d1, bullZT03_d1, bullT03_d1, bullTm03_d1, bullZH03_d1, bullZL03_d1, bearF03_d1, bearZT03_d1, bearT03_d1, bearTm03_d1, bearZH03_d1, bearZL03_d1, divBullTm03_d1, divBearTm03_d1, intBullTm03_d1, intBearTm03_d1] = request.security(s03, TF_D1, checkSignalWithOB(TF_D1))
+[nweBull04_d1, nweBear04_d1, lnNear04_d1, lnAvg04_d1, unNear04_d1, unAvg04_d1, bullF04_d1, bullZT04_d1, bullT04_d1, bullTm04_d1, bullZH04_d1, bullZL04_d1, bearF04_d1, bearZT04_d1, bearT04_d1, bearTm04_d1, bearZH04_d1, bearZL04_d1, divBullTm04_d1, divBearTm04_d1, intBullTm04_d1, intBearTm04_d1] = request.security(s04, TF_D1, checkSignalWithOB(TF_D1))
+[nweBull05_d1, nweBear05_d1, lnNear05_d1, lnAvg05_d1, unNear05_d1, unAvg05_d1, bullF05_d1, bullZT05_d1, bullT05_d1, bullTm05_d1, bullZH05_d1, bullZL05_d1, bearF05_d1, bearZT05_d1, bearT05_d1, bearTm05_d1, bearZH05_d1, bearZL05_d1, divBullTm05_d1, divBearTm05_d1, intBullTm05_d1, intBearTm05_d1] = request.security(s05, TF_D1, checkSignalWithOB(TF_D1))
+[nweBull06_d1, nweBear06_d1, lnNear06_d1, lnAvg06_d1, unNear06_d1, unAvg06_d1, bullF06_d1, bullZT06_d1, bullT06_d1, bullTm06_d1, bullZH06_d1, bullZL06_d1, bearF06_d1, bearZT06_d1, bearT06_d1, bearTm06_d1, bearZH06_d1, bearZL06_d1, divBullTm06_d1, divBearTm06_d1, intBullTm06_d1, intBearTm06_d1] = request.security(s06, TF_D1, checkSignalWithOB(TF_D1))
+[nweBull07_d1, nweBear07_d1, lnNear07_d1, lnAvg07_d1, unNear07_d1, unAvg07_d1, bullF07_d1, bullZT07_d1, bullT07_d1, bullTm07_d1, bullZH07_d1, bullZL07_d1, bearF07_d1, bearZT07_d1, bearT07_d1, bearTm07_d1, bearZH07_d1, bearZL07_d1, divBullTm07_d1, divBearTm07_d1, intBullTm07_d1, intBearTm07_d1] = request.security(s07, TF_D1, checkSignalWithOB(TF_D1))
+[nweBull08_d1, nweBear08_d1, lnNear08_d1, lnAvg08_d1, unNear08_d1, unAvg08_d1, bullF08_d1, bullZT08_d1, bullT08_d1, bullTm08_d1, bullZH08_d1, bullZL08_d1, bearF08_d1, bearZT08_d1, bearT08_d1, bearTm08_d1, bearZH08_d1, bearZL08_d1, divBullTm08_d1, divBearTm08_d1, intBullTm08_d1, intBearTm08_d1] = request.security(s08, TF_D1, checkSignalWithOB(TF_D1))
+
+// Weekly timeframe - OB overlap only (no NWE)
+// Returns: [bullFound, bullZoneType, bullType, bullZoneTime, bullZoneHigh, bullZoneLow,
+//           bearFound, bearZoneType, bearType, bearZoneTime, bearZoneHigh, bearZoneLow]
+// Total: 10 calls (10 symbols × 1 TF)
+[bullF01_w1, bullZT01_w1, bullT01_w1, bullTm01_w1, bullZH01_w1, bullZL01_w1, bearF01_w1, bearZT01_w1, bearT01_w1, bearTm01_w1, bearZH01_w1, bearZL01_w1] = request.security(s01, TF_W1, checkOBOnly(TF_W1))
+[bullF02_w1, bullZT02_w1, bullT02_w1, bullTm02_w1, bullZH02_w1, bullZL02_w1, bearF02_w1, bearZT02_w1, bearT02_w1, bearTm02_w1, bearZH02_w1, bearZL02_w1] = request.security(s02, TF_W1, checkOBOnly(TF_W1))
+[bullF03_w1, bullZT03_w1, bullT03_w1, bullTm03_w1, bullZH03_w1, bullZL03_w1, bearF03_w1, bearZT03_w1, bearT03_w1, bearTm03_w1, bearZH03_w1, bearZL03_w1] = request.security(s03, TF_W1, checkOBOnly(TF_W1))
+[bullF04_w1, bullZT04_w1, bullT04_w1, bullTm04_w1, bullZH04_w1, bullZL04_w1, bearF04_w1, bearZT04_w1, bearT04_w1, bearTm04_w1, bearZH04_w1, bearZL04_w1] = request.security(s04, TF_W1, checkOBOnly(TF_W1))
+[bullF05_w1, bullZT05_w1, bullT05_w1, bullTm05_w1, bullZH05_w1, bullZL05_w1, bearF05_w1, bearZT05_w1, bearT05_w1, bearTm05_w1, bearZH05_w1, bearZL05_w1] = request.security(s05, TF_W1, checkOBOnly(TF_W1))
+[bullF06_w1, bullZT06_w1, bullT06_w1, bullTm06_w1, bullZH06_w1, bullZL06_w1, bearF06_w1, bearZT06_w1, bearT06_w1, bearTm06_w1, bearZH06_w1, bearZL06_w1] = request.security(s06, TF_W1, checkOBOnly(TF_W1))
+[bullF07_w1, bullZT07_w1, bullT07_w1, bullTm07_w1, bullZH07_w1, bullZL07_w1, bearF07_w1, bearZT07_w1, bearT07_w1, bearTm07_w1, bearZH07_w1, bearZL07_w1] = request.security(s07, TF_W1, checkOBOnly(TF_W1))
+[bullF08_w1, bullZT08_w1, bullT08_w1, bullTm08_w1, bullZH08_w1, bullZL08_w1, bearF08_w1, bearZT08_w1, bearT08_w1, bearTm08_w1, bearZH08_w1, bearZL08_w1] = request.security(s08, TF_W1, checkOBOnly(TF_W1))
+
+// Total request.security() calls: 24 (16 H4+D1 combined + 8 W1 OB-only)
+
+//////////////////////////////////
+// REGIME 1 REVERSAL SIGNALS    //
+//////////////////////////////////
+
+// Signal detection for each symbol
+// Logic: NWE zone (level 1) → OB/FVG overlap (level 2) → Divergence on current bar (level 3)
+// NWE zone booleans are now returned from request.security (checked in correct TF context)
+// nweBull##_h4/d1 = true if price is in lower NWE zone on that TF
+// nweBear##_h4/d1 = true if price is in upper NWE zone on that TF
+
+// Symbol 01 signal check
+bool nweBull01 = nweBull01_h4 or nweBull01_d1
+bool nweBear01 = nweBear01_h4 or nweBear01_d1
+bool obBull01 = bullF01_h4 == 1 or bullF01_d1 == 1 or bullF01_w1 == 1
+bool obBear01 = bearF01_h4 == 1 or bearF01_d1 == 1 or bearF01_w1 == 1
+bool divBull01 = (divBullTm01_h4 == time or intBullTm01_h4 == time) or (divBullTm01_d1 == time or intBullTm01_d1 == time)
+bool divBear01 = (divBearTm01_h4 == time or intBearTm01_h4 == time) or (divBearTm01_d1 == time or intBearTm01_d1 == time)
+int buyLvl01 = nweBull01 ? (obBull01 ? (divBull01 ? 3 : 2) : 1) : 0
+int sellLvl01 = nweBear01 ? (obBear01 ? (divBear01 ? 3 : 2) : 1) : 0
+
+// Symbol 02 signal check
+bool nweBull02 = nweBull02_h4 or nweBull02_d1
+bool nweBear02 = nweBear02_h4 or nweBear02_d1
+bool obBull02 = bullF02_h4 == 1 or bullF02_d1 == 1 or bullF02_w1 == 1
+bool obBear02 = bearF02_h4 == 1 or bearF02_d1 == 1 or bearF02_w1 == 1
+bool divBull02 = (divBullTm02_h4 == time or intBullTm02_h4 == time) or (divBullTm02_d1 == time or intBullTm02_d1 == time)
+bool divBear02 = (divBearTm02_h4 == time or intBearTm02_h4 == time) or (divBearTm02_d1 == time or intBearTm02_d1 == time)
+int buyLvl02 = nweBull02 ? (obBull02 ? (divBull02 ? 3 : 2) : 1) : 0
+int sellLvl02 = nweBear02 ? (obBear02 ? (divBear02 ? 3 : 2) : 1) : 0
+
+// Symbol 03 signal check
+bool nweBull03 = nweBull03_h4 or nweBull03_d1
+bool nweBear03 = nweBear03_h4 or nweBear03_d1
+bool obBull03 = bullF03_h4 == 1 or bullF03_d1 == 1 or bullF03_w1 == 1
+bool obBear03 = bearF03_h4 == 1 or bearF03_d1 == 1 or bearF03_w1 == 1
+bool divBull03 = (divBullTm03_h4 == time or intBullTm03_h4 == time) or (divBullTm03_d1 == time or intBullTm03_d1 == time)
+bool divBear03 = (divBearTm03_h4 == time or intBearTm03_h4 == time) or (divBearTm03_d1 == time or intBearTm03_d1 == time)
+int buyLvl03 = nweBull03 ? (obBull03 ? (divBull03 ? 3 : 2) : 1) : 0
+int sellLvl03 = nweBear03 ? (obBear03 ? (divBear03 ? 3 : 2) : 1) : 0
+
+// Symbol 04 signal check
+bool nweBull04 = nweBull04_h4 or nweBull04_d1
+bool nweBear04 = nweBear04_h4 or nweBear04_d1
+bool obBull04 = bullF04_h4 == 1 or bullF04_d1 == 1 or bullF04_w1 == 1
+bool obBear04 = bearF04_h4 == 1 or bearF04_d1 == 1 or bearF04_w1 == 1
+bool divBull04 = (divBullTm04_h4 == time or intBullTm04_h4 == time) or (divBullTm04_d1 == time or intBullTm04_d1 == time)
+bool divBear04 = (divBearTm04_h4 == time or intBearTm04_h4 == time) or (divBearTm04_d1 == time or intBearTm04_d1 == time)
+int buyLvl04 = nweBull04 ? (obBull04 ? (divBull04 ? 3 : 2) : 1) : 0
+int sellLvl04 = nweBear04 ? (obBear04 ? (divBear04 ? 3 : 2) : 1) : 0
+
+// Symbol 05 signal check
+bool nweBull05 = nweBull05_h4 or nweBull05_d1
+bool nweBear05 = nweBear05_h4 or nweBear05_d1
+bool obBull05 = bullF05_h4 == 1 or bullF05_d1 == 1 or bullF05_w1 == 1
+bool obBear05 = bearF05_h4 == 1 or bearF05_d1 == 1 or bearF05_w1 == 1
+bool divBull05 = (divBullTm05_h4 == time or intBullTm05_h4 == time) or (divBullTm05_d1 == time or intBullTm05_d1 == time)
+bool divBear05 = (divBearTm05_h4 == time or intBearTm05_h4 == time) or (divBearTm05_d1 == time or intBearTm05_d1 == time)
+int buyLvl05 = nweBull05 ? (obBull05 ? (divBull05 ? 3 : 2) : 1) : 0
+int sellLvl05 = nweBear05 ? (obBear05 ? (divBear05 ? 3 : 2) : 1) : 0
+
+// Symbol 06 signal check
+bool nweBull06 = nweBull06_h4 or nweBull06_d1
+bool nweBear06 = nweBear06_h4 or nweBear06_d1
+bool obBull06 = bullF06_h4 == 1 or bullF06_d1 == 1 or bullF06_w1 == 1
+bool obBear06 = bearF06_h4 == 1 or bearF06_d1 == 1 or bearF06_w1 == 1
+bool divBull06 = (divBullTm06_h4 == time or intBullTm06_h4 == time) or (divBullTm06_d1 == time or intBullTm06_d1 == time)
+bool divBear06 = (divBearTm06_h4 == time or intBearTm06_h4 == time) or (divBearTm06_d1 == time or intBearTm06_d1 == time)
+int buyLvl06 = nweBull06 ? (obBull06 ? (divBull06 ? 3 : 2) : 1) : 0
+int sellLvl06 = nweBear06 ? (obBear06 ? (divBear06 ? 3 : 2) : 1) : 0
+
+// Symbol 07 signal check
+bool nweBull07 = nweBull07_h4 or nweBull07_d1
+bool nweBear07 = nweBear07_h4 or nweBear07_d1
+bool obBull07 = bullF07_h4 == 1 or bullF07_d1 == 1 or bullF07_w1 == 1
+bool obBear07 = bearF07_h4 == 1 or bearF07_d1 == 1 or bearF07_w1 == 1
+bool divBull07 = (divBullTm07_h4 == time or intBullTm07_h4 == time) or (divBullTm07_d1 == time or intBullTm07_d1 == time)
+bool divBear07 = (divBearTm07_h4 == time or intBearTm07_h4 == time) or (divBearTm07_d1 == time or intBearTm07_d1 == time)
+int buyLvl07 = nweBull07 ? (obBull07 ? (divBull07 ? 3 : 2) : 1) : 0
+int sellLvl07 = nweBear07 ? (obBear07 ? (divBear07 ? 3 : 2) : 1) : 0
+
+// Symbol 08 signal check
+bool nweBull08 = nweBull08_h4 or nweBull08_d1
+bool nweBear08 = nweBear08_h4 or nweBear08_d1
+bool obBull08 = bullF08_h4 == 1 or bullF08_d1 == 1 or bullF08_w1 == 1
+bool obBear08 = bearF08_h4 == 1 or bearF08_d1 == 1 or bearF08_w1 == 1
+bool divBull08 = (divBullTm08_h4 == time or intBullTm08_h4 == time) or (divBullTm08_d1 == time or intBullTm08_d1 == time)
+bool divBear08 = (divBearTm08_h4 == time or intBearTm08_h4 == time) or (divBearTm08_d1 == time or intBearTm08_d1 == time)
+int buyLvl08 = nweBull08 ? (obBull08 ? (divBull08 ? 3 : 2) : 1) : 0
+int sellLvl08 = nweBear08 ? (obBear08 ? (divBear08 ? 3 : 2) : 1) : 0
+
+////////////////////////////
+// STATE TRACKING & ALERTS //
+////////////////////////////
+
+// Track previous signal levels for change detection (persist across bars)
+var int prevBuyLvl01 = 0, var int prevSellLvl01 = 0
+var int prevBuyLvl02 = 0, var int prevSellLvl02 = 0
+var int prevBuyLvl03 = 0, var int prevSellLvl03 = 0
+var int prevBuyLvl04 = 0, var int prevSellLvl04 = 0
+var int prevBuyLvl05 = 0, var int prevSellLvl05 = 0
+var int prevBuyLvl06 = 0, var int prevSellLvl06 = 0
+var int prevBuyLvl07 = 0, var int prevSellLvl07 = 0
+var int prevBuyLvl08 = 0, var int prevSellLvl08 = 0
+
+//////////////////////
+// DEBUG: DISPLAY   //
+//////////////////////
+
+// Helper function to format symbol name (removes exchange prefix)
+getSymbolName(string fullSymbol) =>
+    string result = fullSymbol
+    if str.contains(fullSymbol, ":")
+        result := array.get(str.split(fullSymbol, ":"), 1)
+    result
+
+// Helper function to get zone type string from code
+// zoneType: 1=OB, 2=FVG
+getZoneTypeStr(int zoneType) =>
+    zoneType == 1 ? "OB" : zoneType == 2 ? "FVG" : "-"
+
+// Helper function to get zone subtype string from code
+// bullType: 1=unmit OB, 3=breaker support, 4=unfilled bullish FVG
+// bearType: 1=unmit OB, 3=breaker resistance, 4=unfilled bearish FVG
+getZoneSubtypeStr(int zoneType, bool isBull) =>
+    if zoneType == 1
+        "Unmit OB"
+    else if zoneType == 3
+        isBull ? "Brk Sup" : "Brk Res"
+    else if zoneType == 4
+        isBull ? "Bull FVG" : "Bear FVG"
+    else
+        "-"
+
+// Helper function to format overlap cell text
+// Shows checkmark if found, X if not
+formatOverlapText(int found) =>
+    found == 1 ? "Y" : "-"
+
+// Helper function to get overlap cell color
+getOverlapColor(int found, bool isBull) =>
+    if found == 1
+        isBull ? color.lime : color.red
+    else
+        color.gray
+
+// Helper function to build tooltip with zone info
+buildTooltip(int found, int zoneType, int subType, int zoneTime, bool isBull) =>
+    if found != 1
+        "No overlap"
+    else
+        string zt = getZoneTypeStr(zoneType)
+        string st = getZoneSubtypeStr(subType, isBull)
+        string ts = str.format_time(zoneTime, "MM-dd HH:mm", "UTC+5:30")
+        zt + " (" + st + ")\n" + ts
+
+// Helper function to build NWE detail string
+buildNweDetail(bool h4, bool d1) =>
+    string result = ""
+    if h4
+        result := "H4"
+    if d1
+        result := result + (str.length(result) > 0 ? "," : "") + "D1"
+    result
+
+// Helper function to build OB detail string
+buildObDetail(int h4, int d1, int w1) =>
+    string result = ""
+    if h4 == 1
+        result := "H4"
+    if d1 == 1
+        result := result + (str.length(result) > 0 ? "," : "") + "D1"
+    if w1 == 1
+        result := result + (str.length(result) > 0 ? "," : "") + "W1"
+    result
+
+// Helper function to build DIV detail string
+buildDivDetail(int divH4, int intH4, int divD1, int intD1, int currTime) =>
+    string result = ""
+    if divH4 == currTime or intH4 == currTime
+        result := "H4"
+    if divD1 == currTime or intD1 == currTime
+        result := result + (str.length(result) > 0 ? "," : "") + "D1"
+    result
+
+// Helper function to get signal text
+getSignalText(int buyLvl, int sellLvl) =>
+    if buyLvl >= sellLvl and buyLvl > 0
+        "BUY"
+    else if sellLvl > buyLvl
+        "SELL"
+    else
+        "-"
+
+// Helper function to get signal color
+getSignalColor(int buyLvl, int sellLvl) =>
+    if buyLvl >= sellLvl and buyLvl > 0
+        color.lime
+    else if sellLvl > buyLvl
+        color.red
+    else
+        color.gray
+
+// Helper function to get level text
+getLevelText(int buyLvl, int sellLvl) =>
+    int lvl = buyLvl >= sellLvl ? buyLvl : sellLvl
+    lvl > 0 ? str.tostring(lvl) : "-"
+
+// Build JSON alert message for Python backend
+// Format: {"symbol":"XXX","signal":"BUY","level":3,"details":"NWE:H4,D1 OB:W1 DIV:H4"}
+buildAlertMsg(string sym, string signal, int level, string details) =>
+    '{"symbol":"' + sym + '","signal":"' + signal + '","level":' + str.tostring(level) + ',"details":"' + details + '"}'
+
+// Helper function to build NWE tooltip with band prices
+// For BUY: shows lower_near - lower_avg zone
+// For SELL: shows upper_near - upper_avg zone
+buildNweTooltip(bool isBuy, bool h4Hit, bool d1Hit, float lnNear_h4, float lnAvg_h4, float unNear_h4, float unAvg_h4, float lnNear_d1, float lnAvg_d1, float unNear_d1, float unAvg_d1) =>
+    string result = "NWE Zone:\n"
+    if h4Hit
+        if isBuy
+            result := result + "H4: " + str.tostring(lnNear_h4, "#.#####") + " - " + str.tostring(lnAvg_h4, "#.#####") + "\n"
+        else
+            result := result + "H4: " + str.tostring(unNear_h4, "#.#####") + " - " + str.tostring(unAvg_h4, "#.#####") + "\n"
+    if d1Hit
+        if isBuy
+            result := result + "D1: " + str.tostring(lnNear_d1, "#.#####") + " - " + str.tostring(lnAvg_d1, "#.#####") + "\n"
+        else
+            result := result + "D1: " + str.tostring(unNear_d1, "#.#####") + " - " + str.tostring(unAvg_d1, "#.#####") + "\n"
+    result
+
+// Helper function to build OB tooltip with zone info
+// Shows zone type, price range, and timestamp for each TF that has overlap
+buildObTooltip(bool isBuy, int h4Found, int h4Type, int h4Time, float h4ZH, float h4ZL, int d1Found, int d1Type, int d1Time, float d1ZH, float d1ZL, int w1Found, int w1Type, int w1Time, float w1ZH, float w1ZL) =>
+    string result = "OB/FVG Zone:\n"
+    if h4Found == 1
+        result := result + "H4: " + getZoneSubtypeStr(h4Type, isBuy) + " [" + str.tostring(h4ZL, "#.#####") + " - " + str.tostring(h4ZH, "#.#####") + "] @ " + str.format_time(h4Time, "MM-dd HH:mm", "UTC+0") + "\n"
+    if d1Found == 1
+        result := result + "D1: " + getZoneSubtypeStr(d1Type, isBuy) + " [" + str.tostring(d1ZL, "#.#####") + " - " + str.tostring(d1ZH, "#.#####") + "] @ " + str.format_time(d1Time, "MM-dd HH:mm", "UTC+0") + "\n"
+    if w1Found == 1
+        result := result + "W1: " + getZoneSubtypeStr(w1Type, isBuy) + " [" + str.tostring(w1ZL, "#.#####") + " - " + str.tostring(w1ZH, "#.#####") + "] @ " + str.format_time(w1Time, "MM-dd HH:mm", "UTC+0") + "\n"
+    result
+
+// Helper function to build combined tooltip for Details cell
+buildDetailsTooltip(bool isBuy, int lvl, bool nweH4, bool nweD1, float lnNear_h4, float lnAvg_h4, float unNear_h4, float unAvg_h4, float lnNear_d1, float lnAvg_d1, float unNear_d1, float unAvg_d1, int obH4, int obH4Type, int obH4Time, float obH4ZH, float obH4ZL, int obD1, int obD1Type, int obD1Time, float obD1ZH, float obD1ZL, int obW1, int obW1Type, int obW1Time, float obW1ZH, float obW1ZL) =>
+    if lvl == 0
+        "No signal"
+    else
+        string tip = buildNweTooltip(isBuy, nweH4, nweD1, lnNear_h4, lnAvg_h4, unNear_h4, unAvg_h4, lnNear_d1, lnAvg_d1, unNear_d1, unAvg_d1)
+        if lvl >= 2
+            tip := tip + "\n" + buildObTooltip(isBuy, obH4, obH4Type, obH4Time, obH4ZH, obH4ZL, obD1, obD1Type, obD1Time, obD1ZH, obD1ZL, obW1, obW1Type, obW1Time, obW1ZH, obW1ZL)
+        tip
+
+////////////////////////////
+// ALERT CHANGE DETECTION //
+////////////////////////////
+
+// Signal change detection and alert firing (runs on bar close to avoid repainting)
+if barstate.isconfirmed
+    // Symbol 01 - check for signal change
+    if buyLvl01 != prevBuyLvl01 or sellLvl01 != prevSellLvl01
+        bool isBuy = buyLvl01 >= sellLvl01 and buyLvl01 > 0
+        int lvl = isBuy ? buyLvl01 : sellLvl01
+        if lvl > 0
+            string sig = isBuy ? "BUY" : "SELL"
+            string det = "NWE:" + (isBuy ? buildNweDetail(nweBull01_h4, nweBull01_d1) : buildNweDetail(nweBear01_h4, nweBear01_d1))
+            if lvl >= 2
+                det := det + " OB:" + (isBuy ? buildObDetail(bullF01_h4, bullF01_d1, bullF01_w1) : buildObDetail(bearF01_h4, bearF01_d1, bearF01_w1))
+            if lvl == 3
+                det := det + " DIV:" + (isBuy ? buildDivDetail(divBullTm01_h4, intBullTm01_h4, divBullTm01_d1, intBullTm01_d1, time) : buildDivDetail(divBearTm01_h4, intBearTm01_h4, divBearTm01_d1, intBearTm01_d1, time))
+            alert(buildAlertMsg(getSymbolName(s01), sig, lvl, det), alert.freq_once_per_bar_close)
+        prevBuyLvl01 := buyLvl01
+        prevSellLvl01 := sellLvl01
+
+    // Symbol 02 - check for signal change
+    if buyLvl02 != prevBuyLvl02 or sellLvl02 != prevSellLvl02
+        bool isBuy = buyLvl02 >= sellLvl02 and buyLvl02 > 0
+        int lvl = isBuy ? buyLvl02 : sellLvl02
+        if lvl > 0
+            string sig = isBuy ? "BUY" : "SELL"
+            string det = "NWE:" + (isBuy ? buildNweDetail(nweBull02_h4, nweBull02_d1) : buildNweDetail(nweBear02_h4, nweBear02_d1))
+            if lvl >= 2
+                det := det + " OB:" + (isBuy ? buildObDetail(bullF02_h4, bullF02_d1, bullF02_w1) : buildObDetail(bearF02_h4, bearF02_d1, bearF02_w1))
+            if lvl == 3
+                det := det + " DIV:" + (isBuy ? buildDivDetail(divBullTm02_h4, intBullTm02_h4, divBullTm02_d1, intBullTm02_d1, time) : buildDivDetail(divBearTm02_h4, intBearTm02_h4, divBearTm02_d1, intBearTm02_d1, time))
+            alert(buildAlertMsg(getSymbolName(s02), sig, lvl, det), alert.freq_once_per_bar_close)
+        prevBuyLvl02 := buyLvl02
+        prevSellLvl02 := sellLvl02
+
+    // Symbol 03 - check for signal change
+    if buyLvl03 != prevBuyLvl03 or sellLvl03 != prevSellLvl03
+        bool isBuy = buyLvl03 >= sellLvl03 and buyLvl03 > 0
+        int lvl = isBuy ? buyLvl03 : sellLvl03
+        if lvl > 0
+            string sig = isBuy ? "BUY" : "SELL"
+            string det = "NWE:" + (isBuy ? buildNweDetail(nweBull03_h4, nweBull03_d1) : buildNweDetail(nweBear03_h4, nweBear03_d1))
+            if lvl >= 2
+                det := det + " OB:" + (isBuy ? buildObDetail(bullF03_h4, bullF03_d1, bullF03_w1) : buildObDetail(bearF03_h4, bearF03_d1, bearF03_w1))
+            if lvl == 3
+                det := det + " DIV:" + (isBuy ? buildDivDetail(divBullTm03_h4, intBullTm03_h4, divBullTm03_d1, intBullTm03_d1, time) : buildDivDetail(divBearTm03_h4, intBearTm03_h4, divBearTm03_d1, intBearTm03_d1, time))
+            alert(buildAlertMsg(getSymbolName(s03), sig, lvl, det), alert.freq_once_per_bar_close)
+        prevBuyLvl03 := buyLvl03
+        prevSellLvl03 := sellLvl03
+
+    // Symbol 04 - check for signal change
+    if buyLvl04 != prevBuyLvl04 or sellLvl04 != prevSellLvl04
+        bool isBuy = buyLvl04 >= sellLvl04 and buyLvl04 > 0
+        int lvl = isBuy ? buyLvl04 : sellLvl04
+        if lvl > 0
+            string sig = isBuy ? "BUY" : "SELL"
+            string det = "NWE:" + (isBuy ? buildNweDetail(nweBull04_h4, nweBull04_d1) : buildNweDetail(nweBear04_h4, nweBear04_d1))
+            if lvl >= 2
+                det := det + " OB:" + (isBuy ? buildObDetail(bullF04_h4, bullF04_d1, bullF04_w1) : buildObDetail(bearF04_h4, bearF04_d1, bearF04_w1))
+            if lvl == 3
+                det := det + " DIV:" + (isBuy ? buildDivDetail(divBullTm04_h4, intBullTm04_h4, divBullTm04_d1, intBullTm04_d1, time) : buildDivDetail(divBearTm04_h4, intBearTm04_h4, divBearTm04_d1, intBearTm04_d1, time))
+            alert(buildAlertMsg(getSymbolName(s04), sig, lvl, det), alert.freq_once_per_bar_close)
+        prevBuyLvl04 := buyLvl04
+        prevSellLvl04 := sellLvl04
+
+    // Symbol 05 - check for signal change
+    if buyLvl05 != prevBuyLvl05 or sellLvl05 != prevSellLvl05
+        bool isBuy = buyLvl05 >= sellLvl05 and buyLvl05 > 0
+        int lvl = isBuy ? buyLvl05 : sellLvl05
+        if lvl > 0
+            string sig = isBuy ? "BUY" : "SELL"
+            string det = "NWE:" + (isBuy ? buildNweDetail(nweBull05_h4, nweBull05_d1) : buildNweDetail(nweBear05_h4, nweBear05_d1))
+            if lvl >= 2
+                det := det + " OB:" + (isBuy ? buildObDetail(bullF05_h4, bullF05_d1, bullF05_w1) : buildObDetail(bearF05_h4, bearF05_d1, bearF05_w1))
+            if lvl == 3
+                det := det + " DIV:" + (isBuy ? buildDivDetail(divBullTm05_h4, intBullTm05_h4, divBullTm05_d1, intBullTm05_d1, time) : buildDivDetail(divBearTm05_h4, intBearTm05_h4, divBearTm05_d1, intBearTm05_d1, time))
+            alert(buildAlertMsg(getSymbolName(s05), sig, lvl, det), alert.freq_once_per_bar_close)
+        prevBuyLvl05 := buyLvl05
+        prevSellLvl05 := sellLvl05
+
+    // Symbol 06 - check for signal change
+    if buyLvl06 != prevBuyLvl06 or sellLvl06 != prevSellLvl06
+        bool isBuy = buyLvl06 >= sellLvl06 and buyLvl06 > 0
+        int lvl = isBuy ? buyLvl06 : sellLvl06
+        if lvl > 0
+            string sig = isBuy ? "BUY" : "SELL"
+            string det = "NWE:" + (isBuy ? buildNweDetail(nweBull06_h4, nweBull06_d1) : buildNweDetail(nweBear06_h4, nweBear06_d1))
+            if lvl >= 2
+                det := det + " OB:" + (isBuy ? buildObDetail(bullF06_h4, bullF06_d1, bullF06_w1) : buildObDetail(bearF06_h4, bearF06_d1, bearF06_w1))
+            if lvl == 3
+                det := det + " DIV:" + (isBuy ? buildDivDetail(divBullTm06_h4, intBullTm06_h4, divBullTm06_d1, intBullTm06_d1, time) : buildDivDetail(divBearTm06_h4, intBearTm06_h4, divBearTm06_d1, intBearTm06_d1, time))
+            alert(buildAlertMsg(getSymbolName(s06), sig, lvl, det), alert.freq_once_per_bar_close)
+        prevBuyLvl06 := buyLvl06
+        prevSellLvl06 := sellLvl06
+
+    // Symbol 07 - check for signal change
+    if buyLvl07 != prevBuyLvl07 or sellLvl07 != prevSellLvl07
+        bool isBuy = buyLvl07 >= sellLvl07 and buyLvl07 > 0
+        int lvl = isBuy ? buyLvl07 : sellLvl07
+        if lvl > 0
+            string sig = isBuy ? "BUY" : "SELL"
+            string det = "NWE:" + (isBuy ? buildNweDetail(nweBull07_h4, nweBull07_d1) : buildNweDetail(nweBear07_h4, nweBear07_d1))
+            if lvl >= 2
+                det := det + " OB:" + (isBuy ? buildObDetail(bullF07_h4, bullF07_d1, bullF07_w1) : buildObDetail(bearF07_h4, bearF07_d1, bearF07_w1))
+            if lvl == 3
+                det := det + " DIV:" + (isBuy ? buildDivDetail(divBullTm07_h4, intBullTm07_h4, divBullTm07_d1, intBullTm07_d1, time) : buildDivDetail(divBearTm07_h4, intBearTm07_h4, divBearTm07_d1, intBearTm07_d1, time))
+            alert(buildAlertMsg(getSymbolName(s07), sig, lvl, det), alert.freq_once_per_bar_close)
+        prevBuyLvl07 := buyLvl07
+        prevSellLvl07 := sellLvl07
+
+    // Symbol 08 - check for signal change
+    if buyLvl08 != prevBuyLvl08 or sellLvl08 != prevSellLvl08
+        bool isBuy = buyLvl08 >= sellLvl08 and buyLvl08 > 0
+        int lvl = isBuy ? buyLvl08 : sellLvl08
+        if lvl > 0
+            string sig = isBuy ? "BUY" : "SELL"
+            string det = "NWE:" + (isBuy ? buildNweDetail(nweBull08_h4, nweBull08_d1) : buildNweDetail(nweBear08_h4, nweBear08_d1))
+            if lvl >= 2
+                det := det + " OB:" + (isBuy ? buildObDetail(bullF08_h4, bullF08_d1, bullF08_w1) : buildObDetail(bearF08_h4, bearF08_d1, bearF08_w1))
+            if lvl == 3
+                det := det + " DIV:" + (isBuy ? buildDivDetail(divBullTm08_h4, intBullTm08_h4, divBullTm08_d1, intBullTm08_d1, time) : buildDivDetail(divBearTm08_h4, intBearTm08_h4, divBearTm08_d1, intBearTm08_d1, time))
+            alert(buildAlertMsg(getSymbolName(s08), sig, lvl, det), alert.freq_once_per_bar_close)
+        prevBuyLvl08 := buyLvl08
+        prevSellLvl08 := sellLvl08
+
+// Signal Status Table showing Regime 1 Reversal signals
+// Columns: Symbol | Signal | Lvl | Details
+var table sigTable = table.new(position.top_right, 4, 10, bgcolor=color.new(color.black, 80), border_width=1)
+
+if barstate.islast
+    // Header row
+    table.cell(sigTable, 0, 0, "Symbol", text_color=color.white, text_size=size.small)
+    table.cell(sigTable, 1, 0, "Signal", text_color=color.white, text_size=size.small)
+    table.cell(sigTable, 2, 0, "Lvl", text_color=color.white, text_size=size.small)
+    table.cell(sigTable, 3, 0, "Details", text_color=color.white, text_size=size.small)
+
+    // Build detail strings for each symbol based on the winning signal
+    // Symbol 01
+    bool isBuy01 = buyLvl01 >= sellLvl01 and buyLvl01 > 0
+    int lvl01 = isBuy01 ? buyLvl01 : sellLvl01
+    string det01 = lvl01 > 0 ? "NWE:" + (isBuy01 ? buildNweDetail(nweBull01_h4, nweBull01_d1) : buildNweDetail(nweBear01_h4, nweBear01_d1)) : "-"
+    if lvl01 >= 2
+        det01 := det01 + " OB:" + (isBuy01 ? buildObDetail(bullF01_h4, bullF01_d1, bullF01_w1) : buildObDetail(bearF01_h4, bearF01_d1, bearF01_w1))
+    if lvl01 == 3
+        det01 := det01 + " DIV:" + (isBuy01 ? buildDivDetail(divBullTm01_h4, intBullTm01_h4, divBullTm01_d1, intBullTm01_d1, time) : buildDivDetail(divBearTm01_h4, intBearTm01_h4, divBearTm01_d1, intBearTm01_d1, time))
+    string tip01 = buildDetailsTooltip(isBuy01, lvl01, isBuy01 ? nweBull01_h4 : nweBear01_h4, isBuy01 ? nweBull01_d1 : nweBear01_d1, lnNear01_h4, lnAvg01_h4, unNear01_h4, unAvg01_h4, lnNear01_d1, lnAvg01_d1, unNear01_d1, unAvg01_d1, isBuy01 ? bullF01_h4 : bearF01_h4, isBuy01 ? bullT01_h4 : bearT01_h4, isBuy01 ? bullTm01_h4 : bearTm01_h4, isBuy01 ? bullZH01_h4 : bearZH01_h4, isBuy01 ? bullZL01_h4 : bearZL01_h4, isBuy01 ? bullF01_d1 : bearF01_d1, isBuy01 ? bullT01_d1 : bearT01_d1, isBuy01 ? bullTm01_d1 : bearTm01_d1, isBuy01 ? bullZH01_d1 : bearZH01_d1, isBuy01 ? bullZL01_d1 : bearZL01_d1, isBuy01 ? bullF01_w1 : bearF01_w1, isBuy01 ? bullT01_w1 : bearT01_w1, isBuy01 ? bullTm01_w1 : bearTm01_w1, isBuy01 ? bullZH01_w1 : bearZH01_w1, isBuy01 ? bullZL01_w1 : bearZL01_w1)
+    table.cell(sigTable, 0, 1, getSymbolName(s01), text_color=color.white, text_size=size.small)
+    table.cell(sigTable, 1, 1, getSignalText(buyLvl01, sellLvl01), text_color=getSignalColor(buyLvl01, sellLvl01), text_size=size.small)
+    table.cell(sigTable, 2, 1, getLevelText(buyLvl01, sellLvl01), text_color=getSignalColor(buyLvl01, sellLvl01), text_size=size.small)
+    table.cell(sigTable, 3, 1, det01, text_color=color.white, text_size=size.small, tooltip=tip01)
+
+    // Symbol 02
+    bool isBuy02 = buyLvl02 >= sellLvl02 and buyLvl02 > 0
+    int lvl02 = isBuy02 ? buyLvl02 : sellLvl02
+    string det02 = lvl02 > 0 ? "NWE:" + (isBuy02 ? buildNweDetail(nweBull02_h4, nweBull02_d1) : buildNweDetail(nweBear02_h4, nweBear02_d1)) : "-"
+    if lvl02 >= 2
+        det02 := det02 + " OB:" + (isBuy02 ? buildObDetail(bullF02_h4, bullF02_d1, bullF02_w1) : buildObDetail(bearF02_h4, bearF02_d1, bearF02_w1))
+    if lvl02 == 3
+        det02 := det02 + " DIV:" + (isBuy02 ? buildDivDetail(divBullTm02_h4, intBullTm02_h4, divBullTm02_d1, intBullTm02_d1, time) : buildDivDetail(divBearTm02_h4, intBearTm02_h4, divBearTm02_d1, intBearTm02_d1, time))
+    string tip02 = buildDetailsTooltip(isBuy02, lvl02, isBuy02 ? nweBull02_h4 : nweBear02_h4, isBuy02 ? nweBull02_d1 : nweBear02_d1, lnNear02_h4, lnAvg02_h4, unNear02_h4, unAvg02_h4, lnNear02_d1, lnAvg02_d1, unNear02_d1, unAvg02_d1, isBuy02 ? bullF02_h4 : bearF02_h4, isBuy02 ? bullT02_h4 : bearT02_h4, isBuy02 ? bullTm02_h4 : bearTm02_h4, isBuy02 ? bullZH02_h4 : bearZH02_h4, isBuy02 ? bullZL02_h4 : bearZL02_h4, isBuy02 ? bullF02_d1 : bearF02_d1, isBuy02 ? bullT02_d1 : bearT02_d1, isBuy02 ? bullTm02_d1 : bearTm02_d1, isBuy02 ? bullZH02_d1 : bearZH02_d1, isBuy02 ? bullZL02_d1 : bearZL02_d1, isBuy02 ? bullF02_w1 : bearF02_w1, isBuy02 ? bullT02_w1 : bearT02_w1, isBuy02 ? bullTm02_w1 : bearTm02_w1, isBuy02 ? bullZH02_w1 : bearZH02_w1, isBuy02 ? bullZL02_w1 : bearZL02_w1)
+    table.cell(sigTable, 0, 2, getSymbolName(s02), text_color=color.white, text_size=size.small)
+    table.cell(sigTable, 1, 2, getSignalText(buyLvl02, sellLvl02), text_color=getSignalColor(buyLvl02, sellLvl02), text_size=size.small)
+    table.cell(sigTable, 2, 2, getLevelText(buyLvl02, sellLvl02), text_color=getSignalColor(buyLvl02, sellLvl02), text_size=size.small)
+    table.cell(sigTable, 3, 2, det02, text_color=color.white, text_size=size.small, tooltip=tip02)
+
+    // Symbol 03
+    bool isBuy03 = buyLvl03 >= sellLvl03 and buyLvl03 > 0
+    int lvl03 = isBuy03 ? buyLvl03 : sellLvl03
+    string det03 = lvl03 > 0 ? "NWE:" + (isBuy03 ? buildNweDetail(nweBull03_h4, nweBull03_d1) : buildNweDetail(nweBear03_h4, nweBear03_d1)) : "-"
+    if lvl03 >= 2
+        det03 := det03 + " OB:" + (isBuy03 ? buildObDetail(bullF03_h4, bullF03_d1, bullF03_w1) : buildObDetail(bearF03_h4, bearF03_d1, bearF03_w1))
+    if lvl03 == 3
+        det03 := det03 + " DIV:" + (isBuy03 ? buildDivDetail(divBullTm03_h4, intBullTm03_h4, divBullTm03_d1, intBullTm03_d1, time) : buildDivDetail(divBearTm03_h4, intBearTm03_h4, divBearTm03_d1, intBearTm03_d1, time))
+    string tip03 = buildDetailsTooltip(isBuy03, lvl03, isBuy03 ? nweBull03_h4 : nweBear03_h4, isBuy03 ? nweBull03_d1 : nweBear03_d1, lnNear03_h4, lnAvg03_h4, unNear03_h4, unAvg03_h4, lnNear03_d1, lnAvg03_d1, unNear03_d1, unAvg03_d1, isBuy03 ? bullF03_h4 : bearF03_h4, isBuy03 ? bullT03_h4 : bearT03_h4, isBuy03 ? bullTm03_h4 : bearTm03_h4, isBuy03 ? bullZH03_h4 : bearZH03_h4, isBuy03 ? bullZL03_h4 : bearZL03_h4, isBuy03 ? bullF03_d1 : bearF03_d1, isBuy03 ? bullT03_d1 : bearT03_d1, isBuy03 ? bullTm03_d1 : bearTm03_d1, isBuy03 ? bullZH03_d1 : bearZH03_d1, isBuy03 ? bullZL03_d1 : bearZL03_d1, isBuy03 ? bullF03_w1 : bearF03_w1, isBuy03 ? bullT03_w1 : bearT03_w1, isBuy03 ? bullTm03_w1 : bearTm03_w1, isBuy03 ? bullZH03_w1 : bearZH03_w1, isBuy03 ? bullZL03_w1 : bearZL03_w1)
+    table.cell(sigTable, 0, 3, getSymbolName(s03), text_color=color.white, text_size=size.small)
+    table.cell(sigTable, 1, 3, getSignalText(buyLvl03, sellLvl03), text_color=getSignalColor(buyLvl03, sellLvl03), text_size=size.small)
+    table.cell(sigTable, 2, 3, getLevelText(buyLvl03, sellLvl03), text_color=getSignalColor(buyLvl03, sellLvl03), text_size=size.small)
+    table.cell(sigTable, 3, 3, det03, text_color=color.white, text_size=size.small, tooltip=tip03)
+
+    // Symbol 04
+    bool isBuy04 = buyLvl04 >= sellLvl04 and buyLvl04 > 0
+    int lvl04 = isBuy04 ? buyLvl04 : sellLvl04
+    string det04 = lvl04 > 0 ? "NWE:" + (isBuy04 ? buildNweDetail(nweBull04_h4, nweBull04_d1) : buildNweDetail(nweBear04_h4, nweBear04_d1)) : "-"
+    if lvl04 >= 2
+        det04 := det04 + " OB:" + (isBuy04 ? buildObDetail(bullF04_h4, bullF04_d1, bullF04_w1) : buildObDetail(bearF04_h4, bearF04_d1, bearF04_w1))
+    if lvl04 == 3
+        det04 := det04 + " DIV:" + (isBuy04 ? buildDivDetail(divBullTm04_h4, intBullTm04_h4, divBullTm04_d1, intBullTm04_d1, time) : buildDivDetail(divBearTm04_h4, intBearTm04_h4, divBearTm04_d1, intBearTm04_d1, time))
+    string tip04 = buildDetailsTooltip(isBuy04, lvl04, isBuy04 ? nweBull04_h4 : nweBear04_h4, isBuy04 ? nweBull04_d1 : nweBear04_d1, lnNear04_h4, lnAvg04_h4, unNear04_h4, unAvg04_h4, lnNear04_d1, lnAvg04_d1, unNear04_d1, unAvg04_d1, isBuy04 ? bullF04_h4 : bearF04_h4, isBuy04 ? bullT04_h4 : bearT04_h4, isBuy04 ? bullTm04_h4 : bearTm04_h4, isBuy04 ? bullZH04_h4 : bearZH04_h4, isBuy04 ? bullZL04_h4 : bearZL04_h4, isBuy04 ? bullF04_d1 : bearF04_d1, isBuy04 ? bullT04_d1 : bearT04_d1, isBuy04 ? bullTm04_d1 : bearTm04_d1, isBuy04 ? bullZH04_d1 : bearZH04_d1, isBuy04 ? bullZL04_d1 : bearZL04_d1, isBuy04 ? bullF04_w1 : bearF04_w1, isBuy04 ? bullT04_w1 : bearT04_w1, isBuy04 ? bullTm04_w1 : bearTm04_w1, isBuy04 ? bullZH04_w1 : bearZH04_w1, isBuy04 ? bullZL04_w1 : bearZL04_w1)
+    table.cell(sigTable, 0, 4, getSymbolName(s04), text_color=color.white, text_size=size.small)
+    table.cell(sigTable, 1, 4, getSignalText(buyLvl04, sellLvl04), text_color=getSignalColor(buyLvl04, sellLvl04), text_size=size.small)
+    table.cell(sigTable, 2, 4, getLevelText(buyLvl04, sellLvl04), text_color=getSignalColor(buyLvl04, sellLvl04), text_size=size.small)
+    table.cell(sigTable, 3, 4, det04, text_color=color.white, text_size=size.small, tooltip=tip04)
+
+    // Symbol 05
+    bool isBuy05 = buyLvl05 >= sellLvl05 and buyLvl05 > 0
+    int lvl05 = isBuy05 ? buyLvl05 : sellLvl05
+    string det05 = lvl05 > 0 ? "NWE:" + (isBuy05 ? buildNweDetail(nweBull05_h4, nweBull05_d1) : buildNweDetail(nweBear05_h4, nweBear05_d1)) : "-"
+    if lvl05 >= 2
+        det05 := det05 + " OB:" + (isBuy05 ? buildObDetail(bullF05_h4, bullF05_d1, bullF05_w1) : buildObDetail(bearF05_h4, bearF05_d1, bearF05_w1))
+    if lvl05 == 3
+        det05 := det05 + " DIV:" + (isBuy05 ? buildDivDetail(divBullTm05_h4, intBullTm05_h4, divBullTm05_d1, intBullTm05_d1, time) : buildDivDetail(divBearTm05_h4, intBearTm05_h4, divBearTm05_d1, intBearTm05_d1, time))
+    string tip05 = buildDetailsTooltip(isBuy05, lvl05, isBuy05 ? nweBull05_h4 : nweBear05_h4, isBuy05 ? nweBull05_d1 : nweBear05_d1, lnNear05_h4, lnAvg05_h4, unNear05_h4, unAvg05_h4, lnNear05_d1, lnAvg05_d1, unNear05_d1, unAvg05_d1, isBuy05 ? bullF05_h4 : bearF05_h4, isBuy05 ? bullT05_h4 : bearT05_h4, isBuy05 ? bullTm05_h4 : bearTm05_h4, isBuy05 ? bullZH05_h4 : bearZH05_h4, isBuy05 ? bullZL05_h4 : bearZL05_h4, isBuy05 ? bullF05_d1 : bearF05_d1, isBuy05 ? bullT05_d1 : bearT05_d1, isBuy05 ? bullTm05_d1 : bearTm05_d1, isBuy05 ? bullZH05_d1 : bearZH05_d1, isBuy05 ? bullZL05_d1 : bearZL05_d1, isBuy05 ? bullF05_w1 : bearF05_w1, isBuy05 ? bullT05_w1 : bearT05_w1, isBuy05 ? bullTm05_w1 : bearTm05_w1, isBuy05 ? bullZH05_w1 : bearZH05_w1, isBuy05 ? bullZL05_w1 : bearZL05_w1)
+    table.cell(sigTable, 0, 5, getSymbolName(s05), text_color=color.white, text_size=size.small)
+    table.cell(sigTable, 1, 5, getSignalText(buyLvl05, sellLvl05), text_color=getSignalColor(buyLvl05, sellLvl05), text_size=size.small)
+    table.cell(sigTable, 2, 5, getLevelText(buyLvl05, sellLvl05), text_color=getSignalColor(buyLvl05, sellLvl05), text_size=size.small)
+    table.cell(sigTable, 3, 5, det05, text_color=color.white, text_size=size.small, tooltip=tip05)
+
+    // Symbol 06
+    bool isBuy06 = buyLvl06 >= sellLvl06 and buyLvl06 > 0
+    int lvl06 = isBuy06 ? buyLvl06 : sellLvl06
+    string det06 = lvl06 > 0 ? "NWE:" + (isBuy06 ? buildNweDetail(nweBull06_h4, nweBull06_d1) : buildNweDetail(nweBear06_h4, nweBear06_d1)) : "-"
+    if lvl06 >= 2
+        det06 := det06 + " OB:" + (isBuy06 ? buildObDetail(bullF06_h4, bullF06_d1, bullF06_w1) : buildObDetail(bearF06_h4, bearF06_d1, bearF06_w1))
+    if lvl06 == 3
+        det06 := det06 + " DIV:" + (isBuy06 ? buildDivDetail(divBullTm06_h4, intBullTm06_h4, divBullTm06_d1, intBullTm06_d1, time) : buildDivDetail(divBearTm06_h4, intBearTm06_h4, divBearTm06_d1, intBearTm06_d1, time))
+    string tip06 = buildDetailsTooltip(isBuy06, lvl06, isBuy06 ? nweBull06_h4 : nweBear06_h4, isBuy06 ? nweBull06_d1 : nweBear06_d1, lnNear06_h4, lnAvg06_h4, unNear06_h4, unAvg06_h4, lnNear06_d1, lnAvg06_d1, unNear06_d1, unAvg06_d1, isBuy06 ? bullF06_h4 : bearF06_h4, isBuy06 ? bullT06_h4 : bearT06_h4, isBuy06 ? bullTm06_h4 : bearTm06_h4, isBuy06 ? bullZH06_h4 : bearZH06_h4, isBuy06 ? bullZL06_h4 : bearZL06_h4, isBuy06 ? bullF06_d1 : bearF06_d1, isBuy06 ? bullT06_d1 : bearT06_d1, isBuy06 ? bullTm06_d1 : bearTm06_d1, isBuy06 ? bullZH06_d1 : bearZH06_d1, isBuy06 ? bullZL06_d1 : bearZL06_d1, isBuy06 ? bullF06_w1 : bearF06_w1, isBuy06 ? bullT06_w1 : bearT06_w1, isBuy06 ? bullTm06_w1 : bearTm06_w1, isBuy06 ? bullZH06_w1 : bearZH06_w1, isBuy06 ? bullZL06_w1 : bearZL06_w1)
+    table.cell(sigTable, 0, 6, getSymbolName(s06), text_color=color.white, text_size=size.small)
+    table.cell(sigTable, 1, 6, getSignalText(buyLvl06, sellLvl06), text_color=getSignalColor(buyLvl06, sellLvl06), text_size=size.small)
+    table.cell(sigTable, 2, 6, getLevelText(buyLvl06, sellLvl06), text_color=getSignalColor(buyLvl06, sellLvl06), text_size=size.small)
+    table.cell(sigTable, 3, 6, det06, text_color=color.white, text_size=size.small, tooltip=tip06)
+
+    // Symbol 07
+    bool isBuy07 = buyLvl07 >= sellLvl07 and buyLvl07 > 0
+    int lvl07 = isBuy07 ? buyLvl07 : sellLvl07
+    string det07 = lvl07 > 0 ? "NWE:" + (isBuy07 ? buildNweDetail(nweBull07_h4, nweBull07_d1) : buildNweDetail(nweBear07_h4, nweBear07_d1)) : "-"
+    if lvl07 >= 2
+        det07 := det07 + " OB:" + (isBuy07 ? buildObDetail(bullF07_h4, bullF07_d1, bullF07_w1) : buildObDetail(bearF07_h4, bearF07_d1, bearF07_w1))
+    if lvl07 == 3
+        det07 := det07 + " DIV:" + (isBuy07 ? buildDivDetail(divBullTm07_h4, intBullTm07_h4, divBullTm07_d1, intBullTm07_d1, time) : buildDivDetail(divBearTm07_h4, intBearTm07_h4, divBearTm07_d1, intBearTm07_d1, time))
+    string tip07 = buildDetailsTooltip(isBuy07, lvl07, isBuy07 ? nweBull07_h4 : nweBear07_h4, isBuy07 ? nweBull07_d1 : nweBear07_d1, lnNear07_h4, lnAvg07_h4, unNear07_h4, unAvg07_h4, lnNear07_d1, lnAvg07_d1, unNear07_d1, unAvg07_d1, isBuy07 ? bullF07_h4 : bearF07_h4, isBuy07 ? bullT07_h4 : bearT07_h4, isBuy07 ? bullTm07_h4 : bearTm07_h4, isBuy07 ? bullZH07_h4 : bearZH07_h4, isBuy07 ? bullZL07_h4 : bearZL07_h4, isBuy07 ? bullF07_d1 : bearF07_d1, isBuy07 ? bullT07_d1 : bearT07_d1, isBuy07 ? bullTm07_d1 : bearTm07_d1, isBuy07 ? bullZH07_d1 : bearZH07_d1, isBuy07 ? bullZL07_d1 : bearZL07_d1, isBuy07 ? bullF07_w1 : bearF07_w1, isBuy07 ? bullT07_w1 : bearT07_w1, isBuy07 ? bullTm07_w1 : bearTm07_w1, isBuy07 ? bullZH07_w1 : bearZH07_w1, isBuy07 ? bullZL07_w1 : bearZL07_w1)
+    table.cell(sigTable, 0, 7, getSymbolName(s07), text_color=color.white, text_size=size.small)
+    table.cell(sigTable, 1, 7, getSignalText(buyLvl07, sellLvl07), text_color=getSignalColor(buyLvl07, sellLvl07), text_size=size.small)
+    table.cell(sigTable, 2, 7, getLevelText(buyLvl07, sellLvl07), text_color=getSignalColor(buyLvl07, sellLvl07), text_size=size.small)
+    table.cell(sigTable, 3, 7, det07, text_color=color.white, text_size=size.small, tooltip=tip07)
+
+    // Symbol 08
+    bool isBuy08 = buyLvl08 >= sellLvl08 and buyLvl08 > 0
+    int lvl08 = isBuy08 ? buyLvl08 : sellLvl08
+    string det08 = lvl08 > 0 ? "NWE:" + (isBuy08 ? buildNweDetail(nweBull08_h4, nweBull08_d1) : buildNweDetail(nweBear08_h4, nweBear08_d1)) : "-"
+    if lvl08 >= 2
+        det08 := det08 + " OB:" + (isBuy08 ? buildObDetail(bullF08_h4, bullF08_d1, bullF08_w1) : buildObDetail(bearF08_h4, bearF08_d1, bearF08_w1))
+    if lvl08 == 3
+        det08 := det08 + " DIV:" + (isBuy08 ? buildDivDetail(divBullTm08_h4, intBullTm08_h4, divBullTm08_d1, intBullTm08_d1, time) : buildDivDetail(divBearTm08_h4, intBearTm08_h4, divBearTm08_d1, intBearTm08_d1, time))
+    string tip08 = buildDetailsTooltip(isBuy08, lvl08, isBuy08 ? nweBull08_h4 : nweBear08_h4, isBuy08 ? nweBull08_d1 : nweBear08_d1, lnNear08_h4, lnAvg08_h4, unNear08_h4, unAvg08_h4, lnNear08_d1, lnAvg08_d1, unNear08_d1, unAvg08_d1, isBuy08 ? bullF08_h4 : bearF08_h4, isBuy08 ? bullT08_h4 : bearT08_h4, isBuy08 ? bullTm08_h4 : bearTm08_h4, isBuy08 ? bullZH08_h4 : bearZH08_h4, isBuy08 ? bullZL08_h4 : bearZL08_h4, isBuy08 ? bullF08_d1 : bearF08_d1, isBuy08 ? bullT08_d1 : bearT08_d1, isBuy08 ? bullTm08_d1 : bearTm08_d1, isBuy08 ? bullZH08_d1 : bearZH08_d1, isBuy08 ? bullZL08_d1 : bearZL08_d1, isBuy08 ? bullF08_w1 : bearF08_w1, isBuy08 ? bullT08_w1 : bearT08_w1, isBuy08 ? bullTm08_w1 : bearTm08_w1, isBuy08 ? bullZH08_w1 : bearZH08_w1, isBuy08 ? bullZL08_w1 : bearZL08_w1)
+    table.cell(sigTable, 0, 8, getSymbolName(s08), text_color=color.white, text_size=size.small)
+    table.cell(sigTable, 1, 8, getSignalText(buyLvl08, sellLvl08), text_color=getSignalColor(buyLvl08, sellLvl08), text_size=size.small)
+    table.cell(sigTable, 2, 8, getLevelText(buyLvl08, sellLvl08), text_color=getSignalColor(buyLvl08, sellLvl08), text_size=size.small)
+    table.cell(sigTable, 3, 8, det08, text_color=color.white, text_size=size.small, tooltip=tip08)
+
+// Required for valid indicator
+plot(na)
