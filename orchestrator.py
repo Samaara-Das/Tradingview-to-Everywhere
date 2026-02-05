@@ -270,10 +270,21 @@ class TieredOrchestrator:
             logger.info(f"Clicked on {NWE_SCREENER_SHORTTITLE} indicator")
 
             # Create webhook alert for NWE screener
-            if not self.browser.create_webhook_alert(
+            success, error_type = self.browser.create_webhook_alert(
                 NWE_SCREENER_SHORTTITLE, self.nwe_webhook_url
-            ):
-                logger.error("Failed to create webhook alert for NWE screener")
+            )
+            if not success:
+                if error_type == "data_subscription":
+                    logger.warning(
+                        f"Data subscription error for NWE batch - marking {len(symbol_strings)} symbols as scanned and skipping"
+                    )
+                    print(
+                        f"[DEBUG] Data subscription error - marking symbols as scanned",
+                        flush=True,
+                    )
+                    self.api.mark_symbols_scanned(symbol_strings)
+                else:
+                    logger.error("Failed to create webhook alert for NWE screener")
                 return
 
             logger.info(
@@ -443,10 +454,18 @@ class TieredOrchestrator:
                 logger.info(f"Clicked on {OBDIV_SCREENER_SHORTTITLE} indicator")
 
                 # Create webhook alert for OBDIV screener
-                if not self.browser.create_webhook_alert(
+                success, error_type = self.browser.create_webhook_alert(
                     OBDIV_SCREENER_SHORTTITLE, self.obdiv_webhook_url
-                ):
-                    logger.error("Failed to create webhook alert for OBDIV screener")
+                )
+                if not success:
+                    if error_type == "data_subscription":
+                        logger.warning(
+                            f"Data subscription error for OBDIV batch - skipping to next batch"
+                        )
+                    else:
+                        logger.error(
+                            "Failed to create webhook alert for OBDIV screener"
+                        )
                     continue
 
                 logger.info(

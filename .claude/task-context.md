@@ -1,8 +1,8 @@
 # Task Context Tracker
 
 **Last Updated**: 2026-02-04
-**Current Task**: Task 5 - E2E Testing (Phase 1 and Phase 2)
-**Last Session**: Hot Symbol Expiration System Implementation
+**Current Task**: Task 6 - Test signals display on Stock Buddy grid
+**Last Session**: E2E Testing completed (Task 5)
 
 ---
 
@@ -14,18 +14,18 @@
 | 2 | Create TTE OBDIV Screener v2 Pine Script | **done** | high | - |
 | 3 | Implement TieredOrchestrator class | **done** | high | 1, 2 |
 | 4 | Fix screener webhooks to fire instantly | **done** | high | 1, 2 |
-| 5 | Test orchestrator E2E - Phase 1 and Phase 2 | pending | high | 3, 4 |
+| 5 | Test orchestrator E2E - Phase 1 and Phase 2 | **done** | high | 3, 4 |
 | 6 | Test signals display on Stock Buddy grid | pending | medium | 5 |
 | 7 | Analyze architecture impact on signal delay | **done** | high | - |
 | 8 | Verify TradingView screener signal accuracy | pending | high | - |
 | 9 | Send signal screenshots to Stock Buddy | pending | medium | - |
 
-**Stats**: 9 tasks, 56% complete (5 done, 4 pending)
+**Stats**: 9 tasks, 67% complete (6 done, 3 pending)
 
 ### Task 5 Subtasks
-- 5.1: Prevent price-crossing alerts instead of screener alerts (pending)
-- 5.2: Reduce webhook wait time with alert log monitoring (pending)
-- 5.3: Handle data subscription error in Create Alert dialog (pending)
+- 5.1: Prevent price-crossing alerts instead of screener alerts (**done**)
+- 5.2: Reduce webhook wait time with alert log monitoring (skipped - not needed)
+- 5.3: Handle data subscription error in Create Alert dialog (**done**)
 
 ### Task 6 Subtasks
 - 6.1: Verify Stock Buddy grid displays correct signal info (pending)
@@ -33,6 +33,48 @@
 ---
 
 ## Session History
+
+### Session: 2026-02-04 (Data Subscription Error Handling - Task 5.3)
+
+**Goal**: Handle TradingView "data subscription" error in Create Alert dialog when screener contains symbols the user's plan doesn't support
+
+**Problem Identified**:
+1. Wrong CSS selector: Code used `div[data-name="error-hint"]` but actual HTML uses `div[data-qa-id="error-hint"]`
+2. No error differentiation: Code detected errors but didn't distinguish data subscription errors
+3. Phase 1 stops entirely: Returned on failure instead of continuing to next batch
+
+**Changes Implemented**:
+
+1. **`open_tv.py` - Fixed CSS selector** (line 972):
+   - Changed `div[data-name="error-hint"]` → `div[data-qa-id="error-hint"]`
+
+2. **`open_tv.py` - Updated `create_webhook_alert()` return type** (lines 1007-1147):
+   - Changed from `bool` to `tuple[bool, str | None]`
+   - Return values:
+     - `(True, None)` - Success
+     - `(False, None)` - Generic error
+     - `(False, "data_subscription")` - Data subscription error
+     - `(False, "condition_invalid")` - Screener not in dropdown
+   - Added error text extraction: `error_text = error_element.text.lower()`
+   - Added data subscription detection: `if "data subscription" in error_text`
+
+3. **`orchestrator.py` - Phase 1 handling** (lines 273-288):
+   - Unpacks tuple: `success, error_type = self.browser.create_webhook_alert(...)`
+   - On data subscription error: Logs warning, marks symbols as scanned, returns
+   - On other errors: Logs error and returns
+
+4. **`orchestrator.py` - Phase 2 handling** (lines 457-469):
+   - Unpacks tuple: `success, error_type = self.browser.create_webhook_alert(...)`
+   - On data subscription error: Logs warning, continues to next batch
+   - On other errors: Logs error, continues to next batch
+
+**Behavior Change**:
+- Before: Any alert creation error would stop Phase 1 entirely
+- After: Data subscription errors mark symbols as scanned and skip to next batch/cycle
+
+**Error Detection**: Looks for `"data subscription"` in error text (case-insensitive), robust to minor TradingView wording changes
+
+---
 
 ### Session: 2026-02-04 (Hot Symbol Expiration System Implementation)
 
@@ -485,6 +527,11 @@ python tiered_main.py
    - Fix: Added Cancel button as primary method, proper error logging
    - File: `open_tv.py` lines 1130-1159
 
+7. **Wrong error-hint CSS selector** (2026-02-04):
+   - Cause: Used `div[data-name="error-hint"]` but TradingView HTML uses `div[data-qa-id="error-hint"]`
+   - Fix: Changed to correct `data-qa-id` selector
+   - File: `open_tv.py` lines 972, 1116
+
 ---
 
 ## Verified Patterns
@@ -550,6 +597,18 @@ selectors = [
 'button[name="cancel"][data-qa-id="cancel"]'
 # Close (X) button (fallback)
 'button[data-name="close"]'
+```
+
+### Alert Dialog Error Detection (Working - 2026-02-04)
+```python
+# Error hint selector (note: data-qa-id, NOT data-name)
+'div[data-qa-id="alerts-create-edit-dialog"] div[data-qa-id="error-hint"]'
+
+# Data subscription error detection
+error_text = error_element.text.lower()
+if "data subscription" in error_text:
+    # Symbol not available in user's TradingView plan
+    return (False, "data_subscription")
 ```
 
 ### Hot Symbol Expiration API Tests (Working - 2026-02-04)
