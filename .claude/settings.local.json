@@ -18,7 +18,8 @@
       "Bash(pipenv run python:*)",
       "WebFetch(domain:www.selenium.dev)",
       "Bash(git push:*)",
-      "Skill(pinescript)"
+      "Skill(pinescript)",
+      "Skill(pine-script-expert)"
     ],
     "deny": [
       "Bash(git push --force*)",
@@ -102,8 +103,12 @@
       "Bash(*powershell*hidden*)",
       "Bash(*> /dev/sda*)",
       "Bash(python -c*__import__*os*system*)",
-      "Bash(python -c*exec*compile*)"
+      "Bash(python -c*exec*compile*)",
+      "Bash(echo 'TEST_DENY_LIST_1')",
+      "Bash(echo TEST_DENY_LIST_2)",
+      "Bash(ls -la /test_deny*)"
     ]
   },
-  "model": "sonnet"
+  "model": "sonnet",
+  "defaultMode": "bypassPermissions"
 }

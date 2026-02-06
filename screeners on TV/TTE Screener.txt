@@ -6,8 +6,9 @@
 // - Nadaraya-Watson Envelope (NWE) on H4 and Daily
 // - Order Block & FVG detection on H4, Daily, and Weekly
 // - Kernel AO Divergence (Logic 2) on H4 and Daily
-// When signal levels change, a JSON alert is fired (non-repainting, on bar close).
-// Alert format: {"symbol":"XXX","signal":"BUY","level":3,"details":"NWE:H4,D1 OB:W1 DIV:H4"}
+// Fires alert on every bar when at least 1 signal is present.
+// Includes ALL raw signals (bullish AND bearish) - no signal level hierarchy.
+// Symbols with no signals are excluded from payload.
 
 //@version=5
 indicator("TTE Screener", 'Screener', overlay = true, precision = 5, max_bars_back = 500)
@@ -27,9 +28,9 @@ int f4 = input.int(1000, 'fill4')
 int f5 = input.int(1000, 'fill5')
 
 // Timeframes for calculations
-string TF_H4 = "240"    // 4 hour
-string TF_D1 = "D"      // Daily
-string TF_W1 = "W"      // Weekly
+string TF_H4 = "1"      // 1 minute (temporary testing)
+string TF_D1 = "5"      // 5 minutes (temporary testing)
+string TF_W1 = "15"     // 15 minutes (temporary testing)
 
 // Symbol inputs
 usedSymbols = input.int(4, title = 'Used Symbols', group = 'Symbols', tooltip = 'The total number of symbols which will be checked for entries')
@@ -426,12 +427,15 @@ scanOBRange(simple string tf) =>
                     if low[j] <= fillLevel
                         isFVGFilled := true
                 j := j - 1
+                if (isBroken and isReversed) and (isFVGFilled or fvgHeight <= 0)
+                    break
 
             // If we detected a breaker but stopped early, continue checking for reversal
             // Bullish OB breaker (resistance) reverses when close > obHigh
             if isBroken and not isReversed and endBar > 0
+                int brkEnd = math.max(0, endBar - ob_lifecycleDepth)
                 int k = endBar - 1
-                while k >= 0
+                while k >= brkEnd
                     if close[k] > obHigh
                         isReversed := true
                         break
@@ -522,12 +526,15 @@ scanOBRange(simple string tf) =>
                     if high[j] >= fillLevel
                         isFVGFilled := true
                 j := j - 1
+                if (isBroken and isReversed) and (isFVGFilled or fvgHeight <= 0)
+                    break
 
             // If we detected a breaker but stopped early, continue checking for reversal
             // Bearish OB breaker (support) reverses when close < obLow
             if isBroken and not isReversed and endBar > 0
+                int brkEnd = math.max(0, endBar - ob_lifecycleDepth)
                 int k = endBar - 1
-                while k >= 0
+                while k >= brkEnd
                     if close[k] < obLow
                         isReversed := true
                         break
@@ -646,11 +653,13 @@ checkOBOnly(simple string tf) =>
 [nweBull03_h4, nweBear03_h4, lnNear03_h4, lnAvg03_h4, unNear03_h4, unAvg03_h4, bullF03_h4, bullZT03_h4, bullT03_h4, bullTm03_h4, bullZH03_h4, bullZL03_h4, bearF03_h4, bearZT03_h4, bearT03_h4, bearTm03_h4, bearZH03_h4, bearZL03_h4, divBullTm03_h4, divBearTm03_h4] = request.security(s03, TF_H4, checkSignalWithOB(TF_H4))
 [nweBull04_h4, nweBear04_h4, lnNear04_h4, lnAvg04_h4, unNear04_h4, unAvg04_h4, bullF04_h4, bullZT04_h4, bullT04_h4, bullTm04_h4, bullZH04_h4, bullZL04_h4, bearF04_h4, bearZT04_h4, bearT04_h4, bearTm04_h4, bearZH04_h4, bearZL04_h4, divBullTm04_h4, divBearTm04_h4] = request.security(s04, TF_H4, checkSignalWithOB(TF_H4))
 
+
 // Daily timeframe - Combined NWE + OB overlap + Divergence (20 values each)
 [nweBull01_d1, nweBear01_d1, lnNear01_d1, lnAvg01_d1, unNear01_d1, unAvg01_d1, bullF01_d1, bullZT01_d1, bullT01_d1, bullTm01_d1, bullZH01_d1, bullZL01_d1, bearF01_d1, bearZT01_d1, bearT01_d1, bearTm01_d1, bearZH01_d1, bearZL01_d1, divBullTm01_d1, divBearTm01_d1] = request.security(s01, TF_D1, checkSignalWithOB(TF_D1))
 [nweBull02_d1, nweBear02_d1, lnNear02_d1, lnAvg02_d1, unNear02_d1, unAvg02_d1, bullF02_d1, bullZT02_d1, bullT02_d1, bullTm02_d1, bullZH02_d1, bullZL02_d1, bearF02_d1, bearZT02_d1, bearT02_d1, bearTm02_d1, bearZH02_d1, bearZL02_d1, divBullTm02_d1, divBearTm02_d1] = request.security(s02, TF_D1, checkSignalWithOB(TF_D1))
 [nweBull03_d1, nweBear03_d1, lnNear03_d1, lnAvg03_d1, unNear03_d1, unAvg03_d1, bullF03_d1, bullZT03_d1, bullT03_d1, bullTm03_d1, bullZH03_d1, bullZL03_d1, bearF03_d1, bearZT03_d1, bearT03_d1, bearTm03_d1, bearZH03_d1, bearZL03_d1, divBullTm03_d1, divBearTm03_d1] = request.security(s03, TF_D1, checkSignalWithOB(TF_D1))
 [nweBull04_d1, nweBear04_d1, lnNear04_d1, lnAvg04_d1, unNear04_d1, unAvg04_d1, bullF04_d1, bullZT04_d1, bullT04_d1, bullTm04_d1, bullZH04_d1, bullZL04_d1, bearF04_d1, bearZT04_d1, bearT04_d1, bearTm04_d1, bearZH04_d1, bearZL04_d1, divBullTm04_d1, divBearTm04_d1] = request.security(s04, TF_D1, checkSignalWithOB(TF_D1))
+
 
 // Weekly timeframe - OB overlap only (no NWE)
 // Returns: [bullFound, bullZoneType, bullType, bullZoneTime, bullZoneHigh, bullZoneLow,
@@ -663,68 +672,8 @@ checkOBOnly(simple string tf) =>
 // Total request.security() calls: 12 (8 H4+D1 combined + 4 W1 OB-only)
 
 //////////////////////////////////
-// REGIME 1 REVERSAL SIGNALS    //
+// JSON HELPER FUNCTIONS        //
 //////////////////////////////////
-
-// Signal detection for each symbol
-// Logic: NWE zone (level 1) → OB/FVG overlap (level 2) → Divergence on current bar (level 3)
-// NWE zone booleans are now returned from request.security (checked in correct TF context)
-// nweBull##_h4/d1 = true if price is in lower NWE zone on that TF
-// nweBear##_h4/d1 = true if price is in upper NWE zone on that TF
-
-// Symbol 01 signal check
-bool nweBull01 = nweBull01_h4 or nweBull01_d1
-bool nweBear01 = nweBear01_h4 or nweBear01_d1
-bool obBull01 = bullF01_h4 == 1 or bullF01_d1 == 1 or bullF01_w1 == 1
-bool obBear01 = bearF01_h4 == 1 or bearF01_d1 == 1 or bearF01_w1 == 1
-bool divBull01 = (divBullTm01_h4 == time) or (divBullTm01_d1 == time)
-bool divBear01 = (divBearTm01_h4 == time) or (divBearTm01_d1 == time)
-int buyLvl01 = nweBull01 ? (obBull01 ? (divBull01 ? 3 : 2) : 1) : 0
-int sellLvl01 = nweBear01 ? (obBear01 ? (divBear01 ? 3 : 2) : 1) : 0
-
-// Symbol 02 signal check
-bool nweBull02 = nweBull02_h4 or nweBull02_d1
-bool nweBear02 = nweBear02_h4 or nweBear02_d1
-bool obBull02 = bullF02_h4 == 1 or bullF02_d1 == 1 or bullF02_w1 == 1
-bool obBear02 = bearF02_h4 == 1 or bearF02_d1 == 1 or bearF02_w1 == 1
-bool divBull02 = (divBullTm02_h4 == time) or (divBullTm02_d1 == time)
-bool divBear02 = (divBearTm02_h4 == time) or (divBearTm02_d1 == time)
-int buyLvl02 = nweBull02 ? (obBull02 ? (divBull02 ? 3 : 2) : 1) : 0
-int sellLvl02 = nweBear02 ? (obBear02 ? (divBear02 ? 3 : 2) : 1) : 0
-
-// Symbol 03 signal check
-bool nweBull03 = nweBull03_h4 or nweBull03_d1
-bool nweBear03 = nweBear03_h4 or nweBear03_d1
-bool obBull03 = bullF03_h4 == 1 or bullF03_d1 == 1 or bullF03_w1 == 1
-bool obBear03 = bearF03_h4 == 1 or bearF03_d1 == 1 or bearF03_w1 == 1
-bool divBull03 = (divBullTm03_h4 == time) or (divBullTm03_d1 == time)
-bool divBear03 = (divBearTm03_h4 == time) or (divBearTm03_d1 == time)
-int buyLvl03 = nweBull03 ? (obBull03 ? (divBull03 ? 3 : 2) : 1) : 0
-int sellLvl03 = nweBear03 ? (obBear03 ? (divBear03 ? 3 : 2) : 1) : 0
-
-// Symbol 04 signal check
-bool nweBull04 = nweBull04_h4 or nweBull04_d1
-bool nweBear04 = nweBear04_h4 or nweBear04_d1
-bool obBull04 = bullF04_h4 == 1 or bullF04_d1 == 1 or bullF04_w1 == 1
-bool obBear04 = bearF04_h4 == 1 or bearF04_d1 == 1 or bearF04_w1 == 1
-bool divBull04 = (divBullTm04_h4 == time) or (divBullTm04_d1 == time)
-bool divBear04 = (divBearTm04_h4 == time) or (divBearTm04_d1 == time)
-int buyLvl04 = nweBull04 ? (obBull04 ? (divBull04 ? 3 : 2) : 1) : 0
-int sellLvl04 = nweBear04 ? (obBear04 ? (divBear04 ? 3 : 2) : 1) : 0
-
-////////////////////////////
-// STATE TRACKING & ALERTS //
-////////////////////////////
-
-// Track previous signal levels for change detection (persist across bars)
-var int prevBuyLvl01 = 0, var int prevSellLvl01 = 0
-var int prevBuyLvl02 = 0, var int prevSellLvl02 = 0
-var int prevBuyLvl03 = 0, var int prevSellLvl03 = 0
-var int prevBuyLvl04 = 0, var int prevSellLvl04 = 0
-
-//////////////////////
-// DEBUG: DISPLAY   //
-//////////////////////
 
 // Helper function to format symbol name (removes exchange prefix)
 getSymbolName(string fullSymbol) =>
@@ -732,6 +681,84 @@ getSymbolName(string fullSymbol) =>
     if str.contains(fullSymbol, ":")
         result := array.get(str.split(fullSymbol, ":"), 1)
     result
+
+// Get NWE zone name based on which band price is in
+// For bullish: lower_avg (between lower_near and lower_avg) or lower_far (between lower_avg and lower_far)
+// For bearish: upper_avg (between upper_near and upper_avg) or upper_far (between upper_avg and upper_far)
+getNweZoneName(bool isBull, float _low, float _high, float lowerNear, float lowerAvg, float lowerFar, float upperNear, float upperAvg, float upperFar) =>
+    string zone = ""
+    if isBull
+        // Check if in lower_avg zone (lower_near to lower_avg)
+        if _low <= lowerNear and _high >= lowerAvg
+            zone := "lower_avg"
+        // Check if in lower_far zone (lower_avg to lower_far)
+        else if _low <= lowerAvg and _high >= lowerFar
+            zone := "lower_far"
+    else
+        // Check if in upper_avg zone (upper_near to upper_avg)
+        if _high >= upperNear and _low <= upperAvg
+            zone := "upper_avg"
+        // Check if in upper_far zone (upper_avg to upper_far)
+        else if _high >= upperAvg and _low <= upperFar
+            zone := "upper_far"
+    zone
+
+// Build NWE JSON entry (if signal is true)
+buildNweEntry(bool signal, string zone, string signalType, string tf, int overlapTime) =>
+    signal and str.length(zone) > 0 ? '{"zone":"' + zone + '","type":"' + signalType + '","overlapTimestamp":' + str.tostring(overlapTime) + ',"timeframe":"' + tf + '"}' : ""
+
+// Get OB/FVG zone type string
+getObZoneType(int zoneType) =>
+    zoneType == 1 ? "OB" : zoneType == 2 ? "FVG" : ""
+
+// Get OB/FVG subtype string for JSON
+// bullType: 1=unmit OB, 3=breaker support, 4=bullish FVG
+// bearType: 1=unmit OB, 3=breaker resistance, 4=bearish FVG
+getObSubtype(int subType, bool isBull) =>
+    if subType == 1
+        "unmitigated"
+    else if subType == 3
+        isBull ? "breaker_support" : "breaker_resistance"
+    else if subType == 4
+        isBull ? "bullish_fvg" : "bearish_fvg"
+    else
+        ""
+
+// Build OB/FVG JSON entry (if found == 1)
+buildObEntry(int found, int zoneType, int subType, int zoneTime, int overlapTime, string tf, bool isBull) =>
+    if found == 1
+        string zt = getObZoneType(zoneType)
+        string st = getObSubtype(subType, isBull)
+        string signalType = isBull ? "bullish" : "bearish"
+        '{"zonetype":"' + zt + '","subtype":"' + st + '","type":"' + signalType + '","zoneTimestamp":' + str.tostring(zoneTime) + ',"overlapTimestamp":' + str.tostring(overlapTime) + ',"timeframe":"' + tf + '"}'
+    else
+        ""
+
+// Build Divergence JSON entry (if divergence timestamp matches current time)
+buildDivEntry(int divTime, int currTime, string tf, string signalType) =>
+    divTime == currTime ? '{"divType":"Logic 2","type":"' + signalType + '","timestamp":' + str.tostring(divTime) + ',"timeframe":"' + tf + '"}' : ""
+
+// Join array entries with commas (skip empty strings)
+joinEntries(string e1, string e2) =>
+    if str.length(e1) > 0 and str.length(e2) > 0
+        e1 + "," + e2
+    else if str.length(e1) > 0
+        e1
+    else
+        e2
+
+joinEntries3(string e1, string e2, string e3) =>
+    joinEntries(joinEntries(e1, e2), e3)
+
+joinEntries4(string e1, string e2, string e3, string e4) =>
+    joinEntries(joinEntries(e1, e2), joinEntries(e3, e4))
+
+joinEntries6(string e1, string e2, string e3, string e4, string e5, string e6) =>
+    joinEntries(joinEntries3(e1, e2, e3), joinEntries3(e4, e5, e6))
+
+//////////////////////
+// DEBUG: DISPLAY   //
+//////////////////////
 
 // Helper function to get zone type string from code
 // zoneType: 1=OB, 2=FVG
@@ -751,30 +778,8 @@ getZoneSubtypeStr(int zoneType, bool isBull) =>
     else
         "-"
 
-// Helper function to format overlap cell text
-// Shows checkmark if found, X if not
-formatOverlapText(int found) =>
-    found == 1 ? "Y" : "-"
-
-// Helper function to get overlap cell color
-getOverlapColor(int found, bool isBull) =>
-    if found == 1
-        isBull ? color.lime : color.red
-    else
-        color.gray
-
-// Helper function to build tooltip with zone info
-buildTooltip(int found, int zoneType, int subType, int zoneTime, bool isBull) =>
-    if found != 1
-        "No overlap"
-    else
-        string zt = getZoneTypeStr(zoneType)
-        string st = getZoneSubtypeStr(subType, isBull)
-        string ts = str.format_time(zoneTime, "MM-dd HH:mm", "UTC+5:30")
-        zt + " (" + st + ")\n" + ts
-
-// Helper function to build NWE detail string
-buildNweDetail(bool h4, bool d1) =>
+// Helper function to build NWE detail string for table
+buildNweDetailTable(bool h4, bool d1) =>
     string result = ""
     if h4
         result := "H4"
@@ -782,8 +787,8 @@ buildNweDetail(bool h4, bool d1) =>
         result := result + (str.length(result) > 0 ? "," : "") + "D1"
     result
 
-// Helper function to build OB detail string
-buildObDetail(int h4, int d1, int w1) =>
+// Helper function to build OB detail string for table
+buildObDetailTable(int h4, int d1, int w1) =>
     string result = ""
     if h4 == 1
         result := "H4"
@@ -793,8 +798,8 @@ buildObDetail(int h4, int d1, int w1) =>
         result := result + (str.length(result) > 0 ? "," : "") + "W1"
     result
 
-// Helper function to build DIV detail string
-buildDivDetail(int divH4, int divD1, int currTime) =>
+// Helper function to build DIV detail string for table
+buildDivDetailTable(int divH4, int divD1, int currTime) =>
     string result = ""
     if divH4 == currTime
         result := "H4"
@@ -802,206 +807,227 @@ buildDivDetail(int divH4, int divD1, int currTime) =>
         result := result + (str.length(result) > 0 ? "," : "") + "D1"
     result
 
-// Helper function to get signal text
-getSignalText(int buyLvl, int sellLvl) =>
-    if buyLvl >= sellLvl and buyLvl > 0
-        "BUY"
-    else if sellLvl > buyLvl
-        "SELL"
-    else
-        "-"
+// Check if any signal exists for a symbol
+hasAnySignal(bool nweBullH4, bool nweBearH4, bool nweBullD1, bool nweBearD1, int bullFH4, int bearFH4, int bullFD1, int bearFD1, int bullFW1, int bearFW1, int divBullH4, int divBearH4, int divBullD1, int divBearD1, int currTime) =>
+    bool hasNwe = nweBullH4 or nweBearH4 or nweBullD1 or nweBearD1
+    bool hasOb = bullFH4 == 1 or bearFH4 == 1 or bullFD1 == 1 or bearFD1 == 1 or bullFW1 == 1 or bearFW1 == 1
+    bool hasDiv = divBullH4 == currTime or divBearH4 == currTime or divBullD1 == currTime or divBearD1 == currTime
+    hasNwe or hasOb or hasDiv
 
-// Helper function to get signal color
-getSignalColor(int buyLvl, int sellLvl) =>
-    if buyLvl >= sellLvl and buyLvl > 0
+////////////////////////////
+// ALERT GENERATION       //
+////////////////////////////
+
+// Build NWE array for a symbol (all timeframes, both bullish and bearish)
+// Note: We need to pass zone names calculated externally since we can't access tf-specific low/high here
+buildNweArray(bool bullH4, string bullZoneH4, bool bearH4, string bearZoneH4, bool bullD1, string bullZoneD1, bool bearD1, string bearZoneD1, int overlapTime) =>
+    string e1 = buildNweEntry(bullH4, bullZoneH4, "bullish", "H4", overlapTime)
+    string e2 = buildNweEntry(bearH4, bearZoneH4, "bearish", "H4", overlapTime)
+    string e3 = buildNweEntry(bullD1, bullZoneD1, "bullish", "D1", overlapTime)
+    string e4 = buildNweEntry(bearD1, bearZoneD1, "bearish", "D1", overlapTime)
+    joinEntries4(e1, e2, e3, e4)
+
+// Build OB/FVG array for a symbol (all timeframes, both bullish and bearish)
+buildObArray(int bullFH4, int bullZTH4, int bullTH4, int bullTmH4, int bearFH4, int bearZTH4, int bearTH4, int bearTmH4, int bullFD1, int bullZTD1, int bullTD1, int bullTmD1, int bearFD1, int bearZTD1, int bearTD1, int bearTmD1, int bullFW1, int bullZTW1, int bullTW1, int bullTmW1, int bearFW1, int bearZTW1, int bearTW1, int bearTmW1, int overlapTime) =>
+    string e1 = buildObEntry(bullFH4, bullZTH4, bullTH4, bullTmH4, overlapTime, "H4", true)
+    string e2 = buildObEntry(bearFH4, bearZTH4, bearTH4, bearTmH4, overlapTime, "H4", false)
+    string e3 = buildObEntry(bullFD1, bullZTD1, bullTD1, bullTmD1, overlapTime, "D1", true)
+    string e4 = buildObEntry(bearFD1, bearZTD1, bearTD1, bearTmD1, overlapTime, "D1", false)
+    string e5 = buildObEntry(bullFW1, bullZTW1, bullTW1, bullTmW1, overlapTime, "W1", true)
+    string e6 = buildObEntry(bearFW1, bearZTW1, bearTW1, bearTmW1, overlapTime, "W1", false)
+    joinEntries6(e1, e2, e3, e4, e5, e6)
+
+// Build divergence array for a symbol (all timeframes, both bullish and bearish)
+buildDivArray(int divBullH4, int divBearH4, int divBullD1, int divBearD1, int currTime) =>
+    string e1 = buildDivEntry(divBullH4, currTime, "H4", "bullish")
+    string e2 = buildDivEntry(divBearH4, currTime, "H4", "bearish")
+    string e3 = buildDivEntry(divBullD1, currTime, "D1", "bullish")
+    string e4 = buildDivEntry(divBearD1, currTime, "D1", "bearish")
+    joinEntries4(e1, e2, e3, e4)
+
+// Build complete symbol JSON with all signals
+buildSymbolJson(string sym, string nweArray, string obArray, string divArray) =>
+    bool hasNwe = str.length(nweArray) > 0
+    bool hasOb = str.length(obArray) > 0
+    bool hasDiv = str.length(divArray) > 0
+
+    if hasNwe or hasOb or hasDiv
+        '{"symbol":"' + sym + '","nwe":[' + nweArray + '],"ob_fvg":[' + obArray + '],"divergence":[' + divArray + ']}'
+    else
+        ""
+
+// Calculate NWE zone names for each symbol/timeframe
+// Symbol 01
+string bullZone01_h4 = getNweZoneName(true, low, high, lnNear01_h4, lnAvg01_h4, lnAvg01_h4 - (lnNear01_h4 - lnAvg01_h4), unNear01_h4, unAvg01_h4, unAvg01_h4 + (unAvg01_h4 - unNear01_h4))
+string bearZone01_h4 = getNweZoneName(false, low, high, lnNear01_h4, lnAvg01_h4, lnAvg01_h4 - (lnNear01_h4 - lnAvg01_h4), unNear01_h4, unAvg01_h4, unAvg01_h4 + (unAvg01_h4 - unNear01_h4))
+string bullZone01_d1 = getNweZoneName(true, low, high, lnNear01_d1, lnAvg01_d1, lnAvg01_d1 - (lnNear01_d1 - lnAvg01_d1), unNear01_d1, unAvg01_d1, unAvg01_d1 + (unAvg01_d1 - unNear01_d1))
+string bearZone01_d1 = getNweZoneName(false, low, high, lnNear01_d1, lnAvg01_d1, lnAvg01_d1 - (lnNear01_d1 - lnAvg01_d1), unNear01_d1, unAvg01_d1, unAvg01_d1 + (unAvg01_d1 - unNear01_d1))
+
+// Symbol 02
+string bullZone02_h4 = getNweZoneName(true, low, high, lnNear02_h4, lnAvg02_h4, lnAvg02_h4 - (lnNear02_h4 - lnAvg02_h4), unNear02_h4, unAvg02_h4, unAvg02_h4 + (unAvg02_h4 - unNear02_h4))
+string bearZone02_h4 = getNweZoneName(false, low, high, lnNear02_h4, lnAvg02_h4, lnAvg02_h4 - (lnNear02_h4 - lnAvg02_h4), unNear02_h4, unAvg02_h4, unAvg02_h4 + (unAvg02_h4 - unNear02_h4))
+string bullZone02_d1 = getNweZoneName(true, low, high, lnNear02_d1, lnAvg02_d1, lnAvg02_d1 - (lnNear02_d1 - lnAvg02_d1), unNear02_d1, unAvg02_d1, unAvg02_d1 + (unAvg02_d1 - unNear02_d1))
+string bearZone02_d1 = getNweZoneName(false, low, high, lnNear02_d1, lnAvg02_d1, lnAvg02_d1 - (lnNear02_d1 - lnAvg02_d1), unNear02_d1, unAvg02_d1, unAvg02_d1 + (unAvg02_d1 - unNear02_d1))
+
+// Symbol 03
+string bullZone03_h4 = getNweZoneName(true, low, high, lnNear03_h4, lnAvg03_h4, lnAvg03_h4 - (lnNear03_h4 - lnAvg03_h4), unNear03_h4, unAvg03_h4, unAvg03_h4 + (unAvg03_h4 - unNear03_h4))
+string bearZone03_h4 = getNweZoneName(false, low, high, lnNear03_h4, lnAvg03_h4, lnAvg03_h4 - (lnNear03_h4 - lnAvg03_h4), unNear03_h4, unAvg03_h4, unAvg03_h4 + (unAvg03_h4 - unNear03_h4))
+string bullZone03_d1 = getNweZoneName(true, low, high, lnNear03_d1, lnAvg03_d1, lnAvg03_d1 - (lnNear03_d1 - lnAvg03_d1), unNear03_d1, unAvg03_d1, unAvg03_d1 + (unAvg03_d1 - unNear03_d1))
+string bearZone03_d1 = getNweZoneName(false, low, high, lnNear03_d1, lnAvg03_d1, lnAvg03_d1 - (lnNear03_d1 - lnAvg03_d1), unNear03_d1, unAvg03_d1, unAvg03_d1 + (unAvg03_d1 - unNear03_d1))
+
+// Symbol 04
+string bullZone04_h4 = getNweZoneName(true, low, high, lnNear04_h4, lnAvg04_h4, lnAvg04_h4 - (lnNear04_h4 - lnAvg04_h4), unNear04_h4, unAvg04_h4, unAvg04_h4 + (unAvg04_h4 - unNear04_h4))
+string bearZone04_h4 = getNweZoneName(false, low, high, lnNear04_h4, lnAvg04_h4, lnAvg04_h4 - (lnNear04_h4 - lnAvg04_h4), unNear04_h4, unAvg04_h4, unAvg04_h4 + (unAvg04_h4 - unNear04_h4))
+string bullZone04_d1 = getNweZoneName(true, low, high, lnNear04_d1, lnAvg04_d1, lnAvg04_d1 - (lnNear04_d1 - lnAvg04_d1), unNear04_d1, unAvg04_d1, unAvg04_d1 + (unAvg04_d1 - unNear04_d1))
+string bearZone04_d1 = getNweZoneName(false, low, high, lnNear04_d1, lnAvg04_d1, lnAvg04_d1 - (lnNear04_d1 - lnAvg04_d1), unNear04_d1, unAvg04_d1, unAvg04_d1 + (unAvg04_d1 - unNear04_d1))
+
+// Build signal arrays for each symbol
+// Symbol 01
+string nweArr01 = buildNweArray(nweBull01_h4, bullZone01_h4, nweBear01_h4, bearZone01_h4, nweBull01_d1, bullZone01_d1, nweBear01_d1, bearZone01_d1, time)
+string obArr01 = buildObArray(bullF01_h4, bullZT01_h4, bullT01_h4, bullTm01_h4, bearF01_h4, bearZT01_h4, bearT01_h4, bearTm01_h4, bullF01_d1, bullZT01_d1, bullT01_d1, bullTm01_d1, bearF01_d1, bearZT01_d1, bearT01_d1, bearTm01_d1, bullF01_w1, bullZT01_w1, bullT01_w1, bullTm01_w1, bearF01_w1, bearZT01_w1, bearT01_w1, bearTm01_w1, time)
+string divArr01 = buildDivArray(divBullTm01_h4, divBearTm01_h4, divBullTm01_d1, divBearTm01_d1, time)
+string sig01 = buildSymbolJson(getSymbolName(s01), nweArr01, obArr01, divArr01)
+
+// Symbol 02
+string nweArr02 = buildNweArray(nweBull02_h4, bullZone02_h4, nweBear02_h4, bearZone02_h4, nweBull02_d1, bullZone02_d1, nweBear02_d1, bearZone02_d1, time)
+string obArr02 = buildObArray(bullF02_h4, bullZT02_h4, bullT02_h4, bullTm02_h4, bearF02_h4, bearZT02_h4, bearT02_h4, bearTm02_h4, bullF02_d1, bullZT02_d1, bullT02_d1, bullTm02_d1, bearF02_d1, bearZT02_d1, bearT02_d1, bearTm02_d1, bullF02_w1, bullZT02_w1, bullT02_w1, bullTm02_w1, bearF02_w1, bearZT02_w1, bearT02_w1, bearTm02_w1, time)
+string divArr02 = buildDivArray(divBullTm02_h4, divBearTm02_h4, divBullTm02_d1, divBearTm02_d1, time)
+string sig02 = buildSymbolJson(getSymbolName(s02), nweArr02, obArr02, divArr02)
+
+// Symbol 03
+string nweArr03 = buildNweArray(nweBull03_h4, bullZone03_h4, nweBear03_h4, bearZone03_h4, nweBull03_d1, bullZone03_d1, nweBear03_d1, bearZone03_d1, time)
+string obArr03 = buildObArray(bullF03_h4, bullZT03_h4, bullT03_h4, bullTm03_h4, bearF03_h4, bearZT03_h4, bearT03_h4, bearTm03_h4, bullF03_d1, bullZT03_d1, bullT03_d1, bullTm03_d1, bearF03_d1, bearZT03_d1, bearT03_d1, bearTm03_d1, bullF03_w1, bullZT03_w1, bullT03_w1, bullTm03_w1, bearF03_w1, bearZT03_w1, bearT03_w1, bearTm03_w1, time)
+string divArr03 = buildDivArray(divBullTm03_h4, divBearTm03_h4, divBullTm03_d1, divBearTm03_d1, time)
+string sig03 = buildSymbolJson(getSymbolName(s03), nweArr03, obArr03, divArr03)
+
+// Symbol 04
+string nweArr04 = buildNweArray(nweBull04_h4, bullZone04_h4, nweBear04_h4, bearZone04_h4, nweBull04_d1, bullZone04_d1, nweBear04_d1, bearZone04_d1, time)
+string obArr04 = buildObArray(bullF04_h4, bullZT04_h4, bullT04_h4, bullTm04_h4, bearF04_h4, bearZT04_h4, bearT04_h4, bearTm04_h4, bullF04_d1, bullZT04_d1, bullT04_d1, bullTm04_d1, bearF04_d1, bearZT04_d1, bearT04_d1, bearTm04_d1, bullF04_w1, bullZT04_w1, bullT04_w1, bullTm04_w1, bearF04_w1, bearZT04_w1, bearT04_w1, bearTm04_w1, time)
+string divArr04 = buildDivArray(divBullTm04_h4, divBearTm04_h4, divBullTm04_d1, divBearTm04_d1, time)
+string sig04 = buildSymbolJson(getSymbolName(s04), nweArr04, obArr04, divArr04)
+
+// Combine all non-empty symbol signals
+string allSignals = ""
+if str.length(sig01) > 0
+    allSignals := sig01
+if str.length(sig02) > 0
+    allSignals := allSignals + (str.length(allSignals) > 0 ? "," : "") + sig02
+if str.length(sig03) > 0
+    allSignals := allSignals + (str.length(allSignals) > 0 ? "," : "") + sig03
+if str.length(sig04) > 0
+    allSignals := allSignals + (str.length(allSignals) > 0 ? "," : "") + sig04
+
+// Fire alert on every bar if any signals exist
+if str.length(allSignals) > 0
+    string payload = '{"timestamp":' + str.tostring(time) + ',"signals":[' + allSignals + ']}'
+    alert(payload, alert.freq_once_per_bar)
+
+// Signal Status Table showing all raw signals
+// Columns: Symbol | NWE | OB | DIV
+var table sigTable = table.new(position.top_right, 4, 5, bgcolor=color.new(color.black, 80), border_width=1)
+
+// Helper to format NWE cell (shows bull/bear timeframes)
+formatNweCell(bool bullH4, bool bearH4, bool bullD1, bool bearD1) =>
+    string bullTfs = buildNweDetailTable(bullH4, bullD1)
+    string bearTfs = buildNweDetailTable(bearH4, bearD1)
+    string result = ""
+    if str.length(bullTfs) > 0
+        result := "B:" + bullTfs
+    if str.length(bearTfs) > 0
+        result := result + (str.length(result) > 0 ? " " : "") + "S:" + bearTfs
+    str.length(result) > 0 ? result : "-"
+
+// Helper to get NWE cell color
+getNweCellColor(bool bullH4, bool bearH4, bool bullD1, bool bearD1) =>
+    bool hasBull = bullH4 or bullD1
+    bool hasBear = bearH4 or bearD1
+    if hasBull and hasBear
+        color.yellow
+    else if hasBull
         color.lime
-    else if sellLvl > buyLvl
+    else if hasBear
         color.red
     else
         color.gray
 
-// Helper function to get level text
-getLevelText(int buyLvl, int sellLvl) =>
-    int lvl = buyLvl >= sellLvl ? buyLvl : sellLvl
-    lvl > 0 ? str.tostring(lvl) : "-"
+// Helper to format OB cell (shows bull/bear timeframes)
+formatObCell(int bullH4, int bearH4, int bullD1, int bearD1, int bullW1, int bearW1) =>
+    string bullTfs = buildObDetailTable(bullH4, bullD1, bullW1)
+    string bearTfs = buildObDetailTable(bearH4, bearD1, bearW1)
+    string result = ""
+    if str.length(bullTfs) > 0
+        result := "B:" + bullTfs
+    if str.length(bearTfs) > 0
+        result := result + (str.length(result) > 0 ? " " : "") + "S:" + bearTfs
+    str.length(result) > 0 ? result : "-"
 
-// Build JSON alert message for Python backend
-// Format: {"symbol":"XXX","signal":"BUY","level":3,"details":"NWE:H4,D1 OB:W1 DIV:H4"}
-buildAlertMsg(string sym, string signal, int level, string details) =>
-    '{"symbol":"' + sym + '","signal":"' + signal + '","level":' + str.tostring(level) + ',"details":"' + details + '"}'
-
-// Helper function to build NWE tooltip with band prices
-// For BUY: shows lower_near - lower_avg zone
-// For SELL: shows upper_near - upper_avg zone
-buildNweTooltip(bool isBuy, bool h4Hit, bool d1Hit, float lnNear_h4, float lnAvg_h4, float unNear_h4, float unAvg_h4, float lnNear_d1, float lnAvg_d1, float unNear_d1, float unAvg_d1) =>
-    string result = "NWE Zone:\n"
-    if h4Hit
-        if isBuy
-            result := result + "H4: " + str.tostring(lnNear_h4, "#.#####") + " - " + str.tostring(lnAvg_h4, "#.#####") + "\n"
-        else
-            result := result + "H4: " + str.tostring(unNear_h4, "#.#####") + " - " + str.tostring(unAvg_h4, "#.#####") + "\n"
-    if d1Hit
-        if isBuy
-            result := result + "D1: " + str.tostring(lnNear_d1, "#.#####") + " - " + str.tostring(lnAvg_d1, "#.#####") + "\n"
-        else
-            result := result + "D1: " + str.tostring(unNear_d1, "#.#####") + " - " + str.tostring(unAvg_d1, "#.#####") + "\n"
-    result
-
-// Helper function to build OB tooltip with zone info
-// Shows zone type, price range, and timestamp for each TF that has overlap
-buildObTooltip(bool isBuy, int h4Found, int h4Type, int h4Time, float h4ZH, float h4ZL, int d1Found, int d1Type, int d1Time, float d1ZH, float d1ZL, int w1Found, int w1Type, int w1Time, float w1ZH, float w1ZL) =>
-    string result = "OB/FVG Zone:\n"
-    if h4Found == 1
-        result := result + "H4: " + getZoneSubtypeStr(h4Type, isBuy) + " [" + str.tostring(h4ZL, "#.#####") + " - " + str.tostring(h4ZH, "#.#####") + "] @ " + str.format_time(h4Time, "MM-dd HH:mm", "UTC+0") + "\n"
-    if d1Found == 1
-        result := result + "D1: " + getZoneSubtypeStr(d1Type, isBuy) + " [" + str.tostring(d1ZL, "#.#####") + " - " + str.tostring(d1ZH, "#.#####") + "] @ " + str.format_time(d1Time, "MM-dd HH:mm", "UTC+0") + "\n"
-    if w1Found == 1
-        result := result + "W1: " + getZoneSubtypeStr(w1Type, isBuy) + " [" + str.tostring(w1ZL, "#.#####") + " - " + str.tostring(w1ZH, "#.#####") + "] @ " + str.format_time(w1Time, "MM-dd HH:mm", "UTC+0") + "\n"
-    result
-
-// Helper function to build combined tooltip for Details cell
-buildDetailsTooltip(bool isBuy, int lvl, bool nweH4, bool nweD1, float lnNear_h4, float lnAvg_h4, float unNear_h4, float unAvg_h4, float lnNear_d1, float lnAvg_d1, float unNear_d1, float unAvg_d1, int obH4, int obH4Type, int obH4Time, float obH4ZH, float obH4ZL, int obD1, int obD1Type, int obD1Time, float obD1ZH, float obD1ZL, int obW1, int obW1Type, int obW1Time, float obW1ZH, float obW1ZL) =>
-    if lvl == 0
-        "No signal"
+// Helper to get OB cell color
+getObCellColor(int bullH4, int bearH4, int bullD1, int bearD1, int bullW1, int bearW1) =>
+    bool hasBull = bullH4 == 1 or bullD1 == 1 or bullW1 == 1
+    bool hasBear = bearH4 == 1 or bearD1 == 1 or bearW1 == 1
+    if hasBull and hasBear
+        color.yellow
+    else if hasBull
+        color.lime
+    else if hasBear
+        color.red
     else
-        string tip = buildNweTooltip(isBuy, nweH4, nweD1, lnNear_h4, lnAvg_h4, unNear_h4, unAvg_h4, lnNear_d1, lnAvg_d1, unNear_d1, unAvg_d1)
-        if lvl >= 2
-            tip := tip + "\n" + buildObTooltip(isBuy, obH4, obH4Type, obH4Time, obH4ZH, obH4ZL, obD1, obD1Type, obD1Time, obD1ZH, obD1ZL, obW1, obW1Type, obW1Time, obW1ZH, obW1ZL)
-        tip
+        color.gray
 
-////////////////////////////
-// ALERT CHANGE DETECTION //
-////////////////////////////
+// Helper to format DIV cell (shows bull/bear timeframes)
+formatDivCell(int divBullH4, int divBearH4, int divBullD1, int divBearD1, int currTime) =>
+    string bullTfs = buildDivDetailTable(divBullH4, divBullD1, currTime)
+    string bearTfs = buildDivDetailTable(divBearH4, divBearD1, currTime)
+    string result = ""
+    if str.length(bullTfs) > 0
+        result := "B:" + bullTfs
+    if str.length(bearTfs) > 0
+        result := result + (str.length(result) > 0 ? " " : "") + "S:" + bearTfs
+    str.length(result) > 0 ? result : "-"
 
-// Signal change detection and alert firing (runs on bar close to avoid repainting)
-if barstate.isconfirmed
-    // Symbol 01 - check for signal change
-    if buyLvl01 != prevBuyLvl01 or sellLvl01 != prevSellLvl01
-        bool isBuy = buyLvl01 >= sellLvl01 and buyLvl01 > 0
-        int lvl = isBuy ? buyLvl01 : sellLvl01
-        if lvl > 0
-            string sig = isBuy ? "BUY" : "SELL"
-            string det = "NWE:" + (isBuy ? buildNweDetail(nweBull01_h4, nweBull01_d1) : buildNweDetail(nweBear01_h4, nweBear01_d1))
-            if lvl >= 2
-                det := det + " OB:" + (isBuy ? buildObDetail(bullF01_h4, bullF01_d1, bullF01_w1) : buildObDetail(bearF01_h4, bearF01_d1, bearF01_w1))
-            if lvl == 3
-                det := det + " DIV:" + (isBuy ? buildDivDetail(divBullTm01_h4, divBullTm01_d1, time) : buildDivDetail(divBearTm01_h4, divBearTm01_d1, time))
-            alert(buildAlertMsg(getSymbolName(s01), sig, lvl, det), alert.freq_once_per_bar_close)
-        prevBuyLvl01 := buyLvl01
-        prevSellLvl01 := sellLvl01
-
-    // Symbol 02 - check for signal change
-    if buyLvl02 != prevBuyLvl02 or sellLvl02 != prevSellLvl02
-        bool isBuy = buyLvl02 >= sellLvl02 and buyLvl02 > 0
-        int lvl = isBuy ? buyLvl02 : sellLvl02
-        if lvl > 0
-            string sig = isBuy ? "BUY" : "SELL"
-            string det = "NWE:" + (isBuy ? buildNweDetail(nweBull02_h4, nweBull02_d1) : buildNweDetail(nweBear02_h4, nweBear02_d1))
-            if lvl >= 2
-                det := det + " OB:" + (isBuy ? buildObDetail(bullF02_h4, bullF02_d1, bullF02_w1) : buildObDetail(bearF02_h4, bearF02_d1, bearF02_w1))
-            if lvl == 3
-                det := det + " DIV:" + (isBuy ? buildDivDetail(divBullTm02_h4, divBullTm02_d1, time) : buildDivDetail(divBearTm02_h4, divBearTm02_d1, time))
-            alert(buildAlertMsg(getSymbolName(s02), sig, lvl, det), alert.freq_once_per_bar_close)
-        prevBuyLvl02 := buyLvl02
-        prevSellLvl02 := sellLvl02
-
-    // Symbol 03 - check for signal change
-    if buyLvl03 != prevBuyLvl03 or sellLvl03 != prevSellLvl03
-        bool isBuy = buyLvl03 >= sellLvl03 and buyLvl03 > 0
-        int lvl = isBuy ? buyLvl03 : sellLvl03
-        if lvl > 0
-            string sig = isBuy ? "BUY" : "SELL"
-            string det = "NWE:" + (isBuy ? buildNweDetail(nweBull03_h4, nweBull03_d1) : buildNweDetail(nweBear03_h4, nweBear03_d1))
-            if lvl >= 2
-                det := det + " OB:" + (isBuy ? buildObDetail(bullF03_h4, bullF03_d1, bullF03_w1) : buildObDetail(bearF03_h4, bearF03_d1, bearF03_w1))
-            if lvl == 3
-                det := det + " DIV:" + (isBuy ? buildDivDetail(divBullTm03_h4, divBullTm03_d1, time) : buildDivDetail(divBearTm03_h4, divBearTm03_d1, time))
-            alert(buildAlertMsg(getSymbolName(s03), sig, lvl, det), alert.freq_once_per_bar_close)
-        prevBuyLvl03 := buyLvl03
-        prevSellLvl03 := sellLvl03
-
-    // Symbol 04 - check for signal change
-    if buyLvl04 != prevBuyLvl04 or sellLvl04 != prevSellLvl04
-        bool isBuy = buyLvl04 >= sellLvl04 and buyLvl04 > 0
-        int lvl = isBuy ? buyLvl04 : sellLvl04
-        if lvl > 0
-            string sig = isBuy ? "BUY" : "SELL"
-            string det = "NWE:" + (isBuy ? buildNweDetail(nweBull04_h4, nweBull04_d1) : buildNweDetail(nweBear04_h4, nweBear04_d1))
-            if lvl >= 2
-                det := det + " OB:" + (isBuy ? buildObDetail(bullF04_h4, bullF04_d1, bullF04_w1) : buildObDetail(bearF04_h4, bearF04_d1, bearF04_w1))
-            if lvl == 3
-                det := det + " DIV:" + (isBuy ? buildDivDetail(divBullTm04_h4, divBullTm04_d1, time) : buildDivDetail(divBearTm04_h4, divBearTm04_d1, time))
-            alert(buildAlertMsg(getSymbolName(s04), sig, lvl, det), alert.freq_once_per_bar_close)
-        prevBuyLvl04 := buyLvl04
-        prevSellLvl04 := sellLvl04
-
-// Signal Status Table showing Regime 1 Reversal signals
-// Columns: Symbol | Signal | Lvl | Details
-var table sigTable = table.new(position.top_right, 4, 5, bgcolor=color.new(color.black, 80), border_width=1)
+// Helper to get DIV cell color
+getDivCellColor(int divBullH4, int divBearH4, int divBullD1, int divBearD1, int currTime) =>
+    bool hasBull = divBullH4 == currTime or divBullD1 == currTime
+    bool hasBear = divBearH4 == currTime or divBearD1 == currTime
+    if hasBull and hasBear
+        color.yellow
+    else if hasBull
+        color.lime
+    else if hasBear
+        color.red
+    else
+        color.gray
 
 if barstate.islast
     // Header row
     table.cell(sigTable, 0, 0, "Symbol", text_color=color.white, text_size=size.small)
-    table.cell(sigTable, 1, 0, "Signal", text_color=color.white, text_size=size.small)
-    table.cell(sigTable, 2, 0, "Lvl", text_color=color.white, text_size=size.small)
-    table.cell(sigTable, 3, 0, "Details", text_color=color.white, text_size=size.small)
+    table.cell(sigTable, 1, 0, "NWE", text_color=color.white, text_size=size.small)
+    table.cell(sigTable, 2, 0, "OB", text_color=color.white, text_size=size.small)
+    table.cell(sigTable, 3, 0, "DIV", text_color=color.white, text_size=size.small)
 
-    // Build detail strings for each symbol based on the winning signal
     // Symbol 01
-    bool isBuy01 = buyLvl01 >= sellLvl01 and buyLvl01 > 0
-    int lvl01 = isBuy01 ? buyLvl01 : sellLvl01
-    string det01 = lvl01 > 0 ? "NWE:" + (isBuy01 ? buildNweDetail(nweBull01_h4, nweBull01_d1) : buildNweDetail(nweBear01_h4, nweBear01_d1)) : "-"
-    if lvl01 >= 2
-        det01 := det01 + " OB:" + (isBuy01 ? buildObDetail(bullF01_h4, bullF01_d1, bullF01_w1) : buildObDetail(bearF01_h4, bearF01_d1, bearF01_w1))
-    if lvl01 == 3
-        det01 := det01 + " DIV:" + (isBuy01 ? buildDivDetail(divBullTm01_h4, divBullTm01_d1, time) : buildDivDetail(divBearTm01_h4, divBearTm01_d1, time))
-    string tip01 = buildDetailsTooltip(isBuy01, lvl01, isBuy01 ? nweBull01_h4 : nweBear01_h4, isBuy01 ? nweBull01_d1 : nweBear01_d1, lnNear01_h4, lnAvg01_h4, unNear01_h4, unAvg01_h4, lnNear01_d1, lnAvg01_d1, unNear01_d1, unAvg01_d1, isBuy01 ? bullF01_h4 : bearF01_h4, isBuy01 ? bullT01_h4 : bearT01_h4, isBuy01 ? bullTm01_h4 : bearTm01_h4, isBuy01 ? bullZH01_h4 : bearZH01_h4, isBuy01 ? bullZL01_h4 : bearZL01_h4, isBuy01 ? bullF01_d1 : bearF01_d1, isBuy01 ? bullT01_d1 : bearT01_d1, isBuy01 ? bullTm01_d1 : bearTm01_d1, isBuy01 ? bullZH01_d1 : bearZH01_d1, isBuy01 ? bullZL01_d1 : bearZL01_d1, isBuy01 ? bullF01_w1 : bearF01_w1, isBuy01 ? bullT01_w1 : bearT01_w1, isBuy01 ? bullTm01_w1 : bearTm01_w1, isBuy01 ? bullZH01_w1 : bearZH01_w1, isBuy01 ? bullZL01_w1 : bearZL01_w1)
     table.cell(sigTable, 0, 1, getSymbolName(s01), text_color=color.white, text_size=size.small)
-    table.cell(sigTable, 1, 1, getSignalText(buyLvl01, sellLvl01), text_color=getSignalColor(buyLvl01, sellLvl01), text_size=size.small)
-    table.cell(sigTable, 2, 1, getLevelText(buyLvl01, sellLvl01), text_color=getSignalColor(buyLvl01, sellLvl01), text_size=size.small)
-    table.cell(sigTable, 3, 1, det01, text_color=color.white, text_size=size.small, tooltip=tip01)
+    table.cell(sigTable, 1, 1, formatNweCell(nweBull01_h4, nweBear01_h4, nweBull01_d1, nweBear01_d1), text_color=getNweCellColor(nweBull01_h4, nweBear01_h4, nweBull01_d1, nweBear01_d1), text_size=size.small)
+    table.cell(sigTable, 2, 1, formatObCell(bullF01_h4, bearF01_h4, bullF01_d1, bearF01_d1, bullF01_w1, bearF01_w1), text_color=getObCellColor(bullF01_h4, bearF01_h4, bullF01_d1, bearF01_d1, bullF01_w1, bearF01_w1), text_size=size.small)
+    table.cell(sigTable, 3, 1, formatDivCell(divBullTm01_h4, divBearTm01_h4, divBullTm01_d1, divBearTm01_d1, time), text_color=getDivCellColor(divBullTm01_h4, divBearTm01_h4, divBullTm01_d1, divBearTm01_d1, time), text_size=size.small)
 
     // Symbol 02
-    bool isBuy02 = buyLvl02 >= sellLvl02 and buyLvl02 > 0
-    int lvl02 = isBuy02 ? buyLvl02 : sellLvl02
-    string det02 = lvl02 > 0 ? "NWE:" + (isBuy02 ? buildNweDetail(nweBull02_h4, nweBull02_d1) : buildNweDetail(nweBear02_h4, nweBear02_d1)) : "-"
-    if lvl02 >= 2
-        det02 := det02 + " OB:" + (isBuy02 ? buildObDetail(bullF02_h4, bullF02_d1, bullF02_w1) : buildObDetail(bearF02_h4, bearF02_d1, bearF02_w1))
-    if lvl02 == 3
-        det02 := det02 + " DIV:" + (isBuy02 ? buildDivDetail(divBullTm02_h4, divBullTm02_d1, time) : buildDivDetail(divBearTm02_h4, divBearTm02_d1, time))
-    string tip02 = buildDetailsTooltip(isBuy02, lvl02, isBuy02 ? nweBull02_h4 : nweBear02_h4, isBuy02 ? nweBull02_d1 : nweBear02_d1, lnNear02_h4, lnAvg02_h4, unNear02_h4, unAvg02_h4, lnNear02_d1, lnAvg02_d1, unNear02_d1, unAvg02_d1, isBuy02 ? bullF02_h4 : bearF02_h4, isBuy02 ? bullT02_h4 : bearT02_h4, isBuy02 ? bullTm02_h4 : bearTm02_h4, isBuy02 ? bullZH02_h4 : bearZH02_h4, isBuy02 ? bullZL02_h4 : bearZL02_h4, isBuy02 ? bullF02_d1 : bearF02_d1, isBuy02 ? bullT02_d1 : bearT02_d1, isBuy02 ? bullTm02_d1 : bearTm02_d1, isBuy02 ? bullZH02_d1 : bearZH02_d1, isBuy02 ? bullZL02_d1 : bearZL02_d1, isBuy02 ? bullF02_w1 : bearF02_w1, isBuy02 ? bullT02_w1 : bearT02_w1, isBuy02 ? bullTm02_w1 : bearTm02_w1, isBuy02 ? bullZH02_w1 : bearZH02_w1, isBuy02 ? bullZL02_w1 : bearZL02_w1)
     table.cell(sigTable, 0, 2, getSymbolName(s02), text_color=color.white, text_size=size.small)
-    table.cell(sigTable, 1, 2, getSignalText(buyLvl02, sellLvl02), text_color=getSignalColor(buyLvl02, sellLvl02), text_size=size.small)
-    table.cell(sigTable, 2, 2, getLevelText(buyLvl02, sellLvl02), text_color=getSignalColor(buyLvl02, sellLvl02), text_size=size.small)
-    table.cell(sigTable, 3, 2, det02, text_color=color.white, text_size=size.small, tooltip=tip02)
+    table.cell(sigTable, 1, 2, formatNweCell(nweBull02_h4, nweBear02_h4, nweBull02_d1, nweBear02_d1), text_color=getNweCellColor(nweBull02_h4, nweBear02_h4, nweBull02_d1, nweBear02_d1), text_size=size.small)
+    table.cell(sigTable, 2, 2, formatObCell(bullF02_h4, bearF02_h4, bullF02_d1, bearF02_d1, bullF02_w1, bearF02_w1), text_color=getObCellColor(bullF02_h4, bearF02_h4, bullF02_d1, bearF02_d1, bullF02_w1, bearF02_w1), text_size=size.small)
+    table.cell(sigTable, 3, 2, formatDivCell(divBullTm02_h4, divBearTm02_h4, divBullTm02_d1, divBearTm02_d1, time), text_color=getDivCellColor(divBullTm02_h4, divBearTm02_h4, divBullTm02_d1, divBearTm02_d1, time), text_size=size.small)
 
     // Symbol 03
-    bool isBuy03 = buyLvl03 >= sellLvl03 and buyLvl03 > 0
-    int lvl03 = isBuy03 ? buyLvl03 : sellLvl03
-    string det03 = lvl03 > 0 ? "NWE:" + (isBuy03 ? buildNweDetail(nweBull03_h4, nweBull03_d1) : buildNweDetail(nweBear03_h4, nweBear03_d1)) : "-"
-    if lvl03 >= 2
-        det03 := det03 + " OB:" + (isBuy03 ? buildObDetail(bullF03_h4, bullF03_d1, bullF03_w1) : buildObDetail(bearF03_h4, bearF03_d1, bearF03_w1))
-    if lvl03 == 3
-        det03 := det03 + " DIV:" + (isBuy03 ? buildDivDetail(divBullTm03_h4, divBullTm03_d1, time) : buildDivDetail(divBearTm03_h4, divBearTm03_d1, time))
-    string tip03 = buildDetailsTooltip(isBuy03, lvl03, isBuy03 ? nweBull03_h4 : nweBear03_h4, isBuy03 ? nweBull03_d1 : nweBear03_d1, lnNear03_h4, lnAvg03_h4, unNear03_h4, unAvg03_h4, lnNear03_d1, lnAvg03_d1, unNear03_d1, unAvg03_d1, isBuy03 ? bullF03_h4 : bearF03_h4, isBuy03 ? bullT03_h4 : bearT03_h4, isBuy03 ? bullTm03_h4 : bearTm03_h4, isBuy03 ? bullZH03_h4 : bearZH03_h4, isBuy03 ? bullZL03_h4 : bearZL03_h4, isBuy03 ? bullF03_d1 : bearF03_d1, isBuy03 ? bullT03_d1 : bearT03_d1, isBuy03 ? bullTm03_d1 : bearTm03_d1, isBuy03 ? bullZH03_d1 : bearZH03_d1, isBuy03 ? bullZL03_d1 : bearZL03_d1, isBuy03 ? bullF03_w1 : bearF03_w1, isBuy03 ? bullT03_w1 : bearT03_w1, isBuy03 ? bullTm03_w1 : bearTm03_w1, isBuy03 ? bullZH03_w1 : bearZH03_w1, isBuy03 ? bullZL03_w1 : bearZL03_w1)
     table.cell(sigTable, 0, 3, getSymbolName(s03), text_color=color.white, text_size=size.small)
-    table.cell(sigTable, 1, 3, getSignalText(buyLvl03, sellLvl03), text_color=getSignalColor(buyLvl03, sellLvl03), text_size=size.small)
-    table.cell(sigTable, 2, 3, getLevelText(buyLvl03, sellLvl03), text_color=getSignalColor(buyLvl03, sellLvl03), text_size=size.small)
-    table.cell(sigTable, 3, 3, det03, text_color=color.white, text_size=size.small, tooltip=tip03)
+    table.cell(sigTable, 1, 3, formatNweCell(nweBull03_h4, nweBear03_h4, nweBull03_d1, nweBear03_d1), text_color=getNweCellColor(nweBull03_h4, nweBear03_h4, nweBull03_d1, nweBear03_d1), text_size=size.small)
+    table.cell(sigTable, 2, 3, formatObCell(bullF03_h4, bearF03_h4, bullF03_d1, bearF03_d1, bullF03_w1, bearF03_w1), text_color=getObCellColor(bullF03_h4, bearF03_h4, bullF03_d1, bearF03_d1, bullF03_w1, bearF03_w1), text_size=size.small)
+    table.cell(sigTable, 3, 3, formatDivCell(divBullTm03_h4, divBearTm03_h4, divBullTm03_d1, divBearTm03_d1, time), text_color=getDivCellColor(divBullTm03_h4, divBearTm03_h4, divBullTm03_d1, divBearTm03_d1, time), text_size=size.small)
 
     // Symbol 04
-    bool isBuy04 = buyLvl04 >= sellLvl04 and buyLvl04 > 0
-    int lvl04 = isBuy04 ? buyLvl04 : sellLvl04
-    string det04 = lvl04 > 0 ? "NWE:" + (isBuy04 ? buildNweDetail(nweBull04_h4, nweBull04_d1) : buildNweDetail(nweBear04_h4, nweBear04_d1)) : "-"
-    if lvl04 >= 2
-        det04 := det04 + " OB:" + (isBuy04 ? buildObDetail(bullF04_h4, bullF04_d1, bullF04_w1) : buildObDetail(bearF04_h4, bearF04_d1, bearF04_w1))
-    if lvl04 == 3
-        det04 := det04 + " DIV:" + (isBuy04 ? buildDivDetail(divBullTm04_h4, divBullTm04_d1, time) : buildDivDetail(divBearTm04_h4, divBearTm04_d1, time))
-    string tip04 = buildDetailsTooltip(isBuy04, lvl04, isBuy04 ? nweBull04_h4 : nweBear04_h4, isBuy04 ? nweBull04_d1 : nweBear04_d1, lnNear04_h4, lnAvg04_h4, unNear04_h4, unAvg04_h4, lnNear04_d1, lnAvg04_d1, unNear04_d1, unAvg04_d1, isBuy04 ? bullF04_h4 : bearF04_h4, isBuy04 ? bullT04_h4 : bearT04_h4, isBuy04 ? bullTm04_h4 : bearTm04_h4, isBuy04 ? bullZH04_h4 : bearZH04_h4, isBuy04 ? bullZL04_h4 : bearZL04_h4, isBuy04 ? bullF04_d1 : bearF04_d1, isBuy04 ? bullT04_d1 : bearT04_d1, isBuy04 ? bullTm04_d1 : bearTm04_d1, isBuy04 ? bullZH04_d1 : bearZH04_d1, isBuy04 ? bullZL04_d1 : bearZL04_d1, isBuy04 ? bullF04_w1 : bearF04_w1, isBuy04 ? bullT04_w1 : bearT04_w1, isBuy04 ? bullTm04_w1 : bearTm04_w1, isBuy04 ? bullZH04_w1 : bearZH04_w1, isBuy04 ? bullZL04_w1 : bearZL04_w1)
     table.cell(sigTable, 0, 4, getSymbolName(s04), text_color=color.white, text_size=size.small)
-    table.cell(sigTable, 1, 4, getSignalText(buyLvl04, sellLvl04), text_color=getSignalColor(buyLvl04, sellLvl04), text_size=size.small)
-    table.cell(sigTable, 2, 4, getLevelText(buyLvl04, sellLvl04), text_color=getSignalColor(buyLvl04, sellLvl04), text_size=size.small)
-    table.cell(sigTable, 3, 4, det04, text_color=color.white, text_size=size.small, tooltip=tip04)
+    table.cell(sigTable, 1, 4, formatNweCell(nweBull04_h4, nweBear04_h4, nweBull04_d1, nweBear04_d1), text_color=getNweCellColor(nweBull04_h4, nweBear04_h4, nweBull04_d1, nweBear04_d1), text_size=size.small)
+    table.cell(sigTable, 2, 4, formatObCell(bullF04_h4, bearF04_h4, bullF04_d1, bearF04_d1, bullF04_w1, bearF04_w1), text_color=getObCellColor(bullF04_h4, bearF04_h4, bullF04_d1, bearF04_d1, bullF04_w1, bearF04_w1), text_size=size.small)
+    table.cell(sigTable, 3, 4, formatDivCell(divBullTm04_h4, divBearTm04_h4, divBullTm04_d1, divBearTm04_d1, time), text_color=getDivCellColor(divBullTm04_h4, divBearTm04_h4, divBullTm04_d1, divBearTm04_d1, time), text_size=size.small)
 
 // Required for valid indicator
 plot(na)
