@@ -4,199 +4,112 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-TradingView to Everywhere (TTE) is an automated trading signals distribution system that bridges TradingView alerts with multiple social media platforms. It monitors TradingView for trading signals, captures and processes them, and distributes formatted trade information to Discord, Facebook, Twitter/X, and MongoDB.
+TradingView to Everywhere (TTE) is an automated trading signals distribution system that bridges TradingView alerts with multiple platforms. It uses Selenium browser automation to interact with TradingView and webhooks to distribute signals to Stock Buddy API.
 
-### Things to always keep in mind
-This new tiered architecture in TTE should use existing code in the codebase whenever possible. Before implementing any code that performs a particular action, thoroughly check if this has been done before. If so, decide if it's best to use the existing code or not.
+### Critical Principles
+1. **Reuse existing code**: Before implementing anything, check if it already exists in the codebase
+2. **Three operational modes**: Legacy (poll-based), Tiered (two-phase webhook), Combo (single-indicator webhook)
+3. **Never modify `open_tv.py`**: All browser automation is reusable with different parameters
 
-## Common Development Tasks
+## Three Operational Modes
 
-### Running the Application
+### 1. Legacy Mode (`main.py`)
+- **Method**: Poll-based alert scraping with Selenium
+- **Use case**: Screenshot capture + social distribution
+- **Key files**: `main.py`, `handle_alerts.py`, `exits.py`
+
+### 2. Tiered Mode (`tiered_main.py`)
+- **Method**: Two-phase webhook filtering (NWE → OBDIV)
+- **Workflow**: 20 symbols (NWE) → hot symbols → 8 symbols (OBDIV)
+- **Alert lifecycle**: Create → wait → delete → repeat
+- **Key files**: `tiered_main.py`, `orchestrator.py`, `api_client.py`, `config.py`
+- **Docs**: `docs/PRD.md`
+
+### 3. Combo Mode (`combo_main.py`) - **IN PLANNING**
+- **Method**: Single combo screener (NWE + OB/FVG + Divergence)
+- **Workflow**: 264 persistent alerts (4 symbols each) → webhook continuously
+- **Alert lifecycle**: Create once → run forever (+ maintenance every 5 mins)
+- **Key difference**: 4-symbol hard limit (more causes TradingView errors)
+- **Docs**: `docs/ARCHITECTURE v2.md`, `docs/COMBO_IMPLEMENTATION.md`
+
+## Running Commands
 
 ```bash
-# Activate the virtual environment
-pipenv shell
-
-# Run the main application
-python main.py
-
-# Run the GUI version
-python gui.py
+pipenv shell                       # Activate environment
+python main.py                     # Legacy mode
+python tiered_main.py              # Tiered mode
+python combo_main.py               # Combo mode (after implementation)
 ```
 
-### Managing Dependencies
+## Core Architecture Concepts
 
-```bash
-# Install all dependencies
-pipenv install
+### Browser Automation (`open_tv.py`)
+- **DO NOT MODIFY**: All methods are reusable with different parameters
+- Manages all Selenium interactions with TradingView
+- Key pattern: `_safe_indicator_access()` handles stale elements with retry logic
 
-# Add a new dependency
-pipenv install <package-name>
+### Alert Lifecycles
 
-# Sync dependencies from Pipfile
-pipenv sync
-```
+| Mode | Create | Monitor | Delete | Timeframe |
+|------|--------|---------|--------|-----------|
+| Legacy | At startup | Poll alert log | Manual/restart | Continuous |
+| Tiered | Per batch | Webhook wait | After trigger | ~90s per batch |
+| Combo | Once (264 alerts) | TradingView servers | Never (persist) | One-time setup |
 
-## Architecture Overview
+### Combo Mode Critical Details
+- **4-symbol hard limit**: More causes TradingView memory/runtime errors
+- **264 persistent alerts**: ~1,054 symbols ÷ 4 = 264 alerts
+- **Timeframe mismatch**: Variable names (TF_H4/TF_D1/TF_W1) are legacy; production is 1H/H4/D1
+- **Parallel setup**: Use 4 browser tabs to reduce setup from 6.6h → 1.6h
+- **Maintenance**: Every 5 mins, call `restart_inactive_alerts()` from `handle_alerts.py:240-303`
 
-### Core Components
+## Configuration Essentials
 
-1. **Browser Controller** (`open_tv.py`): Manages Selenium browser automation and TradingView interaction
-2. **Alert Handler** (`handle_alerts.py`): Processes alert messages and extracts trade information
-3. **Chart Manager** (`open_entry_chart.py`): Navigates charts and captures screenshots
-4. **Exit Monitor** (`exits.py`): Tracks trade exits and distributes exit information
-5. **Social Distributors** (`send_to_socials/`): Distributes to Discord, Twitter, Facebook
-6. **Database Manager** (`database/`): MongoDB integration for trade storage
+### TradingView Requirements (All Modes)
+- **2FA**: Must be disabled
+- **Social accounts**: None linked
+- **Subscription**: Premium (for webhooks in Tiered/Combo)
+- **Layouts**: Mode-specific (Legacy: "Screener"+"Exits", Tiered: "NWE"+"OBDIV", Combo: "Screener")
+- **Indicators**: Must be starred/favorited
 
-### Key Files
+### Environment Variables
+See `env.py` and `.env` file. Key variables: `CHROME_PROFILES_PATH`, `TRADINGVIEW_EMAIL`, `TRADINGVIEW_PASSWORD`, `MONGODB_PWD`
 
-- `main.py`: Entry point with main trading loop
-- `gui.py`: Tkinter-based GUI interface
-- `env.py`: Environment configuration
-- `logger_setup.py`: Centralized logging configuration
-- `resources/symbol_settings.py`: Trading symbol categories and configurations
+## Critical Constants
 
-### Data Flow (Legacy Mode)
+| Constant | Legacy | Tiered | Combo |
+|----------|--------|--------|-------|
+| Batch size | 5 symbols | 20 (NWE), 8 (OBDIV) | **4 (hard limit)** |
+| Restart interval | 10 mins | N/A | 5 mins |
+| Alert lifecycle | Create at startup | Create/delete cycle | Create once + maintain |
 
-1. TradingView generates alerts based on technical analysis
-2. TTE captures alert messages via Selenium
-3. TTE navigates to relevant chart/timeframe
-4. Screenshots taken with trade information overlay
-5. Distribution to multiple platforms
-6. Exit monitoring and notification
-
-## Tiered Architecture (New)
-
-The tiered architecture uses webhook-based alerts instead of poll-based scraping.
-
-### Key Files
-- `tiered_main.py`: Entry point for tiered orchestrator
-- `orchestrator.py`: TieredOrchestrator class managing two-phase workflow
-- `api_client.py`: Stock Buddy API client
-- `config.py`: Tiered orchestrator configuration
-- `docs/PRD.md`: Complete technical specification (1800+ lines)
-
-### TradingView Screeners
-Located in `screeners on TV/`:
-- `TTE NWE Screener v2.txt` - Tier 1: 20 symbols, H4/D1 NWE zones
-- `TTE OBDIV Screener v2.txt` - Tier 2: 8 symbols, OB/FVG + Divergence
-
-### Tiered Workflow (Single Cycle = One 20-Symbol Batch)
-1. Input 20 symbols to NWE screener
-2. Create webhook alert, wait for it to trigger
-3. Delete alert
-4. Hot symbols (from webhook) go to OBDIV screener (batches of 8)
-5. Create webhook alert, wait for it to trigger
-6. Delete alert, repeat until all hot symbols processed
-7. Move to next 20-symbol batch
-
-### Running Tiered Mode
-```bash
-python tiered_main.py              # Run continuously
-python tiered_main.py --validate   # Validate configuration
-python tiered_main.py --test-api   # Test API connection
-python tiered_main.py --stats      # Show system statistics
-```
-
-## Important Configuration
-
-### Environment Variables Required
-
-- `CHROME_PROFILES_PATH`: Path to Chrome user data folder
-- `TRADINGVIEW_EMAIL`: TradingView login email (2FA must be disabled)
-- `TRADINGVIEW_PASSWORD`: TradingView login password
-- `MONGODB_PWD`: MongoDB database password
-- Discord webhook URLs (in `.env` file)
-- Twitter API keys (in `.env` file)
-
-### Chrome Profile Setup
-
-1. Create a `TTE` folder in Chrome user data directory
-2. Configure the `PROFILE` constant in `env.py`
-3. Ensure no other Chrome instances are running during execution
-
-### TradingView Requirements
-
-**For Legacy Mode:**
-1. Disable two-factor authentication
-2. No linked social accounts
-3. Saved layout named "Screener" with Premium Screener and Trade Drawer indicators
-4. Saved layout named "Exits" with Get Exits indicator
-5. Indicators must be starred/favorited
-
-**For Tiered Mode:**
-1. Disable two-factor authentication
-2. No linked social accounts
-3. Saved layout named "NWE" with TTE NWE Screener v2 indicator
-4. Saved layout named "OBDIV" with TTE OBDIV Screener v2 indicator
-5. Both indicators must be starred/favorited
-
-## Key Constants
-
-### main.py
-- `SCREENER_SHORT`: 'Screener' (screener short title)
-- `DRAWER_SHORT`: 'Trade Drawer 2' (indicator short title)
-- `INTERVAL_MINUTES`: 10 (refresh and restart interval)
-- `START_FRESH`: True (delete and recreate alerts)
-- `SCREENER_TIMEFRAME_1/2/3`: Configured timeframes for screeners
-
-### open_tv.py
-- `SYMBOL_INPUTS`: Number of symbol inputs to fill (currently 5)
-- `CHART_TIMEFRAME`: Trading timeframe for entries
-- `SCREENER_REUPLOAD_TIMEOUT`: Wait time for screener re-upload
-
-## Testing and Debugging
-
-### Logs
-- Main log file: `app_log.log`
-- Continuous log trimming enabled to prevent overflow
-- Comprehensive logging throughout all modules
-
-### Common Issues
-- Browser memory usage - periodic refresh implemented
-- Alert rate limits - automatic restart of inactive alerts
-- TradingView UI changes - may require selector updates
-- MongoDB connection - check password and connection string
+**Combo Pine Script Timeframes** (production values):
+- `TF_H4="60"` (1H), `TF_D1="240"` (H4), `TF_W1="D"` (D1) — variable names are legacy
 
 ## Development Guidelines
 
-1. Maintain modular structure with clear separation of concerns
-2. Use environment variables for all credentials and configurations
-3. Implement comprehensive error handling and logging
-4. Test browser automation thoroughly before deployment
-5. Never commit credentials or sensitive information
-6. **Always add logging**: Every new function or significant code block should include debug logging (using `print(..., flush=True)` for immediate output or `logger.info/debug/error()` for file logging). This is essential for debugging browser automation issues.
-7. Whenever you make a mistake, write what you learnt from it in @AGENTS.md so that it's never repeated in the future
+1. **Reuse existing code**: Check before implementing — patterns for alerts, tabs, indicators already exist
+2. **Always log**: Use `print(..., flush=True)` or `logger.info/debug/error()` in every significant code block
+3. **Never modify `open_tv.py`**: All browser automation is reusable with parameters
+4. **Document mistakes**: Write learnings to `AGENTS.md` to prevent repetition
+
+## Key Reusable Code Locations
+
+| What | Where | Use Case |
+|------|-------|----------|
+| Restart inactive alerts | `handle_alerts.py:240-303` | Combo maintenance (every 5 mins) |
+| Tab switching | `open_entry_chart.py:277-318` | Parallel alert creation (combo setup) |
+| Create webhook alert | `open_tv.py:1007-1361` | All webhook modes |
+| Delete all alerts | `open_tv.py:1502-1627` | Tiered mode only (NOT combo) |
+| Safe element access | `open_tv.py:1757-1780` | When Selenium elements go stale |
 
 
-## Documentation Maintenance
+## Documentation
 
-When making significant changes to the codebase, update the relevant documentation:
+| Change Type | Update |
+|-------------|--------|
+| Architecture/workflow | `docs/ARCHITECTURE.md` (tiered), `docs/ARCHITECTURE v2.md` (combo) |
+| Implementation tasks | `docs/PRD.md` (tiered), `docs/COMBO_IMPLEMENTATION.md` (combo) |
+| Other changes | `README.md`, `docs/SETUP.md`, `docs/API.md`, etc. |
 
-| Change Type | Files to Update |
-|-------------|-----------------|
-| Features or usage changes | `README.md` |
-| Setup/configuration changes | `docs/SETUP.md` |
-| API endpoint changes | `docs/API.md` |
-| Database schema changes | `docs/DATABASE.md` |
-| Architecture/module changes | `docs/ARCHITECTURE.md` |
-| New issues/solutions discovered | `docs/TROUBLESHOOTING.md` |
-| Implementation phase progress | `docs/PRD.md` |
-
-Documentation should be updated as part of the same PR that introduces the code changes.
-
-## Troubleshooting Commands
-
-```bash
-# Check Python version (must be 3.11)
-python --version
-
-# List installed packages
-pipenv graph
-
-# Clear log file
-echo "" > app_log.log
-
-# Test MongoDB connection
-python -c "from database.local_db import db; print(db.list_collection_names())"
-```
+Update docs in the same PR as code changes.
