@@ -164,18 +164,10 @@ python tiered_main.py --stats      # Show system statistics
 2. Use environment variables for all credentials and configurations
 3. Implement comprehensive error handling and logging
 4. Test browser automation thoroughly before deployment
-5. Handle API rate limits appropriately
-6. Never commit credentials or sensitive information
-7. **Always add logging**: Every new function or significant code block should include debug logging (using `print(..., flush=True)` for immediate output or `logger.info/debug/error()` for file logging). This is essential for debugging browser automation issues.
+5. Never commit credentials or sensitive information
+6. **Always add logging**: Every new function or significant code block should include debug logging (using `print(..., flush=True)` for immediate output or `logger.info/debug/error()` for file logging). This is essential for debugging browser automation issues.
+7. Whenever you make a mistake, write what you learnt from it in @AGENTS.md so that it's never repeated in the future
 
-## Critical Notes
-
-- Never manually interact with the Selenium-controlled browser
-- Ensure all Chrome browsers are closed before running
-- The Alerts log must be maximized (not minimized) in TradingView
-- The application will delete existing alerts when `START_FRESH=True`
-- MongoDB symbols must be synced with TradingView alerts
-- Whenever you make a mistake, write what you learnt from it in @AGENTS.md so that it's never repeated in the future
 
 ## Documentation Maintenance
 

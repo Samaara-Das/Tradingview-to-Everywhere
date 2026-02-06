@@ -1,4 +1,7 @@
 {
+  "env": {
+    "CLAUDE_CODE_TASK_LIST_ID": "tte"
+  },
   "permissions": {
     "allow": [
       "*",
@@ -101,5 +104,6 @@
       "Bash(python -c*__import__*os*system*)",
       "Bash(python -c*exec*compile*)"
     ]
-  }
+  },
+  "model": "sonnet"
 }
