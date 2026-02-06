@@ -84,6 +84,16 @@ Uses Selenium to scrape TradingView alerts directly:
 3. Distributes to social platforms
 4. Tracks exits and sends notifications
 
+
+### Critical Notes (legacy mode)
+
+- Never manually interact with the Selenium-controlled browser
+- Ensure all Chrome browsers are closed before running
+- The Alerts log must be maximized (not minimized) in TradingView
+- The application will delete existing alerts when `START_FRESH=True`
+- MongoDB symbols must be synced with TradingView alerts
+
+
 ### Tiered Mode (`tiered_main.py`)
 
 Uses webhook-based alerts for more reliable signal detection:
