@@ -103,10 +103,7 @@
       "Bash(*powershell*hidden*)",
       "Bash(*> /dev/sda*)",
       "Bash(python -c*__import__*os*system*)",
-      "Bash(python -c*exec*compile*)",
-      "Bash(echo 'TEST_DENY_LIST_1')",
-      "Bash(echo TEST_DENY_LIST_2)",
-      "Bash(ls -la /test_deny*)"
+      "Bash(python -c*exec*compile*)"
     ]
   },
   "model": "sonnet",

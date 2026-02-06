@@ -19,7 +19,7 @@ You are an expert Pine Script v6 developer. Apply these guidelines when working 
 - Use `math.abs()`, `math.round()` etc. (not `abs()`, `round()`)
 
 ### Non-Repainting Code is Mandatory
-All code must be non-repainting for reliable alerts. Follow these patterns:
+All code must be non-repainting for reliable alerts. Follow these patterns (see "Alerts and Webhooks" section for alert-specific repainting prevention):
 
 ```pinescript
 // ALWAYS use [1] offset with barstate.isconfirmed for conditions
@@ -57,7 +57,7 @@ htf_close = request.security(symbol, "D", close[1], lookahead = barmerge.lookahe
 ### Rollback Mechanism
 Before each realtime bar update, non-`varip` variables revert to their last committed state.
 
-**Survives rollback:** `varip` variables, Pine Logs, strategy orders, alert logs
+**Survives rollback:** `varip` variables, Pine Logs, strategy orders, alert logs (alerts fire even if condition becomes false later on same bar - see "Alerts and Webhooks")
 **Does NOT survive:** `var` variables (revert to previous bar), plot outputs, objects without `varip`
 
 ### Script Reload Events
@@ -118,28 +118,276 @@ Several indicators import external Pine Script libraries:
 - `sammie123567858/AoDivergenceLibrary_/5` - AO divergence detection
 
 ### Alert Message Format
-Alerts should output JSON that the Python backend can parse:
+
+TTE screeners output structured JSON that the Python backend (or Stock Buddy API in tiered mode) can parse. The project uses a hierarchical pattern where details are added based on signal strength.
+
+**Production pattern from TTE Screener.txt (line 1190)**:
+
 ```pinescript
-alertMsg = '{"symbol":"' + syminfo.ticker + '","direction":"' + direction + '","entry":' + str.tostring(entryPrice) + '}'
-alert(alertMsg, alert.freq_once_per_bar_close)
+// Build JSON alert message for Python backend
+// Format: {"symbol":"XXX","signal":"BUY","level":3,"details":"NWE:H4,D1 OB:W1 DIV:H4"}
+buildAlertMsg(string sym, string signal, int level, string details) =>
+    '{"symbol":"' + sym +
+     '","signal":"' + signal +
+     '","level":' + str.tostring(level) +
+     ',"details":"' + details + '"}'
 ```
 
-## Alert Rules
+**Usage in screener with signal change detection (lines 1237-1249)**:
 
-### Execution Constraints
-- **Alerts only fire on realtime bars** - historical bars never trigger alerts
-- When an alert is created in the UI, TradingView saves a snapshot of the script - subsequent edits don't affect existing alerts
+```pinescript
+if barstate.isconfirmed
+    // Only alert when signal changes from previous bar
+    if buyLvl01 != prevBuyLvl01 or sellLvl01 != prevSellLvl01
+        bool isBuy = buyLvl01 >= sellLvl01 and buyLvl01 > 0
+        int lvl = isBuy ? buyLvl01 : sellLvl01
+
+        if lvl > 0
+            string sig = isBuy ? "BUY" : "SELL"
+
+            // Level 1: NWE only
+            string det = "NWE:" + buildNweDetail(nweBull01_h4, nweBull01_d1)
+
+            // Level 2: NWE + OB/FVG
+            if lvl >= 2
+                det := det + " OB:" + buildObDetail(bullF01_h4, bullF01_d1, bullF01_w1)
+
+            // Level 3: NWE + OB/FVG + Divergence
+            if lvl == 3
+                det := det + " DIV:" + buildDivDetail(divBullTm01_h4, intBullTm01_h4, divBullTm01_d1, intBullTm01_d1, time)
+
+            alert(buildAlertMsg(getSymbolName(s01), sig, lvl, det), alert.freq_once_per_bar_close)
+
+        prevBuyLvl01 := buyLvl01
+        prevSellLvl01 := sellLvl01
+```
+
+**Key patterns**:
+- **Signal change detection**: Only alert when `buyLvl != prevBuyLvl` (prevents rate limiting)
+- **Hierarchical details**: Build details string incrementally based on signal level
+- **Non-repainting**: Uses `barstate.isconfirmed` guard
+- **JSON structure**: Consistent format for backend parsing
+
+See "Alerts and Webhooks" section below for comprehensive webhook integration patterns.
+
+## Alerts and Webhooks
+
+Alerts enable automated trading systems by triggering webhooks with structured data (JSON). Understanding alert execution constraints and webhook patterns is critical for building reliable signal distribution like TTE's tiered architecture.
+
+**For deep technical reference**: See `references/alerts_and_webhooks.md` for comprehensive coverage of server-side execution, rate limiting, error handling, troubleshooting, and complete examples.
+
+### Critical Constraints
+
+**1. Server-Side Execution**
+- Scripts run on TradingView's cloud servers (not your computer)
+- Alerts continue firing after you close your browser (server-side alerts)
+- Resource limits enforced: 40 `request.security()` calls (64 with Ultimate), 500ms loop timeout
+
+**2. Alert Snapshots**
+- When you create an alert, TradingView captures a **snapshot** of your script
+- Editing script code does NOT update existing alerts
+- **You must delete and recreate alerts** after script changes
+- This is why TTE's `START_FRESH` flag exists (deletes and recreates alerts)
+
+**3. Rate Limiting**
+- **Limit**: 15 alerts per 3 minutes per script (rolling window)
+- Exceeded alerts are **delayed** (not dropped), causing late signal delivery
+- **Solution**: Use signal change detection (only alert when signal changes, not every bar)
+- See TTE screener pattern below for implementation
+
+**4. Runtime Errors Stop Alerts**
+- If script encounters runtime error, execution halts immediately
+- Alert logic never executes, no alerts fire (silently fails)
+- Common errors: array out of bounds, division by zero, na value arithmetic
+- **Prevention**: Defensive coding with na checks, array size validation, safe arithmetic
+
+**5. Realtime Bars Only**
+- Alerts only fire on realtime bars (currently forming bars)
+- Historical bars never trigger alerts (server can't retroactively notify)
+- Use `barstate.isconfirmed` to fire at bar close (non-repainting)
+
+### Alert Functions Comparison
+
+| Feature | `alert()` | `alertcondition()` |
+|---------|-----------|-------------------|
+| **Message Type** | Series string (dynamic values) | Const string (compile-time only) |
+| **Dynamic Values** | ✓ Any expression (`close`, `level`, etc.) | ✗ Placeholders only (`{{close}}`) |
+| **Works In** | Indicators AND strategies | Indicators only |
+| **Account Limit** | 1 alert per script (all `alert()` calls count as one) | Each `alertcondition()` counts separately |
+| **Webhook JSON** | ✓ Full control over JSON structure | Limited (placeholders) |
+| **TTE Convention** | **Always use `alert()`** | Not used |
+| **UI Interaction** | Automatic (no UI needed) | Requires UI to select condition |
+
+**Decision rule**: Always use `alert()` for webhook-based systems. Use `alertcondition()` only for legacy compatibility.
 
 ### Frequency Options
-| Frequency | When It Fires |
-|-----------|---------------|
-| `alert.freq_once_per_bar` | First call per realtime bar (default) |
-| `alert.freq_once_per_bar_close` | Only when realtime bar closes (prevents repainting) |
-| `alert.freq_all` | Every call during the realtime bar |
 
-### alert() vs alertcondition()
-- **`alert()`**: Dynamic messages, works in indicators and strategies, preferred
-- **`alertcondition()`**: Legacy, constant messages only, indicators only, creates selectable conditions in UI
+| Frequency | When Fires | Repainting Risk | Use Case |
+|-----------|------------|-----------------|----------|
+| `alert.freq_once_per_bar_close` | Bar close only | **None** (bar won't reopen) | ✓ **Recommended** - Non-repainting signals |
+| `alert.freq_once_per_bar` | First time condition true per bar | **High** (bar can still repaint) | Time-sensitive signals (rare) |
+| `alert.freq_all` | Every tick while condition true | **Extreme** + rate limit issues | High-frequency trading (very rare) |
+
+**TTE convention**: Always use `alert.freq_once_per_bar_close` with `barstate.isconfirmed` guard.
+
+**Timing relative to bar close**:
+```pinescript
+// Bar forming... → Condition becomes true → Bar closes → alert.freq_once_per_bar_close fires
+if buyCondition and barstate.isconfirmed
+    alert(buildAlertMsg(...), alert.freq_once_per_bar_close)
+```
+
+### Webhook Integration Patterns
+
+#### JSON Message Format
+
+Build JSON strings for webhook payloads:
+
+```pinescript
+// Basic pattern
+buildJsonAlert(string symbol, string signal, float price, int level) =>
+    // Validate inputs (prevent JSON corruption)
+    if na(price) or na(level)
+        runtime.error("Cannot build JSON with na values")
+
+    // Build JSON string
+    '{"symbol":"' + symbol +
+     '","signal":"' + signal +
+     '","price":' + str.tostring(price, '#.#####') +
+     ',"level":' + str.tostring(level) +
+     '"}'
+
+// Usage
+if signalChange and barstate.isconfirmed
+    alert(buildJsonAlert(syminfo.ticker, "BUY", close, 1), alert.freq_once_per_bar_close)
+```
+
+**Key rules**:
+- Always check for `na` values before building JSON
+- Use `str.tostring()` with format specifiers (`'#.#####'` for decimals)
+- Escape special characters in strings (quotes, backslashes)
+- Validate JSON structure with online tools during development
+
+#### TTE Project Pattern
+
+TTE screeners use this proven pattern from `TTE Screener.txt`:
+
+```pinescript
+// Build JSON alert message for Python backend (line 1190)
+// Format: {"symbol":"XXX","signal":"BUY","level":3,"details":"NWE:H4,D1 OB:W1 DIV:H4"}
+buildAlertMsg(string sym, string signal, int level, string details) =>
+    '{"symbol":"' + sym +
+     '","signal":"' + signal +
+     '","level":' + str.tostring(level) +
+     ',"details":"' + details + '"}'
+
+// Signal change detection with hierarchical details (lines 1237-1249)
+if barstate.isconfirmed
+    // Only alert if signal changed from previous bar (prevents rate limiting)
+    if buyLvl01 != prevBuyLvl01 or sellLvl01 != prevSellLvl01
+        bool isBuy = buyLvl01 >= sellLvl01 and buyLvl01 > 0
+        int lvl = isBuy ? buyLvl01 : sellLvl01
+
+        if lvl > 0
+            string sig = isBuy ? "BUY" : "SELL"
+            string det = "NWE:" + buildNweDetail(...)  // Level 1 details
+
+            if lvl >= 2
+                det := det + " OB:" + buildObDetail(...)  // Level 2 adds OB
+
+            if lvl == 3
+                det := det + " DIV:" + buildDivDetail(...)  // Level 3 adds divergence
+
+            alert(buildAlertMsg(getSymbolName(s01), sig, lvl, det),
+                  alert.freq_once_per_bar_close)
+
+        prevBuyLvl01 := buyLvl01  // Update previous state
+        prevSellLvl01 := sellLvl01
+```
+
+**Key patterns**:
+1. **Signal change detection** - Compare current signal with previous bar (`buyLvl01 != prevBuyLvl01`)
+2. **Rate limit prevention** - Only alert when signal changes, not every bar
+3. **Hierarchical details** - Build details incrementally based on signal level
+4. **Non-repainting** - Uses `barstate.isconfirmed` guard
+5. **State tracking** - Store previous signal in `var` variables
+
+#### Discord Webhook
+
+Discord expects `{"content": "message"}` format:
+
+```pinescript
+discordWebhook(string content) =>
+    '{"content":"' + content + '"}'
+
+// Usage
+if buySignal and barstate.isconfirmed
+    alert(discordWebhook("🚀 BUY signal on " + syminfo.ticker),
+          alert.freq_once_per_bar_close)
+```
+
+For rich embeds with colors and fields, see `references/alerts_and_webhooks.md` section 5.
+
+### Error Handling for Alerts
+
+**Problem**: Runtime errors silently stop all alerts until resolved.
+
+**Solution**: Defensive validation before alert() call:
+
+```pinescript
+safeAlert(string symbol, string signal, float price, float level) =>
+    // Validate ALL values before building message
+    if na(price)
+        log.error("Price is na, skipping alert")
+        false
+    else if na(level) or level <= 0
+        log.error("Invalid level, skipping alert")
+        false
+    else
+        // Safe to build JSON
+        alert(buildJsonAlert(symbol, signal, price, level),
+              alert.freq_once_per_bar_close)
+        true
+
+// Usage
+if signalChange and barstate.isconfirmed
+    bool success = safeAlert(syminfo.ticker, "BUY", close, calcLevel())
+    if not success
+        log.warning("Failed to send alert for " + syminfo.ticker)
+```
+
+### Multi-Symbol Screener Pattern
+
+For screeners monitoring 5+ symbols without hitting rate limits:
+
+```pinescript
+// Track previous signals for change detection
+var int prevS1Sig = 0
+var int prevS2Sig = 0
+
+if barstate.isconfirmed
+    // Symbol 1 - only alert on change
+    if s1_signal != prevS1Sig and s1_signal != 0
+        alert(buildJsonAlert(symbol1, getSigText(s1_signal), close, s1_level),
+              alert.freq_once_per_bar_close)
+    prevS1Sig := s1_signal
+
+    // Symbol 2 - only alert on change
+    if s2_signal != prevS2Sig and s2_signal != 0
+        alert(buildJsonAlert(symbol2, getSigText(s2_signal), close, s2_level),
+              alert.freq_once_per_bar_close)
+    prevS2Sig := s2_signal
+
+    // ... repeat for all symbols
+```
+
+**Result**: Only new/changed signals trigger alerts (typically 0-3 per bar instead of 20).
+
+### Cross-References
+
+- **Non-Repainting Code**: Use [1] offset and `barstate.isconfirmed` for alerts (see "All Repainting Causes" below)
+- **Execution Model**: Alert logs survive bar state rollback (logged even if condition later becomes false on same bar)
+- **Code Review Checklist**: Verify alert rate limiting prevention, na validation, JSON structure
 
 ## request.security() Best Practices
 
@@ -571,12 +819,23 @@ if shouldLog() and barstate.isconfirmed
 ## Code Review Checklist
 
 Before finalizing any Pine Script code, verify:
+
+**General**:
 - [ ] Uses v6 syntax throughout
 - [ ] No repainting issues (barstate.isconfirmed, [1] offsets)
 - [ ] `request.security()` uses lookahead_on with [1] offset
 - [ ] Persistent variables use `var` keyword
 - [ ] Arrays/objects properly initialized
-- [ ] Alert frequency set to `alert.freq_once_per_bar_close`
 - [ ] No `timenow` usage
 - [ ] Functions don't try to plot or modify globals
 - [ ] Debug code removed or disabled before publishing
+
+**Alert-Specific** (if script uses alerts):
+- [ ] Alert frequency set to `alert.freq_once_per_bar_close`
+- [ ] Uses `barstate.isconfirmed` guard before alert() calls
+- [ ] Signal change detection implemented (prevents rate limiting)
+- [ ] All values validated for na before building JSON
+- [ ] JSON structure validated (test with online validator)
+- [ ] String values properly escaped in JSON (quotes, backslashes)
+- [ ] Error handling prevents runtime errors from stopping alerts
+- [ ] Multi-symbol screeners stay under request.security() limit (40 or 64)
