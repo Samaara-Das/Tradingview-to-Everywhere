@@ -1,8 +1,8 @@
 # Task Context Tracker
 
-**Last Updated**: 2026-02-05
-**Current Task**: Task 8 - Verify TradingView screener signal accuracy
-**Last Session**: TTE Screener consolidation and divergence debugging
+**Last Updated**: 2026-02-06
+**Current Task**: Architecture decision - Combo screener vs separate screeners
+**Last Session**: Architecture analysis and webhook destination decision
 
 ---
 
@@ -33,6 +33,71 @@
 ---
 
 ## Session History
+
+### Session: 2026-02-06 (Architecture Analysis & Webhook Decision)
+
+**Goal**: Evaluate two architectures (combo screener vs separate screeners) and decide webhook destination
+
+**Architecture Decision: Combo Screener (Architecture 1) Chosen**
+
+Two architectures analyzed:
+- **Arch 1 (Combo)**: Single TTE Screener with NWE + OB + DIV combined, 4 symbols/batch, 1 alert/batch
+- **Arch 2 (Separate)**: 3 separate screeners (NWE, OB, DIV), 4 symbols/batch, 3 alerts/batch
+
+Key factors favoring Arch 1:
+- 264 alert cycles vs 792 (3x less browser automation)
+- ~6.6 hour full rotation vs ~19.8 hours
+- No signal merging complexity — single webhook contains complete signal with level
+- Combo screener already built and tested
+- 4 symbols is the hard limit (more causes memory/runtime errors), eliminating Arch 2's batch size advantage
+- Runtime errors handled by TTE periodically restarting stopped alerts via TV UI
+
+**Webhook Destination Decision: Stock Buddy API**
+
+Considered: Stock Buddy API (Vercel), MongoDB Atlas directly, custom webhook server
+
+Stock Buddy chosen because:
+- Existing endpoint pipeline: webhook → Zod validation → MongoDB → RTK Query → React grid
+- Vercel Pro ($20/mo) handles the traffic easily
+- MongoDB Atlas M2 ($9/mo) provides comfortable storage
+- MongoDB directly not viable (can't set auth headers from TV webhooks)
+
+**Screener Updated Mid-Session** — old version had signal change detection, new version does NOT:
+
+Old version (was in codebase at start of session):
+- `var int prevBuyLvl01-08` state tracking
+- `buyLvl != prevBuyLvl` comparison before `alert()`
+- `barstate.isconfirmed` guard
+- `alert.freq_once_per_bar_close` frequency
+- Flat JSON: `{"symbol":"XXX","signal":"BUY","level":3,"details":"NWE:H4,D1 OB:W1 DIV:H4"}`
+- Signal levels 0/1/2/3 calculated in Pine Script
+
+Updated version (replaced mid-session by user from another chat):
+- **NO signal change detection** — fires on every bar if any signal exists
+- `alert.freq_once_per_bar` — fires on first tick of each bar (not bar close)
+- **NO barstate.isconfirmed guard** — fires on realtime bars before close
+- Rich nested JSON payload:
+  ```json
+  {"timestamp":<ms>,"signals":[{"symbol":"XXX","nwe":[...],"ob_fvg":[...],"divergence":[...]}]}
+  ```
+- **NO signal hierarchy** — all raw signals sent, Stock Buddy must calculate levels
+- Symbols with NO signals excluded from payload entirely
+
+**Traffic Impact of Updated Screener**:
+- Estimated ~500-5,000 webhooks/day (depending on how many symbols in zones)
+- Bursts of 20-50 at bar boundaries
+- Stock Buddy endpoint MUST deduplicate server-side (upsert by symbol, only update if signals changed)
+
+**Combo Screener `request.security()` Usage**: 24 of 40 max
+- 8 x H4 (NWE+OB+DIV combined) = 8 calls
+- 8 x D1 (NWE+OB+DIV combined) = 8 calls
+- 8 x W1 (OB only) = 8 calls
+
+**New Endpoint Needed**: `/api/tte/signal` on Stock Buddy to receive combo screener's rich JSON format (replaces two-phase NWE + OBDIV pattern). Must handle deduplication since screener fires every bar.
+
+**Skills Used**: /pinescript, /mongodb, /stock-buddy — all loaded for domain expertise
+
+---
 
 ### Session: 2026-02-05 (TTE Screener Consolidation & Divergence Debugging)
 
@@ -473,6 +538,14 @@ After exploring the Stock Buddy App codebase, found significant discrepancies be
 
 7. **Hot Symbol Expiration**: `expires_at = nwe_timestamp + timeframe_duration` (no refresh, separate docs per timeframe)
 
+8. **Architecture Choice (2026-02-06)**: Combo screener (Arch 1) over separate screeners (Arch 2) — fewer alert cycles, simpler orchestrator, no signal merging
+
+9. **Webhook Destination (2026-02-06)**: Stock Buddy API — existing pipeline, signal change detection limits traffic to manageable levels, Vercel Pro + MongoDB M2 recommended ($29/mo)
+
+10. **4 Symbol Hard Limit (2026-02-06)**: More than 4 symbols causes memory/runtime errors in the combo screener. This eliminates Arch 2's batch size advantage
+
+11. **Updated Screener Design (2026-02-06)**: Screener sends ALL raw signals (no levels, no change detection) on every bar. Stock Buddy calculates levels server-side. Uses `alert.freq_once_per_bar` for immediate firing. Deduplication must happen in Stock Buddy API endpoint
+
 ---
 
 ## Key Reference Files
@@ -518,12 +591,12 @@ python tiered_main.py
 
 ## Next Steps
 
-1. **Verify Screener Accuracy** (Task 8 - IN PROGRESS): Test TTE Screener signal table correctness
-   - Verify NWE zone detection matches chart
-   - Verify OB/FVG overlap detection matches chart
-   - Verify Divergence detection matches Kernel AO Divergence indicator
-2. **Test Stock Buddy Grid** (Task 6): Verify signals appear correctly on the grid UI
-3. **Screenshot Integration** (Task 9): Send signal screenshots to Stock Buddy
+1. **Build new orchestrator for Arch 1**: Implement the combo screener rotation (264 batches of 4 symbols, create alert per batch, webhook to Stock Buddy)
+2. **Create `/api/tte/signal` endpoint on Stock Buddy**: Unified webhook receiver for combo screener JSON format (replaces two-phase NWE+OBDIV endpoints)
+3. **Implement alert restart logic**: TTE periodically checks for stopped alerts and restarts them via TradingView UI
+4. **Verify Screener Accuracy** (Task 8): Test TTE Screener signal table correctness
+5. **Test Stock Buddy Grid** (Task 6): Verify signals appear correctly on the grid UI
+6. **Screenshot Integration** (Task 9): Send signal screenshots to Stock Buddy
 
 ---
 
@@ -671,20 +744,51 @@ interface HotListDocument {
 }
 ```
 
-### TTE Screener Signal Levels (2026-02-05)
+### TTE Screener Signal Levels (2026-02-05, updated 2026-02-06)
 ```
-Level 0: No signal (price not in NWE zone)
-Level 1: NWE zone only (price in NWE zone on H4 or D1)
-Level 2: NWE + OB/FVG overlap (unmitigated OB or unfilled FVG on H4/D1/W1)
-Level 3: NWE + OB + Divergence (Kernel AO divergence on current bar)
+Levels are NO LONGER calculated in Pine Script (as of updated screener).
+Stock Buddy must calculate levels from raw signals:
+- Level 1: NWE zone only
+- Level 2: NWE + (OB/FVG OR Divergence)
+- Level 3: NWE + OB/FVG + Divergence
 
-Logic: buyLvl = nweBull ? (obBull ? (divBull ? 3 : 2) : 1) : 0
-Note: Divergence requires OB overlap first - it cannot boost Level 1 directly to Level 3
+Old Pine Script logic (removed): buyLvl = nweBull ? (obBull ? (divBull ? 3 : 2) : 1) : 0
 ```
+
+### TTE Screener Updated Alert Pattern (2026-02-06)
+```pinescript
+// Fires on EVERY bar when any signal exists (no change detection)
+if str.length(allSignals) > 0
+    string payload = '{"timestamp":' + str.tostring(time) + ',"signals":[' + allSignals + ']}'
+    alert(payload, alert.freq_once_per_bar)
+```
+
+### TTE Screener Updated JSON Payload (2026-02-06)
+```json
+{
+  "timestamp": 1707264000000,
+  "signals": [
+    {
+      "symbol": "GBPAUD",
+      "nwe": [
+        {"zone": "lower_avg", "type": "bullish", "overlapTimestamp": 1707264000000, "timeframe": "H4"}
+      ],
+      "ob_fvg": [
+        {"zonetype": "OB", "subtype": "unmitigated", "type": "bullish", "zoneTimestamp": 1707260400000, "overlapTimestamp": 1707264000000, "timeframe": "H4"}
+      ],
+      "divergence": [
+        {"divType": "Logic 2", "type": "bullish", "timestamp": 1707264000000, "timeframe": "H4"}
+      ]
+    }
+  ]
+}
+```
+Note: Symbols with NO signals are excluded from payload entirely.
 
 ### TTE Screener Configuration (2026-02-05)
 ```
 Symbols: 4 (GBPAUD, AUDJPY, EURCAD, EURGBP)
 Timeframes: H4, D1 for NWE/Divergence; H4, D1, W1 for OB/FVG
-Signal Table: position.top_right, 4 columns (Symbol, Signal, Lvl, Details)
+Signal Table: position.top_right, 4 columns (Symbol, NWE, OB, DIV)
+request.security() calls: 24 of 40 max
 ```

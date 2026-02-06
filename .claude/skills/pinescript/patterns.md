@@ -401,3 +401,305 @@ elapsedHours = elapsedMs / MS_PER_HOUR
 // NEVER use str.format_time() for time differences!
 // It treats input as absolute time from Unix epoch
 ```
+
+---
+
+## Webhook Alert Patterns
+
+These patterns demonstrate best practices for webhook-based alert systems, focusing on JSON formatting, rate limiting prevention, and error handling.
+
+### Pattern 1: Webhook JSON Alert
+
+**Use Case**: Sending structured JSON to webhooks (Discord, Slack, custom APIs)
+
+**Key Concepts**:
+- Always validate values before JSON construction
+- Use format specifiers for decimal control
+- Implement signal change detection to prevent rate limiting
+
+```pinescript
+// ==================================================================
+// PATTERN: Webhook JSON Alert
+// ==================================================================
+
+//@version=6
+indicator("Webhook JSON Alert Example", overlay=true)
+
+// ===== Configuration =====
+int maFastLen = input.int(10, "Fast MA Length", minval=1)
+int maSlowLen = input.int(20, "Slow MA Length", minval=1)
+
+// ===== Calculations =====
+float maFast = ta.sma(close, maFastLen)
+float maSlow = ta.sma(close, maSlowLen)
+
+bool buyCondition = ta.crossover(maFast, maSlow)
+bool sellCondition = ta.crossunder(maFast, maSlow)
+
+// ===== Helper: Build JSON Message with Error Checking =====
+buildJsonAlert(string symbol, string signal, float price, float level) =>
+    // Validate inputs (prevent JSON corruption)
+    if na(price) or na(level)
+        runtime.error("Cannot build JSON with na values")
+
+    // Build JSON string (proper formatting)
+    '{"symbol":"' + symbol +
+     '","signal":"' + signal +
+     '","price":' + str.tostring(price, '#.#####') +
+     ',"level":' + str.tostring(level) +
+     '"}'
+
+// ===== Signal Change Detection =====
+// Track previous signal to only alert on changes (prevents rate limiting)
+var int prevSignal = 0
+
+if barstate.isconfirmed
+    int currentSignal = buyCondition ? 1 : (sellCondition ? -1 : 0)
+
+    // Only alert when signal changes
+    if currentSignal != prevSignal and currentSignal != 0
+        string sig = currentSignal == 1 ? "BUY" : "SELL"
+        string msg = buildJsonAlert(syminfo.ticker, sig, close, math.abs(currentSignal))
+        alert(msg, alert.freq_once_per_bar_close)
+
+    prevSignal := currentSignal
+
+// ===== Visual Feedback =====
+plot(maFast, "Fast MA", color.blue)
+plot(maSlow, "Slow MA", color.orange)
+plotshape(buyCondition, "Buy", shape.triangleup, location.belowbar, color.green, size=size.small)
+plotshape(sellCondition, "Sell", shape.triangledown, location.abovebar, color.red, size=size.small)
+```
+
+**Example webhook payload**:
+```json
+{"symbol":"AAPL","signal":"BUY","price":150.25000,"level":1}
+```
+
+---
+
+### Pattern 2: Multi-Symbol Screener with Rate-Limit-Aware Alerts
+
+**Use Case**: Monitoring 5+ symbols without hitting 15 alerts/3min limit
+
+**Key Concepts**:
+- Request data for multiple symbols using request.security()
+- Only alert on signal changes, not every bar
+- Use [1] offset with lookahead_on for non-repainting
+
+```pinescript
+// ==================================================================
+// PATTERN: Multi-Symbol Screener with Batched Alerts
+// ==================================================================
+
+//@version=6
+indicator("Multi-Symbol Screener", overlay=true)
+
+// ===== Inputs =====
+string symbol1 = input.symbol("NASDAQ:AAPL", "Symbol 1")
+string symbol2 = input.symbol("NASDAQ:GOOGL", "Symbol 2")
+string symbol3 = input.symbol("NASDAQ:MSFT", "Symbol 3")
+string symbol4 = input.symbol("NASDAQ:TSLA", "Symbol 4")
+string symbol5 = input.symbol("NASDAQ:AMZN", "Symbol 5")
+
+// ===== Helper Functions =====
+
+// Calculate signal: 1=BUY, -1=SELL, 0=NEUTRAL
+calcSignal(float closePrice, float maFast, float maSlow) =>
+    if closePrice > maFast and maFast > maSlow
+        1  // BUY
+    else if closePrice < maFast and maFast < maSlow
+        -1  // SELL
+    else
+        0  // NEUTRAL
+
+// Build JSON alert message
+buildAlertMsg(string sym, string signal, float price, int level) =>
+    '{"symbol":"' + sym +
+     '","signal":"' + signal +
+     '","price":' + str.tostring(price, '#.#####') +
+     ',"level":' + str.tostring(level) +
+     '"}'
+
+// Get symbol name without exchange prefix
+getSymbolName(string fullSymbol) =>
+    array.get(str.split(fullSymbol, ":"), 1)
+
+// Convert signal integer to text
+getSigText(int sig) =>
+    sig == 1 ? "BUY" : (sig == -1 ? "SELL" : "NEUTRAL")
+
+// ===== Request Data for All Symbols =====
+// Use [1] offset and lookahead=on for non-repainting
+
+[s1_close, s1_maFast, s1_maSlow] = request.security(symbol1, timeframe.period,
+    [close[1], ta.sma(close, 10)[1], ta.sma(close, 20)[1]], lookahead=barmerge.lookahead_on)
+
+[s2_close, s2_maFast, s2_maSlow] = request.security(symbol2, timeframe.period,
+    [close[1], ta.sma(close, 10)[1], ta.sma(close, 20)[1]], lookahead=barmerge.lookahead_on)
+
+[s3_close, s3_maFast, s3_maSlow] = request.security(symbol3, timeframe.period,
+    [close[1], ta.sma(close, 10)[1], ta.sma(close, 20)[1]], lookahead=barmerge.lookahead_on)
+
+[s4_close, s4_maFast, s4_maSlow] = request.security(symbol4, timeframe.period,
+    [close[1], ta.sma(close, 10)[1], ta.sma(close, 20)[1]], lookahead=barmerge.lookahead_on)
+
+[s5_close, s5_maFast, s5_maSlow] = request.security(symbol5, timeframe.period,
+    [close[1], ta.sma(close, 10)[1], ta.sma(close, 20)[1]], lookahead=barmerge.lookahead_on)
+
+// ===== Calculate Signals =====
+int s1_sig = calcSignal(s1_close, s1_maFast, s1_maSlow)
+int s2_sig = calcSignal(s2_close, s2_maFast, s2_maSlow)
+int s3_sig = calcSignal(s3_close, s3_maFast, s3_maSlow)
+int s4_sig = calcSignal(s4_close, s4_maFast, s4_maSlow)
+int s5_sig = calcSignal(s5_close, s5_maFast, s5_maSlow)
+
+// ===== Track Previous Signals (Signal Change Detection) =====
+var int prevS1Sig = 0
+var int prevS2Sig = 0
+var int prevS3Sig = 0
+var int prevS4Sig = 0
+var int prevS5Sig = 0
+
+// ===== Alert on Signal Changes Only =====
+if barstate.isconfirmed
+    // Symbol 1
+    if s1_sig != prevS1Sig and s1_sig != 0 and not na(s1_close)
+        alert(buildAlertMsg(getSymbolName(symbol1), getSigText(s1_sig), s1_close, 1),
+              alert.freq_once_per_bar_close)
+    prevS1Sig := s1_sig
+
+    // Symbol 2
+    if s2_sig != prevS2Sig and s2_sig != 0 and not na(s2_close)
+        alert(buildAlertMsg(getSymbolName(symbol2), getSigText(s2_sig), s2_close, 1),
+              alert.freq_once_per_bar_close)
+    prevS2Sig := s2_sig
+
+    // Symbol 3
+    if s3_sig != prevS3Sig and s3_sig != 0 and not na(s3_close)
+        alert(buildAlertMsg(getSymbolName(symbol3), getSigText(s3_sig), s3_close, 1),
+              alert.freq_once_per_bar_close)
+    prevS3Sig := s3_sig
+
+    // Symbol 4
+    if s4_sig != prevS4Sig and s4_sig != 0 and not na(s4_close)
+        alert(buildAlertMsg(getSymbolName(symbol4), getSigText(s4_sig), s4_close, 1),
+              alert.freq_once_per_bar_close)
+    prevS4Sig := s4_sig
+
+    // Symbol 5
+    if s5_sig != prevS5Sig and s5_sig != 0 and not na(s5_close)
+        alert(buildAlertMsg(getSymbolName(symbol5), getSigText(s5_sig), s5_close, 1),
+              alert.freq_once_per_bar_close)
+    prevS5Sig := s5_sig
+
+// ===== Visual Feedback (for current chart symbol only) =====
+plotshape(s1_sig == 1, "Buy", shape.triangleup, location.belowbar, color.green, size=size.small)
+plotshape(s1_sig == -1, "Sell", shape.triangledown, location.abovebar, color.red, size=size.small)
+```
+
+**Result**: Only new/changed signals trigger alerts (typically 0-3 per bar instead of 5).
+
+---
+
+### Pattern 3: Error-Resistant Alert with Validation
+
+**Use Case**: Prevent runtime errors from stopping alerts
+
+**Key Concepts**:
+- Validate ALL values before alert() call
+- Use defensive checks for na, invalid ranges
+- Return success indicator for debugging
+
+```pinescript
+// ==================================================================
+// PATTERN: Error-Resistant Alert with Validation
+// ==================================================================
+
+//@version=6
+indicator("Error-Resistant Alert", overlay=true)
+
+// ===== Inputs =====
+int rsiLen = input.int(14, "RSI Length", minval=1, maxval=500)
+float obLevel = input.float(70, "Overbought Level", minval=50, maxval=100)
+float osLevel = input.float(30, "Oversold Level", minval=0, maxval=50)
+
+// ===== Calculations =====
+
+// Validate inputs (runtime error prevention)
+if rsiLen > bar_index
+    runtime.error("RSI length exceeds available bars")
+
+// Calculate RSI with error handling
+float rsi = ta.rsi(close, rsiLen)
+
+// Calculate signal with na checks
+int signal = 0
+if not na(rsi)
+    if rsi > obLevel and rsi[1] <= obLevel
+        signal := -1  // Overbought (sell signal)
+    else if rsi < osLevel and rsi[1] >= osLevel
+        signal := 1  // Oversold (buy signal)
+
+// ===== Safe Alert Function =====
+
+// Validate ALL values before building message
+// Returns: true if alert sent successfully, false if validation failed
+safeAlert(string symbol, string signalText, float price, float rsiValue, string details) =>
+    // Comprehensive validation
+    if na(price)
+        log.error("Price is na, skipping alert for " + symbol)
+        false
+    else if na(rsiValue)
+        log.error("RSI is na, skipping alert for " + symbol)
+        false
+    else if price <= 0
+        log.error("Invalid price (" + str.tostring(price) + "), skipping alert for " + symbol)
+        false
+    else if rsiValue < 0 or rsiValue > 100
+        log.error("Invalid RSI (" + str.tostring(rsiValue) + "), skipping alert for " + symbol)
+        false
+    else
+        // Safe to build JSON
+        string msg = '{"symbol":"' + symbol +
+                      '","signal":"' + signalText +
+                      '","price":' + str.tostring(price, '#.#####') +
+                      ',"rsi":' + str.tostring(rsiValue, '#.##') +
+                      ',"details":"' + details +
+                      '"}'
+        alert(msg, alert.freq_once_per_bar_close)
+        log.info("Alert sent successfully for " + symbol + ": " + signalText)
+        true
+
+// ===== Alert Logic with Error Handling =====
+
+if barstate.isconfirmed and signal != 0
+    string sigText = signal == 1 ? "BUY" : "SELL"
+    string det = signal == 1 ?
+                 "RSI crossed below " + str.tostring(osLevel) + " (oversold)" :
+                 "RSI crossed above " + str.tostring(obLevel) + " (overbought)"
+
+    // Attempt to send alert with validation
+    bool success = safeAlert(syminfo.ticker, sigText, close, rsi, det)
+
+    if not success
+        log.warning("Failed to send alert, check error logs above")
+
+// ===== Visual Feedback =====
+hline(obLevel, "Overbought", color.red, hline.style_dashed)
+hline(osLevel, "Oversold", color.green, hline.style_dashed)
+plot(rsi, "RSI", color.blue)
+plotshape(signal == 1, "Buy", shape.triangleup, location.bottom, color.green, size=size.small)
+plotshape(signal == -1, "Sell", shape.triangledown, location.top, color.red, size=size.small)
+```
+
+**Example webhook payload (success)**:
+```json
+{"symbol":"AAPL","signal":"BUY","price":150.25000,"rsi":28.50,"details":"RSI crossed below 30 (oversold)"}
+```
+
+**Benefits**:
+- Prevents runtime errors from silently stopping alerts
+- Detailed error logging for debugging
+- Returns success indicator for conditional logic
+- Validates value ranges before JSON construction
