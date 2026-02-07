@@ -365,8 +365,8 @@ scanOBRange(simple string tf) =>
     float bearZoneHigh = 0.0
     float bearZoneLow = 0.0
 
-    // D1 timeframe has a 1-bar offset in timestamp reporting via request.security
-    int timeShift = tf == 'D' ? 1 : 0
+    // All timeframes use direct timestamp access (no offset needed)
+    int timeShift = 0
 
     // Current bar price range for overlap check
     float currHigh = high
@@ -619,23 +619,63 @@ scanOBRange(simple string tf) =>
 // SIGNAL DETECTION  //
 ///////////////////////
 
-// Combined NWE + OB overlap + Divergence scan for H4 and D1 timeframes
-// Returns: [nweBull, nweBear, lowerNear, lowerAvg, upperNear, upperAvg,
+// Get NWE zone name based on price overlap with envelope bands
+// For bullish: lower_avg (between lower_near and lower_avg) or lower_far (between lower_avg and lower_far)
+// For bearish: upper_avg (between upper_near and upper_avg) or upper_far (between upper_avg and upper_far)
+getNweZoneName(bool isBull, float _low, float _high, float lowerNear, float lowerAvg, float lowerFar, float upperNear, float upperAvg, float upperFar) =>
+    string zone = ''
+
+    if isBull
+        // Check if in lower_avg zone (lower_near to lower_avg)
+        if _low <= lowerNear and _high >= lowerAvg
+            zone := 'lower_avg'
+            zone
+        // Check if in lower_far zone (lower_avg to lower_far)
+        else if _low <= lowerAvg and _high >= lowerFar
+            zone := 'lower_far'
+            zone
+    else
+        // Check if in upper_avg zone (upper_near to upper_avg)
+        if _high >= upperNear and _low <= upperAvg
+            zone := 'upper_avg'
+            zone
+        // Check if in upper_far zone (upper_avg to upper_far)
+        else if _high >= upperAvg and _low <= upperFar
+            zone := 'upper_far'
+            zone
+
+    zone
+
+// Combined NWE band levels + signals + OB overlap + Divergence scan for H4 and D1 timeframes
+// Returns: [lowerNear, lowerAvg, upperNear, upperFar,
+//           nweBull, bullZone, nweBear, bearZone,
 //           bullFound, bullZoneType, bullType, bullZoneTime, bullZoneHigh, bullZoneLow,
 //           bearFound, bearZoneType, bearType, bearZoneTime, bearZoneHigh, bearZoneLow,
 //           bullDivTime, bearDivTime]
-// Total: 20 values (2 NWE zone booleans + 4 NWE band prices + 12 OB overlap info + 2 div timestamps)
-// NWE zone check is done INSIDE this function where low/high are in the correct TF context
+// Total: 24 values (4 NWE band prices + 4 NWE signals + 12 OB overlap info + 2 div timestamps)
+// NOTE: NWE signal detection done inside request.security() context to use correct symbol's prices
 checkSignalWithOB(simple string tf) =>
     // Calculate NWE envelope for zone boundary detection
     [yhat, upper_near, upper_far, upper_avg, lower_near, lower_far, lower_avg] = calcNWE(close, high, low, nwe_h, nwe_alpha, nwe_x0, nwe_atrLen, nwe_nearFactor, nwe_farFactor)
 
-    // NWE zone overlap check - done HERE where low/high are in correct TF context (shift 0)
-    // Zone structure: upper_far > upper_avg > upper_near > yhat > lower_near > lower_avg > lower_far
-    // Bullish: bar overlaps lower_avg zone (lower_near to lower_avg) OR lower_far zone (lower_avg to lower_far)
-    bool nweBull = low <= lower_near and high >= lower_avg or low <= lower_avg and high >= lower_far
-    // Bearish: bar overlaps upper_avg zone (upper_near to upper_avg) OR upper_far zone (upper_avg to upper_far)
-    bool nweBear = high >= upper_near and low <= upper_avg or high >= upper_avg and low <= upper_far
+    // NWE overlap signal detection (using symbol's own low/high in request.security context)
+    // Bullish: candle overlaps lower zones (shift 0)
+    // Zone 1: between lower_near and lower_avg
+    bool bullZone1 = low <= lower_near and high >= lower_avg
+    // Zone 2: between lower_avg and lower_far
+    bool bullZone2 = low <= lower_avg and high >= lower_far
+    bool nweBull = bullZone1 or bullZone2
+
+    // Bearish: candle overlaps upper zones (shift 0)
+    // Zone 1: between upper_near and upper_avg
+    bool bearZone1 = high >= upper_near and low <= upper_avg
+    // Zone 2: between upper_avg and upper_far
+    bool bearZone2 = high >= upper_avg and low <= upper_far
+    bool nweBear = bearZone1 or bearZone2
+
+    // Calculate zone names using symbol's price data
+    string bullZone = getNweZoneName(true, low, high, lower_near, lower_avg, lower_far, upper_near, upper_avg, upper_far)
+    string bearZone = getNweZoneName(false, low, high, lower_near, lower_avg, lower_far, upper_near, upper_avg, upper_far)
 
     // Scan for OB/FVG overlap with current price (pass timeframe for timestamp correction)
     [bullFound, bullZoneType, bullType, bullZoneTime, bullZoneHigh, bullZoneLow, bearFound, bearZoneType, bearType, bearZoneTime, bearZoneHigh, bearZoneLow] = scanOBRange(tf)
@@ -647,8 +687,8 @@ checkSignalWithOB(simple string tf) =>
     int bullDivTime = detectBullishDiv(osc, maxLookback)
     int bearDivTime = detectBearishDiv(osc, maxLookback)
 
-    // Return NWE zone booleans + band prices + OB overlap + divergence data (20 values)
-    [nweBull, nweBear, lower_near, lower_avg, upper_near, upper_avg, bullFound, bullZoneType, bullType, bullZoneTime, bullZoneHigh, bullZoneLow, bearFound, bearZoneType, bearType, bearZoneTime, bearZoneHigh, bearZoneLow, bullDivTime, bearDivTime]
+    // Return NWE band prices + NWE signals + OB overlap + divergence data (24 values)
+    [lower_near, lower_avg, upper_near, upper_far, nweBull, bullZone, nweBear, bearZone, bullFound, bullZoneType, bullType, bullZoneTime, bullZoneHigh, bullZoneLow, bearFound, bearZoneType, bearType, bearZoneTime, bearZoneHigh, bearZoneLow, bullDivTime, bearDivTime]
 
 // OB overlap scan only (for Weekly timeframe - no NWE)
 // Returns: [bullFound, bullZoneType, bullType, bullZoneTime, bullZoneHigh, bullZoneLow,
@@ -662,36 +702,37 @@ checkOBOnly(simple string tf) =>
 // REQUEST SECURITY CALLS //
 ////////////////////////////
 
-// Combined NWE + OB overlap + Divergence scan from each symbol on H4 and Daily timeframes
-// Returns: [nweBull, nweBear, lowerNear, lowerAvg, upperNear, upperAvg,
+// Combined NWE band levels + signals + OB overlap + Divergence scan from each symbol
+// Returns: [lowerNear, lowerAvg, upperNear, upperFar,
+//           nweBull, bullZone, nweBear, bearZone,
 //           bullFound, bullZoneType, bullType, bullZoneTime, bullZoneHigh, bullZoneLow,
 //           bearFound, bearZoneType, bearType, bearZoneTime, bearZoneHigh, bearZoneLow,
 //           bullDivTime, bearDivTime]
-// - nweBull/nweBear: boolean (1/0) - price in NWE zone on shift 0 (checked inside request.security context)
-// - lowerNear/lowerAvg: NWE lower band prices (for bullish zone tooltip)
-// - upperNear/upperAvg: NWE upper band prices (for bearish zone tooltip)
-// - bullFound/bearFound: 1 if price overlaps a bullish/bearish zone, 0 otherwise
+// - lowerNear/lowerAvg/upperNear/upperFar: NWE band price levels
+// - nweBull/nweBear: boolean - NWE signal detected (candle overlaps NWE zones)
+// - bullZone/bearZone: string - NWE zone name ("lower_avg", "lower_far", "upper_avg", "upper_far")
+// - bullFound/bearFound: 1 if price overlaps a bullish/bearish OB/FVG zone, 0 otherwise
 // - bullZoneType/bearZoneType: 1=OB, 2=FVG
 // - bullType: 1=unmit OB, 2=mit OB, 3=breaker support, 4=bullish FVG
 // - bearType: 1=unmit OB, 2=mit OB, 3=breaker resistance, 4=bearish FVG
-// - bullZoneTime/bearZoneTime: timestamp of zone formation
+// - bullZoneTime/bearZoneTime: timestamp of OB/FVG zone formation
 // - bullZoneHigh/bullZoneLow: OB/FVG zone price range for bullish zones
 // - bearZoneHigh/bearZoneLow: OB/FVG zone price range for bearish zones
 // - bullDivTime/bearDivTime: Logic 2 divergence timestamp (0 if none)
-// Total: 16 calls (8 symbols × 2 TFs)
+// Total: 24 values per call, 8 calls for H4+D1 combined
 
-// H4 timeframe - Combined NWE + OB overlap + Divergence (20 values each)
-[nweBull01_h4, nweBear01_h4, lnNear01_h4, lnAvg01_h4, unNear01_h4, unAvg01_h4, bullF01_h4, bullZT01_h4, bullT01_h4, bullTm01_h4, bullZH01_h4, bullZL01_h4, bearF01_h4, bearZT01_h4, bearT01_h4, bearTm01_h4, bearZH01_h4, bearZL01_h4, divBullTm01_h4, divBearTm01_h4] = request.security(s01, TF_H4, checkSignalWithOB(TF_H4))
-[nweBull02_h4, nweBear02_h4, lnNear02_h4, lnAvg02_h4, unNear02_h4, unAvg02_h4, bullF02_h4, bullZT02_h4, bullT02_h4, bullTm02_h4, bullZH02_h4, bullZL02_h4, bearF02_h4, bearZT02_h4, bearT02_h4, bearTm02_h4, bearZH02_h4, bearZL02_h4, divBullTm02_h4, divBearTm02_h4] = request.security(s02, TF_H4, checkSignalWithOB(TF_H4))
-[nweBull03_h4, nweBear03_h4, lnNear03_h4, lnAvg03_h4, unNear03_h4, unAvg03_h4, bullF03_h4, bullZT03_h4, bullT03_h4, bullTm03_h4, bullZH03_h4, bullZL03_h4, bearF03_h4, bearZT03_h4, bearT03_h4, bearTm03_h4, bearZH03_h4, bearZL03_h4, divBullTm03_h4, divBearTm03_h4] = request.security(s03, TF_H4, checkSignalWithOB(TF_H4))
-[nweBull04_h4, nweBear04_h4, lnNear04_h4, lnAvg04_h4, unNear04_h4, unAvg04_h4, bullF04_h4, bullZT04_h4, bullT04_h4, bullTm04_h4, bullZH04_h4, bullZL04_h4, bearF04_h4, bearZT04_h4, bearT04_h4, bearTm04_h4, bearZH04_h4, bearZL04_h4, divBullTm04_h4, divBearTm04_h4] = request.security(s04, TF_H4, checkSignalWithOB(TF_H4))
+// H4 timeframe - NWE band levels + signals + OB overlap + Divergence (24 values each)
+[lnNear01_h4, lnAvg01_h4, unNear01_h4, unFar01_h4, nweBull01_h4, bullZone01_h4, nweBear01_h4, bearZone01_h4, bullF01_h4, bullZT01_h4, bullT01_h4, bullTm01_h4, bullZH01_h4, bullZL01_h4, bearF01_h4, bearZT01_h4, bearT01_h4, bearTm01_h4, bearZH01_h4, bearZL01_h4, divBullTm01_h4, divBearTm01_h4] = request.security(s01, TF_H4, checkSignalWithOB(TF_H4))
+[lnNear02_h4, lnAvg02_h4, unNear02_h4, unFar02_h4, nweBull02_h4, bullZone02_h4, nweBear02_h4, bearZone02_h4, bullF02_h4, bullZT02_h4, bullT02_h4, bullTm02_h4, bullZH02_h4, bullZL02_h4, bearF02_h4, bearZT02_h4, bearT02_h4, bearTm02_h4, bearZH02_h4, bearZL02_h4, divBullTm02_h4, divBearTm02_h4] = request.security(s02, TF_H4, checkSignalWithOB(TF_H4))
+[lnNear03_h4, lnAvg03_h4, unNear03_h4, unFar03_h4, nweBull03_h4, bullZone03_h4, nweBear03_h4, bearZone03_h4, bullF03_h4, bullZT03_h4, bullT03_h4, bullTm03_h4, bullZH03_h4, bullZL03_h4, bearF03_h4, bearZT03_h4, bearT03_h4, bearTm03_h4, bearZH03_h4, bearZL03_h4, divBullTm03_h4, divBearTm03_h4] = request.security(s03, TF_H4, checkSignalWithOB(TF_H4))
+[lnNear04_h4, lnAvg04_h4, unNear04_h4, unFar04_h4, nweBull04_h4, bullZone04_h4, nweBear04_h4, bearZone04_h4, bullF04_h4, bullZT04_h4, bullT04_h4, bullTm04_h4, bullZH04_h4, bullZL04_h4, bearF04_h4, bearZT04_h4, bearT04_h4, bearTm04_h4, bearZH04_h4, bearZL04_h4, divBullTm04_h4, divBearTm04_h4] = request.security(s04, TF_H4, checkSignalWithOB(TF_H4))
 
 
-// Daily timeframe - Combined NWE + OB overlap + Divergence (20 values each)
-[nweBull01_d1, nweBear01_d1, lnNear01_d1, lnAvg01_d1, unNear01_d1, unAvg01_d1, bullF01_d1, bullZT01_d1, bullT01_d1, bullTm01_d1, bullZH01_d1, bullZL01_d1, bearF01_d1, bearZT01_d1, bearT01_d1, bearTm01_d1, bearZH01_d1, bearZL01_d1, divBullTm01_d1, divBearTm01_d1] = request.security(s01, TF_D1, checkSignalWithOB(TF_D1))
-[nweBull02_d1, nweBear02_d1, lnNear02_d1, lnAvg02_d1, unNear02_d1, unAvg02_d1, bullF02_d1, bullZT02_d1, bullT02_d1, bullTm02_d1, bullZH02_d1, bullZL02_d1, bearF02_d1, bearZT02_d1, bearT02_d1, bearTm02_d1, bearZH02_d1, bearZL02_d1, divBullTm02_d1, divBearTm02_d1] = request.security(s02, TF_D1, checkSignalWithOB(TF_D1))
-[nweBull03_d1, nweBear03_d1, lnNear03_d1, lnAvg03_d1, unNear03_d1, unAvg03_d1, bullF03_d1, bullZT03_d1, bullT03_d1, bullTm03_d1, bullZH03_d1, bullZL03_d1, bearF03_d1, bearZT03_d1, bearT03_d1, bearTm03_d1, bearZH03_d1, bearZL03_d1, divBullTm03_d1, divBearTm03_d1] = request.security(s03, TF_D1, checkSignalWithOB(TF_D1))
-[nweBull04_d1, nweBear04_d1, lnNear04_d1, lnAvg04_d1, unNear04_d1, unAvg04_d1, bullF04_d1, bullZT04_d1, bullT04_d1, bullTm04_d1, bullZH04_d1, bullZL04_d1, bearF04_d1, bearZT04_d1, bearT04_d1, bearTm04_d1, bearZH04_d1, bearZL04_d1, divBullTm04_d1, divBearTm04_d1] = request.security(s04, TF_D1, checkSignalWithOB(TF_D1))
+// Daily timeframe - NWE band levels + signals + OB overlap + Divergence (24 values each)
+[lnNear01_d1, lnAvg01_d1, unNear01_d1, unFar01_d1, nweBull01_d1, bullZone01_d1, nweBear01_d1, bearZone01_d1, bullF01_d1, bullZT01_d1, bullT01_d1, bullTm01_d1, bullZH01_d1, bullZL01_d1, bearF01_d1, bearZT01_d1, bearT01_d1, bearTm01_d1, bearZH01_d1, bearZL01_d1, divBullTm01_d1, divBearTm01_d1] = request.security(s01, TF_D1, checkSignalWithOB(TF_D1))
+[lnNear02_d1, lnAvg02_d1, unNear02_d1, unFar02_d1, nweBull02_d1, bullZone02_d1, nweBear02_d1, bearZone02_d1, bullF02_d1, bullZT02_d1, bullT02_d1, bullTm02_d1, bullZH02_d1, bullZL02_d1, bearF02_d1, bearZT02_d1, bearT02_d1, bearTm02_d1, bearZH02_d1, bearZL02_d1, divBullTm02_d1, divBearTm02_d1] = request.security(s02, TF_D1, checkSignalWithOB(TF_D1))
+[lnNear03_d1, lnAvg03_d1, unNear03_d1, unFar03_d1, nweBull03_d1, bullZone03_d1, nweBear03_d1, bearZone03_d1, bullF03_d1, bullZT03_d1, bullT03_d1, bullTm03_d1, bullZH03_d1, bullZL03_d1, bearF03_d1, bearZT03_d1, bearT03_d1, bearTm03_d1, bearZH03_d1, bearZL03_d1, divBullTm03_d1, divBearTm03_d1] = request.security(s03, TF_D1, checkSignalWithOB(TF_D1))
+[lnNear04_d1, lnAvg04_d1, unNear04_d1, unFar04_d1, nweBull04_d1, bullZone04_d1, nweBear04_d1, bearZone04_d1, bullF04_d1, bullZT04_d1, bullT04_d1, bullTm04_d1, bullZH04_d1, bullZL04_d1, bearF04_d1, bearZT04_d1, bearT04_d1, bearTm04_d1, bearZH04_d1, bearZL04_d1, divBullTm04_d1, divBearTm04_d1] = request.security(s04, TF_D1, checkSignalWithOB(TF_D1))
 
 
 // Weekly timeframe - OB overlap only (no NWE)
@@ -717,29 +758,6 @@ getSymbolName(string fullSymbol) =>
     result
 
 // Get NWE zone name based on which band price is in
-// For bullish: lower_avg (between lower_near and lower_avg) or lower_far (between lower_avg and lower_far)
-// For bearish: upper_avg (between upper_near and upper_avg) or upper_far (between upper_avg and upper_far)
-getNweZoneName(bool isBull, float _low, float _high, float lowerNear, float lowerAvg, float lowerFar, float upperNear, float upperAvg, float upperFar) =>
-    string zone = ''
-    if isBull
-        // Check if in lower_avg zone (lower_near to lower_avg)
-        if _low <= lowerNear and _high >= lowerAvg
-            zone := 'lower_avg'
-            zone
-        // Check if in lower_far zone (lower_avg to lower_far)
-        else if _low <= lowerAvg and _high >= lowerFar
-            zone := 'lower_far'
-            zone
-    else // Check if in upper_avg zone (upper_near to upper_avg)
-        if _high >= upperNear and _low <= upperAvg
-            zone := 'upper_avg'
-            zone
-        // Check if in upper_far zone (upper_avg to upper_far)
-        else if _high >= upperAvg and _low <= upperFar
-            zone := 'upper_far'
-            zone
-    zone
-
 // Build NWE JSON entry (if signal is true)
 buildNweEntry(bool signal, string zone, string signalType, string tf, int overlapTime) =>
     signal and str.length(zone) > 0 ? '{"zone":"' + zone + '","type":"' + signalType + '","overlapTimestamp":' + str.tostring(overlapTime) + ',"timeframe":"' + tf + '"}' : ''
@@ -851,6 +869,130 @@ buildDivDetailTable(int divH4, int divD1, int currTime) =>
         result
     result
 
+// Format single timeframe signal (shows "B", "S", "B S", or "-")
+formatSingleTfSignal(bool bullish, bool bearish) =>
+    if bullish and bearish
+        'B S'
+    else if bullish
+        'B'
+    else if bearish
+        'S'
+    else
+        '-'
+
+// Build NWE tooltip with zone and timestamp info
+buildNweTooltip(bool bullish, bool bearish, string bullZone, string bearZone, int timestamp) =>
+    string tooltip = ''
+
+    // Build bullish section
+    if bullish
+        string zone = str.length(bullZone) > 0 ? bullZone : 'Unknown'
+        tooltip := 'BULLISH\nZone: ' + zone + '\nTime: ' + str.format_time(timestamp, 'yyyy-MM-dd HH:mm', syminfo.timezone)
+        tooltip
+
+    // Build bearish section
+    if bearish
+        string zone = str.length(bearZone) > 0 ? bearZone : 'Unknown'
+        string bearInfo = 'BEARISH\nZone: ' + zone + '\nTime: ' + str.format_time(timestamp, 'yyyy-MM-dd HH:mm', syminfo.timezone)
+        tooltip := tooltip + (str.length(tooltip) > 0 ? '\n\n' : '') + bearInfo
+        tooltip
+
+    // If no signal at all, show "No Signal"
+    if not bullish and not bearish
+        tooltip := 'No Signal'
+        tooltip
+
+    tooltip
+
+// Build OB/FVG tooltip with zone type, subtype, and timestamps
+buildObTooltip(int bullFound, int bearFound, int bullZT, int bullT, int bullTm, float bullZH, float bullZL, int bearZT, int bearT, int bearTm, float bearZH, float bearZL) =>
+    string tooltip = ''
+    if bullFound == 1
+        string zt = bullZT == 1 ? 'OB' : bullZT == 2 ? 'FVG' : '?'
+        string st = bullT == 1 ? 'Unmitigated' : bullT == 3 ? 'Breaker Support' : bullT == 4 ? 'Bullish FVG' : '?'
+        tooltip := 'BULLISH ' + zt + '\n' + st + '\nZone: ' + str.tostring(bullZH, format.mintick) + ' - ' + str.tostring(bullZL, format.mintick) + '\nFormed: ' + str.format_time(bullTm, 'yyyy-MM-dd HH:mm', syminfo.timezone) + '\nOverlap: ' + str.format_time(time, 'yyyy-MM-dd HH:mm', syminfo.timezone)
+        tooltip
+    if bearFound == 1
+        string zt = bearZT == 1 ? 'OB' : bearZT == 2 ? 'FVG' : '?'
+        string st = bearT == 1 ? 'Unmitigated' : bearT == 3 ? 'Breaker Resistance' : bearT == 4 ? 'Bearish FVG' : '?'
+        string bearInfo = 'BEARISH ' + zt + '\n' + st + '\nZone: ' + str.tostring(bearZH, format.mintick) + ' - ' + str.tostring(bearZL, format.mintick) + '\nFormed: ' + str.format_time(bearTm, 'yyyy-MM-dd HH:mm', syminfo.timezone) + '\nOverlap: ' + str.format_time(time, 'yyyy-MM-dd HH:mm', syminfo.timezone)
+        tooltip := tooltip + (str.length(tooltip) > 0 ? '\n\n' : '') + bearInfo
+        tooltip
+    tooltip
+
+// Build Divergence tooltip with timestamp
+buildDivTooltip(int divBullTime, int divBearTime, int currTime) =>
+    string tooltip = ''
+    bool bullish = divBullTime == currTime
+    bool bearish = divBearTime == currTime
+    if bullish
+        tooltip := 'BULLISH DIV\nLogic 2\nTime: ' + str.format_time(divBullTime, 'yyyy-MM-dd HH:mm', syminfo.timezone)
+        tooltip
+    if bearish
+        string bearInfo = 'BEARISH DIV\nLogic 2\nTime: ' + str.format_time(divBearTime, 'yyyy-MM-dd HH:mm', syminfo.timezone)
+        tooltip := tooltip + (str.length(tooltip) > 0 ? '\n\n' : '') + bearInfo
+        tooltip
+    tooltip
+
+// Get color for single timeframe signal
+getSingleTfColor(bool bullish, bool bearish) =>
+    if bullish and bearish
+        color.yellow
+    else if bullish
+        color.lime
+    else if bearish
+        color.red
+    else
+        color.gray
+
+// Format OB signal (int version - found=1 means signal exists)
+formatSingleObSignal(int bullFound, int bearFound) =>
+    if bullFound == 1 and bearFound == 1
+        'B S'
+    else if bullFound == 1
+        'B'
+    else if bearFound == 1
+        'S'
+    else
+        '-'
+
+// Get color for OB signal
+getSingleObColor(int bullFound, int bearFound) =>
+    if bullFound == 1 and bearFound == 1
+        color.yellow
+    else if bullFound == 1
+        color.lime
+    else if bearFound == 1
+        color.red
+    else
+        color.gray
+
+// Format Divergence signal (timestamp version)
+formatSingleDivSignal(int divBullTime, int divBearTime, int currTime) =>
+    bool bullish = divBullTime == currTime
+    bool bearish = divBearTime == currTime
+    if bullish and bearish
+        'B S'
+    else if bullish
+        'B'
+    else if bearish
+        'S'
+    else
+        '-'
+
+// Get color for Divergence signal
+getSingleDivColor(int divBullTime, int divBearTime, int currTime) =>
+    bool bullish = divBullTime == currTime
+    bool bearish = divBearTime == currTime
+    if bullish and bearish
+        color.yellow
+    else if bullish
+        color.lime
+    else if bearish
+        color.red
+    else
+        color.gray
+
 // Check if any signal exists for a symbol
 hasAnySignal(bool nweBullH4, bool nweBearH4, bool nweBullD1, bool nweBearD1, int bullFH4, int bearFH4, int bullFD1, int bearFD1, int bullFW1, int bearFW1, int divBullH4, int divBearH4, int divBullD1, int divBearD1, int currTime) =>
     bool hasNwe = nweBullH4 or nweBearH4 or nweBullD1 or nweBearD1
@@ -900,30 +1042,8 @@ buildSymbolJson(string sym, string nweArray, string obArray, string divArray) =>
     else
         ''
 
-// Calculate NWE zone names for each symbol/timeframe
-// Symbol 01
-string bullZone01_h4 = getNweZoneName(true, low, high, lnNear01_h4, lnAvg01_h4, lnAvg01_h4 - (lnNear01_h4 - lnAvg01_h4), unNear01_h4, unAvg01_h4, unAvg01_h4 + unAvg01_h4 - unNear01_h4)
-string bearZone01_h4 = getNweZoneName(false, low, high, lnNear01_h4, lnAvg01_h4, lnAvg01_h4 - (lnNear01_h4 - lnAvg01_h4), unNear01_h4, unAvg01_h4, unAvg01_h4 + unAvg01_h4 - unNear01_h4)
-string bullZone01_d1 = getNweZoneName(true, low, high, lnNear01_d1, lnAvg01_d1, lnAvg01_d1 - (lnNear01_d1 - lnAvg01_d1), unNear01_d1, unAvg01_d1, unAvg01_d1 + unAvg01_d1 - unNear01_d1)
-string bearZone01_d1 = getNweZoneName(false, low, high, lnNear01_d1, lnAvg01_d1, lnAvg01_d1 - (lnNear01_d1 - lnAvg01_d1), unNear01_d1, unAvg01_d1, unAvg01_d1 + unAvg01_d1 - unNear01_d1)
-
-// Symbol 02
-string bullZone02_h4 = getNweZoneName(true, low, high, lnNear02_h4, lnAvg02_h4, lnAvg02_h4 - (lnNear02_h4 - lnAvg02_h4), unNear02_h4, unAvg02_h4, unAvg02_h4 + unAvg02_h4 - unNear02_h4)
-string bearZone02_h4 = getNweZoneName(false, low, high, lnNear02_h4, lnAvg02_h4, lnAvg02_h4 - (lnNear02_h4 - lnAvg02_h4), unNear02_h4, unAvg02_h4, unAvg02_h4 + unAvg02_h4 - unNear02_h4)
-string bullZone02_d1 = getNweZoneName(true, low, high, lnNear02_d1, lnAvg02_d1, lnAvg02_d1 - (lnNear02_d1 - lnAvg02_d1), unNear02_d1, unAvg02_d1, unAvg02_d1 + unAvg02_d1 - unNear02_d1)
-string bearZone02_d1 = getNweZoneName(false, low, high, lnNear02_d1, lnAvg02_d1, lnAvg02_d1 - (lnNear02_d1 - lnAvg02_d1), unNear02_d1, unAvg02_d1, unAvg02_d1 + unAvg02_d1 - unNear02_d1)
-
-// Symbol 03
-string bullZone03_h4 = getNweZoneName(true, low, high, lnNear03_h4, lnAvg03_h4, lnAvg03_h4 - (lnNear03_h4 - lnAvg03_h4), unNear03_h4, unAvg03_h4, unAvg03_h4 + unAvg03_h4 - unNear03_h4)
-string bearZone03_h4 = getNweZoneName(false, low, high, lnNear03_h4, lnAvg03_h4, lnAvg03_h4 - (lnNear03_h4 - lnAvg03_h4), unNear03_h4, unAvg03_h4, unAvg03_h4 + unAvg03_h4 - unNear03_h4)
-string bullZone03_d1 = getNweZoneName(true, low, high, lnNear03_d1, lnAvg03_d1, lnAvg03_d1 - (lnNear03_d1 - lnAvg03_d1), unNear03_d1, unAvg03_d1, unAvg03_d1 + unAvg03_d1 - unNear03_d1)
-string bearZone03_d1 = getNweZoneName(false, low, high, lnNear03_d1, lnAvg03_d1, lnAvg03_d1 - (lnNear03_d1 - lnAvg03_d1), unNear03_d1, unAvg03_d1, unAvg03_d1 + unAvg03_d1 - unNear03_d1)
-
-// Symbol 04
-string bullZone04_h4 = getNweZoneName(true, low, high, lnNear04_h4, lnAvg04_h4, lnAvg04_h4 - (lnNear04_h4 - lnAvg04_h4), unNear04_h4, unAvg04_h4, unAvg04_h4 + unAvg04_h4 - unNear04_h4)
-string bearZone04_h4 = getNweZoneName(false, low, high, lnNear04_h4, lnAvg04_h4, lnAvg04_h4 - (lnNear04_h4 - lnAvg04_h4), unNear04_h4, unAvg04_h4, unAvg04_h4 + unAvg04_h4 - unNear04_h4)
-string bullZone04_d1 = getNweZoneName(true, low, high, lnNear04_d1, lnAvg04_d1, lnAvg04_d1 - (lnNear04_d1 - lnAvg04_d1), unNear04_d1, unAvg04_d1, unAvg04_d1 + unAvg04_d1 - unNear04_d1)
-string bearZone04_d1 = getNweZoneName(false, low, high, lnNear04_d1, lnAvg04_d1, lnAvg04_d1 - (lnNear04_d1 - lnAvg04_d1), unNear04_d1, unAvg04_d1, unAvg04_d1 + unAvg04_d1 - unNear04_d1)
+// Zone names are now calculated inside checkSignalWithOB() and returned via request.security()
+// This ensures we use the correct symbol's price data for zone detection
 
 // Build signal arrays for each symbol
 // Symbol 01
@@ -971,8 +1091,8 @@ if str.length(allSignals) > 0
     alert(payload, alert.freq_all)
 
 // Signal Status Table showing all raw signals
-// Columns: Symbol | NWE | OB | DIV
-var table sigTable = table.new(position.top_right, 4, 5, bgcolor = color.new(color.black, 80), border_width = 1)
+// Columns: Symbol | NWE-1H | NWE-H4 | OB-1H | OB-H4 | OB-D1 | DIV-1H | DIV-H4
+var table sigTable = table.new(position.top_right, 8, 5, bgcolor = color.new(color.black, 80), border_width = 1)
 
 // Helper to format NWE cell (shows bull/bear timeframes)
 formatNweCell(bool bullH4, bool bearH4, bool bullD1, bool bearD1) =>
@@ -1055,33 +1175,81 @@ getDivCellColor(int divBullH4, int divBearH4, int divBullD1, int divBearD1, int 
 if barstate.islast
     // Header row
     table.cell(sigTable, 0, 0, 'Symbol', text_color = color.white, text_size = size.small)
-    table.cell(sigTable, 1, 0, 'NWE', text_color = color.white, text_size = size.small)
-    table.cell(sigTable, 2, 0, 'OB', text_color = color.white, text_size = size.small)
-    table.cell(sigTable, 3, 0, 'DIV', text_color = color.white, text_size = size.small)
+    table.cell(sigTable, 1, 0, 'NWE-1H', text_color = color.white, text_size = size.small)
+    table.cell(sigTable, 2, 0, 'NWE-H4', text_color = color.white, text_size = size.small)
+    table.cell(sigTable, 3, 0, 'OB-1H', text_color = color.white, text_size = size.small)
+    table.cell(sigTable, 4, 0, 'OB-H4', text_color = color.white, text_size = size.small)
+    table.cell(sigTable, 5, 0, 'OB-D1', text_color = color.white, text_size = size.small)
+    table.cell(sigTable, 6, 0, 'DIV-1H', text_color = color.white, text_size = size.small)
+    table.cell(sigTable, 7, 0, 'DIV-H4', text_color = color.white, text_size = size.small)
 
-    // Symbol 01
+    // Symbol 01 - GBPAUD
     table.cell(sigTable, 0, 1, getSymbolName(s01), text_color = color.white, text_size = size.small)
-    table.cell(sigTable, 1, 1, formatNweCell(nweBull01_h4, nweBear01_h4, nweBull01_d1, nweBear01_d1), text_color = getNweCellColor(nweBull01_h4, nweBear01_h4, nweBull01_d1, nweBear01_d1), text_size = size.small)
-    table.cell(sigTable, 2, 1, formatObCell(bullF01_h4, bearF01_h4, bullF01_d1, bearF01_d1, bullF01_w1, bearF01_w1), text_color = getObCellColor(bullF01_h4, bearF01_h4, bullF01_d1, bearF01_d1, bullF01_w1, bearF01_w1), text_size = size.small)
-    table.cell(sigTable, 3, 1, formatDivCell(divBullTm01_h4, divBearTm01_h4, divBullTm01_d1, divBearTm01_d1, time), text_color = getDivCellColor(divBullTm01_h4, divBearTm01_h4, divBullTm01_d1, divBearTm01_d1, time), text_size = size.small)
+    // NWE-1H (from TF_H4)
+    table.cell(sigTable, 1, 1, formatSingleTfSignal(nweBull01_h4, nweBear01_h4), text_color = getSingleTfColor(nweBull01_h4, nweBear01_h4), text_size = size.small, tooltip = buildNweTooltip(nweBull01_h4, nweBear01_h4, bullZone01_h4, bearZone01_h4, time))
+    // NWE-H4 (from TF_D1)
+    table.cell(sigTable, 2, 1, formatSingleTfSignal(nweBull01_d1, nweBear01_d1), text_color = getSingleTfColor(nweBull01_d1, nweBear01_d1), text_size = size.small, tooltip = buildNweTooltip(nweBull01_d1, nweBear01_d1, bullZone01_d1, bearZone01_d1, time))
+    // OB-1H (from TF_H4)
+    table.cell(sigTable, 3, 1, formatSingleObSignal(bullF01_h4, bearF01_h4), text_color = getSingleObColor(bullF01_h4, bearF01_h4), text_size = size.small, tooltip = buildObTooltip(bullF01_h4, bearF01_h4, bullZT01_h4, bullT01_h4, bullTm01_h4, bullZH01_h4, bullZL01_h4, bearZT01_h4, bearT01_h4, bearTm01_h4, bearZH01_h4, bearZL01_h4))
+    // OB-H4 (from TF_D1)
+    table.cell(sigTable, 4, 1, formatSingleObSignal(bullF01_d1, bearF01_d1), text_color = getSingleObColor(bullF01_d1, bearF01_d1), text_size = size.small, tooltip = buildObTooltip(bullF01_d1, bearF01_d1, bullZT01_d1, bullT01_d1, bullTm01_d1, bullZH01_d1, bullZL01_d1, bearZT01_d1, bearT01_d1, bearTm01_d1, bearZH01_d1, bearZL01_d1))
+    // OB-D1 (from TF_W1)
+    table.cell(sigTable, 5, 1, formatSingleObSignal(bullF01_w1, bearF01_w1), text_color = getSingleObColor(bullF01_w1, bearF01_w1), text_size = size.small, tooltip = buildObTooltip(bullF01_w1, bearF01_w1, bullZT01_w1, bullT01_w1, bullTm01_w1, bullZH01_w1, bullZL01_w1, bearZT01_w1, bearT01_w1, bearTm01_w1, bearZH01_w1, bearZL01_w1))
+    // DIV-1H (from TF_H4)
+    table.cell(sigTable, 6, 1, formatSingleDivSignal(divBullTm01_h4, divBearTm01_h4, time), text_color = getSingleDivColor(divBullTm01_h4, divBearTm01_h4, time), text_size = size.small, tooltip = buildDivTooltip(divBullTm01_h4, divBearTm01_h4, time))
+    // DIV-H4 (from TF_D1)
+    table.cell(sigTable, 7, 1, formatSingleDivSignal(divBullTm01_d1, divBearTm01_d1, time), text_color = getSingleDivColor(divBullTm01_d1, divBearTm01_d1, time), text_size = size.small, tooltip = buildDivTooltip(divBullTm01_d1, divBearTm01_d1, time))
 
-    // Symbol 02
+    // Symbol 02 - AUDJPY
     table.cell(sigTable, 0, 2, getSymbolName(s02), text_color = color.white, text_size = size.small)
-    table.cell(sigTable, 1, 2, formatNweCell(nweBull02_h4, nweBear02_h4, nweBull02_d1, nweBear02_d1), text_color = getNweCellColor(nweBull02_h4, nweBear02_h4, nweBull02_d1, nweBear02_d1), text_size = size.small)
-    table.cell(sigTable, 2, 2, formatObCell(bullF02_h4, bearF02_h4, bullF02_d1, bearF02_d1, bullF02_w1, bearF02_w1), text_color = getObCellColor(bullF02_h4, bearF02_h4, bullF02_d1, bearF02_d1, bullF02_w1, bearF02_w1), text_size = size.small)
-    table.cell(sigTable, 3, 2, formatDivCell(divBullTm02_h4, divBearTm02_h4, divBullTm02_d1, divBearTm02_d1, time), text_color = getDivCellColor(divBullTm02_h4, divBearTm02_h4, divBullTm02_d1, divBearTm02_d1, time), text_size = size.small)
+    // NWE-1H (from TF_H4)
+    table.cell(sigTable, 1, 2, formatSingleTfSignal(nweBull02_h4, nweBear02_h4), text_color = getSingleTfColor(nweBull02_h4, nweBear02_h4), text_size = size.small, tooltip = buildNweTooltip(nweBull02_h4, nweBear02_h4, bullZone02_h4, bearZone02_h4, time))
+    // NWE-H4 (from TF_D1)
+    table.cell(sigTable, 2, 2, formatSingleTfSignal(nweBull02_d1, nweBear02_d1), text_color = getSingleTfColor(nweBull02_d1, nweBear02_d1), text_size = size.small, tooltip = buildNweTooltip(nweBull02_d1, nweBear02_d1, bullZone02_d1, bearZone02_d1, time))
+    // OB-1H (from TF_H4)
+    table.cell(sigTable, 3, 2, formatSingleObSignal(bullF02_h4, bearF02_h4), text_color = getSingleObColor(bullF02_h4, bearF02_h4), text_size = size.small, tooltip = buildObTooltip(bullF02_h4, bearF02_h4, bullZT02_h4, bullT02_h4, bullTm02_h4, bullZH02_h4, bullZL02_h4, bearZT02_h4, bearT02_h4, bearTm02_h4, bearZH02_h4, bearZL02_h4))
+    // OB-H4 (from TF_D1)
+    table.cell(sigTable, 4, 2, formatSingleObSignal(bullF02_d1, bearF02_d1), text_color = getSingleObColor(bullF02_d1, bearF02_d1), text_size = size.small, tooltip = buildObTooltip(bullF02_d1, bearF02_d1, bullZT02_d1, bullT02_d1, bullTm02_d1, bullZH02_d1, bullZL02_d1, bearZT02_d1, bearT02_d1, bearTm02_d1, bearZH02_d1, bearZL02_d1))
+    // OB-D1 (from TF_W1)
+    table.cell(sigTable, 5, 2, formatSingleObSignal(bullF02_w1, bearF02_w1), text_color = getSingleObColor(bullF02_w1, bearF02_w1), text_size = size.small, tooltip = buildObTooltip(bullF02_w1, bearF02_w1, bullZT02_w1, bullT02_w1, bullTm02_w1, bullZH02_w1, bullZL02_w1, bearZT02_w1, bearT02_w1, bearTm02_w1, bearZH02_w1, bearZL02_w1))
+    // DIV-1H (from TF_H4)
+    table.cell(sigTable, 6, 2, formatSingleDivSignal(divBullTm02_h4, divBearTm02_h4, time), text_color = getSingleDivColor(divBullTm02_h4, divBearTm02_h4, time), text_size = size.small, tooltip = buildDivTooltip(divBullTm02_h4, divBearTm02_h4, time))
+    // DIV-H4 (from TF_D1)
+    table.cell(sigTable, 7, 2, formatSingleDivSignal(divBullTm02_d1, divBearTm02_d1, time), text_color = getSingleDivColor(divBullTm02_d1, divBearTm02_d1, time), text_size = size.small, tooltip = buildDivTooltip(divBullTm02_d1, divBearTm02_d1, time))
 
-    // Symbol 03
+    // Symbol 03 - EURCAD
     table.cell(sigTable, 0, 3, getSymbolName(s03), text_color = color.white, text_size = size.small)
-    table.cell(sigTable, 1, 3, formatNweCell(nweBull03_h4, nweBear03_h4, nweBull03_d1, nweBear03_d1), text_color = getNweCellColor(nweBull03_h4, nweBear03_h4, nweBull03_d1, nweBear03_d1), text_size = size.small)
-    table.cell(sigTable, 2, 3, formatObCell(bullF03_h4, bearF03_h4, bullF03_d1, bearF03_d1, bullF03_w1, bearF03_w1), text_color = getObCellColor(bullF03_h4, bearF03_h4, bullF03_d1, bearF03_d1, bullF03_w1, bearF03_w1), text_size = size.small)
-    table.cell(sigTable, 3, 3, formatDivCell(divBullTm03_h4, divBearTm03_h4, divBullTm03_d1, divBearTm03_d1, time), text_color = getDivCellColor(divBullTm03_h4, divBearTm03_h4, divBullTm03_d1, divBearTm03_d1, time), text_size = size.small)
+    // NWE-1H (from TF_H4)
+    table.cell(sigTable, 1, 3, formatSingleTfSignal(nweBull03_h4, nweBear03_h4), text_color = getSingleTfColor(nweBull03_h4, nweBear03_h4), text_size = size.small, tooltip = buildNweTooltip(nweBull03_h4, nweBear03_h4, bullZone03_h4, bearZone03_h4, time))
+    // NWE-H4 (from TF_D1)
+    table.cell(sigTable, 2, 3, formatSingleTfSignal(nweBull03_d1, nweBear03_d1), text_color = getSingleTfColor(nweBull03_d1, nweBear03_d1), text_size = size.small, tooltip = buildNweTooltip(nweBull03_d1, nweBear03_d1, bullZone03_d1, bearZone03_d1, time))
+    // OB-1H (from TF_H4)
+    table.cell(sigTable, 3, 3, formatSingleObSignal(bullF03_h4, bearF03_h4), text_color = getSingleObColor(bullF03_h4, bearF03_h4), text_size = size.small, tooltip = buildObTooltip(bullF03_h4, bearF03_h4, bullZT03_h4, bullT03_h4, bullTm03_h4, bullZH03_h4, bullZL03_h4, bearZT03_h4, bearT03_h4, bearTm03_h4, bearZH03_h4, bearZL03_h4))
+    // OB-H4 (from TF_D1)
+    table.cell(sigTable, 4, 3, formatSingleObSignal(bullF03_d1, bearF03_d1), text_color = getSingleObColor(bullF03_d1, bearF03_d1), text_size = size.small, tooltip = buildObTooltip(bullF03_d1, bearF03_d1, bullZT03_d1, bullT03_d1, bullTm03_d1, bullZH03_d1, bullZL03_d1, bearZT03_d1, bearT03_d1, bearTm03_d1, bearZH03_d1, bearZL03_d1))
+    // OB-D1 (from TF_W1)
+    table.cell(sigTable, 5, 3, formatSingleObSignal(bullF03_w1, bearF03_w1), text_color = getSingleObColor(bullF03_w1, bearF03_w1), text_size = size.small, tooltip = buildObTooltip(bullF03_w1, bearF03_w1, bullZT03_w1, bullT03_w1, bullTm03_w1, bullZH03_w1, bullZL03_w1, bearZT03_w1, bearT03_w1, bearTm03_w1, bearZH03_w1, bearZL03_w1))
+    // DIV-1H (from TF_H4)
+    table.cell(sigTable, 6, 3, formatSingleDivSignal(divBullTm03_h4, divBearTm03_h4, time), text_color = getSingleDivColor(divBullTm03_h4, divBearTm03_h4, time), text_size = size.small, tooltip = buildDivTooltip(divBullTm03_h4, divBearTm03_h4, time))
+    // DIV-H4 (from TF_D1)
+    table.cell(sigTable, 7, 3, formatSingleDivSignal(divBullTm03_d1, divBearTm03_d1, time), text_color = getSingleDivColor(divBullTm03_d1, divBearTm03_d1, time), text_size = size.small, tooltip = buildDivTooltip(divBullTm03_d1, divBearTm03_d1, time))
 
-    // Symbol 04
+    // Symbol 04 - EURGBP
     table.cell(sigTable, 0, 4, getSymbolName(s04), text_color = color.white, text_size = size.small)
-    table.cell(sigTable, 1, 4, formatNweCell(nweBull04_h4, nweBear04_h4, nweBull04_d1, nweBear04_d1), text_color = getNweCellColor(nweBull04_h4, nweBear04_h4, nweBull04_d1, nweBear04_d1), text_size = size.small)
-    table.cell(sigTable, 2, 4, formatObCell(bullF04_h4, bearF04_h4, bullF04_d1, bearF04_d1, bullF04_w1, bearF04_w1), text_color = getObCellColor(bullF04_h4, bearF04_h4, bullF04_d1, bearF04_d1, bullF04_w1, bearF04_w1), text_size = size.small)
-    table.cell(sigTable, 3, 4, formatDivCell(divBullTm04_h4, divBearTm04_h4, divBullTm04_d1, divBearTm04_d1, time), text_color = getDivCellColor(divBullTm04_h4, divBearTm04_h4, divBullTm04_d1, divBearTm04_d1, time), text_size = size.small)
+    // NWE-1H (from TF_H4)
+    table.cell(sigTable, 1, 4, formatSingleTfSignal(nweBull04_h4, nweBear04_h4), text_color = getSingleTfColor(nweBull04_h4, nweBear04_h4), text_size = size.small, tooltip = buildNweTooltip(nweBull04_h4, nweBear04_h4, bullZone04_h4, bearZone04_h4, time))
+    // NWE-H4 (from TF_D1)
+    table.cell(sigTable, 2, 4, formatSingleTfSignal(nweBull04_d1, nweBear04_d1), text_color = getSingleTfColor(nweBull04_d1, nweBear04_d1), text_size = size.small, tooltip = buildNweTooltip(nweBull04_d1, nweBear04_d1, bullZone04_d1, bearZone04_d1, time))
+    // OB-1H (from TF_H4)
+    table.cell(sigTable, 3, 4, formatSingleObSignal(bullF04_h4, bearF04_h4), text_color = getSingleObColor(bullF04_h4, bearF04_h4), text_size = size.small, tooltip = buildObTooltip(bullF04_h4, bearF04_h4, bullZT04_h4, bullT04_h4, bullTm04_h4, bullZH04_h4, bullZL04_h4, bearZT04_h4, bearT04_h4, bearTm04_h4, bearZH04_h4, bearZL04_h4))
+    // OB-H4 (from TF_D1)
+    table.cell(sigTable, 4, 4, formatSingleObSignal(bullF04_d1, bearF04_d1), text_color = getSingleObColor(bullF04_d1, bearF04_d1), text_size = size.small, tooltip = buildObTooltip(bullF04_d1, bearF04_d1, bullZT04_d1, bullT04_d1, bullTm04_d1, bullZH04_d1, bullZL04_d1, bearZT04_d1, bearT04_d1, bearTm04_d1, bearZH04_d1, bearZL04_d1))
+    // OB-D1 (from TF_W1)
+    table.cell(sigTable, 5, 4, formatSingleObSignal(bullF04_w1, bearF04_w1), text_color = getSingleObColor(bullF04_w1, bearF04_w1), text_size = size.small, tooltip = buildObTooltip(bullF04_w1, bearF04_w1, bullZT04_w1, bullT04_w1, bullTm04_w1, bullZH04_w1, bullZL04_w1, bearZT04_w1, bearT04_w1, bearTm04_w1, bearZH04_w1, bearZL04_w1))
+    // DIV-1H (from TF_H4)
+    table.cell(sigTable, 6, 4, formatSingleDivSignal(divBullTm04_h4, divBearTm04_h4, time), text_color = getSingleDivColor(divBullTm04_h4, divBearTm04_h4, time), text_size = size.small, tooltip = buildDivTooltip(divBullTm04_h4, divBearTm04_h4, time))
+    // DIV-H4 (from TF_D1)
+    table.cell(sigTable, 7, 4, formatSingleDivSignal(divBullTm04_d1, divBearTm04_d1, time), text_color = getSingleDivColor(divBullTm04_d1, divBearTm04_d1, time), text_size = size.small, tooltip = buildDivTooltip(divBullTm04_d1, divBearTm04_d1, time))
 
 // Required for valid indicator
 plot(na)

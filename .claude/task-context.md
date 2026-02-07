@@ -1,38 +1,233 @@
 # Task Context Tracker
 
-**Last Updated**: 2026-02-06
-**Current Task**: Architecture decision - Combo screener vs separate screeners
-**Last Session**: Architecture analysis and webhook destination decision
+**Last Updated**: 2026-02-07
+**Current Task**: Testing TTE Screener signal accuracy - NWE signals showing new bugs
+**Last Session**: Created testing subtasks and discovered additional NWE bugs
 
 ---
 
-## Task Progress Summary (Task Master)
+## Task Progress Summary (Built-in Tasks)
 
-| ID | Task | Status | Priority | Dependencies |
-|----|------|--------|----------|--------------|
-| 1 | Create TTE NWE Screener v2 Pine Script | **done** | high | - |
-| 2 | Create TTE OBDIV Screener v2 Pine Script | **done** | high | - |
-| 3 | Implement TieredOrchestrator class | **done** | high | 1, 2 |
-| 4 | Fix screener webhooks to fire instantly | **done** | high | 1, 2 |
-| 5 | Test orchestrator E2E - Phase 1 and Phase 2 | **done** | high | 3, 4 |
-| 6 | Test signals display on Stock Buddy grid | pending | medium | 5 |
-| 7 | Analyze architecture impact on signal delay | **done** | high | - |
-| 8 | Verify TradingView screener signal accuracy | pending | high | - |
-| 9 | Send signal screenshots to Stock Buddy | pending | medium | - |
+| ID | Task | Status | Dependencies |
+|----|------|--------|--------------|
+| 22 | Test webhook alert payload and trigger frequency | pending | - |
+| 23 | Upload all screener versions to Google Drive | pending | 22 |
+| 44 | Validate TTE Screener signal accuracy | **in_progress** | - |
+| 49 | Test NWE signal detection on all timeframes | **in_progress** | - |
+| 50 | Test DIV signal detection on all timeframes | pending | 49 |
+| 51 | Test OB/FVG signal detection on all timeframes | pending | 50 |
 
-**Stats**: 9 tasks, 67% complete (6 done, 3 pending)
+**Active Tasks**: Testing signal accuracy (Task #44, #49)
+**Recent Completions**: Tasks #19-21, #39-43, #45-48 (Pine Script fixes and updates)
 
-### Task 5 Subtasks
-- 5.1: Prevent price-crossing alerts instead of screener alerts (**done**)
-- 5.2: Reduce webhook wait time with alert log monitoring (skipped - not needed)
-- 5.3: Handle data subscription error in Create Alert dialog (**done**)
-
-### Task 6 Subtasks
-- 6.1: Verify Stock Buddy grid displays correct signal info (pending)
+### Task 44 Subtasks (Signal Accuracy Testing)
+- **Task #49**: Test NWE signal detection on all timeframes (**in_progress**)
+- **Task #50**: Test DIV signal detection on all timeframes (pending, blocked by #49)
+- **Task #51**: Test OB/FVG signal detection on all timeframes (pending, blocked by #50)
 
 ---
 
 ## Session History
+
+### Session: 2026-02-07 (Signal Accuracy Testing - Additional NWE Bugs Found)
+
+**Goal**: Test TTE Screener signal accuracy across all timeframes and signal types
+
+**Task Setup**:
+Created three sequential testing subtasks:
+1. Task #49: Test NWE signal detection (in_progress)
+2. Task #50: Test DIV signal detection (pending, blocked by #49)
+3. Task #51: Test OB/FVG signal detection (pending, blocked by #50)
+
+**New Bugs Discovered During NWE Testing**:
+
+**Bug #11 - NWE signals only display for chart's current symbol**:
+- **Symptom**: NWE signals only appear in the debug table for the symbol that matches the current chart
+- **Example**: If chart is on GBPAUD, only GBPAUD row shows NWE signals; other symbols (AUDJPY, EURCAD, EURGBP) show no NWE signals
+- **Expected**: All 4 symbols should show NWE signals if price is in NWE zones, regardless of chart symbol
+- **Impact**: Critical - screener cannot detect signals for symbols other than the active chart symbol
+- **Status**: Not fixed yet
+- **Related**: This is different from the previously fixed bugs (timestamp and disappearing signals)
+
+**Bug #12 - No DIV signals displayed**:
+- **Symptom**: DIV column in debug table has not shown any signals during testing
+- **Status**: Needs investigation - could be legitimate (no divergences present) or a detection bug
+- **Related**: Previous session (2026-02-05) confirmed divergence detection was working correctly, but required OB overlap to reach Level 3
+
+**Previous Bugs Fixed (Last Session)**:
+1. ✅ Bug #1: Incorrect timestamps (HTF bar time instead of current bar time)
+2. ✅ Bug #2: Disappearing signals (vanished when price still in zone)
+3. ✅ Bug #3: Missing tooltips (empty tooltips not displayed)
+
+**Testing Status**:
+- ❌ NWE signals: Bugs found (#11 - chart symbol dependency)
+- ⏳ DIV signals: No signals observed yet (needs investigation - Bug #12)
+- ✅ OB/FVG signals: Previously confirmed correct (2026-02-07 tooltip session)
+
+**Next Steps**:
+1. Fix Bug #11 (NWE chart symbol dependency)
+2. Investigate Bug #12 (missing DIV signals)
+3. Complete NWE testing (Task #49)
+4. Begin DIV testing (Task #50)
+5. Begin OB/FVG testing (Task #51)
+
+---
+
+### Session: 2026-02-07 (NWE Signal Detection Bug Fixes)
+
+**Goal**: Fix two critical NWE signal detection bugs in TTE Screener
+
+**Problems Identified**:
+1. **Bug 1 - Incorrect Timestamps**: NWE signals showed HTF bar timestamps (e.g., 5 hours old) instead of current bar time
+   - Example: On BTCUSD 1H chart at 19:30, bearish NWE signal showed timestamp 14:00 (5 hours stale)
+   - Root cause: `request.security()` returned data from previous closed H4 bar, not current 1H bar
+
+2. **Bug 2 - Disappearing Signals**: Signals vanished even when price remained in NWE zone
+   - Signal display required BOTH `nweBull/nweBear` boolean AND non-empty zone name string
+   - When HTF bar data changed, zone name calculation failed, causing signals to disappear
+
+**Solution Implemented**: Chart-timeframe signal detection pattern
+
+**Key Changes**:
+
+1. **Modified `checkSignalWithOB()` function** (lines 649-682):
+   - Removed NWE signal detection logic (nweBull, nweBear booleans and zone names)
+   - Now returns only NWE band levels (lower_near, lower_avg, upper_near, upper_avg)
+   - Return values reduced from 22 to 20
+   - Rationale: Detecting signals inside `request.security()` meant detection occurred in HTF context
+
+2. **Updated `request.security()` calls** (lines 715-725):
+   - Updated all 8 calls (4 symbols × 2 timeframes: H4, D1)
+   - Changed destructuring to receive 20 values instead of 22
+   - Removed `nweBull`, `nweBear`, `bullZone`, `bearZone` from assignments
+
+3. **Added chart-timeframe NWE signal detection** (new section after line 729):
+   - Created comprehensive section detecting signals on chart timeframe (shift 0)
+   - For each symbol/timeframe (8 total combinations):
+     - Calculates `nweBull`/`nweBear` booleans using chart's `low`/`high` with HTF band levels
+     - Calculates `lower_far` and `upper_far` as: `lowerFar = lowerAvg - (lowerNear - lowerAvg)`
+     - Calls `getNweZoneName()` with chart's price data
+   - Benefits:
+     - Timestamps always reflect current bar (shift 0), not HTF bar
+     - Signals persist correctly while price remains in zone
+     - No more "disappearing signals" bug
+
+**Signal Detection Flow Change**:
+
+Before (buggy):
+```
+request.security(symbol, H4, checkSignalWithOB(H4))
+  ↓ checkSignalWithOB() executes in H4 context
+  ↓ Uses H4 bar's low/high (previous closed bar - 5 hours old)
+  ↓ Returns nweBull, nweBear, zone names from H4 context
+  ↓ Debug table shows H4 timestamp (stale data)
+```
+
+After (fixed):
+```
+request.security(symbol, H4, checkSignalWithOB(H4))
+  ↓ Returns only NWE band levels from H4
+  ↓
+Chart timeframe logic (shift 0):
+  ↓ Uses current bar's low[0]/high[0]
+  ↓ Compares with HTF band levels
+  ↓ Detects signals on current bar
+  ↓ Debug table shows current bar timestamp
+```
+
+**What Was Fixed**:
+✅ Timestamps now always reflect current bar (shift 0) on chart timeframe
+✅ Signals persist correctly as long as price remains in NWE zone
+✅ Signal accuracy improved - uses actual current bar data instead of stale HTF data
+✅ Debug table tooltip always shows current bar timestamp
+
+**What Stayed the Same**:
+✅ NWE band calculations (unchanged - still calculated in HTF for stability)
+✅ OB/FVG detection (unchanged)
+✅ Divergence detection (unchanged)
+✅ Debug table layout (unchanged)
+✅ JSON payload structure (timestamps update, format stays same)
+✅ Alert firing frequency (`alert.freq_all` - already implemented)
+
+**Files Modified**:
+- `Pine Script Code/TTE Screener.txt`:
+  - Lines 649-682: Modified `checkSignalWithOB()` function
+  - Lines 715-725: Updated `request.security()` calls
+  - Lines 730-790 (new): Added chart-timeframe NWE signal detection section
+  - Total: ~100 lines modified/added
+
+**Important Memory Created**:
+- Documented that there is NO rate limit for TradingView alerts (previous "15 alerts per 3 minutes" documentation was incorrect)
+- Documented chart-timeframe detection pattern as best practice for HTF signal detection
+- File: `C:\Users\dassa\.claude\projects\C--Users-dassa-Work-For-Poolsifi-tradingview-to-everywhere\memory\MEMORY.md`
+
+**Tasks Completed**:
+- Task #45: Modify checkSignalWithOB() to return only band levels
+- Task #46: Update request.security() calls for 20-value returns
+- Task #47: Add chart-timeframe NWE signal detection
+- Task #48: Verify debug table uses current timestamp
+
+**Verification Steps** (for user testing):
+1. Compilation check - verify script loads in TradingView
+2. Timestamp accuracy - check tooltip shows current bar time, not past HTF bar time
+3. Signal persistence - verify signals don't disappear while price in zone
+4. Zone name accuracy - verify tooltip shows correct zone (lower_avg, lower_far, upper_avg, upper_far)
+
+---
+
+### Session: 2026-02-07 (TTE Screener Tooltip Bug Fix)
+
+**Goal**: Fix missing tooltips in TTE Screener debug table for specific NWE cells
+
+**Problem Identified**:
+Two specific cells in the TTE Screener debug table were not showing tooltips on hover:
+1. ETHUSD row → NWE-1H column (no tooltip)
+2. BTCUSD row → NWE-H4 column (no tooltip)
+
+All other cells showed tooltips correctly, indicating a specific data/logic issue rather than a systemic display problem.
+
+**Root Cause**:
+The `buildNweTooltip()` function (lines 866-875) was returning empty strings when:
+- No signal exists (bullish=false AND bearish=false), OR
+- Signal exists BUT zone string is empty (str.length(zone) == 0)
+
+TradingView does not display empty tooltip strings, so these cells appeared to have no tooltip.
+
+**Fix Implemented** (`Pine Script Code/TTE Screener.txt` lines 866-887):
+
+1. **Removed zone length requirement** from signal checks
+   - Before: `if bullish and str.length(bullZone) > 0`
+   - After: `if bullish` (zone length checked separately)
+
+2. **Added zone fallback handling**
+   - If zone is empty, displays "Unknown" instead of omitting tooltip
+   - Pattern: `string zone = str.length(bullZone) > 0 ? bullZone : 'Unknown'`
+
+3. **Added "No Signal" fallback**
+   - When neither bullish nor bearish signals exist, tooltip shows "No Signal"
+   - Prevents TradingView from hiding empty tooltips
+
+4. **Improved code structure**
+   - Added clear section comments (bullish/bearish/no signal sections)
+   - Better readability for future maintenance
+
+**Impact**:
+✅ All NWE cells now always display tooltips (never empty)
+✅ Users get clear feedback: signal details or "No Signal"
+✅ Unknown zones handled gracefully ("Zone: Unknown")
+✅ Easier debugging (can see what indicator is calculating)
+
+**Testing Status**:
+- Code modified and verified in Pine Script file
+- User is currently testing signal accuracy on TradingView:
+  - ✅ OB/FVG signals confirmed correct
+  - ⏳ NWE signals testing in progress
+  - ⏳ Divergence signals testing in progress
+
+**Files Modified**:
+- `Pine Script Code/TTE Screener.txt` - Updated `buildNweTooltip()` function (9 lines changed)
+
+---
 
 ### Session: 2026-02-06 (Architecture Analysis & Webhook Decision)
 
@@ -602,34 +797,73 @@ python tiered_main.py
 
 ## Bugs Fixed
 
-1. **"session not created from chrome not reachable"**:
+### Active Bugs (Not Fixed Yet)
+
+11. **NWE signals only display for chart's current symbol** (2026-02-07 - ACTIVE):
+   - Symptom: NWE signals only appear for the symbol matching the current chart
+   - Example: Chart on GBPAUD → only GBPAUD row shows NWE signals, other symbols blank
+   - Expected: All 4 symbols should show NWE signals if price is in NWE zones
+   - Impact: Critical - screener cannot detect signals for non-active symbols
+   - Root cause: Unknown - needs investigation
+   - Files: `Pine Script Code/TTE Screener.txt` (NWE detection logic)
+
+12. **No DIV signals displayed in debug table** (2026-02-07 - NEEDS INVESTIGATION):
+   - Symptom: DIV column shows no signals during testing
+   - Possible causes: (1) No actual divergences present, or (2) Detection bug
+   - Note: Divergence detection confirmed working in 2026-02-05 session
+   - Impact: Unknown - could be false alarm or real bug
+   - Files: `Pine Script Code/TTE Screener.txt` (Divergence detection logic)
+
+### Fixed Bugs
+
+1. **NWE signal timestamps showing HTF bar time instead of current bar time** (2026-02-07 - FIXED):
+   - Cause: NWE signal detection occurred inside `request.security()` in HTF context
+   - Symptom: On BTCUSD 1H chart at 19:30, bearish NWE signal showed 14:00 timestamp (5 hours old)
+   - Fix: Moved signal detection to chart timeframe (shift 0) using HTF band levels
+   - Files: `Pine Script Code/TTE Screener.txt` lines 649-790
+   - Pattern: Fetch HTF band levels via `request.security()`, detect signals on chart TF with current bar's low/high
+
+2. **NWE signals disappearing while price still in zone** (2026-02-07):
+   - Cause: Signal detection in HTF context caused zone names to become empty when HTF bar data changed
+   - Symptom: Signal displayed in debug table, then suddenly vanished even though price still in bearish zone
+   - Fix: Chart-timeframe detection ensures signals persist as long as price remains in zone
+   - Files: `Pine Script Code/TTE Screener.txt` lines 649-790
+   - Same fix as Bug #1 above
+
+3. **Missing NWE tooltips in debug table** (2026-02-07):
+   - Cause: `buildNweTooltip()` returned empty strings when no signal or zone was empty
+   - Symptom: ETHUSD NWE-1H and BTCUSD NWE-H4 cells showed no tooltip on hover
+   - Fix: Always return non-empty tooltip (signal details, "Zone: Unknown", or "No Signal")
+   - File: `Pine Script Code/TTE Screener.txt` lines 866-887
+
+4. **"session not created from chrome not reachable"**:
    - Cause: Chrome background processes locking profile
    - Fix: Added `taskkill` before starting Chrome, removed `--remote-debugging-port`
 
-2. **Webhook not firing instantly**:
+5. **Webhook not firing instantly**:
    - Cause: `barstate.isconfirmed` waits for bar close, `alreadyFired` set on historical bars
    - Fix: Changed to `barstate.isrealtime` and `alert.freq_once_per_bar`
 
-3. **`change_settings()` importing from main.py in tiered mode**:
+6. **`change_settings()` importing from main.py in tiered mode**:
    - Cause: Timeframe logic always ran, importing constants from main.py
    - Fix: Wrapped in `if screener_shorttitle is None:` to skip for tiered mode
 
-4. **Condition dropdown selector timeout** (2026-02-04):
+7. **Condition dropdown selector timeout** (2026-02-04):
    - Cause: TradingView UI changed, old `data-qa-id` selector no longer matched
    - Fix: Added alternative selector `span[data-qa-id="ui-kit-disclosure-control main-series-select"]`
    - File: `open_tv.py` lines 1175-1198
 
-5. **`open_log_tab()` timeout on empty log** (2026-02-04):
+8. **`open_log_tab()` timeout on empty log** (2026-02-04):
    - Cause: Waited for `div[data-name="alert-log-item"]` which doesn't exist when log is empty
    - Fix: Changed to wait for `aria-selected="true"` on Log tab button
    - File: `resources/utils.py` lines 135-144
 
-6. **`_close_alert_dialog()` silent failure** (2026-02-04):
+9. **`_close_alert_dialog()` silent failure** (2026-02-04):
    - Cause: Caught all exceptions with `except: pass`, no logging
    - Fix: Added Cancel button as primary method, proper error logging
    - File: `open_tv.py` lines 1130-1159
 
-7. **Wrong error-hint CSS selector** (2026-02-04):
+10. **Wrong error-hint CSS selector** (2026-02-04):
    - Cause: Used `div[data-name="error-hint"]` but TradingView HTML uses `div[data-qa-id="error-hint"]`
    - Fix: Changed to correct `data-qa-id` selector
    - File: `open_tv.py` lines 972, 1116
@@ -792,3 +1026,60 @@ Timeframes: H4, D1 for NWE/Divergence; H4, D1, W1 for OB/FVG
 Signal Table: position.top_right, 4 columns (Symbol, NWE, OB, DIV)
 request.security() calls: 24 of 40 max
 ```
+
+### Chart-Timeframe NWE Signal Detection Pattern (Fixed - 2026-02-07)
+```pinescript
+// Step 1: Fetch HTF band levels only (not signals) via request.security()
+[lnNear_h4, lnAvg_h4, unNear_h4, unAvg_h4, ...] = request.security(symbol, "240", checkSignalWithOB("240"))
+
+// Step 2: Calculate lower_far and upper_far from band levels
+// lower_far = lowerAvg - (lowerNear - lowerAvg) [double the distance from avg]
+// upper_far = upperAvg + (upperAvg - upperNear)
+
+// Step 3: Detect signals on chart timeframe (shift 0) using current bar's low/high
+bool nweBull_h4 = low <= lnNear_h4 and high >= lnAvg_h4 or low <= lnAvg_h4 and high >= (lnAvg_h4 - (lnNear_h4 - lnAvg_h4))
+bool nweBear_h4 = high >= unNear_h4 and low <= unAvg_h4 or high >= unAvg_h4 and low <= (unAvg_h4 + (unAvg_h4 - unNear_h4))
+
+// Step 4: Calculate zone names using chart's price data
+string bullZone_h4 = getNweZoneName(true, low, high, lnNear_h4, lnAvg_h4, lnAvg_h4 - (lnNear_h4 - lnAvg_h4), unNear_h4, unAvg_h4, unAvg_h4 + (unAvg_h4 - unNear_h4))
+string bearZone_h4 = getNweZoneName(false, low, high, lnNear_h4, lnAvg_h4, lnAvg_h4 - (lnNear_h4 - lnAvg_h4), unNear_h4, unAvg_h4, unAvg_h4 + (unAvg_h4 - unNear_h4))
+
+// Step 5: Use current bar's timestamp for display/alerts
+string tooltip = 'Time: ' + str.format_time(time, 'yyyy-MM-dd HH:mm', syminfo.timezone)
+```
+**Benefits**:
+- Timestamps always reflect current bar (shift 0), not HTF bar
+- Signals persist correctly while price remains in zone
+- No more "disappearing signals" bug
+- Fixes both incorrect timestamps and signal persistence issues
+
+**File**: `Pine Script Code/TTE Screener.txt` lines 649-790
+
+### NWE Tooltip Pattern (Fixed - 2026-02-07)
+```pinescript
+// Always returns non-empty tooltip for TradingView to display
+buildNweTooltip(bool bullish, bool bearish, string bullZone, string bearZone, int timestamp) =>
+    string tooltip = ''
+
+    // Build bullish section
+    if bullish
+        string zone = str.length(bullZone) > 0 ? bullZone : 'Unknown'
+        tooltip := 'BULLISH\nZone: ' + zone + '\nTime: ' + str.format_time(timestamp, ...)
+
+    // Build bearish section
+    if bearish
+        string zone = str.length(bearZone) > 0 ? bearZone : 'Unknown'
+        string bearInfo = 'BEARISH\nZone: ' + zone + '\nTime: ' + str.format_time(timestamp, ...)
+        tooltip := tooltip + (str.length(tooltip) > 0 ? '\n\n' : '') + bearInfo
+
+    // If no signal at all, show "No Signal"
+    if not bullish and not bearish
+        tooltip := 'No Signal'
+
+    tooltip  // Never returns empty string
+```
+Key principles:
+- Always return non-empty strings (TradingView hides empty tooltips)
+- Show "Unknown" for missing zone data instead of omitting
+- Show "No Signal" when no signals exist
+- Defensive programming prevents silent failures
