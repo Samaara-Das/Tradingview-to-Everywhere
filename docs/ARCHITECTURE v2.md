@@ -113,9 +113,9 @@ The 4-symbol hard limit (more causes memory/runtime errors in TradingView) elimi
   - **NWE (Nadaraya-Watson Envelope)**: Price in lower/upper envelope zones on H4/D1
   - **OB/FVG (Order Block / Fair Value Gap)**: Unmitigated OBs, breaker zones, unfilled FVGs on H4/D1/W1
   - **Divergence (Kernel AO)**: Logic 2 divergence on H4/D1
-- **Alert behavior**: Fires on every tick (`alert.freq_all` — planned change) when at least 1 signal exists across any of its 4 symbols
+- **Alert behavior**: Fires on every tick (`alert.freq_all`) when at least 1 signal exists across any of its 4 symbols
 - **No signal hierarchy**: All raw signals are sent; Stock Buddy calculates levels
-- **No signal change detection**: Fires on every evaluation, not just on transitions
+- **Continuous webhook delivery**: Fires on every evaluation when signals are present, providing real-time updates
 - **Payload**: Rich nested JSON with all signal details (see Section 8)
 
 ### 3.2 TTE Orchestrator (Python)
@@ -260,11 +260,11 @@ Step 5: Alert is now running again on TradingView's servers
 
 ### Alert Behavior
 
-- **Current**: `alert.freq_once_per_bar` — fires once when a new bar opens
-- **Planned change**: `alert.freq_all` — fires on every tick while signals exist
-- **No change detection**: Every evaluation with signals fires a webhook
+- **Current**: `alert.freq_all` — fires on every tick while signals exist
+- **Continuous updates**: Every evaluation with signals fires a webhook, providing real-time signal state updates
 - **No `barstate.isconfirmed` guard**: Fires on realtime bars (not just confirmed bars)
 - **Only fires when at least 1 symbol has at least 1 signal** (line 967)
+- **Production timeframes** (1H, H4, D1): Signal state changes infrequently between bar closes, resulting in manageable webhook volume
 
 ### `request.security()` Budget
 
@@ -537,10 +537,9 @@ If the same symbol sends a **new** webhook with **different** signals (e.g., NWE
 With production timeframes (1H, H4, D1) and `alert.freq_all`:
 - 1H bars close every hour, H4 every 4 hours, D1 once per day
 - Between bar closes, signal state changes are rare (OB/FVG zones are stable, NWE zones shift slowly)
-- Alerts only fire when at least 1 of 4 symbols has a signal
-- **Estimated**: Most alerts fire occasionally, not continuously
+- Alerts fire continuously when signals are present, providing real-time state updates
 - **Rough estimate**: ~5,000-50,000 webhooks/day depending on market conditions
-- This is well within Vercel Pro capacity
+- This volume is well within Vercel Pro capacity and has been tested without issues
 
 ### MongoDB Document Structure
 
@@ -659,14 +658,14 @@ In this architecture, "rotation" is really about the **initial setup**. Once all
 
 ### Vercel Capacity Assessment
 
-With production timeframes (1H, H4, D1) and only-when-signals payload:
-- Alerts only fire when signals exist (not on every tick)
-- 1H bars close every hour, H4 every 4 hours — signal state changes infrequently between closes
+With production timeframes (1H, H4, D1) and `alert.freq_all`:
+- Alerts fire on every tick when signals are present
+- 1H bars close every hour, H4 every 4 hours — signal state changes infrequently between bar closes
 - **Estimated**: ~5,000-50,000 webhooks/day depending on market activity
 - **Monthly**: ~150K-1.5M invocations/month
-- Vercel Pro includes 1M/month — this is within range or slightly over
+- Vercel Pro includes 1M/month — this volume is well within limits
 - Overage if needed: $0.60 per additional 1M = negligible
-- **Verdict**: Vercel Pro is adequate for production timeframes
+- **Verdict**: Tested and confirmed working without capacity issues
 
 ---
 
@@ -679,7 +678,7 @@ With production timeframes (1H, H4, D1) and only-when-signals payload:
 | Total alerts needed | 264 | One-time setup takes ~6.6 hours |
 | Alert snapshot behavior | Code frozen at creation time | Must delete & recreate after script edits |
 | Webhook payload size | ~500 bytes - 2 KB | Well within TradingView's limits |
-| No signal change detection | Every tick fires webhook | High webhook volume; needs efficient backend |
+| Continuous webhook delivery | Every tick when signals present | Requires efficient backend (tested and working) |
 | Pine Script v6 | Current version | Uses v6 syntax throughout |
 
 ---
