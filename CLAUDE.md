@@ -92,6 +92,7 @@ See `env.py` and `.env` file. Key variables: `CHROME_PROFILES_PATH`, `TRADINGVIE
 2. **Always log**: Use `print(..., flush=True)` or `logger.info/debug/error()` in every significant code block
 3. **Never modify `open_tv.py`**: All browser automation is reusable with parameters
 4. **Document mistakes**: Write learnings to `AGENTS.md` to prevent repetition
+5. **Use built-in task management**: Always use TaskCreate/TaskUpdate/TaskList tools (NOT MCP task-master-ai) for tracking work
 
 ## Key Reusable Code Locations
 
