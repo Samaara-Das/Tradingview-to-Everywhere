@@ -11,7 +11,7 @@ Update instructions: $ARGUMENTS
 ## Task
 
 1. Read the current `.claude/task-context.md` file
-2. Run `TaskList` or task master ai mcp get to get current task statuses
+2. Run `TaskList` or task master ai mcp get to get current task statuses. Use the task system that is being used currently
 3. Update the context file based on the instructions: $ARGUMENTS
 4. If no specific instructions provided, ask what should be updated:
    - Completed tasks?
