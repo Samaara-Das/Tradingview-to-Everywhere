@@ -28,9 +28,11 @@ int f4 = input.int(1000, 'fill4')
 int f5 = input.int(1000, 'fill5')
 
 // Timeframes for calculations
-string TF_H4 = '60' // 1 hour
-string TF_D1 = '240' // 4 hour
-string TF_W1 = 'D' // Daily
+// IMPORTANT: Variable names are legacy and don't match actual timeframes
+// TF_H4 = 1 hour (not 4 hour), TF_D1 = 4 hour (not daily), TF_W1 = daily (not weekly)
+string TF_H4 = '60' // 1 hour (ACTUAL: 1H, not H4)
+string TF_D1 = '240' // 4 hour (ACTUAL: H4, not D1)
+string TF_W1 = 'D' // Daily (ACTUAL: D1, not W1)
 
 // Symbol inputs
 usedSymbols = input.int(4, title = 'Used Symbols', group = 'Symbols', tooltip = 'The total number of symbols which will be checked for entries')
