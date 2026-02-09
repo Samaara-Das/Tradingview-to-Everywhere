@@ -28,11 +28,9 @@ int f4 = input.int(1000, 'fill4')
 int f5 = input.int(1000, 'fill5')
 
 // Timeframes for calculations
-// IMPORTANT: Variable names are legacy and don't match actual timeframes
-// TF_H4 = 1 hour (not 4 hour), TF_D1 = 4 hour (not daily), TF_W1 = daily (not weekly)
-string TF_H4 = '60' // 1 hour (ACTUAL: 1H, not H4)
-string TF_D1 = '240' // 4 hour (ACTUAL: H4, not D1)
-string TF_W1 = 'D' // Daily (ACTUAL: D1, not W1)
+string TF_1H = '60'  // 1 hour
+string TF_H4 = '240' // 4 hour
+string TF_D1 = 'D'   // Daily
 
 // Symbol inputs
 usedSymbols = input.int(4, title = 'Used Symbols', group = 'Symbols', tooltip = 'The total number of symbols which will be checked for entries')
@@ -719,7 +717,14 @@ checkOBOnly(simple string tf) =>
 // - bullZoneHigh/bullZoneLow: OB/FVG zone price range for bullish zones
 // - bearZoneHigh/bearZoneLow: OB/FVG zone price range for bearish zones
 // - bullDivTime/bearDivTime: Logic 2 divergence timestamp (0 if none)
-// Total: 24 values per call, 8 calls for H4+D1 combined
+// Total: 24 values per call, 8 calls for 1H+H4 combined
+
+// 1H timeframe - NWE band levels + signals + OB overlap + Divergence (24 values each)
+[lnNear01_1h, lnAvg01_1h, unNear01_1h, unFar01_1h, nweBull01_1h, bullZone01_1h, nweBear01_1h, bearZone01_1h, bullF01_1h, bullZT01_1h, bullT01_1h, bullTm01_1h, bullZH01_1h, bullZL01_1h, bearF01_1h, bearZT01_1h, bearT01_1h, bearTm01_1h, bearZH01_1h, bearZL01_1h, divBullTm01_1h, divBearTm01_1h] = request.security(s01, TF_1H, checkSignalWithOB(TF_1H))
+[lnNear02_1h, lnAvg02_1h, unNear02_1h, unFar02_1h, nweBull02_1h, bullZone02_1h, nweBear02_1h, bearZone02_1h, bullF02_1h, bullZT02_1h, bullT02_1h, bullTm02_1h, bullZH02_1h, bullZL02_1h, bearF02_1h, bearZT02_1h, bearT02_1h, bearTm02_1h, bearZH02_1h, bearZL02_1h, divBullTm02_1h, divBearTm02_1h] = request.security(s02, TF_1H, checkSignalWithOB(TF_1H))
+[lnNear03_1h, lnAvg03_1h, unNear03_1h, unFar03_1h, nweBull03_1h, bullZone03_1h, nweBear03_1h, bearZone03_1h, bullF03_1h, bullZT03_1h, bullT03_1h, bullTm03_1h, bullZH03_1h, bullZL03_1h, bearF03_1h, bearZT03_1h, bearT03_1h, bearTm03_1h, bearZH03_1h, bearZL03_1h, divBullTm03_1h, divBearTm03_1h] = request.security(s03, TF_1H, checkSignalWithOB(TF_1H))
+[lnNear04_1h, lnAvg04_1h, unNear04_1h, unFar04_1h, nweBull04_1h, bullZone04_1h, nweBear04_1h, bearZone04_1h, bullF04_1h, bullZT04_1h, bullT04_1h, bullTm04_1h, bullZH04_1h, bullZL04_1h, bearF04_1h, bearZT04_1h, bearT04_1h, bearTm04_1h, bearZH04_1h, bearZL04_1h, divBullTm04_1h, divBearTm04_1h] = request.security(s04, TF_1H, checkSignalWithOB(TF_1H))
+
 
 // H4 timeframe - NWE band levels + signals + OB overlap + Divergence (24 values each)
 [lnNear01_h4, lnAvg01_h4, unNear01_h4, unFar01_h4, nweBull01_h4, bullZone01_h4, nweBear01_h4, bearZone01_h4, bullF01_h4, bullZT01_h4, bullT01_h4, bullTm01_h4, bullZH01_h4, bullZL01_h4, bearF01_h4, bearZT01_h4, bearT01_h4, bearTm01_h4, bearZH01_h4, bearZL01_h4, divBullTm01_h4, divBearTm01_h4] = request.security(s01, TF_H4, checkSignalWithOB(TF_H4))
@@ -728,22 +733,15 @@ checkOBOnly(simple string tf) =>
 [lnNear04_h4, lnAvg04_h4, unNear04_h4, unFar04_h4, nweBull04_h4, bullZone04_h4, nweBear04_h4, bearZone04_h4, bullF04_h4, bullZT04_h4, bullT04_h4, bullTm04_h4, bullZH04_h4, bullZL04_h4, bearF04_h4, bearZT04_h4, bearT04_h4, bearTm04_h4, bearZH04_h4, bearZL04_h4, divBullTm04_h4, divBearTm04_h4] = request.security(s04, TF_H4, checkSignalWithOB(TF_H4))
 
 
-// Daily timeframe - NWE band levels + signals + OB overlap + Divergence (24 values each)
-[lnNear01_d1, lnAvg01_d1, unNear01_d1, unFar01_d1, nweBull01_d1, bullZone01_d1, nweBear01_d1, bearZone01_d1, bullF01_d1, bullZT01_d1, bullT01_d1, bullTm01_d1, bullZH01_d1, bullZL01_d1, bearF01_d1, bearZT01_d1, bearT01_d1, bearTm01_d1, bearZH01_d1, bearZL01_d1, divBullTm01_d1, divBearTm01_d1] = request.security(s01, TF_D1, checkSignalWithOB(TF_D1))
-[lnNear02_d1, lnAvg02_d1, unNear02_d1, unFar02_d1, nweBull02_d1, bullZone02_d1, nweBear02_d1, bearZone02_d1, bullF02_d1, bullZT02_d1, bullT02_d1, bullTm02_d1, bullZH02_d1, bullZL02_d1, bearF02_d1, bearZT02_d1, bearT02_d1, bearTm02_d1, bearZH02_d1, bearZL02_d1, divBullTm02_d1, divBearTm02_d1] = request.security(s02, TF_D1, checkSignalWithOB(TF_D1))
-[lnNear03_d1, lnAvg03_d1, unNear03_d1, unFar03_d1, nweBull03_d1, bullZone03_d1, nweBear03_d1, bearZone03_d1, bullF03_d1, bullZT03_d1, bullT03_d1, bullTm03_d1, bullZH03_d1, bullZL03_d1, bearF03_d1, bearZT03_d1, bearT03_d1, bearTm03_d1, bearZH03_d1, bearZL03_d1, divBullTm03_d1, divBearTm03_d1] = request.security(s03, TF_D1, checkSignalWithOB(TF_D1))
-[lnNear04_d1, lnAvg04_d1, unNear04_d1, unFar04_d1, nweBull04_d1, bullZone04_d1, nweBear04_d1, bearZone04_d1, bullF04_d1, bullZT04_d1, bullT04_d1, bullTm04_d1, bullZH04_d1, bullZL04_d1, bearF04_d1, bearZT04_d1, bearT04_d1, bearTm04_d1, bearZH04_d1, bearZL04_d1, divBullTm04_d1, divBearTm04_d1] = request.security(s04, TF_D1, checkSignalWithOB(TF_D1))
-
-
-// Weekly timeframe - OB overlap only (no NWE)
+// Daily timeframe - OB overlap only (no NWE)
 // Returns: [bullFound, bullZoneType, bullType, bullZoneTime, bullZoneHigh, bullZoneLow,
 //           bearFound, bearZoneType, bearType, bearZoneTime, bearZoneHigh, bearZoneLow]
 // Total: 10 calls (10 symbols × 1 TF)
-[bullF01_w1, bullZT01_w1, bullT01_w1, bullTm01_w1, bullZH01_w1, bullZL01_w1, bearF01_w1, bearZT01_w1, bearT01_w1, bearTm01_w1, bearZH01_w1, bearZL01_w1] = request.security(s01, TF_W1, checkOBOnly(TF_W1))
-[bullF02_w1, bullZT02_w1, bullT02_w1, bullTm02_w1, bullZH02_w1, bullZL02_w1, bearF02_w1, bearZT02_w1, bearT02_w1, bearTm02_w1, bearZH02_w1, bearZL02_w1] = request.security(s02, TF_W1, checkOBOnly(TF_W1))
-[bullF03_w1, bullZT03_w1, bullT03_w1, bullTm03_w1, bullZH03_w1, bullZL03_w1, bearF03_w1, bearZT03_w1, bearT03_w1, bearTm03_w1, bearZH03_w1, bearZL03_w1] = request.security(s03, TF_W1, checkOBOnly(TF_W1))
-[bullF04_w1, bullZT04_w1, bullT04_w1, bullTm04_w1, bullZH04_w1, bullZL04_w1, bearF04_w1, bearZT04_w1, bearT04_w1, bearTm04_w1, bearZH04_w1, bearZL04_w1] = request.security(s04, TF_W1, checkOBOnly(TF_W1))
-// Total request.security() calls: 12 (8 H4+D1 combined + 4 W1 OB-only)
+[bullF01_d1, bullZT01_d1, bullT01_d1, bullTm01_d1, bullZH01_d1, bullZL01_d1, bearF01_d1, bearZT01_d1, bearT01_d1, bearTm01_d1, bearZH01_d1, bearZL01_d1] = request.security(s01, TF_D1, checkOBOnly(TF_D1))
+[bullF02_d1, bullZT02_d1, bullT02_d1, bullTm02_d1, bullZH02_d1, bullZL02_d1, bearF02_d1, bearZT02_d1, bearT02_d1, bearTm02_d1, bearZH02_d1, bearZL02_d1] = request.security(s02, TF_D1, checkOBOnly(TF_D1))
+[bullF03_d1, bullZT03_d1, bullT03_d1, bullTm03_d1, bullZH03_d1, bullZL03_d1, bearF03_d1, bearZT03_d1, bearT03_d1, bearTm03_d1, bearZH03_d1, bearZL03_d1] = request.security(s03, TF_D1, checkOBOnly(TF_D1))
+[bullF04_d1, bullZT04_d1, bullT04_d1, bullTm04_d1, bullZH04_d1, bullZL04_d1, bearF04_d1, bearZT04_d1, bearT04_d1, bearTm04_d1, bearZH04_d1, bearZL04_d1] = request.security(s04, TF_D1, checkOBOnly(TF_D1))
+// Total request.security() calls: 12 (8 1H+H4 combined + 4 D1 OB-only)
 
 //////////////////////////////////
 // JSON HELPER FUNCTIONS        //
@@ -1047,27 +1045,27 @@ buildSymbolJson(string sym, string nweArray, string obArray, string divArray) =>
 
 // Build signal arrays for each symbol
 // Symbol 01
-string nweArr01 = buildNweArray(nweBull01_h4, bullZone01_h4, nweBear01_h4, bearZone01_h4, nweBull01_d1, bullZone01_d1, nweBear01_d1, bearZone01_d1, time)
-string obArr01 = buildObArray(bullF01_h4, bullZT01_h4, bullT01_h4, bullTm01_h4, bearF01_h4, bearZT01_h4, bearT01_h4, bearTm01_h4, bullF01_d1, bullZT01_d1, bullT01_d1, bullTm01_d1, bearF01_d1, bearZT01_d1, bearT01_d1, bearTm01_d1, bullF01_w1, bullZT01_w1, bullT01_w1, bullTm01_w1, bearF01_w1, bearZT01_w1, bearT01_w1, bearTm01_w1, time)
-string divArr01 = buildDivArray(divBullTm01_h4, divBearTm01_h4, divBullTm01_d1, divBearTm01_d1, time)
+string nweArr01 = buildNweArray(nweBull01_1h, bullZone01_1h, nweBear01_1h, bearZone01_1h, nweBull01_h4, bullZone01_h4, nweBear01_h4, bearZone01_h4, time)
+string obArr01 = buildObArray(bullF01_1h, bullZT01_1h, bullT01_1h, bullTm01_1h, bearF01_1h, bearZT01_1h, bearT01_1h, bearTm01_1h, bullF01_h4, bullZT01_h4, bullT01_h4, bullTm01_h4, bearF01_h4, bearZT01_h4, bearT01_h4, bearTm01_h4, bullF01_d1, bullZT01_d1, bullT01_d1, bullTm01_d1, bearF01_d1, bearZT01_d1, bearT01_d1, bearTm01_d1, time)
+string divArr01 = buildDivArray(divBullTm01_1h, divBearTm01_1h, divBullTm01_h4, divBearTm01_h4, time)
 string sig01 = buildSymbolJson(getSymbolName(s01), nweArr01, obArr01, divArr01)
 
 // Symbol 02
-string nweArr02 = buildNweArray(nweBull02_h4, bullZone02_h4, nweBear02_h4, bearZone02_h4, nweBull02_d1, bullZone02_d1, nweBear02_d1, bearZone02_d1, time)
-string obArr02 = buildObArray(bullF02_h4, bullZT02_h4, bullT02_h4, bullTm02_h4, bearF02_h4, bearZT02_h4, bearT02_h4, bearTm02_h4, bullF02_d1, bullZT02_d1, bullT02_d1, bullTm02_d1, bearF02_d1, bearZT02_d1, bearT02_d1, bearTm02_d1, bullF02_w1, bullZT02_w1, bullT02_w1, bullTm02_w1, bearF02_w1, bearZT02_w1, bearT02_w1, bearTm02_w1, time)
-string divArr02 = buildDivArray(divBullTm02_h4, divBearTm02_h4, divBullTm02_d1, divBearTm02_d1, time)
+string nweArr02 = buildNweArray(nweBull02_1h, bullZone02_1h, nweBear02_1h, bearZone02_1h, nweBull02_h4, bullZone02_h4, nweBear02_h4, bearZone02_h4, time)
+string obArr02 = buildObArray(bullF02_1h, bullZT02_1h, bullT02_1h, bullTm02_1h, bearF02_1h, bearZT02_1h, bearT02_1h, bearTm02_1h, bullF02_h4, bullZT02_h4, bullT02_h4, bullTm02_h4, bearF02_h4, bearZT02_h4, bearT02_h4, bearTm02_h4, bullF02_d1, bullZT02_d1, bullT02_d1, bullTm02_d1, bearF02_d1, bearZT02_d1, bearT02_d1, bearTm02_d1, time)
+string divArr02 = buildDivArray(divBullTm02_1h, divBearTm02_1h, divBullTm02_h4, divBearTm02_h4, time)
 string sig02 = buildSymbolJson(getSymbolName(s02), nweArr02, obArr02, divArr02)
 
 // Symbol 03
-string nweArr03 = buildNweArray(nweBull03_h4, bullZone03_h4, nweBear03_h4, bearZone03_h4, nweBull03_d1, bullZone03_d1, nweBear03_d1, bearZone03_d1, time)
-string obArr03 = buildObArray(bullF03_h4, bullZT03_h4, bullT03_h4, bullTm03_h4, bearF03_h4, bearZT03_h4, bearT03_h4, bearTm03_h4, bullF03_d1, bullZT03_d1, bullT03_d1, bullTm03_d1, bearF03_d1, bearZT03_d1, bearT03_d1, bearTm03_d1, bullF03_w1, bullZT03_w1, bullT03_w1, bullTm03_w1, bearF03_w1, bearZT03_w1, bearT03_w1, bearTm03_w1, time)
-string divArr03 = buildDivArray(divBullTm03_h4, divBearTm03_h4, divBullTm03_d1, divBearTm03_d1, time)
+string nweArr03 = buildNweArray(nweBull03_1h, bullZone03_1h, nweBear03_1h, bearZone03_1h, nweBull03_h4, bullZone03_h4, nweBear03_h4, bearZone03_h4, time)
+string obArr03 = buildObArray(bullF03_1h, bullZT03_1h, bullT03_1h, bullTm03_1h, bearF03_1h, bearZT03_1h, bearT03_1h, bearTm03_1h, bullF03_h4, bullZT03_h4, bullT03_h4, bullTm03_h4, bearF03_h4, bearZT03_h4, bearT03_h4, bearTm03_h4, bullF03_d1, bullZT03_d1, bullT03_d1, bullTm03_d1, bearF03_d1, bearZT03_d1, bearT03_d1, bearTm03_d1, time)
+string divArr03 = buildDivArray(divBullTm03_1h, divBearTm03_1h, divBullTm03_h4, divBearTm03_h4, time)
 string sig03 = buildSymbolJson(getSymbolName(s03), nweArr03, obArr03, divArr03)
 
 // Symbol 04
-string nweArr04 = buildNweArray(nweBull04_h4, bullZone04_h4, nweBear04_h4, bearZone04_h4, nweBull04_d1, bullZone04_d1, nweBear04_d1, bearZone04_d1, time)
-string obArr04 = buildObArray(bullF04_h4, bullZT04_h4, bullT04_h4, bullTm04_h4, bearF04_h4, bearZT04_h4, bearT04_h4, bearTm04_h4, bullF04_d1, bullZT04_d1, bullT04_d1, bullTm04_d1, bearF04_d1, bearZT04_d1, bearT04_d1, bearTm04_d1, bullF04_w1, bullZT04_w1, bullT04_w1, bullTm04_w1, bearF04_w1, bearZT04_w1, bearT04_w1, bearTm04_w1, time)
-string divArr04 = buildDivArray(divBullTm04_h4, divBearTm04_h4, divBullTm04_d1, divBearTm04_d1, time)
+string nweArr04 = buildNweArray(nweBull04_1h, bullZone04_1h, nweBear04_1h, bearZone04_1h, nweBull04_h4, bullZone04_h4, nweBear04_h4, bearZone04_h4, time)
+string obArr04 = buildObArray(bullF04_1h, bullZT04_1h, bullT04_1h, bullTm04_1h, bearF04_1h, bearZT04_1h, bearT04_1h, bearTm04_1h, bullF04_h4, bullZT04_h4, bullT04_h4, bullTm04_h4, bearF04_h4, bearZT04_h4, bearT04_h4, bearTm04_h4, bullF04_d1, bullZT04_d1, bullT04_d1, bullTm04_d1, bearF04_d1, bearZT04_d1, bearT04_d1, bearTm04_d1, time)
+string divArr04 = buildDivArray(divBullTm04_1h, divBearTm04_1h, divBullTm04_h4, divBearTm04_h4, time)
 string sig04 = buildSymbolJson(getSymbolName(s04), nweArr04, obArr04, divArr04)
 
 // Combine all non-empty symbol signals
@@ -1187,71 +1185,71 @@ getDivCellColor(int divBullH4, int divBearH4, int divBullD1, int divBearD1, int 
 
 //     // Symbol 01 - GBPAUD
 //     table.cell(sigTable, 0, 1, getSymbolName(s01), text_color = color.white, text_size = size.small)
-//     // NWE-1H (from TF_H4)
-//     table.cell(sigTable, 1, 1, formatSingleTfSignal(nweBull01_h4, nweBear01_h4), text_color = getSingleTfColor(nweBull01_h4, nweBear01_h4), text_size = size.small, tooltip = buildNweTooltip(nweBull01_h4, nweBear01_h4, bullZone01_h4, bearZone01_h4, time))
-//     // NWE-H4 (from TF_D1)
-//     table.cell(sigTable, 2, 1, formatSingleTfSignal(nweBull01_d1, nweBear01_d1), text_color = getSingleTfColor(nweBull01_d1, nweBear01_d1), text_size = size.small, tooltip = buildNweTooltip(nweBull01_d1, nweBear01_d1, bullZone01_d1, bearZone01_d1, time))
-//     // OB-1H (from TF_H4)
-//     table.cell(sigTable, 3, 1, formatSingleObSignal(bullF01_h4, bearF01_h4), text_color = getSingleObColor(bullF01_h4, bearF01_h4), text_size = size.small, tooltip = buildObTooltip(bullF01_h4, bearF01_h4, bullZT01_h4, bullT01_h4, bullTm01_h4, bullZH01_h4, bullZL01_h4, bearZT01_h4, bearT01_h4, bearTm01_h4, bearZH01_h4, bearZL01_h4))
-//     // OB-H4 (from TF_D1)
-//     table.cell(sigTable, 4, 1, formatSingleObSignal(bullF01_d1, bearF01_d1), text_color = getSingleObColor(bullF01_d1, bearF01_d1), text_size = size.small, tooltip = buildObTooltip(bullF01_d1, bearF01_d1, bullZT01_d1, bullT01_d1, bullTm01_d1, bullZH01_d1, bullZL01_d1, bearZT01_d1, bearT01_d1, bearTm01_d1, bearZH01_d1, bearZL01_d1))
-//     // OB-D1 (from TF_W1)
-//     table.cell(sigTable, 5, 1, formatSingleObSignal(bullF01_w1, bearF01_w1), text_color = getSingleObColor(bullF01_w1, bearF01_w1), text_size = size.small, tooltip = buildObTooltip(bullF01_w1, bearF01_w1, bullZT01_w1, bullT01_w1, bullTm01_w1, bullZH01_w1, bullZL01_w1, bearZT01_w1, bearT01_w1, bearTm01_w1, bearZH01_w1, bearZL01_w1))
-//     // DIV-1H (from TF_H4)
-//     table.cell(sigTable, 6, 1, formatSingleDivSignal(divBullTm01_h4, divBearTm01_h4, time), text_color = getSingleDivColor(divBullTm01_h4, divBearTm01_h4, time), text_size = size.small, tooltip = buildDivTooltip(divBullTm01_h4, divBearTm01_h4, time))
-//     // DIV-H4 (from TF_D1)
-//     table.cell(sigTable, 7, 1, formatSingleDivSignal(divBullTm01_d1, divBearTm01_d1, time), text_color = getSingleDivColor(divBullTm01_d1, divBearTm01_d1, time), text_size = size.small, tooltip = buildDivTooltip(divBullTm01_d1, divBearTm01_d1, time))
+//     // NWE-1H (from TF_1H)
+//     table.cell(sigTable, 1, 1, formatSingleTfSignal(nweBull01_1h, nweBear01_1h), text_color = getSingleTfColor(nweBull01_1h, nweBear01_1h), text_size = size.small, tooltip = buildNweTooltip(nweBull01_1h, nweBear01_1h, bullZone01_1h, bearZone01_1h, time))
+//     // NWE-H4 (from TF_H4)
+//     table.cell(sigTable, 2, 1, formatSingleTfSignal(nweBull01_h4, nweBear01_h4), text_color = getSingleTfColor(nweBull01_h4, nweBear01_h4), text_size = size.small, tooltip = buildNweTooltip(nweBull01_h4, nweBear01_h4, bullZone01_h4, bearZone01_h4, time))
+//     // OB-1H (from TF_1H)
+//     table.cell(sigTable, 3, 1, formatSingleObSignal(bullF01_1h, bearF01_1h), text_color = getSingleObColor(bullF01_1h, bearF01_1h), text_size = size.small, tooltip = buildObTooltip(bullF01_1h, bearF01_1h, bullZT01_1h, bullT01_1h, bullTm01_1h, bullZH01_1h, bullZL01_1h, bearZT01_1h, bearT01_1h, bearTm01_1h, bearZH01_1h, bearZL01_1h))
+//     // OB-H4 (from TF_H4)
+//     table.cell(sigTable, 4, 1, formatSingleObSignal(bullF01_h4, bearF01_h4), text_color = getSingleObColor(bullF01_h4, bearF01_h4), text_size = size.small, tooltip = buildObTooltip(bullF01_h4, bearF01_h4, bullZT01_h4, bullT01_h4, bullTm01_h4, bullZH01_h4, bullZL01_h4, bearZT01_h4, bearT01_h4, bearTm01_h4, bearZH01_h4, bearZL01_h4))
+//     // OB-D1 (from TF_D1)
+//     table.cell(sigTable, 5, 1, formatSingleObSignal(bullF01_d1, bearF01_d1), text_color = getSingleObColor(bullF01_d1, bearF01_d1), text_size = size.small, tooltip = buildObTooltip(bullF01_d1, bearF01_d1, bullZT01_d1, bullT01_d1, bullTm01_d1, bullZH01_d1, bullZL01_d1, bearZT01_d1, bearT01_d1, bearTm01_d1, bearZH01_d1, bearZL01_d1))
+//     // DIV-1H (from TF_1H)
+//     table.cell(sigTable, 6, 1, formatSingleDivSignal(divBullTm01_1h, divBearTm01_1h, time), text_color = getSingleDivColor(divBullTm01_1h, divBearTm01_1h, time), text_size = size.small, tooltip = buildDivTooltip(divBullTm01_1h, divBearTm01_1h, time))
+//     // DIV-H4 (from TF_H4)
+//     table.cell(sigTable, 7, 1, formatSingleDivSignal(divBullTm01_h4, divBearTm01_h4, time), text_color = getSingleDivColor(divBullTm01_h4, divBearTm01_h4, time), text_size = size.small, tooltip = buildDivTooltip(divBullTm01_h4, divBearTm01_h4, time))
 
 //     // Symbol 02 - AUDJPY
 //     table.cell(sigTable, 0, 2, getSymbolName(s02), text_color = color.white, text_size = size.small)
-//     // NWE-1H (from TF_H4)
-//     table.cell(sigTable, 1, 2, formatSingleTfSignal(nweBull02_h4, nweBear02_h4), text_color = getSingleTfColor(nweBull02_h4, nweBear02_h4), text_size = size.small, tooltip = buildNweTooltip(nweBull02_h4, nweBear02_h4, bullZone02_h4, bearZone02_h4, time))
-//     // NWE-H4 (from TF_D1)
-//     table.cell(sigTable, 2, 2, formatSingleTfSignal(nweBull02_d1, nweBear02_d1), text_color = getSingleTfColor(nweBull02_d1, nweBear02_d1), text_size = size.small, tooltip = buildNweTooltip(nweBull02_d1, nweBear02_d1, bullZone02_d1, bearZone02_d1, time))
-//     // OB-1H (from TF_H4)
-//     table.cell(sigTable, 3, 2, formatSingleObSignal(bullF02_h4, bearF02_h4), text_color = getSingleObColor(bullF02_h4, bearF02_h4), text_size = size.small, tooltip = buildObTooltip(bullF02_h4, bearF02_h4, bullZT02_h4, bullT02_h4, bullTm02_h4, bullZH02_h4, bullZL02_h4, bearZT02_h4, bearT02_h4, bearTm02_h4, bearZH02_h4, bearZL02_h4))
-//     // OB-H4 (from TF_D1)
-//     table.cell(sigTable, 4, 2, formatSingleObSignal(bullF02_d1, bearF02_d1), text_color = getSingleObColor(bullF02_d1, bearF02_d1), text_size = size.small, tooltip = buildObTooltip(bullF02_d1, bearF02_d1, bullZT02_d1, bullT02_d1, bullTm02_d1, bullZH02_d1, bullZL02_d1, bearZT02_d1, bearT02_d1, bearTm02_d1, bearZH02_d1, bearZL02_d1))
-//     // OB-D1 (from TF_W1)
-//     table.cell(sigTable, 5, 2, formatSingleObSignal(bullF02_w1, bearF02_w1), text_color = getSingleObColor(bullF02_w1, bearF02_w1), text_size = size.small, tooltip = buildObTooltip(bullF02_w1, bearF02_w1, bullZT02_w1, bullT02_w1, bullTm02_w1, bullZH02_w1, bullZL02_w1, bearZT02_w1, bearT02_w1, bearTm02_w1, bearZH02_w1, bearZL02_w1))
-//     // DIV-1H (from TF_H4)
-//     table.cell(sigTable, 6, 2, formatSingleDivSignal(divBullTm02_h4, divBearTm02_h4, time), text_color = getSingleDivColor(divBullTm02_h4, divBearTm02_h4, time), text_size = size.small, tooltip = buildDivTooltip(divBullTm02_h4, divBearTm02_h4, time))
-//     // DIV-H4 (from TF_D1)
-//     table.cell(sigTable, 7, 2, formatSingleDivSignal(divBullTm02_d1, divBearTm02_d1, time), text_color = getSingleDivColor(divBullTm02_d1, divBearTm02_d1, time), text_size = size.small, tooltip = buildDivTooltip(divBullTm02_d1, divBearTm02_d1, time))
+//     // NWE-1H (from TF_1H)
+//     table.cell(sigTable, 1, 2, formatSingleTfSignal(nweBull02_1h, nweBear02_1h), text_color = getSingleTfColor(nweBull02_1h, nweBear02_1h), text_size = size.small, tooltip = buildNweTooltip(nweBull02_1h, nweBear02_1h, bullZone02_1h, bearZone02_1h, time))
+//     // NWE-H4 (from TF_H4)
+//     table.cell(sigTable, 2, 2, formatSingleTfSignal(nweBull02_h4, nweBear02_h4), text_color = getSingleTfColor(nweBull02_h4, nweBear02_h4), text_size = size.small, tooltip = buildNweTooltip(nweBull02_h4, nweBear02_h4, bullZone02_h4, bearZone02_h4, time))
+//     // OB-1H (from TF_1H)
+//     table.cell(sigTable, 3, 2, formatSingleObSignal(bullF02_1h, bearF02_1h), text_color = getSingleObColor(bullF02_1h, bearF02_1h), text_size = size.small, tooltip = buildObTooltip(bullF02_1h, bearF02_1h, bullZT02_1h, bullT02_1h, bullTm02_1h, bullZH02_1h, bullZL02_1h, bearZT02_1h, bearT02_1h, bearTm02_1h, bearZH02_1h, bearZL02_1h))
+//     // OB-H4 (from TF_H4)
+//     table.cell(sigTable, 4, 2, formatSingleObSignal(bullF02_h4, bearF02_h4), text_color = getSingleObColor(bullF02_h4, bearF02_h4), text_size = size.small, tooltip = buildObTooltip(bullF02_h4, bearF02_h4, bullZT02_h4, bullT02_h4, bullTm02_h4, bullZH02_h4, bullZL02_h4, bearZT02_h4, bearT02_h4, bearTm02_h4, bearZH02_h4, bearZL02_h4))
+//     // OB-D1 (from TF_D1)
+//     table.cell(sigTable, 5, 2, formatSingleObSignal(bullF02_d1, bearF02_d1), text_color = getSingleObColor(bullF02_d1, bearF02_d1), text_size = size.small, tooltip = buildObTooltip(bullF02_d1, bearF02_d1, bullZT02_d1, bullT02_d1, bullTm02_d1, bullZH02_d1, bullZL02_d1, bearZT02_d1, bearT02_d1, bearTm02_d1, bearZH02_d1, bearZL02_d1))
+//     // DIV-1H (from TF_1H)
+//     table.cell(sigTable, 6, 2, formatSingleDivSignal(divBullTm02_1h, divBearTm02_1h, time), text_color = getSingleDivColor(divBullTm02_1h, divBearTm02_1h, time), text_size = size.small, tooltip = buildDivTooltip(divBullTm02_1h, divBearTm02_1h, time))
+//     // DIV-H4 (from TF_H4)
+//     table.cell(sigTable, 7, 2, formatSingleDivSignal(divBullTm02_h4, divBearTm02_h4, time), text_color = getSingleDivColor(divBullTm02_h4, divBearTm02_h4, time), text_size = size.small, tooltip = buildDivTooltip(divBullTm02_h4, divBearTm02_h4, time))
 
 //     // Symbol 03 - EURCAD
 //     table.cell(sigTable, 0, 3, getSymbolName(s03), text_color = color.white, text_size = size.small)
-//     // NWE-1H (from TF_H4)
-//     table.cell(sigTable, 1, 3, formatSingleTfSignal(nweBull03_h4, nweBear03_h4), text_color = getSingleTfColor(nweBull03_h4, nweBear03_h4), text_size = size.small, tooltip = buildNweTooltip(nweBull03_h4, nweBear03_h4, bullZone03_h4, bearZone03_h4, time))
-//     // NWE-H4 (from TF_D1)
-//     table.cell(sigTable, 2, 3, formatSingleTfSignal(nweBull03_d1, nweBear03_d1), text_color = getSingleTfColor(nweBull03_d1, nweBear03_d1), text_size = size.small, tooltip = buildNweTooltip(nweBull03_d1, nweBear03_d1, bullZone03_d1, bearZone03_d1, time))
-//     // OB-1H (from TF_H4)
-//     table.cell(sigTable, 3, 3, formatSingleObSignal(bullF03_h4, bearF03_h4), text_color = getSingleObColor(bullF03_h4, bearF03_h4), text_size = size.small, tooltip = buildObTooltip(bullF03_h4, bearF03_h4, bullZT03_h4, bullT03_h4, bullTm03_h4, bullZH03_h4, bullZL03_h4, bearZT03_h4, bearT03_h4, bearTm03_h4, bearZH03_h4, bearZL03_h4))
-//     // OB-H4 (from TF_D1)
-//     table.cell(sigTable, 4, 3, formatSingleObSignal(bullF03_d1, bearF03_d1), text_color = getSingleObColor(bullF03_d1, bearF03_d1), text_size = size.small, tooltip = buildObTooltip(bullF03_d1, bearF03_d1, bullZT03_d1, bullT03_d1, bullTm03_d1, bullZH03_d1, bullZL03_d1, bearZT03_d1, bearT03_d1, bearTm03_d1, bearZH03_d1, bearZL03_d1))
-//     // OB-D1 (from TF_W1)
-//     table.cell(sigTable, 5, 3, formatSingleObSignal(bullF03_w1, bearF03_w1), text_color = getSingleObColor(bullF03_w1, bearF03_w1), text_size = size.small, tooltip = buildObTooltip(bullF03_w1, bearF03_w1, bullZT03_w1, bullT03_w1, bullTm03_w1, bullZH03_w1, bullZL03_w1, bearZT03_w1, bearT03_w1, bearTm03_w1, bearZH03_w1, bearZL03_w1))
-//     // DIV-1H (from TF_H4)
-//     table.cell(sigTable, 6, 3, formatSingleDivSignal(divBullTm03_h4, divBearTm03_h4, time), text_color = getSingleDivColor(divBullTm03_h4, divBearTm03_h4, time), text_size = size.small, tooltip = buildDivTooltip(divBullTm03_h4, divBearTm03_h4, time))
-//     // DIV-H4 (from TF_D1)
-//     table.cell(sigTable, 7, 3, formatSingleDivSignal(divBullTm03_d1, divBearTm03_d1, time), text_color = getSingleDivColor(divBullTm03_d1, divBearTm03_d1, time), text_size = size.small, tooltip = buildDivTooltip(divBullTm03_d1, divBearTm03_d1, time))
+//     // NWE-1H (from TF_1H)
+//     table.cell(sigTable, 1, 3, formatSingleTfSignal(nweBull03_1h, nweBear03_1h), text_color = getSingleTfColor(nweBull03_1h, nweBear03_1h), text_size = size.small, tooltip = buildNweTooltip(nweBull03_1h, nweBear03_1h, bullZone03_1h, bearZone03_1h, time))
+//     // NWE-H4 (from TF_H4)
+//     table.cell(sigTable, 2, 3, formatSingleTfSignal(nweBull03_h4, nweBear03_h4), text_color = getSingleTfColor(nweBull03_h4, nweBear03_h4), text_size = size.small, tooltip = buildNweTooltip(nweBull03_h4, nweBear03_h4, bullZone03_h4, bearZone03_h4, time))
+//     // OB-1H (from TF_1H)
+//     table.cell(sigTable, 3, 3, formatSingleObSignal(bullF03_1h, bearF03_1h), text_color = getSingleObColor(bullF03_1h, bearF03_1h), text_size = size.small, tooltip = buildObTooltip(bullF03_1h, bearF03_1h, bullZT03_1h, bullT03_1h, bullTm03_1h, bullZH03_1h, bullZL03_1h, bearZT03_1h, bearT03_1h, bearTm03_1h, bearZH03_1h, bearZL03_1h))
+//     // OB-H4 (from TF_H4)
+//     table.cell(sigTable, 4, 3, formatSingleObSignal(bullF03_h4, bearF03_h4), text_color = getSingleObColor(bullF03_h4, bearF03_h4), text_size = size.small, tooltip = buildObTooltip(bullF03_h4, bearF03_h4, bullZT03_h4, bullT03_h4, bullTm03_h4, bullZH03_h4, bullZL03_h4, bearZT03_h4, bearT03_h4, bearTm03_h4, bearZH03_h4, bearZL03_h4))
+//     // OB-D1 (from TF_D1)
+//     table.cell(sigTable, 5, 3, formatSingleObSignal(bullF03_d1, bearF03_d1), text_color = getSingleObColor(bullF03_d1, bearF03_d1), text_size = size.small, tooltip = buildObTooltip(bullF03_d1, bearF03_d1, bullZT03_d1, bullT03_d1, bullTm03_d1, bullZH03_d1, bullZL03_d1, bearZT03_d1, bearT03_d1, bearTm03_d1, bearZH03_d1, bearZL03_d1))
+//     // DIV-1H (from TF_1H)
+//     table.cell(sigTable, 6, 3, formatSingleDivSignal(divBullTm03_1h, divBearTm03_1h, time), text_color = getSingleDivColor(divBullTm03_1h, divBearTm03_1h, time), text_size = size.small, tooltip = buildDivTooltip(divBullTm03_1h, divBearTm03_1h, time))
+//     // DIV-H4 (from TF_H4)
+//     table.cell(sigTable, 7, 3, formatSingleDivSignal(divBullTm03_h4, divBearTm03_h4, time), text_color = getSingleDivColor(divBullTm03_h4, divBearTm03_h4, time), text_size = size.small, tooltip = buildDivTooltip(divBullTm03_h4, divBearTm03_h4, time))
 
 //     // Symbol 04 - EURGBP
 //     table.cell(sigTable, 0, 4, getSymbolName(s04), text_color = color.white, text_size = size.small)
-//     // NWE-1H (from TF_H4)
-//     table.cell(sigTable, 1, 4, formatSingleTfSignal(nweBull04_h4, nweBear04_h4), text_color = getSingleTfColor(nweBull04_h4, nweBear04_h4), text_size = size.small, tooltip = buildNweTooltip(nweBull04_h4, nweBear04_h4, bullZone04_h4, bearZone04_h4, time))
-//     // NWE-H4 (from TF_D1)
-//     table.cell(sigTable, 2, 4, formatSingleTfSignal(nweBull04_d1, nweBear04_d1), text_color = getSingleTfColor(nweBull04_d1, nweBear04_d1), text_size = size.small, tooltip = buildNweTooltip(nweBull04_d1, nweBear04_d1, bullZone04_d1, bearZone04_d1, time))
-//     // OB-1H (from TF_H4)
-//     table.cell(sigTable, 3, 4, formatSingleObSignal(bullF04_h4, bearF04_h4), text_color = getSingleObColor(bullF04_h4, bearF04_h4), text_size = size.small, tooltip = buildObTooltip(bullF04_h4, bearF04_h4, bullZT04_h4, bullT04_h4, bullTm04_h4, bullZH04_h4, bullZL04_h4, bearZT04_h4, bearT04_h4, bearTm04_h4, bearZH04_h4, bearZL04_h4))
-//     // OB-H4 (from TF_D1)
-//     table.cell(sigTable, 4, 4, formatSingleObSignal(bullF04_d1, bearF04_d1), text_color = getSingleObColor(bullF04_d1, bearF04_d1), text_size = size.small, tooltip = buildObTooltip(bullF04_d1, bearF04_d1, bullZT04_d1, bullT04_d1, bullTm04_d1, bullZH04_d1, bullZL04_d1, bearZT04_d1, bearT04_d1, bearTm04_d1, bearZH04_d1, bearZL04_d1))
-//     // OB-D1 (from TF_W1)
-//     table.cell(sigTable, 5, 4, formatSingleObSignal(bullF04_w1, bearF04_w1), text_color = getSingleObColor(bullF04_w1, bearF04_w1), text_size = size.small, tooltip = buildObTooltip(bullF04_w1, bearF04_w1, bullZT04_w1, bullT04_w1, bullTm04_w1, bullZH04_w1, bullZL04_w1, bearZT04_w1, bearT04_w1, bearTm04_w1, bearZH04_w1, bearZL04_w1))
-//     // DIV-1H (from TF_H4)
-//     table.cell(sigTable, 6, 4, formatSingleDivSignal(divBullTm04_h4, divBearTm04_h4, time), text_color = getSingleDivColor(divBullTm04_h4, divBearTm04_h4, time), text_size = size.small, tooltip = buildDivTooltip(divBullTm04_h4, divBearTm04_h4, time))
-//     // DIV-H4 (from TF_D1)
-//     table.cell(sigTable, 7, 4, formatSingleDivSignal(divBullTm04_d1, divBearTm04_d1, time), text_color = getSingleDivColor(divBullTm04_d1, divBearTm04_d1, time), text_size = size.small, tooltip = buildDivTooltip(divBullTm04_d1, divBearTm04_d1, time))
+//     // NWE-1H (from TF_1H)
+//     table.cell(sigTable, 1, 4, formatSingleTfSignal(nweBull04_1h, nweBear04_1h), text_color = getSingleTfColor(nweBull04_1h, nweBear04_1h), text_size = size.small, tooltip = buildNweTooltip(nweBull04_1h, nweBear04_1h, bullZone04_1h, bearZone04_1h, time))
+//     // NWE-H4 (from TF_H4)
+//     table.cell(sigTable, 2, 4, formatSingleTfSignal(nweBull04_h4, nweBear04_h4), text_color = getSingleTfColor(nweBull04_h4, nweBear04_h4), text_size = size.small, tooltip = buildNweTooltip(nweBull04_h4, nweBear04_h4, bullZone04_h4, bearZone04_h4, time))
+//     // OB-1H (from TF_1H)
+//     table.cell(sigTable, 3, 4, formatSingleObSignal(bullF04_1h, bearF04_1h), text_color = getSingleObColor(bullF04_1h, bearF04_1h), text_size = size.small, tooltip = buildObTooltip(bullF04_1h, bearF04_1h, bullZT04_1h, bullT04_1h, bullTm04_1h, bullZH04_1h, bullZL04_1h, bearZT04_1h, bearT04_1h, bearTm04_1h, bearZH04_1h, bearZL04_1h))
+//     // OB-H4 (from TF_H4)
+//     table.cell(sigTable, 4, 4, formatSingleObSignal(bullF04_h4, bearF04_h4), text_color = getSingleObColor(bullF04_h4, bearF04_h4), text_size = size.small, tooltip = buildObTooltip(bullF04_h4, bearF04_h4, bullZT04_h4, bullT04_h4, bullTm04_h4, bullZH04_h4, bullZL04_h4, bearZT04_h4, bearT04_h4, bearTm04_h4, bearZH04_h4, bearZL04_h4))
+//     // OB-D1 (from TF_D1)
+//     table.cell(sigTable, 5, 4, formatSingleObSignal(bullF04_d1, bearF04_d1), text_color = getSingleObColor(bullF04_d1, bearF04_d1), text_size = size.small, tooltip = buildObTooltip(bullF04_d1, bearF04_d1, bullZT04_d1, bullT04_d1, bullTm04_d1, bullZH04_d1, bullZL04_d1, bearZT04_d1, bearT04_d1, bearTm04_d1, bearZH04_d1, bearZL04_d1))
+//     // DIV-1H (from TF_1H)
+//     table.cell(sigTable, 6, 4, formatSingleDivSignal(divBullTm04_1h, divBearTm04_1h, time), text_color = getSingleDivColor(divBullTm04_1h, divBearTm04_1h, time), text_size = size.small, tooltip = buildDivTooltip(divBullTm04_1h, divBearTm04_1h, time))
+//     // DIV-H4 (from TF_H4)
+//     table.cell(sigTable, 7, 4, formatSingleDivSignal(divBullTm04_h4, divBearTm04_h4, time), text_color = getSingleDivColor(divBullTm04_h4, divBearTm04_h4, time), text_size = size.small, tooltip = buildDivTooltip(divBullTm04_h4, divBearTm04_h4, time))
 
 // Required for valid indicator
 plot(na)
