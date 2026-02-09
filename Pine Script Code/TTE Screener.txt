@@ -880,20 +880,20 @@ formatSingleTfSignal(bool bullish, bool bearish) =>
     else
         '-'
 
-// Build NWE tooltip with zone and timestamp info
+// Build NWE tooltip with zone and timestamp info (UTC timezone)
 buildNweTooltip(bool bullish, bool bearish, string bullZone, string bearZone, int timestamp) =>
     string tooltip = ''
 
     // Build bullish section
     if bullish
         string zone = str.length(bullZone) > 0 ? bullZone : 'Unknown'
-        tooltip := 'BULLISH\nZone: ' + zone + '\nTime: ' + str.format_time(timestamp, 'yyyy-MM-dd HH:mm', syminfo.timezone)
+        tooltip := 'BULLISH\nZone: ' + zone + '\nTime: ' + str.format_time(timestamp, 'yyyy-MM-dd HH:mm', "UTC") + ' UTC'
         tooltip
 
     // Build bearish section
     if bearish
         string zone = str.length(bearZone) > 0 ? bearZone : 'Unknown'
-        string bearInfo = 'BEARISH\nZone: ' + zone + '\nTime: ' + str.format_time(timestamp, 'yyyy-MM-dd HH:mm', syminfo.timezone)
+        string bearInfo = 'BEARISH\nZone: ' + zone + '\nTime: ' + str.format_time(timestamp, 'yyyy-MM-dd HH:mm', "UTC") + ' UTC'
         tooltip := tooltip + (str.length(tooltip) > 0 ? '\n\n' : '') + bearInfo
         tooltip
 
@@ -904,32 +904,32 @@ buildNweTooltip(bool bullish, bool bearish, string bullZone, string bearZone, in
 
     tooltip
 
-// Build OB/FVG tooltip with zone type, subtype, and timestamps
+// Build OB/FVG tooltip with zone type, subtype, and timestamps (UTC timezone)
 buildObTooltip(int bullFound, int bearFound, int bullZT, int bullT, int bullTm, float bullZH, float bullZL, int bearZT, int bearT, int bearTm, float bearZH, float bearZL) =>
     string tooltip = ''
     if bullFound == 1
         string zt = bullZT == 1 ? 'OB' : bullZT == 2 ? 'FVG' : '?'
         string st = bullT == 1 ? 'Unmitigated' : bullT == 3 ? 'Breaker Support' : bullT == 4 ? 'Bullish FVG' : '?'
-        tooltip := 'BULLISH ' + zt + '\n' + st + '\nZone: ' + str.tostring(bullZH, format.mintick) + ' - ' + str.tostring(bullZL, format.mintick) + '\nFormed: ' + str.format_time(bullTm, 'yyyy-MM-dd HH:mm', syminfo.timezone) + '\nOverlap: ' + str.format_time(time, 'yyyy-MM-dd HH:mm', syminfo.timezone)
+        tooltip := 'BULLISH ' + zt + '\n' + st + '\nZone: ' + str.tostring(bullZH, format.mintick) + ' - ' + str.tostring(bullZL, format.mintick) + '\nFormed: ' + str.format_time(bullTm, 'yyyy-MM-dd HH:mm', "UTC") + ' UTC\nOverlap: ' + str.format_time(time, 'yyyy-MM-dd HH:mm', "UTC") + ' UTC'
         tooltip
     if bearFound == 1
         string zt = bearZT == 1 ? 'OB' : bearZT == 2 ? 'FVG' : '?'
         string st = bearT == 1 ? 'Unmitigated' : bearT == 3 ? 'Breaker Resistance' : bearT == 4 ? 'Bearish FVG' : '?'
-        string bearInfo = 'BEARISH ' + zt + '\n' + st + '\nZone: ' + str.tostring(bearZH, format.mintick) + ' - ' + str.tostring(bearZL, format.mintick) + '\nFormed: ' + str.format_time(bearTm, 'yyyy-MM-dd HH:mm', syminfo.timezone) + '\nOverlap: ' + str.format_time(time, 'yyyy-MM-dd HH:mm', syminfo.timezone)
+        string bearInfo = 'BEARISH ' + zt + '\n' + st + '\nZone: ' + str.tostring(bearZH, format.mintick) + ' - ' + str.tostring(bearZL, format.mintick) + '\nFormed: ' + str.format_time(bearTm, 'yyyy-MM-dd HH:mm', "UTC") + ' UTC\nOverlap: ' + str.format_time(time, 'yyyy-MM-dd HH:mm', "UTC") + ' UTC'
         tooltip := tooltip + (str.length(tooltip) > 0 ? '\n\n' : '') + bearInfo
         tooltip
     tooltip
 
-// Build Divergence tooltip with timestamp
+// Build Divergence tooltip with timestamp (UTC timezone)
 buildDivTooltip(int divBullTime, int divBearTime, int currTime) =>
     string tooltip = ''
     bool bullish = divBullTime == currTime
     bool bearish = divBearTime == currTime
     if bullish
-        tooltip := 'BULLISH DIV\nLogic 2\nTime: ' + str.format_time(divBullTime, 'yyyy-MM-dd HH:mm', syminfo.timezone)
+        tooltip := 'BULLISH DIV\nLogic 2\nTime: ' + str.format_time(divBullTime, 'yyyy-MM-dd HH:mm', "UTC") + ' UTC'
         tooltip
     if bearish
-        string bearInfo = 'BEARISH DIV\nLogic 2\nTime: ' + str.format_time(divBearTime, 'yyyy-MM-dd HH:mm', syminfo.timezone)
+        string bearInfo = 'BEARISH DIV\nLogic 2\nTime: ' + str.format_time(divBearTime, 'yyyy-MM-dd HH:mm', "UTC") + ' UTC'
         tooltip := tooltip + (str.length(tooltip) > 0 ? '\n\n' : '') + bearInfo
         tooltip
     tooltip
