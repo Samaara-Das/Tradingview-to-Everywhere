@@ -1,33 +1,123 @@
 # Task Context Tracker
 
 **Last Updated**: 2026-02-09
-**Current Task**: Signal accuracy validation (NWE, DIV verified, OB/FVG gap conditions aligned) - ready for user verification
-**Last Session**: Aligned OB/FVG gap conditions in screener with standalone OB & FVG indicator
+**Current Task**: Screener validation complete ✅ - Ready to begin Combo architecture implementation
+**Last Session**: Cleaned up screener for production, renamed timeframe variables, uploaded to Google Drive
+**Active Branch**: `combo-architecture` (created for Combo mode implementation)
 
 ---
 
 ## Task Progress Summary (Built-in Tasks)
 
+**Screener Work - COMPLETE** ✅:
+| ID | Task | Status |
+|----|------|--------|
+| 44 | Validate TTE Screener signal accuracy | **completed** ✅ |
+| 49 | Test NWE signal detection on all timeframes | **completed** ✅ |
+| 50 | Test DIV signal detection on all timeframes | **completed** ✅ |
+| 51 | Test OB/FVG signal detection on all timeframes | **completed** ✅ |
+| 52 | Comment out debug table in TTE Screener | **completed** ✅ |
+| 53 | Create new git branch for Architecture 1 (Combo mode) | **completed** ✅ |
+| 54 | Rename legacy timeframe variables to actual values | **completed** ✅ |
+| 23 | Upload all screener versions to Google Drive | **completed** ✅ |
+
+**Testing - DEFERRED** (Will be done after combo system is live):
+| ID | Task | Status | Notes |
+|----|------|--------|-------|
+| 22 | Test webhook alert payload and trigger frequency | pending | Requires live combo system |
+| 37 | Test end-to-end webhook flow | pending | Requires API endpoints built |
+
+**Combo Implementation - READY TO START** 🚀:
 | ID | Task | Status | Dependencies |
 |----|------|--------|--------------|
-| 22 | Test webhook alert payload and trigger frequency | pending | - |
-| 23 | Upload all screener versions to Google Drive | pending | 22 |
-| 44 | Validate TTE Screener signal accuracy | **in_progress** | - |
-| 49 | Test NWE signal detection on all timeframes | **completed** ✅ | - |
-| 50 | Test DIV signal detection on all timeframes | **completed** ✅ | - |
-| 51 | Test OB/FVG signal detection on all timeframes | **in_progress** | - |
+| 24 | Rewrite config.py for Combo architecture | **READY** | None |
+| 25 | Rewrite api_client.py for Combo architecture | **READY** | None |
+| 26-31 | Python orchestrator implementation | pending | Tasks #24, #25 |
+| 32-38 | Stock Buddy API implementation | **READY** | None (except #33 needs #32) |
 
-**Active Tasks**: Testing signal accuracy (Task #44 - OB/FVG gap conditions aligned, awaiting verification)
-**Recent Completions**: Task #49 (NWE verified), Task #50 (DIV verified)
-
-### Task 44 Subtasks (Signal Accuracy Testing)
-- **Task #49**: Test NWE signal detection on all timeframes (**completed** ✅)
-- **Task #50**: Test DIV signal detection on all timeframes (**completed** ✅)
-- **Task #51**: Test OB/FVG signal detection on all timeframes (pending - next up)
+**Completed Count**: 27 tasks
+**Pending Count**: 17 tasks (7 ready to start)
 
 ---
 
 ## Session History
+
+### Session: 2026-02-09 (Screener Production Cleanup & Timeframe Variable Renaming)
+
+**Goal**: Finalize screener for production by cleaning up debug code, renaming confusing legacy variables, and preparing for Combo architecture implementation
+
+**Tasks Completed**:
+
+1. **Task #52 - Comment Out Debug Table** ✅
+   - Commented out table declaration (line 1095)
+   - Commented out helper functions (lines 836-1002)
+   - Commented out table rendering for all 4 symbols (lines 1175-1254)
+   - Kept `plot(na)` statement for valid Pine Script indicator
+   - **Result**: Production-ready screener with no debug UI clutter
+   - **Commit**: `807845c` - "Comment out debug table in TTE Screener for production"
+
+2. **Task #53 - Create Combo Architecture Branch** ✅
+   - Created new branch: `combo-architecture`
+   - Pushed to remote with tracking
+   - **Result**: Ready for Combo mode implementation
+   - **Branch**: Now working on `combo-architecture` (diverged from `tiered-orchestrator`)
+
+3. **Task #54 - Rename Legacy Timeframe Variables** ✅
+   - **Problem**: Variable names contradicted their actual values
+     - `TF_H4 = '60'` (actually 1 hour, not 4 hour)
+     - `TF_D1 = '240'` (actually 4 hour, not daily)
+     - `TF_W1 = 'D'` (actually daily, not weekly)
+
+   - **Changes Made** (82+ occurrences):
+     - Constants: `TF_H4` → `TF_1H`, `TF_D1` → `TF_H4`, `TF_W1` → `TF_D1`
+     - All variable suffixes: `_h4` → `_1h`, `_d1` → `_h4`, `_w1` → `_d1`
+     - Updated all comments and documentation
+     - Preserved JSON payload strings (already correct)
+
+   - **Strategy**: Used three-step sed replacement with temporary placeholders to avoid naming collisions
+   - **Result**: Code is now self-documenting - variable names match actual timeframe values
+   - **Commit**: `d7e0b6b` - "Rename legacy timeframe variables to match actual values"
+
+4. **Task #23 - Upload Screener Versions to Google Drive** ✅
+   - Uploaded TTE Screener.txt (production combo screener)
+   - Uploaded TTE NWE Screener v2.txt (deprecated Tier 1)
+   - Uploaded TTE OBDIV Screener v2.txt (deprecated Tier 2)
+   - **Result**: All screener versions backed up to Google Drive
+
+**User Questions Answered**:
+- Clarified screener configuration: 4 symbols, 3 timeframes (1H, H4, D1)
+- Explained actual timeframes vs legacy variable names
+- Confirmed all screener/testing tasks are complete
+
+**Screener Configuration (Final)**:
+- **Symbols**: 4 active (GBPAUD, AUDJPY, EURCAD, EURGBP) - configurable up to 20
+- **Timeframes**:
+  - 1H (`TF_1H = '60'`) - NWE, OB/FVG, Divergence
+  - H4 (`TF_H4 = '240'`) - NWE, OB/FVG, Divergence
+  - D1 (`TF_D1 = 'D'`) - OB/FVG only
+- **Status**: Production-ready, validated, uploaded
+
+**Next Steps Identified**:
+- Task #22 (webhook testing) will be done AFTER combo system is live
+- Ready to begin Combo architecture implementation:
+  - Tasks #24-25 (config.py, api_client.py) - Ready to start
+  - Tasks #26-31 (orchestrator) - Blocked by #24-25
+  - Tasks #32-38 (Stock Buddy API) - Ready to start (7 tasks available)
+
+**Files Modified**:
+- `Pine Script Code/TTE Screener.txt` - Debug table commented out, timeframe variables renamed
+- `.claude/task-context.md` - Updated with session progress
+
+**Commits** (on `combo-architecture` branch):
+- `807845c` - Comment out debug table in TTE Screener for production
+- `cc90253` - Update task context with OB/FVG gap condition alignment session notes
+- `d7e0b6b` - Rename legacy timeframe variables to match actual values
+
+**Result**:
+✅ **All screener work complete** - validated, cleaned, uploaded, production-ready
+🚀 **Ready to begin Combo architecture implementation** - 7 tasks unblocked and ready to start
+
+---
 
 ### Session: 2026-02-09 (OB/FVG Gap Condition Alignment with Standalone Indicator)
 
@@ -1277,12 +1367,17 @@ if str.length(allSignals) > 0
 ```
 Note: Symbols with NO signals are excluded from payload entirely.
 
-### TTE Screener Configuration (2026-02-05)
+### TTE Screener Configuration (Updated 2026-02-09)
 ```
-Symbols: 4 (GBPAUD, AUDJPY, EURCAD, EURGBP)
-Timeframes: H4, D1 for NWE/Divergence; H4, D1, W1 for OB/FVG
-Signal Table: position.top_right, 4 columns (Symbol, NWE, OB, DIV)
-request.security() calls: 24 of 40 max
+Symbols: 4 active (GBPAUD, AUDJPY, EURCAD, EURGBP) - configurable up to 20
+Timeframes:
+  - 1H (TF_1H = '60') - NWE, OB/FVG, Divergence
+  - H4 (TF_H4 = '240') - NWE, OB/FVG, Divergence
+  - D1 (TF_D1 = 'D') - OB/FVG only
+Signal Table: Commented out for production (lines 1095-1254)
+request.security() calls: 12 total (8 for 1H+H4 combined, 4 for D1 OB-only)
+Variable names: Now match actual timeframes (legacy naming removed)
+Status: Production-ready, validated, uploaded to Google Drive
 ```
 
 ### Chart-Timeframe NWE Signal Detection Pattern (Fixed - 2026-02-07)
