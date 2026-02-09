@@ -1,8 +1,8 @@
 # Task Context Tracker
 
-**Last Updated**: 2026-02-07
-**Current Task**: Testing TTE Screener signal accuracy - NWE signals showing new bugs
-**Last Session**: Created testing subtasks and discovered additional NWE bugs
+**Last Updated**: 2026-02-09
+**Current Task**: NWE signal detection fixed and verified - testing remaining signals (DIV, OB/FVG)
+**Last Session**: Fixed NWE chart symbol dependency bug and timezone uniformity issues
 
 ---
 
@@ -13,21 +13,108 @@
 | 22 | Test webhook alert payload and trigger frequency | pending | - |
 | 23 | Upload all screener versions to Google Drive | pending | 22 |
 | 44 | Validate TTE Screener signal accuracy | **in_progress** | - |
-| 49 | Test NWE signal detection on all timeframes | **in_progress** | - |
-| 50 | Test DIV signal detection on all timeframes | pending | 49 |
+| 49 | Test NWE signal detection on all timeframes | **completed** ✅ | - |
+| 50 | Test DIV signal detection on all timeframes | pending | - |
 | 51 | Test OB/FVG signal detection on all timeframes | pending | 50 |
 
-**Active Tasks**: Testing signal accuracy (Task #44, #49)
-**Recent Completions**: Tasks #19-21, #39-43, #45-48 (Pine Script fixes and updates)
+**Active Tasks**: Testing signal accuracy (Task #44 - moving to DIV/OB testing)
+**Recent Completions**: Task #49 (NWE signal detection verified working)
 
 ### Task 44 Subtasks (Signal Accuracy Testing)
-- **Task #49**: Test NWE signal detection on all timeframes (**in_progress**)
-- **Task #50**: Test DIV signal detection on all timeframes (pending, blocked by #49)
+- **Task #49**: Test NWE signal detection on all timeframes (**completed** ✅)
+- **Task #50**: Test DIV signal detection on all timeframes (pending - next up)
 - **Task #51**: Test OB/FVG signal detection on all timeframes (pending, blocked by #50)
 
 ---
 
 ## Session History
+
+### Session: 2026-02-09 (NWE Bug Fix Implementation & Timezone Uniformity)
+
+**Goal**: Fix NWE signal detection to work across all symbols and ensure timezone uniformity
+
+**Issues Addressed**:
+
+**1. Bug #11 - NWE Chart Symbol Dependency (FIXED)**:
+- **Problem**: NWE signals only detected for the chart's active symbol, not all 4 monitored symbols
+- **Root Cause**: NWE detection used chart's builtin `low`/`high` variables, which always reference the active chart symbol
+- **Solution**: Moved NWE detection INSIDE `checkSignalWithOB()` function
+  - Detection now happens in `request.security()` context where `low`/`high` refer to the correct symbol
+  - Each symbol's signals are detected using that symbol's own price data
+
+**2. Timezone Uniformity Issue (FIXED)**:
+- **Problem**: Tooltips used `syminfo.timezone` (exchange timezone) causing inconsistent display
+- **Impact**: Different symbols could show different timezones, confusing users
+- **Solution**: Changed all tooltip functions to use `"UTC"` explicitly
+  - Added " UTC" suffix to clarify timezone
+  - Ensures uniform display regardless of chart symbol or exchange
+
+**Implementation Details**:
+
+**File Modified**: `Pine Script Code/TTE Screener.txt`
+
+**Change 1 - NWE Detection Logic** (lines 649-691):
+```pinescript
+checkSignalWithOB(simple string tf) =>
+    // Calculate NWE envelope
+    [yhat, upper_near, upper_far, upper_avg, lower_near, lower_far, lower_avg] = calcNWE(...)
+
+    // NWE overlap detection using symbol's own low/high (in request.security context)
+    bool bullZone1 = low <= lower_near and high >= lower_avg
+    bool bullZone2 = low <= lower_avg and high >= lower_far
+    bool nweBull = bullZone1 or bullZone2
+
+    bool bearZone1 = high >= upper_near and low <= upper_avg
+    bool bearZone2 = high >= upper_avg and low <= upper_far
+    bool nweBear = bearZone1 or bearZone2
+
+    // Calculate zone names
+    string bullZone = getNweZoneName(true, low, high, ...)
+    string bearZone = getNweZoneName(false, low, high, ...)
+
+    // Return 24 values (was 20): added nweBull, bullZone, nweBear, bearZone
+```
+
+**Change 2 - request.security() Calls** (lines 724-734):
+```pinescript
+// H4 timeframe - now receives 24 values including NWE signals
+[lnNear01_h4, lnAvg01_h4, unNear01_h4, unFar01_h4,
+ nweBull01_h4, bullZone01_h4, nweBear01_h4, bearZone01_h4,
+ bullF01_h4, ...] = request.security(s01, TF_H4, checkSignalWithOB(TF_H4))
+```
+
+**Change 3 - Timezone Uniformity** (lines 883-935):
+```pinescript
+// Before
+str.format_time(timestamp, 'yyyy-MM-dd HH:mm', syminfo.timezone)
+
+// After
+str.format_time(timestamp, 'yyyy-MM-dd HH:mm', "UTC") + ' UTC'
+```
+
+**Functions Updated**:
+- `buildNweTooltip()` - line 883
+- `buildObTooltip()` - line 907
+- `buildDivTooltip()` - line 923
+
+**Change 4 - Removed Chart-TF Detection** (lines 747-806):
+- Deleted entire obsolete section that detected signals on chart timeframe
+- No longer needed since detection happens inside `request.security()` context
+
+**Verification**:
+✅ User confirmed: "the NWE signals are being detected across timeframes and symbols!"
+
+**Result**:
+- All 4 symbols now show independent NWE signals regardless of active chart
+- Tooltips display uniform UTC timestamps with " UTC" suffix
+- Bug #11 resolved
+- Timezone consistency achieved
+
+**Commits**:
+- Commit 1 (2026-02-09): Fix NWE signal detection to use correct symbol prices and overlap logic
+- Commit 2 (pending): Add timezone uniformity to all tooltip displays
+
+---
 
 ### Session: 2026-02-07 (Signal Accuracy Testing - Additional NWE Bugs Found)
 
@@ -799,14 +886,6 @@ python tiered_main.py
 
 ### Active Bugs (Not Fixed Yet)
 
-11. **NWE signals only display for chart's current symbol** (2026-02-07 - ACTIVE):
-   - Symptom: NWE signals only appear for the symbol matching the current chart
-   - Example: Chart on GBPAUD → only GBPAUD row shows NWE signals, other symbols blank
-   - Expected: All 4 symbols should show NWE signals if price is in NWE zones
-   - Impact: Critical - screener cannot detect signals for non-active symbols
-   - Root cause: Unknown - needs investigation
-   - Files: `Pine Script Code/TTE Screener.txt` (NWE detection logic)
-
 12. **No DIV signals displayed in debug table** (2026-02-07 - NEEDS INVESTIGATION):
    - Symptom: DIV column shows no signals during testing
    - Possible causes: (1) No actual divergences present, or (2) Detection bug
@@ -815,6 +894,21 @@ python tiered_main.py
    - Files: `Pine Script Code/TTE Screener.txt` (Divergence detection logic)
 
 ### Fixed Bugs
+
+11. **NWE signals only display for chart's current symbol** (2026-02-09 - FIXED):
+   - Symptom: NWE signals only appeared for the symbol matching the current chart
+   - Example: Chart on GBPAUD → only GBPAUD row showed NWE signals, other symbols blank
+   - Root cause: Chart-timeframe detection used builtin `low`/`high` (always chart symbol)
+   - Fix: Moved detection inside `checkSignalWithOB()` so `low`/`high` refer to each symbol in request.security() context
+   - Files: `Pine Script Code/TTE Screener.txt` lines 649-734
+   - Result: All 4 symbols now show independent NWE signals ✅
+
+**NEW** 13. **Timezone inconsistency in tooltips** (2026-02-09 - FIXED):
+   - Symptom: Tooltips displayed timestamps in exchange timezone (varied by symbol/exchange)
+   - Impact: Different symbols could show different timezones, causing confusion
+   - Fix: Changed `syminfo.timezone` → `"UTC"` in all tooltip functions, added " UTC" suffix
+   - Files: `Pine Script Code/TTE Screener.txt` lines 883-935 (buildNweTooltip, buildObTooltip, buildDivTooltip)
+   - Result: All tooltips now display uniform UTC timestamps ✅
 
 1. **NWE signal timestamps showing HTF bar time instead of current bar time** (2026-02-07 - FIXED):
    - Cause: NWE signal detection occurred inside `request.security()` in HTF context
