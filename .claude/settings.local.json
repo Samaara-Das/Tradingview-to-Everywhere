@@ -19,7 +19,8 @@
       "WebFetch(domain:www.selenium.dev)",
       "Bash(git push:*)",
       "Skill(pinescript)",
-      "Skill(pine-script-expert)"
+      "Skill(pine-script-expert)",
+      "Bash(git ls-tree:*)"
     ],
     "deny": [
       "Bash(git push --force*)",
