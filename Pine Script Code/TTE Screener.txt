@@ -290,7 +290,7 @@ detectBullishDiv(float osc, int maxLookback) =>
 
     if inDownleg and lowerLow
         // Higher AO low (less negative) = bullish divergence
-        if prevDownlegAO < -0.0001 and currDownlegAO > prevDownlegAO
+        if prevDownlegAO < currDownlegAO
             result := time[currLowShift]
             result
 
@@ -317,7 +317,7 @@ detectBearishDiv(float osc, int maxLookback) =>
 
     if inUpleg and higherHigh
         // Lower AO high = bearish divergence
-        if prevUplegAO > 0.0001 and currUplegAO < prevUplegAO
+        if prevUplegAO > currUplegAO
             result := time[currHighShift]
             result
 
@@ -401,8 +401,8 @@ scanOBRange(simple string tf) =>
         // BULLISH OB DETECTION (Demand Zone)
         //////////////////////////////////////////
         bool bullSweep = low[i] < low[i - 1] and low[i] < low[i + 1]
-        bool bullGap2 = high[i] < low[i - 2]
-        bool bullGap3 = high[i] < low[i - 3]
+        bool bullGap2 = high[i] < low[i - 2] and high[i] < high[i - 2]
+        bool bullGap3 = high[i] < low[i - 3] and high[i] < high[i - 3]
         bool bullGapAtFormation = bullGap2 or bullGap3
         bool bullOBFormed = bullSweep and bullGapAtFormation
 
@@ -509,8 +509,8 @@ scanOBRange(simple string tf) =>
         // BEARISH OB DETECTION (Supply Zone)
         //////////////////////////////////////////
         bool bearSweep = high[i] > high[i - 1] and high[i] > high[i + 1]
-        bool bearGap2 = low[i] > high[i - 2]
-        bool bearGap3 = low[i] > high[i - 3]
+        bool bearGap2 = low[i] > high[i - 2] and low[i] > low[i - 2]
+        bool bearGap3 = low[i] > high[i - 3] and low[i] > low[i - 3]
         bool bearGapAtFormation = bearGap2 or bearGap3
         bool bearOBFormed = bearSweep and bearGapAtFormation
 

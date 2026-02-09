@@ -4,7 +4,7 @@
 // FVGs: Bullish (lime, above OB); Bearish (orange, below OB); Filled (optional, gray 50% opacity, labeled "Filled bullish/bearish FVG" if price fills x%—default 50%—from opposite side). Drawn as short rectangles, no borders.
 // Logic: OBs/FVGs detected on historical bars (2/3) with gap + sweep. Bullish: upward gap below validation low + low sweep; Bearish: downward gap above validation high + high sweep; FVGs filled if prior bar wicks x% into gap from top (bullish) or bottom (bearish).
 
-indicator("OB & FVG Indicator", overlay=true)
+indicator("Order Block Indicator", overlay=true)
 
 // ==================================================================================
 // Non-Input Variables
