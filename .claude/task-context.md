@@ -1,8 +1,8 @@
 # Task Context Tracker
 
 **Last Updated**: 2026-02-09
-**Current Task**: Signal accuracy validation complete (NWE, DIV verified) - ready for OB/FVG testing
-**Last Session**: Added and removed divergence debug logs, verified DIV detection working correctly
+**Current Task**: Signal accuracy validation (NWE, DIV verified, OB/FVG in progress) - divergence threshold fix applied
+**Last Session**: Fixed Logic 2 divergence detection threshold mismatch vs original Kernel AO Divergence indicator
 
 ---
 
@@ -28,6 +28,41 @@
 ---
 
 ## Session History
+
+### Session: 2026-02-09 (Logic 2 Divergence Threshold Fix)
+
+**Goal**: Fix divergence detection in TTE Screener to match the original `Kernel AO Divergence` indicator exactly
+
+**Problem Identified**:
+The TTE Screener had extra threshold checks in divergence detection that the original indicator did not have:
+- **Bullish** (line 293): `if prevDownlegAO < -0.0001 and currDownlegAO > prevDownlegAO` — extra `-0.0001` threshold
+- **Bearish** (line 320): `if prevUplegAO > 0.0001 and currUplegAO < prevUplegAO` — extra `0.0001` threshold
+
+The original `Kernel AO Divergence` indicator uses simple comparisons with no threshold:
+- Bullish: `if lowest1 < lowest2`
+- Bearish: `if highest1 > highest2`
+
+**Changes Made** (`Pine Script Code/TTE Screener.txt`):
+1. **Line 293** (bullish divergence): `if prevDownlegAO < -0.0001 and currDownlegAO > prevDownlegAO` → `if prevDownlegAO < currDownlegAO`
+2. **Line 320** (bearish divergence): `if prevUplegAO > 0.0001 and currUplegAO < prevUplegAO` → `if prevUplegAO > currUplegAO`
+
+**Impact Assessment**:
+- Slightly more divergences may be detected (cases where prev AO was between 0 and ±0.0001)
+- In practice, negligible — `0.0001` is extremely small, and the scan functions already start from `0.0` filtering values that never cross zero
+- Main purpose: **correctness** — matching the original indicator exactly
+
+**Analysis verified no changes needed for**:
+- Oscillator calculation (`calcKernelOsc`) — identical kernel parameters
+- AO range search functions — same logic as aoDiv library
+- Swing point tracking — correctly maps shifts
+- Leg direction checks — equivalent to original's bar_index comparisons
+- AO scan boundaries — match the original
+
+**Result**:
+✅ Divergence detection now matches original `Kernel AO Divergence` indicator exactly
+⏳ Awaiting user verification on TradingView
+
+---
 
 ### Session: 2026-02-09 (Divergence Detection Debug & Verification)
 
@@ -935,6 +970,13 @@ python tiered_main.py
 None currently.
 
 ### Fixed Bugs
+
+15. **Bug #15 - Extra threshold in divergence detection** (2026-02-09 - FIXED):
+   - Symptom: TTE Screener divergence detection could miss weak divergences near AO zero
+   - Root cause: Extra `-0.0001`/`0.0001` threshold checks not present in original indicator
+   - Fix: Removed thresholds — `if prevDownlegAO < currDownlegAO` (bullish) and `if prevUplegAO > currUplegAO` (bearish)
+   - File: `Pine Script Code/TTE Screener.txt` lines 293, 320
+   - Impact: Negligible in practice (threshold was very small), but ensures exact match with original
 
 14. **Bug #12 - No DIV signals displayed in debug table** (2026-02-09 - VERIFIED NOT A BUG):
    - Initial symptom: DIV column showed no signals during early testing
