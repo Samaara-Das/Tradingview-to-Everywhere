@@ -1,8 +1,8 @@
 # Task Context Tracker
 
 **Last Updated**: 2026-02-09
-**Current Task**: NWE signal detection fixed and verified - testing remaining signals (DIV, OB/FVG)
-**Last Session**: Fixed NWE chart symbol dependency bug and timezone uniformity issues
+**Current Task**: Signal accuracy validation complete (NWE, DIV verified) - ready for OB/FVG testing
+**Last Session**: Added and removed divergence debug logs, verified DIV detection working correctly
 
 ---
 
@@ -14,20 +14,66 @@
 | 23 | Upload all screener versions to Google Drive | pending | 22 |
 | 44 | Validate TTE Screener signal accuracy | **in_progress** | - |
 | 49 | Test NWE signal detection on all timeframes | **completed** ✅ | - |
-| 50 | Test DIV signal detection on all timeframes | pending | - |
-| 51 | Test OB/FVG signal detection on all timeframes | pending | 50 |
+| 50 | Test DIV signal detection on all timeframes | **completed** ✅ | - |
+| 51 | Test OB/FVG signal detection on all timeframes | pending | - |
 
-**Active Tasks**: Testing signal accuracy (Task #44 - moving to DIV/OB testing)
-**Recent Completions**: Task #49 (NWE signal detection verified working)
+**Active Tasks**: Testing signal accuracy (Task #44 - OB/FVG testing remains)
+**Recent Completions**: Task #49 (NWE verified), Task #50 (DIV verified)
 
 ### Task 44 Subtasks (Signal Accuracy Testing)
 - **Task #49**: Test NWE signal detection on all timeframes (**completed** ✅)
-- **Task #50**: Test DIV signal detection on all timeframes (pending - next up)
-- **Task #51**: Test OB/FVG signal detection on all timeframes (pending, blocked by #50)
+- **Task #50**: Test DIV signal detection on all timeframes (**completed** ✅)
+- **Task #51**: Test OB/FVG signal detection on all timeframes (pending - next up)
 
 ---
 
 ## Session History
+
+### Session: 2026-02-09 (Divergence Detection Debug & Verification)
+
+**Goal**: Add debug logs to understand divergence detection behavior and verify it works correctly across all symbols and timeframes
+
+**Process**:
+
+1. **Added comprehensive debug logs** to divergence detection functions:
+   - Modified `detectBullishDiv()` to accept `debugLabel` parameter (lines ~272-297)
+   - Modified `detectBearishDiv()` to accept `debugLabel` parameter (lines ~299-337)
+   - Added logs showing:
+     - Swing point conditions (`inDownleg`, `inUpleg`, `lowerLow`, `higherHigh`)
+     - Shift values and price comparisons
+     - AO (Awesome Oscillator) validation checks
+     - Warning logs when divergence detected
+   - Updated `checkSignalWithOB()` to create debug label: `syminfo.ticker + " TF=" + tf`
+   - Added result logging when divergence found
+
+2. **Initial Problem Discovered**:
+   - Debug logs only appeared for 4th symbol (XRPUSD), not for all 4 symbols
+   - Root cause: Using `syminfo.ticker` in global scope only shows chart's symbol
+   - Solution: Pass `debugLabel` parameter through functions so it works inside `request.security()` context
+
+3. **User Testing Results**:
+   - User confirmed: "the divergence is being detected correctly across the 1h/4h timeframes and all 4 symbols"
+   - Verified divergence detection working as expected
+
+4. **Cleanup**:
+   - Removed all debug logs after verification
+   - Reverted functions to original signatures (removed `debugLabel` parameters)
+   - File: `Pine Script Code/TTE Screener.txt`
+
+**Key Learning**:
+- Inside `request.security()` context, `syminfo.ticker` refers to the **requested symbol**, not the chart symbol
+- This is why passing debug labels through functions was necessary during testing
+- Divergence detection works correctly - no bugs found
+
+**Result**:
+✅ Task #50 completed - DIV signal detection verified working on all timeframes (1H, H4) and all 4 symbols
+✅ Code cleaned up - all debug logs removed
+✅ Divergence detection confirmed accurate
+
+**Files Modified**:
+- `Pine Script Code/TTE Screener.txt` - Added debug logs, then removed them after verification
+
+---
 
 ### Session: 2026-02-09 (NWE Bug Fix Implementation & Timezone Uniformity)
 
@@ -886,14 +932,16 @@ python tiered_main.py
 
 ### Active Bugs (Not Fixed Yet)
 
-12. **No DIV signals displayed in debug table** (2026-02-07 - NEEDS INVESTIGATION):
-   - Symptom: DIV column shows no signals during testing
-   - Possible causes: (1) No actual divergences present, or (2) Detection bug
-   - Note: Divergence detection confirmed working in 2026-02-05 session
-   - Impact: Unknown - could be false alarm or real bug
-   - Files: `Pine Script Code/TTE Screener.txt` (Divergence detection logic)
+None currently.
 
 ### Fixed Bugs
+
+14. **Bug #12 - No DIV signals displayed in debug table** (2026-02-09 - VERIFIED NOT A BUG):
+   - Initial symptom: DIV column showed no signals during early testing
+   - Investigation: Added comprehensive debug logs to divergence detection
+   - Result: Divergence detection working correctly - signals appear when market conditions are met
+   - User confirmed: "divergence is being detected correctly across the 1h/4h timeframes and all 4 symbols"
+   - Resolution: No actual bug - divergences are simply rare market conditions that don't always occur
 
 11. **NWE signals only display for chart's current symbol** (2026-02-09 - FIXED):
    - Symptom: NWE signals only appeared for the symbol matching the current chart
