@@ -1,8 +1,8 @@
 # Task Context Tracker
 
 **Last Updated**: 2026-02-09
-**Current Task**: Signal accuracy validation (NWE, DIV verified, OB/FVG in progress) - divergence threshold fix applied
-**Last Session**: Fixed Logic 2 divergence detection threshold mismatch vs original Kernel AO Divergence indicator
+**Current Task**: Signal accuracy validation (NWE, DIV verified, OB/FVG gap conditions aligned) - ready for user verification
+**Last Session**: Aligned OB/FVG gap conditions in screener with standalone OB & FVG indicator
 
 ---
 
@@ -15,9 +15,9 @@
 | 44 | Validate TTE Screener signal accuracy | **in_progress** | - |
 | 49 | Test NWE signal detection on all timeframes | **completed** ✅ | - |
 | 50 | Test DIV signal detection on all timeframes | **completed** ✅ | - |
-| 51 | Test OB/FVG signal detection on all timeframes | pending | - |
+| 51 | Test OB/FVG signal detection on all timeframes | **in_progress** | - |
 
-**Active Tasks**: Testing signal accuracy (Task #44 - OB/FVG testing remains)
+**Active Tasks**: Testing signal accuracy (Task #44 - OB/FVG gap conditions aligned, awaiting verification)
 **Recent Completions**: Task #49 (NWE verified), Task #50 (DIV verified)
 
 ### Task 44 Subtasks (Signal Accuracy Testing)
@@ -28,6 +28,72 @@
 ---
 
 ## Session History
+
+### Session: 2026-02-09 (OB/FVG Gap Condition Alignment with Standalone Indicator)
+
+**Goal**: Ensure TTE Screener's OB/FVG detection uses the exact same logic as the standalone `OB & FVG.txt` indicator
+
+**Investigation Process**:
+
+1. **Thorough analysis of both indicators** using parallel Explore agents:
+   - Analyzed standalone `OB & FVG.txt`: `isBullishOB()` (lines 127-148), `isBearishOB()` (lines 103-124), `addOB()` (lines 194-217), `updateOBStates()` (lines 220-304)
+   - Analyzed screener `TTE Screener.txt`: `scanOBRange()` (lines 351-657), bullish detection (lines 400-506), bearish detection (lines 508-657)
+
+2. **Detailed logic comparison findings**:
+
+   | Aspect | Standalone | Screener | Match? |
+   |--------|-----------|----------|--------|
+   | Sweep condition | Local extremum check | Same formula | ✅ Identical |
+   | Gap condition | 2 conditions (redundant second) | 1 condition | ⚠️ Subset |
+   | gapLevel/FVG zone | bar[0]'s price at detection | bar[i-2]/[i-3] (equivalent) | ✅ Equivalent |
+   | Lifecycle (tested/broken/reversed) | Same logic | Same logic | ✅ Identical |
+   | FVG fill check | `low[1]`/`high[1]` (prev bar) | `low[j]`/`high[j]` (each bar) | ✅ Screener more thorough |
+
+3. **Key finding**: Gap conditions are mathematically equivalent:
+   - Standalone bearish: `low[idx] > high[0] AND low[idx] > low[0]` — second condition redundant (if `low[idx] > high[0]` and `high[0] >= low[0]`, then `low[idx] > low[0]` is always true)
+   - Screener bearish: `low[i] > high[i-2]` — same relative check, just missing the redundant second condition
+   - Same applies to bullish gap
+
+4. **Deep trace confirmed equivalence**: The standalone checks bar[2]/bar[3] vs bar[0] on every new bar. The screener loops backward checking the same relative bar offsets (bar[i] vs bar[i-2]/bar[i-3]). Both access the same historical price data.
+
+**Changes Made** (`Pine Script Code/TTE Screener.txt`):
+
+1. **Bullish gap condition** (lines 404-405, done by another Claude Code chat):
+   ```pinescript
+   // Before:
+   bool bullGap2 = high[i] < low[i - 2]
+   bool bullGap3 = high[i] < low[i - 3]
+   // After (matches OB & FVG.txt line 131):
+   bool bullGap2 = high[i] < low[i - 2] and high[i] < high[i - 2]
+   bool bullGap3 = high[i] < low[i - 3] and high[i] < high[i - 3]
+   ```
+
+2. **Bearish gap condition** (lines 512-513):
+   ```pinescript
+   // Before:
+   bool bearGap2 = low[i] > high[i - 2]
+   bool bearGap3 = low[i] > high[i - 3]
+   // After (matches OB & FVG.txt line 107):
+   bool bearGap2 = low[i] > high[i - 2] and low[i] > low[i - 2]
+   bool bearGap3 = low[i] > high[i - 3] and low[i] > low[i - 3]
+   ```
+
+**Other changes from parallel Claude Code chat** (preserved during revert+reapply):
+- Divergence threshold fix (lines 293, 320) — removed `±0.0001` thresholds
+- OB & FVG indicator name fix (`OB & FVG Indicator` → `Order Block Indicator`)
+- Timeframe references in logic docs updated (H4/Daily/Weekly → H1/H4/Daily)
+
+**Approach**: Reverted file to git HEAD (removing all debug logs/symbol isolation from previous debug session), then applied only the gap condition changes. This cleanly removed ~30 debug log lines and restored all 4 symbols + all timeframes.
+
+**Commit**: `fd9102d` - Align screener OB/FVG gap conditions and divergence thresholds with original indicators
+
+**Result**:
+✅ Gap conditions now exactly match standalone OB & FVG indicator
+✅ All debug logs from previous investigation removed
+✅ All symbols and timeframes restored
+⏳ Awaiting user verification on TradingView
+
+---
 
 ### Session: 2026-02-09 (Logic 2 Divergence Threshold Fix)
 
@@ -970,6 +1036,14 @@ python tiered_main.py
 None currently.
 
 ### Fixed Bugs
+
+16. **Bug #16 - OB/FVG gap condition missing second check** (2026-02-09 - FIXED):
+   - Symptom: Screener's OB gap condition was a subset of standalone indicator's (missing redundant second condition)
+   - Root cause: Screener only checked `low[i] > high[i-2]` while standalone checks `low[idx] > high[0] AND low[idx] > low[0]`
+   - Analysis: Second condition is mathematically redundant (`a > b` and `b >= c` implies `a > c`), but added for exact parity
+   - Fix: Added `and low[i] > low[i-2]` (bearish) and `and high[i] < high[i-2]` (bullish) to gap conditions
+   - File: `Pine Script Code/TTE Screener.txt` lines 404-405, 512-513
+   - Commit: `fd9102d`
 
 15. **Bug #15 - Extra threshold in divergence detection** (2026-02-09 - FIXED):
    - Symptom: TTE Screener divergence detection could miss weak divergences near AO zero
