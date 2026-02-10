@@ -170,10 +170,10 @@ def run_alert_creation(
 
     This runs in its own thread for parallel alert creation.
     """
-    try:
-        completed = 0
-        failed = []
+    completed = 0
+    failed = []
 
+    try:
         for i, batch in enumerate(assigned_batches):
             if _shutdown_requested:
                 logger.info(f"Browser {browser_id}: Shutdown requested — stopping")
@@ -369,16 +369,6 @@ def run_alert_creation(
 
             sleep(config.alert_creation_delay)
 
-        # Cleanup
-        browser.driver.quit()
-
-        return {
-            "browser_id": browser_id,
-            "completed": completed,
-            "failed": failed,
-            "total": len(assigned_batches),
-        }
-
     except Exception as e:
         logger.exception(f"Browser {browser_id}: Fatal error during alert creation")
         return {
@@ -388,6 +378,22 @@ def run_alert_creation(
             "total": len(assigned_batches),
             "error": str(e),
         }
+    finally:
+        # Cleanup - always quit driver, even on error or shutdown
+        try:
+            browser.driver.quit()
+            logger.info(f"Browser {browser_id}: Driver closed successfully")
+        except Exception as e:
+            logger.debug(
+                f"Browser {browser_id}: Error during quit (expected during shutdown): {e}"
+            )
+
+    return {
+        "browser_id": browser_id,
+        "completed": completed,
+        "failed": failed,
+        "total": len(assigned_batches),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -592,7 +598,11 @@ def main():
     # --- Run alert creation in parallel ---
     logger.info("Starting parallel alert creation...")
 
-    with ThreadPoolExecutor(max_workers=len(active_browsers)) as executor:
+    # Create executor explicitly for proper shutdown handling
+    executor = ThreadPoolExecutor(max_workers=len(active_browsers))
+    results = []
+
+    try:
         futures = []
 
         for browser_id, browser, batches in active_browsers:
@@ -606,13 +616,19 @@ def main():
             futures.append(future)
 
         # Collect results
-        results = []
         for future in as_completed(futures):
-            result = future.result()
-            results.append(result)
-            logger.info(
-                f"Browser {result['browser_id']} finished: {result['completed']}/{result['total']} succeeded"
-            )
+            try:
+                result = future.result()
+                results.append(result)
+                logger.info(
+                    f"Browser {result['browser_id']} finished: {result['completed']}/{result['total']} succeeded"
+                )
+            except Exception as e:
+                logger.error(f"Future execution failed: {e}")
+    finally:
+        # Graceful executor shutdown: wait for running tasks, don't cancel futures
+        executor.shutdown(wait=True, cancel_futures=False)
+        logger.info("ThreadPoolExecutor shutdown complete")
 
     # --- Aggregate stats ---
     total_completed = sum(r["completed"] for r in results)
@@ -639,8 +655,19 @@ def main():
 
     # --- Maintenance loop ---
     logger.info("Starting maintenance mode...")
-    browser = create_browser_instance(0, config, args)
-    run_maintenance(browser, config.maintenance_interval)
+    maintenance_browser = create_browser_instance(0, config, args)
+
+    try:
+        run_maintenance(maintenance_browser, config.maintenance_interval)
+    finally:
+        # Cleanup maintenance browser
+        try:
+            maintenance_browser.driver.quit()
+            logger.info("Maintenance browser: Driver closed successfully")
+        except Exception as e:
+            logger.debug(
+                f"Maintenance browser: Error during quit (expected during shutdown): {e}"
+            )
 
 
 if __name__ == "__main__":
