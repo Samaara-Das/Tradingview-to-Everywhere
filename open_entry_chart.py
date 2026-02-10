@@ -164,23 +164,21 @@ class OpenChart:
                 tf_button.get_attribute("aria-label") != timeframe
             ):  # if the chart's timeframe is different, change it to the desired timeframe
                 tf_button.click()
-                options = WebDriverWait(self.driver, 15).until(
+                dropdown = WebDriverWait(self.driver, 15).until(
                     EC.presence_of_element_located(
-                        (By.CSS_SELECTOR, 'div[class="dropdown-S_1OCXUK"]')
+                        (By.CSS_SELECTOR, 'div[data-qa-id="menu-inner"]')
                     )
                 )
-                options = options.find_elements(
+                options = dropdown.find_elements(
                     By.CSS_SELECTOR,
-                    'div[class="accessible-NQERJsv9 menuItem-RmqZNwwp item-jFqVJoPk"]',
+                    "div.menuItem-RmqZNwwp",
                 )
 
                 for option in options:
-                    if (
-                        option.find_element(
-                            By.CSS_SELECTOR, 'span[class="label-jFqVJoPk"]'
-                        ).text
-                        == timeframe
-                    ):
+                    label_el = option.find_elements(
+                        By.CSS_SELECTOR, "span.label-jFqVJoPk"
+                    )
+                    if label_el and label_el[0].text == timeframe:
                         option.click()
                         entry_chart_logger.info(
                             f"Successfully changed the timeframe to {timeframe}!"
@@ -222,20 +220,19 @@ class OpenChart:
             # Always click to open dropdown, regardless of current timeframe
             tf_button.click()
 
-            options = WebDriverWait(self.driver, 15).until(
+            dropdown = WebDriverWait(self.driver, 15).until(
                 EC.presence_of_element_located(
-                    (By.CSS_SELECTOR, 'div[class="dropdown-S_1OCXUK"]')
+                    (By.CSS_SELECTOR, 'div[data-qa-id="menu-inner"]')
                 )
             )
-            options = options.find_elements(
+            options = dropdown.find_elements(
                 By.CSS_SELECTOR,
-                'div[class="accessible-NQERJsv9 menuItem-RmqZNwwp item-jFqVJoPk"]',
+                "div.menuItem-RmqZNwwp",
             )
 
             for option in options:
-                label_text = option.find_element(
-                    By.CSS_SELECTOR, 'span[class="label-jFqVJoPk"]'
-                ).text
+                label_els = option.find_elements(By.CSS_SELECTOR, "span.label-jFqVJoPk")
+                label_text = label_els[0].text if label_els else ""
                 if label_text == timeframe:
                     option.click()
                     entry_chart_logger.info(

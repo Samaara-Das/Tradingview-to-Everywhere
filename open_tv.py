@@ -34,10 +34,10 @@ from selenium.common.exceptions import (
 open_tv_logger = logger_setup.setup_logger(__name__, logger_setup.INFO)
 
 # some constants
-SYMBOL_INPUTS = 5  # number of symbol inputs in the screener
-CHART_TIMEFRAME = "5 minutes"  # the timeframe that the entries are from
+SYMBOL_INPUTS = 4  # number of symbol inputs in the screener
+CHART_TIMEFRAME = "1 hour"  # the timeframe that the entries are from
 USED_SYMBOLS_INPUT = "Used Symbols"  # Name of the Used Symbols input in the Screener
-LAYOUT_NAME = "PointCapital"  # Name of the layout for the screener
+LAYOUT_NAME = "Screener"  # Name of the layout for the screener
 SCREENER_REUPLOAD_TIMEOUT = (
     15  # seconds to wait for the screener to show up on the chart after re-uploading it
 )
@@ -78,6 +78,10 @@ class Browser:
         screener_nw_name: str,
         screener_sb_short: str,
         screener_sb_name: str,
+        mode: str = "legacy",
+        layout_name: str = None,
+        chart_timeframe: str = None,
+        bar_style: str = None,
     ) -> None:
         print("[DEBUG] Browser.__init__() called", flush=True)
 
@@ -135,10 +139,15 @@ class Browser:
         self.screener_sb_name = screener_sb_name
         self.interval_seconds = interval_minutes * 60  # Convert the interval to seconds
         self.start_fresh = start_fresh
+        self.mode = mode
+        self.layout_name = layout_name or LAYOUT_NAME
+        self.chart_timeframe = chart_timeframe or CHART_TIMEFRAME
+        self.bar_style = bar_style or "line"  # Legacy default
         self.init_succeeded = True
         self.tv_email = ""
         self.tv_password = ""
-        if start_fresh:
+        # Combo mode loads symbols separately — skip fill_symbol_set
+        if start_fresh and mode != "combo":
             if not fill_symbol_set(
                 SYMBOL_INPUTS
             ):  # Call the function to fill up symbol_set in symbol_settings.py
@@ -219,7 +228,13 @@ class Browser:
                 return False
 
     def setup_tv(self):
-        """This opens tradigview, changes the layout of the chart, saves the layout if `LAYOUT_NAME` == 'Screener', opens the alert sidebar, deletes all alerts, gets access to the screener & trade drawer indicators, makes them both visible and changes the timeframe of the screener"""
+        """This opens tradigview, changes the layout of the chart, saves the layout if `LAYOUT_NAME` == 'Screener', opens the alert sidebar, deletes all alerts, gets access to the screener & trade drawer indicators, makes them both visible and changes the timeframe of the screener.
+
+        Combo mode (self.mode == "combo"):
+        - Uses single combo screener instead of 3 separate screeners
+        - Skips Trade Drawer verification and visibility
+        - Skips Alerts object creation (combo doesn't poll alert log)
+        """
 
         # sign in to tradingview
         if not self.sign_in():
@@ -233,20 +248,20 @@ class Browser:
                 return False
 
         # change to the correct layout (if we are on any other layout)
-        if not self.change_layout(LAYOUT_NAME):
-            self.change_layout(LAYOUT_NAME)  # try once more
-            if self.current_layout() != LAYOUT_NAME:
+        if not self.change_layout(self.layout_name):
+            self.change_layout(self.layout_name)  # try once more
+            if self.current_layout() != self.layout_name:
                 open_tv_logger.error(
-                    f"Cannot change the layout to {LAYOUT_NAME}. Exiting function"
+                    f"Cannot change the layout to {self.layout_name}. Exiting function"
                 )
                 return False
 
         # set the timeframe to the correct timeframe
-        if not self.open_chart.change_tframe(CHART_TIMEFRAME):
-            self.open_chart.change_tframe(CHART_TIMEFRAME)  # try once more
-            if not self.current_chart_tframe() == CHART_TIMEFRAME:
+        if not self.open_chart.change_tframe(self.chart_timeframe):
+            self.open_chart.change_tframe(self.chart_timeframe)  # try once more
+            if not self.current_chart_tframe() == self.chart_timeframe:
                 open_tv_logger.error(
-                    f"Cannot change the chart timeframe to {CHART_TIMEFRAME}. Exiting function"
+                    f"Cannot change the chart timeframe to {self.chart_timeframe}. Exiting function"
                 )
                 return False
 
@@ -265,79 +280,106 @@ class Browser:
                     open_tv_logger.error("Cannot delete all alerts. Exiting function")
                     return False
 
-        # verify that all required indicators are present on the chart
-        screener_ob_check = self.get_indicator(self.screener_ob_short)
-        screener_nw_check = self.get_indicator(self.screener_nw_short)
-        screener_sb_check = self.get_indicator(self.screener_sb_short)
-        drawer_check = self.get_indicator(self.drawer_shorttitle)
+        # --- Combo mode: single screener check, no Trade Drawer, no Alerts object ---
+        if self.mode == "combo":
+            screener_check = self.get_indicator(self.screener_ob_short)
+            if screener_check is None:
+                screener_check = self.get_indicator(self.screener_ob_short)
+            if screener_check is None:
+                open_tv_logger.error(
+                    f"Combo screener '{self.screener_ob_short}' not found on chart. Exiting function"
+                )
+                return False
 
-        if screener_ob_check is None:  # try once more to find the Order Block screener
+            # Make the single screener visible
+            if not self.indicator_visibility(True, self.screener_ob_short):
+                self.indicator_visibility(True, self.screener_ob_short)
+                if self.is_visible(self.screener_ob_short) == False:
+                    open_tv_logger.warning(
+                        f"Failed to make screener '{self.screener_ob_short}' visible. Continuing anyway."
+                    )
+
+        # --- Legacy mode: verify all 3 screeners + Trade Drawer ---
+        else:
+            # verify that all required indicators are present on the chart
             screener_ob_check = self.get_indicator(self.screener_ob_short)
-
-        if (
-            screener_nw_check is None
-        ):  # try once more to find the Nadaraya Watson screener
             screener_nw_check = self.get_indicator(self.screener_nw_short)
-
-        if (
-            screener_sb_check is None
-        ):  # try once more to find the Structure break screener
             screener_sb_check = self.get_indicator(self.screener_sb_short)
-
-        if drawer_check is None:  # try once more to find the trade drawer
             drawer_check = self.get_indicator(self.drawer_shorttitle)
 
-        if (
-            screener_ob_check is None
-            or screener_nw_check is None
-            or screener_sb_check is None
-            or drawer_check is None
-        ):
-            open_tv_logger.error(
-                f"One or more indicators not found. Exiting function. Order Block: {screener_ob_check}, Nadaraya Watson: {screener_nw_check}, Structure break: {screener_sb_check}, Trade Drawer: {drawer_check}"
+            if (
+                screener_ob_check is None
+            ):  # try once more to find the Order Block screener
+                screener_ob_check = self.get_indicator(self.screener_ob_short)
+
+            if (
+                screener_nw_check is None
+            ):  # try once more to find the Nadaraya Watson screener
+                screener_nw_check = self.get_indicator(self.screener_nw_short)
+
+            if (
+                screener_sb_check is None
+            ):  # try once more to find the Structure break screener
+                screener_sb_check = self.get_indicator(self.screener_sb_short)
+
+            if drawer_check is None:  # try once more to find the trade drawer
+                drawer_check = self.get_indicator(self.drawer_shorttitle)
+
+            if (
+                screener_ob_check is None
+                or screener_nw_check is None
+                or screener_sb_check is None
+                or drawer_check is None
+            ):
+                open_tv_logger.error(
+                    f"One or more indicators not found. Exiting function. Order Block: {screener_ob_check}, Nadaraya Watson: {screener_nw_check}, Structure break: {screener_sb_check}, Trade Drawer: {drawer_check}"
+                )
+                return False
+
+            self.alerts = handle_alerts.Alerts(
+                self.drawer_shorttitle,
+                [
+                    self.screener_ob_short,
+                    self.screener_nw_short,
+                    self.screener_sb_short,
+                ],
+                self.driver,
+                CHART_TIMEFRAME,
+                self.interval_seconds,
             )
-            return False
 
-        self.alerts = handle_alerts.Alerts(
-            self.drawer_shorttitle,
-            [self.screener_ob_short, self.screener_nw_short, self.screener_sb_short],
-            self.driver,
-            CHART_TIMEFRAME,
-            self.interval_seconds,
-        )
+            # make the Trade Drawer indicator visible
+            if not self.indicator_visibility(True, self.drawer_shorttitle):
+                self.indicator_visibility(True, self.drawer_shorttitle)
+                if self.is_visible(self.drawer_shorttitle) == False:
+                    open_tv_logger.warning(
+                        "Failed to make the Trade Drawer indicator visible. The function will still continue on without exiting as this is not crucial."
+                    )
 
-        # make the Trade Drawer indicator visible
-        if not self.indicator_visibility(True, self.drawer_shorttitle):
-            self.indicator_visibility(True, self.drawer_shorttitle)
-            if self.is_visible(self.drawer_shorttitle) == False:
-                open_tv_logger.warning(
-                    "Failed to make the Trade Drawer indicator visible. The function will still continue on without exiting as this is not crucial."
-                )
+            # make all 3 screener indicators visible for TTE to see errors in any screener indicator
+            if not self.indicator_visibility(True, self.screener_ob_short):
+                self.indicator_visibility(True, self.screener_ob_short)
+                if self.is_visible(self.screener_ob_short) == False:
+                    open_tv_logger.warning(
+                        "Failed to make the Order Block screener indicator visible. The function will still continue on without exiting as this is not crucial."
+                    )
 
-        # make all 3 screener indicators visible for TTE to see errors in any screener indicator
-        if not self.indicator_visibility(True, self.screener_ob_short):
-            self.indicator_visibility(True, self.screener_ob_short)
-            if self.is_visible(self.screener_ob_short) == False:
-                open_tv_logger.warning(
-                    "Failed to make the Order Block screener indicator visible. The function will still continue on without exiting as this is not crucial."
-                )
+            if not self.indicator_visibility(True, self.screener_nw_short):
+                self.indicator_visibility(True, self.screener_nw_short)
+                if self.is_visible(self.screener_nw_short) == False:
+                    open_tv_logger.warning(
+                        "Failed to make the Nadaraya Watson screener indicator visible. The function will still continue on without exiting as this is not crucial."
+                    )
 
-        if not self.indicator_visibility(True, self.screener_nw_short):
-            self.indicator_visibility(True, self.screener_nw_short)
-            if self.is_visible(self.screener_nw_short) == False:
-                open_tv_logger.warning(
-                    "Failed to make the Nadaraya Watson screener indicator visible. The function will still continue on without exiting as this is not crucial."
-                )
+            if not self.indicator_visibility(True, self.screener_sb_short):
+                self.indicator_visibility(True, self.screener_sb_short)
+                if self.is_visible(self.screener_sb_short) == False:
+                    open_tv_logger.warning(
+                        "Failed to make the Structure break screener indicator visible. The function will still continue on without exiting as this is not crucial."
+                    )
 
-        if not self.indicator_visibility(True, self.screener_sb_short):
-            self.indicator_visibility(True, self.screener_sb_short)
-            if self.is_visible(self.screener_sb_short) == False:
-                open_tv_logger.warning(
-                    "Failed to make the Structure break screener indicator visible. The function will still continue on without exiting as this is not crucial."
-                )
-
-        # Change the candle type to a line
-        candle_type = "Line"
+        # Change the bar style
+        candle_type = self.bar_style
         if not self.change_candles_type(candle_type):
             open_tv_logger.warning(
                 f"Failed to change the candle type to {candle_type}. Application will still continue on without exiting as this is not crucial."
@@ -347,7 +389,7 @@ class Browser:
         if not self.save_layout():
             if not self.save_layout():  # try once more
                 open_tv_logger.warning(
-                    f"Cannot save the current layout {LAYOUT_NAME}. The function will still continue on without exiting as this is not crucial."
+                    f"Cannot save the current layout {self.layout_name}. The function will still continue on without exiting as this is not crucial."
                 )
 
         # give it some time to rest
@@ -729,45 +771,68 @@ class Browser:
         Changes the candle type to `candle_type` if it isn't already so.
 
         Args:
-        candle_type (str): Can be either "Line" or "Candle".
+        candle_type (str): The data-value of the chart style (e.g. "line", "candle").
 
         Returns:
         bool: True if the candle type was changed successfully, False otherwise.
         """
         try:
-            # Find the candle button
-            candle_button = WebDriverWait(self.driver, 10).until(
+            # Check if the desired style is already active via the radiogroup buttons
+            style_buttons = self.driver.find_elements(
+                By.CSS_SELECTOR,
+                'div[id="header-toolbar-chart-styles"] button[role="radio"][aria-checked="true"]',
+            )
+            for btn in style_buttons:
+                if btn.get_attribute("data-value") == candle_type.lower():
+                    open_tv_logger.info(f"The candle type is already {candle_type}.")
+                    return True
+
+            # Try clicking the radio button directly if it exists in the toolbar
+            radio_buttons = self.driver.find_elements(
+                By.CSS_SELECTOR,
+                'div[id="header-toolbar-chart-styles"] button[role="radio"]',
+            )
+            for btn in radio_buttons:
+                if btn.get_attribute("data-value") == candle_type.lower():
+                    btn.click()
+                    open_tv_logger.info(
+                        f"Changed candle type to {candle_type} via toolbar button"
+                    )
+                    return True
+
+            # If not in toolbar, open the "Bar's style" dropdown menu
+            open_tv_logger.info(
+                f"Changing the style of candles to {candle_type} via dropdown"
+            )
+            dropdown_button = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable(
+                    (
+                        By.CSS_SELECTOR,
+                        'div[id="header-toolbar-chart-styles"] button[aria-label="Bar\'s style"]',
+                    )
+                )
+            )
+            dropdown_button.click()
+
+            # Wait for the dropdown menu to appear
+            menu = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located(
-                    (By.CSS_SELECTOR, 'div[id="header-toolbar-chart-styles"] button')
+                    (By.CSS_SELECTOR, 'div[data-qa-id="menu-inner"]')
                 )
             )
 
-            # If the style of the candle is not candle_type
-            if candle_type not in candle_button.get_attribute("aria-label"):
-                open_tv_logger.info(f"Changing the style of candles to {candle_type}")
-                candle_button.click()
+            # Find the desired type by data-value and click on it
+            candle_types = menu.find_elements(
+                By.CSS_SELECTOR, 'div[data-role="menuitem"]'
+            )
+            for c in candle_types:
+                if c.get_attribute("data-value") == candle_type.lower():
+                    c.click()
+                    open_tv_logger.info(f"Changed candle type to {candle_type}!")
+                    return True
 
-                # Wait for the dropdown menu to appear
-                menu = WebDriverWait(self.driver, 10).until(
-                    EC.presence_of_element_located(
-                        (By.CSS_SELECTOR, 'div[data-name="menu-inner"]')
-                    )
-                )
-
-                # Find the Line type and click on it
-                candle_types = WebDriverWait(menu, 10).until(
-                    EC.presence_of_all_elements_located(
-                        (By.CSS_SELECTOR, 'div[data-role="menuitem"]')
-                    )
-                )
-                for c in candle_types:
-                    if c.get_attribute("data-value") == candle_type.lower():
-                        c.click()
-                        open_tv_logger.info("Found Line candle type!")
-                        return True
-            else:
-                open_tv_logger.info(f"The candle type is already {candle_type}.")
-                return True
+            open_tv_logger.warning(f"Candle type '{candle_type}' not found in dropdown")
+            return False
         except Exception as e:
             open_tv_logger.error(f"Error in changing candle type: {e}")
             return False
@@ -1370,7 +1435,7 @@ class Browser:
         try:
             if indicator != None:  # that means that we've found our indicator
                 eye = indicator.find_element(
-                    By.CSS_SELECTOR, 'button[data-name="legend-show-hide-action"]'
+                    By.CSS_SELECTOR, 'button[data-qa-id="legend-show-hide-action"]'
                 )
                 current_visibility = (
                     VISIBLE if "Hide" in eye.get_attribute("aria-label") else HIDDEN
@@ -1507,7 +1572,7 @@ class Browser:
             """If the drpodown isn't already open, clicks the 3 dots and returns the dropdown that opens"""
             # if the dropdown menu isn't already open
             if not self.driver.find_elements(
-                By.CSS_SELECTOR, 'div[data-name="menu-inner"]'
+                By.CSS_SELECTOR, 'div[data-qa-id="menu-inner"]'
             ):
                 WebDriverWait(self.driver, 5).until(
                     EC.element_to_be_clickable(
