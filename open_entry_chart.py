@@ -119,7 +119,9 @@ class OpenChart:
                 )
             )
 
-            current_symbol = symbol_search.find_element(By.CSS_SELECTOR, "div").text
+            current_symbol = symbol_search.find_element(
+                By.CSS_SELECTOR, "span.value-JQZ0HKD4"
+            ).text
             entry_chart_logger.info(f"[DEBUG] Current chart symbol: {current_symbol}")
 
             if (
@@ -172,7 +174,7 @@ class OpenChart:
                     EC.text_to_be_present_in_element(
                         (
                             By.CSS_SELECTOR,
-                            'button[id="header-toolbar-symbol-search"] div',
+                            'button[id="header-toolbar-symbol-search"] span.value-JQZ0HKD4',
                         ),
                         no_exchange_symbol,
                     )
