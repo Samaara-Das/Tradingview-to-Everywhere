@@ -1,8 +1,8 @@
 # Task Context Tracker
 
 **Last Updated**: 2026-02-10
-**Current Task**: Production run in progress — 258 batches across 2 parallel browsers (Task #84)
-**Last Session**: Fixed parallel browser mode (5 test runs), removed dry run limit, launched production
+**Current Task**: Alert rate limiting & graceful shutdown implemented (Tasks #22, #87, #88)
+**Last Session**: Fixed alert rate limiting with 1-min chart, reduced batch_size to 3, implemented graceful Ctrl+C shutdown
 **Active Branch**: `combo-architecture`
 
 ---
@@ -15,8 +15,10 @@
 | 80 | Test parallel browser mode | **completed** ✅ (2 browsers, TV limits to 2) |
 | 82 | Update combo_settings.yaml to use multiple browsers | **completed** ✅ |
 | 83 | Run dry run with 12 symbols (3 batches) | **completed** ✅ |
-| 84 | **Run full production test with 258 batches** | **IN PROGRESS** 🔄 |
-| 85 | Analyze results and document findings | pending |
+| 84 | Run full production test with 258 batches | **completed** ✅ |
+| 85 | Analyze results and document findings | **completed** ✅ |
+| 87 | Update Pine Script for 1-min chart + once per bar alerting | **completed** ✅ |
+| 88 | Implement graceful shutdown handling | **completed** ✅ |
 
 **Combo Implementation - COMPLETE** ✅:
 | ID | Task | Status |
@@ -31,21 +33,116 @@
 |----|------|--------|
 | 44-54 | All screener validation, testing, variable renaming | **completed** ✅ |
 
+**Webhook Payload Testing - COMPLETE** ✅:
+| ID | Task | Status |
+|----|------|--------|
+| 22 | Test webhook alert payload and trigger frequency | **completed** ✅ |
+| 89 | Fix Pine Script timeframe labels in JSON output | **completed** ✅ |
+
 **Deferred / Future**:
 | ID | Task | Status | Notes |
 |----|------|--------|-------|
-| 22 | Test webhook payload and trigger frequency | pending | After combo live |
 | 24-31 | Orchestrator rewrite tasks | pending | May not be needed (combo_main.py works) |
 | 32-38 | Stock Buddy API tasks | pending | Next major milestone |
 | 60-62 | Dashboard and live testing | pending | After API built |
 | 67 | Failed batch retry logic | pending | Phase 2 enhancement |
 | 81 | Headless Chrome mode | pending | Future optimization |
+| 86 | Build TTE GUI executable (.exe) | pending | Future enhancement |
 
-**Completed Count**: 39 tasks | **In Progress**: 1 | **Pending**: 15
+**Completed Count**: 44 tasks | **In Progress**: 0 | **Pending**: 15
 
 ---
 
 ## Session History
+
+### Session: 2026-02-10 (Alert Rate Limiting & Graceful Shutdown — Tasks #22, #87, #88)
+
+**Goal**: Fix TradingView alert rate limiting (auto-pausing alerts) and messy Ctrl+C shutdown with ConnectionResetError spam
+
+**Problem Analysis**:
+1. **Rate limiting**: Alerts triggered every 30-60s → TradingView auto-paused (exceeded 15 alerts per 3 minutes)
+   - Root cause: `alert.freq_all` fires on every tick while signals exist
+   - On 1-hour chart: 60+ ticks per minute = excessive alert frequency
+
+2. **Messy shutdown**: Ctrl+C caused ConnectionResetError exceptions and unclean browser cleanup
+   - Root cause: No try-finally blocks around `driver.quit()` calls
+   - Maintenance browser never cleaned up
+   - ThreadPoolExecutor context manager didn't wait for graceful shutdown
+
+**Solution Implemented** (via agent team — pinescript-agent + shutdown-agent):
+
+**Fix 1: Alert Rate Limiting** (Task #87):
+- Changed to **1-minute chart** + `alert.freq_once_per_bar_close`
+- Updated `Pine Script Code/TTE Screener.txt` (lines 1086-1089):
+  ```pinescript
+  if str.length(allSignals) > 0 and barstate.isconfirmed
+      alert(payload, alert.freq_once_per_bar_close)
+  ```
+- Updated `combo_settings.yaml`:
+  - `chart_timeframe: "1"` (1 minute, was "1 hour")
+  - **`batch_size: 3`** (reduced from 4 for better 1-min chart performance)
+- **Result**: Alert fires max once per minute = 3 alerts per 3 minutes (well under 15 limit)
+- **No signal change detection** — user wants continuous price updates
+
+**Fix 2: Graceful Shutdown** (Task #88):
+- Added try-finally blocks to `combo_main.py` in 3 locations:
+  1. **Alert creation cleanup** (lines 163-396): Moved `driver.quit()` to finally block
+  2. **Maintenance browser cleanup** (lines 656-670): Wrapped `run_maintenance()` in try-finally
+  3. **ThreadPoolExecutor shutdown** (lines 598-631): Explicit `executor.shutdown(wait=True, cancel_futures=False)`
+- Connection errors during quit logged at DEBUG level only (not ERROR)
+- **Result**: Clean Ctrl+C exits, no ConnectionResetError spam in logs
+
+**Impact of batch_size Reduction (4 → 3)**:
+- Total alerts: ~352 batches (was 258) for ~1,054 symbols
+- Setup time: ~4.4 hours with 2 browsers (was ~3.3h)
+- Benefit: Lower per-screener load, fewer TradingView runtime errors on fast 1-min chart
+
+**Files Modified**:
+- `Pine Script Code/TTE Screener.txt` — Alert frequency changed to once per bar close
+- `combo_settings.yaml` — Chart timeframe to 1 min, batch_size to 3
+- `combo_main.py` — Graceful shutdown with try-finally blocks
+- `validate_payloads.py` — Deleted (no longer needed)
+
+**Next Steps**:
+1. Re-upload Pine Script to TradingView (script changes require new alerts)
+2. Run `python combo_main.py --fresh` to delete old alerts and create new ones
+3. Verify alerts fire once per minute in TradingView alert log
+4. Test Ctrl+C shutdown (should exit cleanly)
+
+**Tasks Completed**: #22, #87, #88
+
+---
+
+### Session: 2026-02-10 (Webhook Payload Validation & Timeframe Label Fix)
+
+**Goal**: Validate real alert payloads and fix Pine Script timeframe labels
+
+**Real Alert Payload Analysis**:
+- Validated 3 real webhook payloads from TradingView alerts log (CSV)
+- ✅ All payloads structurally correct (JSON schema, timestamps, signal types)
+- ✅ Multiple symbols per alert (3-4 symbols, respecting 4-symbol batch limit)
+- ✅ NWE, OB/FVG, and Divergence arrays all properly formatted
+- ⚠️ Issue found: Timeframe labels showed H4/D1/W1 instead of 1H/H4/D1
+
+**Pine Script Fixes** (Task #89):
+- Updated `buildNweArray()` to accept `tf1Label` and `tf2Label` parameters
+- Updated `buildObArray()` to accept `tf1Label`, `tf2Label`, `tf3Label` parameters
+- Updated `buildDivArray()` to accept `tf1Label` and `tf2Label` parameters
+- Updated all function calls to pass correct labels: '1H', 'H4', 'D1'
+- Fixed bug in symbol 04: `divBearTm01_1h` → `divBearTm04_1h`
+
+**Expected Result**:
+- Next alerts will show correct timeframe labels (1H from TF_1H='60', H4 from TF_H4='240', D1 from TF_D1='D')
+- W1 zones still reported (detected by `scanOBRange('D')` which scans daily charts but finds weekly OB blocks)
+
+**Files Modified**:
+- `Pine Script Code/TTE Screener.txt` — Fixed timeframe label parameters in buildNweArray/buildObArray/buildDivArray
+- `validate_payloads.py` — Created validation script for testing alert payloads
+- `.claude/task-context.md` — Updated with session summary
+
+**Tasks Completed**: #22, #89
+
+---
 
 ### Session: 2026-02-10 (Parallel Browser Mode — 5 Test Runs to Production)
 
@@ -139,11 +236,13 @@ See git history for details. Key milestones:
 
 1. **Architecture**: Combo screener (single indicator) over separate screeners — fewer alert cycles, simpler
 2. **Webhook destination**: Stock Buddy API (Vercel) — existing pipeline
-3. **4 symbol hard limit**: More causes TradingView memory/runtime errors
-4. **2 parallel browsers**: TradingView limits to 2 simultaneous sessions (not 3)
-5. **No session copying**: Chrome invalidates cookies across user-data-dirs. Manual 2FA needed for secondary browsers on fresh runs, but sessions persist after first login
-6. **Signal levels calculated server-side**: Screener sends raw signals, Stock Buddy calculates levels
-7. **Targeted Chrome kill**: Only kill Chrome processes using TTE user-data-dirs, preserve regular Chrome
+3. **3 symbol batch limit**: Reduced from 4 for better 1-min chart performance (less load per screener)
+4. **1-minute chart timeframe**: Detects higher timeframe signals within 60s, fires once per minute (rate limit safe)
+5. **2 parallel browsers**: TradingView limits to 2 simultaneous sessions (not 3)
+6. **No session copying**: Chrome invalidates cookies across user-data-dirs. Manual 2FA needed for secondary browsers on fresh runs, but sessions persist after first login
+7. **Signal levels calculated server-side**: Screener sends raw signals, Stock Buddy calculates levels
+8. **Targeted Chrome kill**: Only kill Chrome processes using TTE user-data-dirs, preserve regular Chrome
+9. **No signal change detection**: User wants continuous price updates, alert fires every minute when signals exist
 
 ---
 
@@ -204,8 +303,9 @@ WebDriverWait(self.driver, 60).until(EC.presence_of_element_located(products_men
 
 ### Combo Mode Settings
 ```yaml
-batch_size: 4          # Hard limit
+batch_size: 3          # Reduced from 4 for 1-min chart performance
 num_browsers: 2        # TradingView limit
+chart_timeframe: "1"   # 1 minute (was "1 hour")
 creation_delay: 3.0
 maintenance_interval: 200
 ```
@@ -235,7 +335,10 @@ python combo_main.py --maintain-only
 
 ## Next Steps
 
-1. **Wait for production run to complete** — 258 batches across 2 browsers (~3.3h)
-2. **Analyze results** (Task #85) — Check success rate, timing, errors
-3. **Build Stock Buddy API** (Tasks #32-38) — Webhook endpoint, signal storage, symbol management
-4. **Test end-to-end flow** — TradingView alerts → Stock Buddy API → MongoDB → Dashboard
+1. ✅ ~~Validate webhook payloads~~ — **DONE** (Task #22, #89)
+2. ✅ ~~Fix alert rate limiting~~ — **DONE** (Task #87: 1-min chart + once per bar)
+3. ✅ ~~Fix graceful shutdown~~ — **DONE** (Task #88: try-finally blocks)
+4. **Re-upload screener & recreate alerts** — Pine Script changed, TradingView requires new alerts
+5. **Build Stock Buddy API** (Tasks #32-38) — Webhook endpoint, signal storage, symbol management
+6. **Test end-to-end flow** — TradingView alerts → Stock Buddy API → MongoDB → Dashboard
+7. **Optional enhancements** — Headless Chrome mode (#81), GUI executable (#86), failed batch retry (#67)

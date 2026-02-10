@@ -1004,29 +1004,29 @@ hasAnySignal(bool nweBullH4, bool nweBearH4, bool nweBullD1, bool nweBearD1, int
 
 // Build NWE array for a symbol (all timeframes, both bullish and bearish)
 // Note: We need to pass zone names calculated externally since we can't access tf-specific low/high here
-buildNweArray(bool bullH4, string bullZoneH4, bool bearH4, string bearZoneH4, bool bullD1, string bullZoneD1, bool bearD1, string bearZoneD1, int overlapTime) =>
-    string e1 = buildNweEntry(bullH4, bullZoneH4, 'bullish', 'H4', overlapTime)
-    string e2 = buildNweEntry(bearH4, bearZoneH4, 'bearish', 'H4', overlapTime)
-    string e3 = buildNweEntry(bullD1, bullZoneD1, 'bullish', 'D1', overlapTime)
-    string e4 = buildNweEntry(bearD1, bearZoneD1, 'bearish', 'D1', overlapTime)
+buildNweArray(bool bullTf1, string bullZoneTf1, bool bearTf1, string bearZoneTf1, bool bullTf2, string bullZoneTf2, bool bearTf2, string bearZoneTf2, int overlapTime, string tf1Label, string tf2Label) =>
+    string e1 = buildNweEntry(bullTf1, bullZoneTf1, 'bullish', tf1Label, overlapTime)
+    string e2 = buildNweEntry(bearTf1, bearZoneTf1, 'bearish', tf1Label, overlapTime)
+    string e3 = buildNweEntry(bullTf2, bullZoneTf2, 'bullish', tf2Label, overlapTime)
+    string e4 = buildNweEntry(bearTf2, bearZoneTf2, 'bearish', tf2Label, overlapTime)
     joinEntries4(e1, e2, e3, e4)
 
 // Build OB/FVG array for a symbol (all timeframes, both bullish and bearish)
-buildObArray(int bullFH4, int bullZTH4, int bullTH4, int bullTmH4, int bearFH4, int bearZTH4, int bearTH4, int bearTmH4, int bullFD1, int bullZTD1, int bullTD1, int bullTmD1, int bearFD1, int bearZTD1, int bearTD1, int bearTmD1, int bullFW1, int bullZTW1, int bullTW1, int bullTmW1, int bearFW1, int bearZTW1, int bearTW1, int bearTmW1, int overlapTime) =>
-    string e1 = buildObEntry(bullFH4, bullZTH4, bullTH4, bullTmH4, overlapTime, 'H4', true)
-    string e2 = buildObEntry(bearFH4, bearZTH4, bearTH4, bearTmH4, overlapTime, 'H4', false)
-    string e3 = buildObEntry(bullFD1, bullZTD1, bullTD1, bullTmD1, overlapTime, 'D1', true)
-    string e4 = buildObEntry(bearFD1, bearZTD1, bearTD1, bearTmD1, overlapTime, 'D1', false)
-    string e5 = buildObEntry(bullFW1, bullZTW1, bullTW1, bullTmW1, overlapTime, 'W1', true)
-    string e6 = buildObEntry(bearFW1, bearZTW1, bearTW1, bearTmW1, overlapTime, 'W1', false)
+buildObArray(int bullFTf1, int bullZTTf1, int bullTTf1, int bullTmTf1, int bearFTf1, int bearZTTf1, int bearTTf1, int bearTmTf1, int bullFTf2, int bullZTTf2, int bullTTf2, int bullTmTf2, int bearFTf2, int bearZTTf2, int bearTTf2, int bearTmTf2, int bullFTf3, int bullZTTf3, int bullTTf3, int bullTmTf3, int bearFTf3, int bearZTTf3, int bearTTf3, int bearTmTf3, int overlapTime, string tf1Label, string tf2Label, string tf3Label) =>
+    string e1 = buildObEntry(bullFTf1, bullZTTf1, bullTTf1, bullTmTf1, overlapTime, tf1Label, true)
+    string e2 = buildObEntry(bearFTf1, bearZTTf1, bearTTf1, bearTmTf1, overlapTime, tf1Label, false)
+    string e3 = buildObEntry(bullFTf2, bullZTTf2, bullTTf2, bullTmTf2, overlapTime, tf2Label, true)
+    string e4 = buildObEntry(bearFTf2, bearZTTf2, bearTTf2, bearTmTf2, overlapTime, tf2Label, false)
+    string e5 = buildObEntry(bullFTf3, bullZTTf3, bullTTf3, bullTmTf3, overlapTime, tf3Label, true)
+    string e6 = buildObEntry(bearFTf3, bearZTTf3, bearTTf3, bearTmTf3, overlapTime, tf3Label, false)
     joinEntries6(e1, e2, e3, e4, e5, e6)
 
 // Build divergence array for a symbol (all timeframes, both bullish and bearish)
-buildDivArray(int divBullH4, int divBearH4, int divBullD1, int divBearD1, int currTime) =>
-    string e1 = buildDivEntry(divBullH4, currTime, 'H4', 'bullish')
-    string e2 = buildDivEntry(divBearH4, currTime, 'H4', 'bearish')
-    string e3 = buildDivEntry(divBullD1, currTime, 'D1', 'bullish')
-    string e4 = buildDivEntry(divBearD1, currTime, 'D1', 'bearish')
+buildDivArray(int divBullTf1, int divBearTf1, int divBullTf2, int divBearTf2, int currTime, string tf1Label, string tf2Label) =>
+    string e1 = buildDivEntry(divBullTf1, currTime, tf1Label, 'bullish')
+    string e2 = buildDivEntry(divBearTf1, currTime, tf1Label, 'bearish')
+    string e3 = buildDivEntry(divBullTf2, currTime, tf2Label, 'bullish')
+    string e4 = buildDivEntry(divBearTf2, currTime, tf2Label, 'bearish')
     joinEntries4(e1, e2, e3, e4)
 
 // Build complete symbol JSON with all signals
@@ -1045,27 +1045,27 @@ buildSymbolJson(string sym, string nweArray, string obArray, string divArray) =>
 
 // Build signal arrays for each symbol
 // Symbol 01
-string nweArr01 = buildNweArray(nweBull01_1h, bullZone01_1h, nweBear01_1h, bearZone01_1h, nweBull01_h4, bullZone01_h4, nweBear01_h4, bearZone01_h4, time)
-string obArr01 = buildObArray(bullF01_1h, bullZT01_1h, bullT01_1h, bullTm01_1h, bearF01_1h, bearZT01_1h, bearT01_1h, bearTm01_1h, bullF01_h4, bullZT01_h4, bullT01_h4, bullTm01_h4, bearF01_h4, bearZT01_h4, bearT01_h4, bearTm01_h4, bullF01_d1, bullZT01_d1, bullT01_d1, bullTm01_d1, bearF01_d1, bearZT01_d1, bearT01_d1, bearTm01_d1, time)
-string divArr01 = buildDivArray(divBullTm01_1h, divBearTm01_1h, divBullTm01_h4, divBearTm01_h4, time)
+string nweArr01 = buildNweArray(nweBull01_1h, bullZone01_1h, nweBear01_1h, bearZone01_1h, nweBull01_h4, bullZone01_h4, nweBear01_h4, bearZone01_h4, time, '1H', 'H4')
+string obArr01 = buildObArray(bullF01_1h, bullZT01_1h, bullT01_1h, bullTm01_1h, bearF01_1h, bearZT01_1h, bearT01_1h, bearTm01_1h, bullF01_h4, bullZT01_h4, bullT01_h4, bullTm01_h4, bearF01_h4, bearZT01_h4, bearT01_h4, bearTm01_h4, bullF01_d1, bullZT01_d1, bullT01_d1, bullTm01_d1, bearF01_d1, bearZT01_d1, bearT01_d1, bearTm01_d1, time, '1H', 'H4', 'D1')
+string divArr01 = buildDivArray(divBullTm01_1h, divBearTm01_1h, divBullTm01_h4, divBearTm01_h4, time, '1H', 'H4')
 string sig01 = buildSymbolJson(getSymbolName(s01), nweArr01, obArr01, divArr01)
 
 // Symbol 02
-string nweArr02 = buildNweArray(nweBull02_1h, bullZone02_1h, nweBear02_1h, bearZone02_1h, nweBull02_h4, bullZone02_h4, nweBear02_h4, bearZone02_h4, time)
-string obArr02 = buildObArray(bullF02_1h, bullZT02_1h, bullT02_1h, bullTm02_1h, bearF02_1h, bearZT02_1h, bearT02_1h, bearTm02_1h, bullF02_h4, bullZT02_h4, bullT02_h4, bullTm02_h4, bearF02_h4, bearZT02_h4, bearT02_h4, bearTm02_h4, bullF02_d1, bullZT02_d1, bullT02_d1, bullTm02_d1, bearF02_d1, bearZT02_d1, bearT02_d1, bearTm02_d1, time)
-string divArr02 = buildDivArray(divBullTm02_1h, divBearTm02_1h, divBullTm02_h4, divBearTm02_h4, time)
+string nweArr02 = buildNweArray(nweBull02_1h, bullZone02_1h, nweBear02_1h, bearZone02_1h, nweBull02_h4, bullZone02_h4, nweBear02_h4, bearZone02_h4, time, '1H', 'H4')
+string obArr02 = buildObArray(bullF02_1h, bullZT02_1h, bullT02_1h, bullTm02_1h, bearF02_1h, bearZT02_1h, bearT02_1h, bearTm02_1h, bullF02_h4, bullZT02_h4, bullT02_h4, bullTm02_h4, bearF02_h4, bearZT02_h4, bearT02_h4, bearTm02_h4, bullF02_d1, bullZT02_d1, bullT02_d1, bullTm02_d1, bearF02_d1, bearZT02_d1, bearT02_d1, bearTm02_d1, time, '1H', 'H4', 'D1')
+string divArr02 = buildDivArray(divBullTm02_1h, divBearTm02_1h, divBullTm02_h4, divBearTm02_h4, time, '1H', 'H4')
 string sig02 = buildSymbolJson(getSymbolName(s02), nweArr02, obArr02, divArr02)
 
 // Symbol 03
-string nweArr03 = buildNweArray(nweBull03_1h, bullZone03_1h, nweBear03_1h, bearZone03_1h, nweBull03_h4, bullZone03_h4, nweBear03_h4, bearZone03_h4, time)
-string obArr03 = buildObArray(bullF03_1h, bullZT03_1h, bullT03_1h, bullTm03_1h, bearF03_1h, bearZT03_1h, bearT03_1h, bearTm03_1h, bullF03_h4, bullZT03_h4, bullT03_h4, bullTm03_h4, bearF03_h4, bearZT03_h4, bearT03_h4, bearTm03_h4, bullF03_d1, bullZT03_d1, bullT03_d1, bullTm03_d1, bearF03_d1, bearZT03_d1, bearT03_d1, bearTm03_d1, time)
-string divArr03 = buildDivArray(divBullTm03_1h, divBearTm03_1h, divBullTm03_h4, divBearTm03_h4, time)
+string nweArr03 = buildNweArray(nweBull03_1h, bullZone03_1h, nweBear03_1h, bearZone03_1h, nweBull03_h4, bullZone03_h4, nweBear03_h4, bearZone03_h4, time, '1H', 'H4')
+string obArr03 = buildObArray(bullF03_1h, bullZT03_1h, bullT03_1h, bullTm03_1h, bearF03_1h, bearZT03_1h, bearT03_1h, bearTm03_1h, bullF03_h4, bullZT03_h4, bullT03_h4, bullTm03_h4, bearF03_h4, bearZT03_h4, bearT03_h4, bearTm03_h4, bullF03_d1, bullZT03_d1, bullT03_d1, bullTm03_d1, bearF03_d1, bearZT03_d1, bearT03_d1, bearTm03_d1, time, '1H', 'H4', 'D1')
+string divArr03 = buildDivArray(divBullTm03_1h, divBearTm03_1h, divBullTm03_h4, divBearTm03_h4, time, '1H', 'H4')
 string sig03 = buildSymbolJson(getSymbolName(s03), nweArr03, obArr03, divArr03)
 
 // Symbol 04
-string nweArr04 = buildNweArray(nweBull04_1h, bullZone04_1h, nweBear04_1h, bearZone04_1h, nweBull04_h4, bullZone04_h4, nweBear04_h4, bearZone04_h4, time)
-string obArr04 = buildObArray(bullF04_1h, bullZT04_1h, bullT04_1h, bullTm04_1h, bearF04_1h, bearZT04_1h, bearT04_1h, bearTm04_1h, bullF04_h4, bullZT04_h4, bullT04_h4, bullTm04_h4, bearF04_h4, bearZT04_h4, bearT04_h4, bearTm04_h4, bullF04_d1, bullZT04_d1, bullT04_d1, bullTm04_d1, bearF04_d1, bearZT04_d1, bearT04_d1, bearTm04_d1, time)
-string divArr04 = buildDivArray(divBullTm04_1h, divBearTm04_1h, divBullTm04_h4, divBearTm04_h4, time)
+string nweArr04 = buildNweArray(nweBull04_1h, bullZone04_1h, nweBear04_1h, bearZone04_1h, nweBull04_h4, bullZone04_h4, nweBear04_h4, bearZone04_h4, time, '1H', 'H4')
+string obArr04 = buildObArray(bullF04_1h, bullZT04_1h, bullT04_1h, bullTm04_1h, bearF04_1h, bearZT04_1h, bearT04_1h, bearTm04_1h, bullF04_h4, bullZT04_h4, bullT04_h4, bullTm04_h4, bearF04_h4, bearZT04_h4, bearT04_h4, bearTm04_h4, bullF04_d1, bullZT04_d1, bullT04_d1, bullTm04_d1, bearF04_d1, bearZT04_d1, bearT04_d1, bearTm04_d1, time, '1H', 'H4', 'D1')
+string divArr04 = buildDivArray(divBullTm04_1h, divBearTm04_1h, divBullTm04_h4, divBearTm04_h4, time, '1H', 'H4')
 string sig04 = buildSymbolJson(getSymbolName(s04), nweArr04, obArr04, divArr04)
 
 // Combine all non-empty symbol signals
@@ -1083,10 +1083,11 @@ if str.length(sig04) > 0
     allSignals := allSignals + (str.length(allSignals) > 0 ? ',' : '') + sig04
     allSignals
 
-// Fire alert on every tick if any signals exist
-if str.length(allSignals) > 0
+// Fire alert once per bar close if any signals exist (1-minute chart = max 5 alerts/minute)
+// Uses barstate.isconfirmed for non-repainting behavior
+if str.length(allSignals) > 0 and barstate.isconfirmed
     string payload = '{"timestamp":' + str.tostring(time) + ',"signals":[' + allSignals + ']}'
-    alert(payload, alert.freq_all)
+    alert(payload, alert.freq_once_per_bar_close)
 
 // Signal Status Table showing all raw signals
 // Columns: Symbol | NWE-1H | NWE-H4 | OB-1H | OB-H4 | OB-D1 | DIV-1H | DIV-H4
