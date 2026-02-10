@@ -78,6 +78,13 @@ kernel_atr(int length, float _high, float _low, float _close) =>
     float trueRange = na(_high[1]) ? _high - _low : math.max(math.max(_high - _low, math.abs(_high - _close[1])), math.abs(_low - _close[1]))
     ta.rma(trueRange, length)
 
+// ========== TEMPORARY TEST ERROR - REMOVE AFTER TESTING ==========
+// This intentional error will trigger runtime error detection & recovery testing
+// DELETE THIS SECTION after verifying error handling works
+var float[] testErrorArray = array.new_float(5)
+float testError = array.get(testErrorArray, 10)  // Intentional out-of-bounds error
+// =================================================================
+
 // Calculate NWE envelope bounds
 // Returns: [yhat, upper_near, upper_far, upper_avg, lower_near, lower_far, lower_avg]
 calcNWE(float _close, float _high, float _low, int h, float alpha, int x0, int atrLen, float nearF, float farF) =>
