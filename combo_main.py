@@ -171,7 +171,15 @@ def run_alert_creation(
             )
 
             # Change chart symbol to match batch
-            if not browser.open_chart.change_symbol(batch[0]):
+            logger.info(
+                f"[DEBUG] Browser {browser_id}: BEFORE symbol change - attempting to change to {batch[0]}"
+            )
+            symbol_change_result = browser.open_chart.change_symbol(batch[0])
+            logger.info(
+                f"[DEBUG] Browser {browser_id}: AFTER symbol change - result={symbol_change_result}, target={batch[0]}"
+            )
+
+            if not symbol_change_result:
                 logger.error(
                     f"Browser {browser_id}: Failed to change chart symbol to {batch[0]}"
                 )

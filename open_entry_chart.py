@@ -103,31 +103,56 @@ class OpenChart:
     def change_symbol(self, symbol):
         """This changes the chart's symbol to `symbol` if it is any other symbol. Then it waits for 1.5 secs for the chart to load"""
         try:
+            entry_chart_logger.info(
+                f"[DEBUG] change_symbol() called with symbol={symbol}"
+            )
+
             no_exchange_symbol = (
                 symbol.split(":")[-1] if ":" in symbol else symbol
             )  # get the symbol without the exchange name (if there is an exchange name)
+
+            entry_chart_logger.info(f"[DEBUG] Stripped symbol: {no_exchange_symbol}")
+
             symbol_search = WebDriverWait(self.driver, 15).until(
                 EC.element_to_be_clickable(
                     (By.CSS_SELECTOR, 'button[id="header-toolbar-symbol-search"]')
                 )
             )
+
+            current_symbol = symbol_search.find_element(By.CSS_SELECTOR, "div").text
+            entry_chart_logger.info(f"[DEBUG] Current chart symbol: {current_symbol}")
+
             if (
-                not symbol_search.find_element(By.CSS_SELECTOR, "div").text
-                == no_exchange_symbol
+                not current_symbol == no_exchange_symbol
             ):  # only search for a specific symbol if the current symbol is different from that symbol
+                entry_chart_logger.info(
+                    f"[DEBUG] Symbol different, changing from {current_symbol} to {no_exchange_symbol}"
+                )
+
                 # click on Symbol Search and search for a specific symbol and hit ENTER
                 symbol_search.click()
+                entry_chart_logger.info(f"[DEBUG] Clicked symbol search button")
+
                 search_input = self.driver.find_element(
                     By.XPATH,
                     '//*[@id="overlap-manager-root"]/div/div/div[2]/div/div[2]/div[1]/input',
                 )
+                entry_chart_logger.info(f"[DEBUG] Found search input field")
+
                 ActionChains(self.driver).key_down(
                     Keys.CONTROL, search_input
                 ).send_keys("a").perform()
                 search_input.send_keys(Keys.DELETE)
+                entry_chart_logger.info(f"[DEBUG] Cleared search field")
+
                 search_input.send_keys(symbol)
+                entry_chart_logger.info(f"[DEBUG] Typed symbol: {symbol}")
+
                 search_input.send_keys(Keys.ENTER)
+                entry_chart_logger.info(f"[DEBUG] Pressed ENTER to confirm symbol")
+
                 entry_chart_logger.info(f"Entered symbol {symbol}")
+
                 WebDriverWait(self.driver, 5).until(
                     EC.text_to_be_present_in_element(
                         (
@@ -137,7 +162,13 @@ class OpenChart:
                         no_exchange_symbol,
                     )
                 )
+                entry_chart_logger.info(
+                    f"[DEBUG] Symbol change confirmed in UI: {no_exchange_symbol}"
+                )
+
                 sleep(1.5)  # wait for the chart to load
+                entry_chart_logger.info(f"[DEBUG] Waited 1.5s for chart to load")
+
                 return True
             else:
                 entry_chart_logger.info(

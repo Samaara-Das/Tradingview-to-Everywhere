@@ -274,11 +274,40 @@ class Browser:
 
         # delete all alerts
         if self.start_fresh:
+            print(
+                "[DEBUG] setup_tv: start_fresh=True, deleting all alerts...", flush=True
+            )
+            open_tv_logger.info(
+                "[DEBUG] setup_tv: Attempting to delete all existing alerts (start_fresh mode)"
+            )
             if not self.delete_all_alerts():
+                print(
+                    "[DEBUG] setup_tv: First delete attempt failed, retrying...",
+                    flush=True,
+                )
+                open_tv_logger.warning(
+                    "[DEBUG] setup_tv: First alert deletion failed, retrying..."
+                )
                 self.delete_all_alerts()  # try once more
                 if not self.no_alerts():
                     open_tv_logger.error("Cannot delete all alerts. Exiting function")
+                    print(
+                        "[DEBUG] setup_tv: FAILED to delete all alerts after retry",
+                        flush=True,
+                    )
                     return False
+            print("[DEBUG] setup_tv: All alerts deleted successfully", flush=True)
+            open_tv_logger.info(
+                "[DEBUG] setup_tv: All existing alerts deleted successfully"
+            )
+        else:
+            print(
+                "[DEBUG] setup_tv: start_fresh=False, skipping alert deletion",
+                flush=True,
+            )
+            open_tv_logger.info(
+                "[DEBUG] setup_tv: start_fresh=False, preserving existing alerts"
+            )
 
         # --- Combo mode: single screener check, no Trade Drawer, no Alerts object ---
         if self.mode == "combo":
