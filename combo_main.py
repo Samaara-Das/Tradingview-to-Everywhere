@@ -194,6 +194,53 @@ def run_alert_creation(
 
             sleep(3)  # Wait for screener recalculation
 
+            # Check for screener errors
+            if not browser.is_no_error(config.screener_shorttitle):
+                logger.warning(
+                    f"Browser {browser_id}: Screener has errors, attempting recovery"
+                )
+
+                # Recovery attempt
+                if not browser.reupload_indicator(config.screener_shorttitle):
+                    logger.error(f"Browser {browser_id}: Failed to re-upload screener")
+                    failed.append(
+                        {"batch": i, "symbols": batch, "error": "reupload_failed"}
+                    )
+                    continue
+
+                # Reinitialize reference
+                sleep(2)  # Wait for indicator to fully load
+
+                # Reapply settings
+                if not browser.change_settings(batch, config.screener_shorttitle):
+                    logger.error(
+                        f"Browser {browser_id}: Failed to reapply settings after recovery"
+                    )
+                    failed.append(
+                        {
+                            "batch": i,
+                            "symbols": batch,
+                            "error": "recovery_settings_failed",
+                        }
+                    )
+                    continue
+
+                sleep(3)  # Wait for recalculation
+
+                # Recheck errors
+                if not browser.is_no_error(config.screener_shorttitle):
+                    logger.error(
+                        f"Browser {browser_id}: Screener still has errors after recovery"
+                    )
+                    failed.append(
+                        {
+                            "batch": i,
+                            "symbols": batch,
+                            "error": "persistent_screener_error",
+                        }
+                    )
+                    continue
+
             # Click indicator
             indicator = browser._safe_indicator_access(config.screener_shorttitle)
             if not indicator:
@@ -214,8 +261,76 @@ def run_alert_creation(
                 completed += 1
                 logger.info(f"Browser {browser_id}: Alert created for {batch}")
             else:
-                failed.append({"batch": i, "symbols": batch, "error": error})
-                logger.warning(f"Browser {browser_id}: Alert failed — {error}")
+                # Retry with recovery
+                logger.warning(
+                    f"Browser {browser_id}: First attempt failed, retrying with recovery..."
+                )
+
+                # Re-upload screener
+                if browser.reupload_indicator(config.screener_shorttitle):
+                    sleep(2)
+
+                    # Reapply settings
+                    if browser.change_settings(batch, config.screener_shorttitle):
+                        sleep(3)
+
+                        # Click indicator again
+                        indicator = browser._safe_indicator_access(
+                            config.screener_shorttitle
+                        )
+                        if indicator:
+                            indicator.click()
+
+                            # Retry alert creation
+                            success, error = browser.create_webhook_alert(
+                                config.screener_shorttitle, config.webhook_url
+                            )
+
+                            if success:
+                                completed += 1
+                                logger.info(
+                                    f"Browser {browser_id}: Retry succeeded for {batch}"
+                                )
+                            else:
+                                failed.append(
+                                    {
+                                        "batch": i,
+                                        "symbols": batch,
+                                        "error": f"retry_{error}",
+                                    }
+                                )
+                                logger.warning(
+                                    f"Browser {browser_id}: Retry failed — {error}"
+                                )
+                        else:
+                            failed.append(
+                                {
+                                    "batch": i,
+                                    "symbols": batch,
+                                    "error": "retry_indicator_access_failed",
+                                }
+                            )
+                            logger.error(
+                                f"Browser {browser_id}: Retry failed - indicator access failed"
+                            )
+                    else:
+                        failed.append(
+                            {
+                                "batch": i,
+                                "symbols": batch,
+                                "error": "retry_settings_failed",
+                            }
+                        )
+                        logger.error(
+                            f"Browser {browser_id}: Retry failed - settings reapplication failed"
+                        )
+                else:
+                    failed.append(
+                        {"batch": i, "symbols": batch, "error": "retry_reupload_failed"}
+                    )
+                    logger.error(
+                        f"Browser {browser_id}: Retry failed - re-upload failed"
+                    )
 
             sleep(config.alert_creation_delay)
 

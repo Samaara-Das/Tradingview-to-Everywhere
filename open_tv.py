@@ -1108,12 +1108,35 @@ class Browser:
             open_tv_logger.info("Clicked on the + button to create webhook alert")
 
             # Wait for the alert dialog to appear
-            popup = WebDriverWait(self.driver, 10).until(
-                EC.visibility_of_element_located(
-                    (By.CSS_SELECTOR, 'div[data-qa-id="alerts-create-edit-dialog"]')
+            try:
+                popup = WebDriverWait(self.driver, 10).until(
+                    EC.visibility_of_element_located(
+                        (By.CSS_SELECTOR, 'div[data-qa-id="alerts-create-edit-dialog"]')
+                    )
                 )
-            )
-            open_tv_logger.info("Alert creation dialog appeared")
+                open_tv_logger.info("Alert creation dialog appeared")
+            except TimeoutException:
+                open_tv_logger.warning(
+                    "Alert dialog timeout, refreshing page and retrying..."
+                )
+                self.driver.get(self.driver.current_url)  # Refresh page
+                sleep(3)  # Wait for page to reload
+
+                # Retry opening dialog
+                plus_button_retry = WebDriverWait(self.driver, 5).until(
+                    EC.element_to_be_clickable(
+                        (By.CSS_SELECTOR, 'div[data-name="set-alert-button"]')
+                    )
+                )
+                plus_button_retry.click()
+                open_tv_logger.info("Retrying + button click after page refresh")
+
+                popup = WebDriverWait(self.driver, 10).until(
+                    EC.visibility_of_element_located(
+                        (By.CSS_SELECTOR, 'div[data-qa-id="alerts-create-edit-dialog"]')
+                    )
+                )
+                open_tv_logger.info("Alert creation dialog appeared after retry")
 
             # Validate condition dropdown on Settings tab (default tab when dialog opens)
             if not self._validate_alert_condition(popup, indicator_shorttitle):
@@ -1843,6 +1866,133 @@ class Browser:
                         f"Failed to get fresh indicator {shorttitle} after {max_retries} attempts"
                     )
         return None
+
+    def _reinitialize_screener_indicator(self, shorttitle):
+        """Re-initializes a screener indicator after it has been re-uploaded to avoid stale element errors.
+
+        Args:
+            shorttitle: The short title of the screener to re-initialize
+
+        Returns:
+            The re-initialized indicator element, or None if not found
+        """
+        if self.mode == "combo":
+            # Combo mode only has one screener (screener_ob_short)
+            if shorttitle == self.screener_ob_short:
+                self.screener_ob_indicator = self.get_indicator(self.screener_ob_short)
+                return self.screener_ob_indicator
+        else:
+            # Legacy/tiered modes have 3 screeners
+            if shorttitle == self.screener_ob_short:
+                self.screener_ob_indicator = self.get_indicator(self.screener_ob_short)
+                return self.screener_ob_indicator
+            elif shorttitle == self.screener_nw_short:
+                self.screener_nw_indicator = self.get_indicator(self.screener_nw_short)
+                return self.screener_nw_indicator
+            elif shorttitle == self.screener_sb_short:
+                self.screener_sb_indicator = self.get_indicator(self.screener_sb_short)
+                return self.screener_sb_indicator
+        return None
+
+    def reupload_indicator(self, indicator, indicator_name, indicator_shorttitle):
+        """removes indicator and reuploads it again to the chart by clicking on the screener in the Favorites dropdown. It then waits for the indicator to show up on the chart and returns `True` if it does otherwise `False`.
+
+        Don't remove the print statements. It seems like the code will only run with the print statements.
+        """
+        val = False
+
+        try:
+            # Get fresh indicator reference to avoid stale element
+            fresh_indicator = self._safe_indicator_access(indicator_shorttitle)
+            if not fresh_indicator:
+                open_tv_logger.error(
+                    f"Could not get fresh reference to {indicator_shorttitle}"
+                )
+                return False
+
+            # click on the indicator
+            fresh_indicator.click()
+
+            # click on data-name="legend-delete-action" (a sub element under the indicator)
+            delete_action = WebDriverWait(fresh_indicator, 10).until(
+                EC.element_to_be_clickable(
+                    (By.CSS_SELECTOR, 'button[data-name="legend-delete-action"]')
+                )
+            )
+            print("Found remove button: ", delete_action)
+            delete_action.click()
+
+            # click on "Favorites" dropdowm
+            WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable(
+                    (
+                        By.CSS_SELECTOR,
+                        'div[id="header-toolbar-indicators"] button[data-name="show-favorite-indicators"]',
+                    )
+                )
+            ).click()
+            print("favorites dropdown was clicked")
+
+            # Wait for the dropdown menu to appear
+            menu = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located(
+                    (By.CSS_SELECTOR, 'div[data-name="menu-inner"]')
+                )
+            )
+            print("dropdown menu appeared")
+
+            # find the indicator in the dropdown menu and click on it
+            dropdown_indicators = WebDriverWait(menu, 10).until(
+                EC.presence_of_all_elements_located(
+                    (By.CSS_SELECTOR, 'div[data-role="menuitem"]')
+                )
+            )
+            for el in dropdown_indicators:
+                print("current indicator: ", el)
+                text = el.find_element(
+                    By.CSS_SELECTOR,
+                    'span[class="label-l0nf43ai apply-overflow-tooltip"]',
+                ).text
+                if indicator_name == text:
+                    print(f"Found {indicator_name}")
+                    if el.is_displayed():
+                        el.click()
+                        break
+                    else:
+                        # Scroll the element into view
+                        actions = ActionChains(menu).move_to_element(el)
+                        actions.perform()
+                        el.click()
+                        break
+
+            # Wait for the indicator to show up on the chart
+            start_time = time()
+            timeout = SCREENER_REUPLOAD_TIMEOUT  # max seconds to wait
+            while time() - start_time <= timeout:
+                indicators = self.driver.find_elements(
+                    By.CSS_SELECTOR, 'div[data-name="legend-source-item"]'
+                )
+                for ind in indicators:
+                    if (
+                        ind.find_element(
+                            By.CSS_SELECTOR, 'div[class="title-l31H9iuA"]'
+                        ).text
+                        == indicator_shorttitle
+                    ):
+                        val = True
+                        break
+                if val:  # if the indicator is found on the chart, break the while loop
+                    open_tv_logger.info(
+                        f"{indicator_shorttitle} is on the chart after re-uploading it!"
+                    )
+                    break
+        except Exception as e:
+            open_tv_logger.exception(
+                f"An error occurred when re-uploading {indicator_shorttitle}. Could not reupload {indicator_shorttitle}. Error: {e}"
+            )
+            return False
+
+        return val
 
     def current_chart_tframe(self):
         """Returns the current chart's timeframe"""
