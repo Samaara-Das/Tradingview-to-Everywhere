@@ -1571,7 +1571,7 @@ class Browser:
                 indicator
                 and indicator.find_elements(
                     By.CSS_SELECTOR,
-                    ".statusItem-Lgtz1OtS.small-Lgtz1OtS.dataProblemLow-Lgtz1OtS",
+                    'div[class="statusesWrapper-l31H9iuA"] span[class="statusItem-Lgtz1OtS small-Lgtz1OtS dataProblemLow-Lgtz1OtS"]',
                 )
                 == []
             ):
@@ -1762,10 +1762,10 @@ class Browser:
             # click on the indicator
             fresh_indicator.click()
 
-            # click on data-name="legend-delete-action" (a sub element under the indicator)
+            # click on data-qa-id="legend-delete-action" (a sub element under the indicator)
             delete_action = WebDriverWait(fresh_indicator, 10).until(
                 EC.element_to_be_clickable(
-                    (By.CSS_SELECTOR, 'button[data-name="legend-delete-action"]')
+                    (By.CSS_SELECTOR, 'button[data-qa-id="legend-delete-action"]')
                 )
             )
             print("Found remove button: ", delete_action)
@@ -1785,7 +1785,7 @@ class Browser:
             # Wait for the dropdown menu to appear
             menu = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located(
-                    (By.CSS_SELECTOR, 'div[data-name="menu-inner"]')
+                    (By.CSS_SELECTOR, 'div[data-qa-id="menu-inner"]')
                 )
             )
             print("dropdown menu appeared")
@@ -1818,23 +1818,15 @@ class Browser:
             start_time = time()
             timeout = SCREENER_REUPLOAD_TIMEOUT  # max seconds to wait
             while time() - start_time <= timeout:
-                indicators = self.driver.find_elements(
-                    By.CSS_SELECTOR, 'div[data-name="legend-source-item"]'
-                )
-                for ind in indicators:
-                    if (
-                        ind.find_element(
-                            By.CSS_SELECTOR, 'div[class="title-l31H9iuA"]'
-                        ).text
-                        == indicator_shorttitle
-                    ):
-                        val = True
-                        break
-                if val:  # if the indicator is found on the chart, break the while loop
+                # Use _safe_indicator_access to reuse existing selector logic
+                reloaded_indicator = self._safe_indicator_access(indicator_shorttitle)
+                if reloaded_indicator:
+                    val = True
                     open_tv_logger.info(
                         f"{indicator_shorttitle} is on the chart after re-uploading it!"
                     )
                     break
+                sleep(1)  # Wait a bit before retrying
         except Exception as e:
             open_tv_logger.exception(
                 f"An error occurred when re-uploading {indicator_shorttitle}. Could not reupload {indicator_shorttitle}. Error: {e}"
@@ -1942,10 +1934,10 @@ class Browser:
             # click on the indicator
             fresh_indicator.click()
 
-            # click on data-name="legend-delete-action" (a sub element under the indicator)
+            # click on data-qa-id="legend-delete-action" (a sub element under the indicator)
             delete_action = WebDriverWait(fresh_indicator, 10).until(
                 EC.element_to_be_clickable(
-                    (By.CSS_SELECTOR, 'button[data-name="legend-delete-action"]')
+                    (By.CSS_SELECTOR, 'button[data-qa-id="legend-delete-action"]')
                 )
             )
             print("Found remove button: ", delete_action)
@@ -1965,7 +1957,7 @@ class Browser:
             # Wait for the dropdown menu to appear
             menu = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located(
-                    (By.CSS_SELECTOR, 'div[data-name="menu-inner"]')
+                    (By.CSS_SELECTOR, 'div[data-qa-id="menu-inner"]')
                 )
             )
             print("dropdown menu appeared")
@@ -1998,23 +1990,15 @@ class Browser:
             start_time = time()
             timeout = SCREENER_REUPLOAD_TIMEOUT  # max seconds to wait
             while time() - start_time <= timeout:
-                indicators = self.driver.find_elements(
-                    By.CSS_SELECTOR, 'div[data-name="legend-source-item"]'
-                )
-                for ind in indicators:
-                    if (
-                        ind.find_element(
-                            By.CSS_SELECTOR, 'div[class="title-l31H9iuA"]'
-                        ).text
-                        == indicator_shorttitle
-                    ):
-                        val = True
-                        break
-                if val:  # if the indicator is found on the chart, break the while loop
+                # Use _safe_indicator_access to reuse existing selector logic
+                reloaded_indicator = self._safe_indicator_access(indicator_shorttitle)
+                if reloaded_indicator:
+                    val = True
                     open_tv_logger.info(
                         f"{indicator_shorttitle} is on the chart after re-uploading it!"
                     )
                     break
+                sleep(1)  # Wait a bit before retrying
         except Exception as e:
             open_tv_logger.exception(
                 f"An error occurred when re-uploading {indicator_shorttitle}. Could not reupload {indicator_shorttitle}. Error: {e}"
