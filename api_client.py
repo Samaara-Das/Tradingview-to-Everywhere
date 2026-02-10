@@ -178,6 +178,28 @@ class StockBuddyAPIClient:
             logger.error(f"Failed to get hot symbols: {e}")
             return []
 
+    def get_all_symbols(self) -> List[str]:
+        """Get all symbols from Stock Buddy API. Returns flat list.
+
+        This is a future fallback for combo mode — the endpoint doesn't exist yet.
+        Primary symbol source is MongoDB via symbol_settings.get_symbols().
+        """
+        try:
+            response = self.session.get(
+                f"{self.base_url}/symbols", timeout=self.timeout
+            )
+            response.raise_for_status()
+            data = response.json()
+            symbols = [
+                s.get("symbol", s) if isinstance(s, dict) else s
+                for s in data.get("symbols", [])
+            ]
+            logger.info(f"Fetched {len(symbols)} symbols from API")
+            return symbols
+        except Exception as e:
+            logger.error(f"Failed to get all symbols: {e}")
+            return []
+
     def delete_expired_hot_symbols(self) -> Dict:
         """
         Delete all expired hot symbols from the database.

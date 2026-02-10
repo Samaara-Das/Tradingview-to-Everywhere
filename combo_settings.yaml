@@ -1,0 +1,33 @@
+# TTE Combo Mode Settings
+# All configurable options for the combo mode orchestrator.
+# Change these values to customize behavior without touching Python code.
+
+# TradingView chart settings
+chart:
+  layout_name: "Screener"            # TradingView layout to switch to
+  chart_timeframe: "1 hour"          # Chart timeframe (must match dropdown label exactly: "1 hour", "4 hours", "1 day", etc.)
+  bar_style: "line"                # Bar style data-value: "candle", "line", "area", "ha" (Heikin Ashi), "hollowCandle", etc.
+
+# Screener indicator settings
+screener:
+  shorttitle: "Screener"             # Short title of the combo screener indicator on the chart
+  name: "TTE Screener"               # Full name of the combo screener indicator
+
+# Alert creation settings
+alerts:
+  batch_size: 4                      # Symbols per alert (hard limit — TradingView errors above 4)
+  num_browsers: 1                    # Parallel browser instances for alert creation (1-5)
+  creation_delay: 3.0                # Seconds to wait between batches
+  start_fresh: false                 # Delete all existing alerts before setup (override with --fresh flag)
+
+# Webhook settings
+webhook:
+  url: ""                            # Set via COMBO_WEBHOOK_URL env var (takes precedence over this)
+
+# Maintenance settings
+maintenance:
+  interval: 200                      # Seconds between restart-inactive-alerts cycles (minimum 60)
+
+# Progress tracking
+progress:
+  file: "combo_progress.json"        # File to save/resume alert creation progress

@@ -72,8 +72,22 @@ python combo_main.py               # Combo mode (after implementation)
 - **Layouts**: Mode-specific (Legacy: "Screener"+"Exits", Tiered: "NWE"+"OBDIV", Combo: "Screener")
 - **Indicators**: Must be starred/favorited
 
+### Combo Mode Settings (`combo_settings.yaml`)
+All combo mode options are configured in `combo_settings.yaml`. Edit this file to change chart timeframe, layout, bar style, batch size, tabs, etc. Secrets (webhook URL) are in `.env` and override the YAML.
+
+| Setting | YAML Path | Default | Description |
+|---------|-----------|---------|-------------|
+| Layout | `chart.layout_name` | "Screener" | TradingView layout name |
+| Timeframe | `chart.chart_timeframe` | "1 hour" | Chart timeframe (must match dropdown label) |
+| Bar style | `chart.bar_style` | "candle" | Chart bar style data-value (candle, line, ha, etc.) |
+| Screener | `screener.shorttitle` | "Screener" | Indicator short title on chart |
+| Batch size | `alerts.batch_size` | 4 | Symbols per alert (hard limit) |
+| Num tabs | `alerts.num_tabs` | 3 | Parallel browser tabs |
+| Creation delay | `alerts.creation_delay` | 3.0 | Seconds between batches |
+| Maintenance | `maintenance.interval` | 300 | Seconds between restart cycles |
+
 ### Environment Variables
-See `env.py` and `.env` file. Key variables: `CHROME_PROFILES_PATH`, `TRADINGVIEW_EMAIL`, `TRADINGVIEW_PASSWORD`, `MONGODB_PWD`
+See `env.py` and `.env` file. Key variables: `CHROME_PROFILES_PATH`, `TRADINGVIEW_EMAIL`, `TRADINGVIEW_PASSWORD`, `MONGODB_PWD`, `COMBO_WEBHOOK_URL`, `COMBO_NUM_TABS`
 
 ## Critical Constants
 
