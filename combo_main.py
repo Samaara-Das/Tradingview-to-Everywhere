@@ -209,7 +209,15 @@ def run_alert_creation(
                 )
 
                 # Recovery attempt
-                if not browser.reupload_indicator(config.screener_shorttitle):
+                # Get fresh indicator reference for reupload
+                indicator_for_reupload = browser._safe_indicator_access(
+                    config.screener_shorttitle
+                )
+                if not indicator_for_reupload or not browser.reupload_indicator(
+                    indicator_for_reupload,
+                    config.screener_name,
+                    config.screener_shorttitle,
+                ):
                     logger.error(f"Browser {browser_id}: Failed to re-upload screener")
                     failed.append(
                         {"batch": i, "symbols": batch, "error": "reupload_failed"}
@@ -275,7 +283,13 @@ def run_alert_creation(
                 )
 
                 # Re-upload screener
-                if browser.reupload_indicator(config.screener_shorttitle):
+                # Get fresh indicator reference for reupload
+                retry_indicator = browser._safe_indicator_access(
+                    config.screener_shorttitle
+                )
+                if retry_indicator and browser.reupload_indicator(
+                    retry_indicator, config.screener_name, config.screener_shorttitle
+                ):
                     sleep(2)
 
                     # Reapply settings
