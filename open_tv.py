@@ -82,33 +82,99 @@ class Browser:
         layout_name: str = None,
         chart_timeframe: str = None,
         bar_style: str = None,
+        chrome_profile: str = None,
+        user_data_suffix: str = "",
+        browser_id: int = 0,
     ) -> None:
         print("[DEBUG] Browser.__init__() called", flush=True)
 
-        # Kill any existing Chrome processes to free the profile
-        print("[DEBUG] Killing any existing Chrome processes...", flush=True)
+        # Use provided chrome_profile or fall back to env var PROFILE
+        actual_profile = chrome_profile or PROFILE
+        print(f"[DEBUG] Chrome profile: {actual_profile}", flush=True)
+
+        # Kill Chrome processes that would conflict with our user-data-dir
         import subprocess
 
-        try:
-            # Windows command to kill Chrome processes
-            subprocess.run(
-                ["taskkill", "/F", "/IM", "chrome.exe"], capture_output=True, timeout=10
-            )
-            print("[DEBUG] Chrome processes killed (or none were running)", flush=True)
-            sleep(2)  # Give time for processes to fully terminate
-        except Exception as e:
-            print(f"[DEBUG] Could not kill Chrome processes: {e}", flush=True)
+        if chrome_profile is None:
+            # Legacy mode: kill all Chrome processes
+            print("[DEBUG] Killing any existing Chrome processes...", flush=True)
+            try:
+                subprocess.run(
+                    ["taskkill", "/F", "/IM", "chrome.exe"],
+                    capture_output=True,
+                    timeout=10,
+                )
+                print(
+                    "[DEBUG] Chrome processes killed (or none were running)", flush=True
+                )
+                sleep(2)
+            except Exception as e:
+                print(f"[DEBUG] Could not kill Chrome processes: {e}", flush=True)
+        elif browser_id == 0:
+            # Combo mode (first browser only): kill Chrome processes using TTE user-data-dirs
+            # This prevents profile lock conflicts without killing unrelated Chrome windows
+            print("[DEBUG] Killing Chrome processes using TTE profiles...", flush=True)
+            try:
+                ps_cmd = (
+                    "Get-CimInstance Win32_Process -Filter \"Name='chrome.exe'\" | "
+                    "Where-Object { $_.CommandLine -match 'TTE' } | "
+                    "Select-Object -ExpandProperty ProcessId"
+                )
+                result = subprocess.run(
+                    ["powershell", "-NoProfile", "-Command", ps_cmd],
+                    capture_output=True,
+                    text=True,
+                    timeout=15,
+                )
+                pids = [
+                    p.strip()
+                    for p in result.stdout.strip().split("\n")
+                    if p.strip().isdigit()
+                ]
+                if pids:
+                    for pid in pids:
+                        subprocess.run(
+                            ["taskkill", "/F", "/PID", pid],
+                            capture_output=True,
+                            timeout=5,
+                        )
+                    print(
+                        f"[DEBUG] Killed {len(pids)} Chrome processes using TTE profiles",
+                        flush=True,
+                    )
+                    sleep(2)
+                else:
+                    print("[DEBUG] No existing TTE Chrome processes found", flush=True)
+            except Exception as e:
+                print(
+                    f"[DEBUG] Could not check/kill TTE Chrome processes: {e}",
+                    flush=True,
+                )
 
         chrome_options = Options()
         chrome_options.add_experimental_option("detach", keep_open)
 
-        print(f"[DEBUG] Chrome profile: {PROFILE}", flush=True)
-        print(f"[DEBUG] Chrome user data dir: {CHROME_PROFILES_PATH}", flush=True)
-        chrome_options.add_argument(f"--profile-directory={PROFILE}")
-        chrome_options.add_argument(f"--user-data-dir={CHROME_PROFILES_PATH}/TTE")
+        # Apply user data suffix for parallel browsers
+        user_data_dir = f"{CHROME_PROFILES_PATH}/TTE{user_data_suffix}"
+        print(f"[DEBUG] Chrome user data dir: {user_data_dir}", flush=True)
+        chrome_options.add_argument(f"--profile-directory={actual_profile}")
+        chrome_options.add_argument(f"--user-data-dir={user_data_dir}")
         # Removed --remote-debugging-port=9224 as it can cause conflicts
         chrome_options.add_argument("--no-sandbox")
         chrome_options.add_argument("--disable-dev-shm-usage")
+        chrome_options.add_argument("--disable-gpu")  # Helps with crashes
+        chrome_options.add_argument(
+            "--disable-software-rasterizer"
+        )  # Helps with crashes
+
+        # Add unique remote debugging port per browser_id to avoid conflicts
+        if chrome_profile is not None:
+            debug_port = 9222 + browser_id
+            chrome_options.add_argument(f"--remote-debugging-port={debug_port}")
+            print(
+                f"[DEBUG] Remote debugging port: {debug_port} (browser_id={browser_id})",
+                flush=True,
+            )
 
         print("[DEBUG] Getting Chrome version...", flush=True)
         cmd = "powershell -command \"&{(Get-Item 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe').VersionInfo.ProductVersion}\""
@@ -120,8 +186,16 @@ class Browser:
         print(f"[DEBUG] ChromeDriver path: {service}", flush=True)
 
         print("[DEBUG] Creating Chrome webdriver...", flush=True)
+        # Use unique ChromeDriver service port per browser to avoid collisions
+        # port=0 means auto-assign (preserves legacy behavior when no chrome_profile)
+        service_port = 9515 + browser_id if chrome_profile is not None else 0
+        if service_port:
+            print(
+                f"[DEBUG] ChromeDriver service port: {service_port} (browser_id={browser_id})",
+                flush=True,
+            )
         self.driver = webdriver.Chrome(
-            service=ChromeService(service), options=chrome_options
+            service=ChromeService(service, port=service_port), options=chrome_options
         )
         print("[DEBUG] Chrome webdriver created successfully", flush=True)
 
@@ -182,41 +256,51 @@ class Browser:
             open_tv_logger.warning(
                 "Products menu not found within 5 seconds. User might not be signed in."
             )
-            tv_email = getenv("TRADINGVIEW_EMAIL")
-            tv_password = getenv("TRADINGVIEW_PASSWORD")
-
-            if not tv_email or not tv_password:
-                open_tv_logger.error(
-                    "TradingView credentials not found in environment variables."
-                )
-                return False
-
-            # wait for the name="Email" button to be present and click it
-            WebDriverWait(self.driver, 5).until(
-                EC.presence_of_element_located((By.NAME, "Email"))
-            ).click()
-
-            # Wait for the email input field to be present
-            email_input = WebDriverWait(self.driver, 5).until(
-                EC.presence_of_element_located((By.NAME, "id_username"))
-            )
-            email_input.send_keys(tv_email)
-
-            # Wait for the password input field to be present
-            password_input = WebDriverWait(self.driver, 5).until(
-                EC.presence_of_element_located((By.NAME, "id_password"))
-            )
-            password_input.send_keys(tv_password)
-
-            # Wait for the sign in button to be clickable
-            sign_in_button = self.driver.find_element(
-                By.CSS_SELECTOR, 'button[data-overflow-tooltip-text="Sign in"]'
-            )
-            sign_in_button.click()
-
-            # Wait for the products menu to appear, indicating successful sign-in
+            # Attempt automated email/password login
+            # This may fail if TradingView shows 2FA, CAPTCHA, or different page state
             try:
-                WebDriverWait(self.driver, 7).until(
+                tv_email = getenv("TRADINGVIEW_EMAIL")
+                tv_password = getenv("TRADINGVIEW_PASSWORD")
+
+                if not tv_email or not tv_password:
+                    open_tv_logger.warning(
+                        "TradingView credentials not found in environment variables. Waiting for manual sign-in..."
+                    )
+                    raise Exception("No credentials")
+
+                # wait for the name="Email" button to be present and click it
+                WebDriverWait(self.driver, 5).until(
+                    EC.presence_of_element_located((By.NAME, "Email"))
+                ).click()
+
+                # Wait for the email input field to be present
+                email_input = WebDriverWait(self.driver, 5).until(
+                    EC.presence_of_element_located((By.NAME, "id_username"))
+                )
+                email_input.send_keys(tv_email)
+
+                # Wait for the password input field to be present
+                password_input = WebDriverWait(self.driver, 5).until(
+                    EC.presence_of_element_located((By.NAME, "id_password"))
+                )
+                password_input.send_keys(tv_password)
+
+                # Wait for the sign in button to be clickable
+                sign_in_button = self.driver.find_element(
+                    By.CSS_SELECTOR, 'button[data-overflow-tooltip-text="Sign in"]'
+                )
+                sign_in_button.click()
+            except Exception as e:
+                open_tv_logger.warning(
+                    f"Automated login failed ({e}). Waiting for manual sign-in..."
+                )
+
+            # Always wait up to 60s for sign-in to complete (handles 2FA, manual login, etc.)
+            try:
+                open_tv_logger.info(
+                    "Waiting up to 60s for sign-in (enter 2FA code if prompted)..."
+                )
+                WebDriverWait(self.driver, 60).until(
                     EC.presence_of_element_located(
                         (By.CSS_SELECTOR, 'a[data-main-menu-root-track-id="products"]')
                     )
@@ -224,7 +308,9 @@ class Browser:
                 open_tv_logger.info("Successfully signed in to TradingView")
                 return True
             except TimeoutException:
-                open_tv_logger.error("Failed to sign in to TradingView")
+                open_tv_logger.error(
+                    "Failed to sign in to TradingView (timed out after 60s)"
+                )
                 return False
 
     def setup_tv(self):
@@ -420,6 +506,16 @@ class Browser:
                 open_tv_logger.warning(
                     f"Cannot save the current layout {self.layout_name}. The function will still continue on without exiting as this is not crucial."
                 )
+
+        # Dismiss any lingering dialogs/overlays (combo mode: prevents click interception)
+        if self.mode == "combo":
+            try:
+                from selenium.webdriver.common.keys import Keys
+
+                self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+                sleep(0.5)
+            except Exception:
+                pass  # Not critical if no dialog was open
 
         # give it some time to rest
         sleep(2)

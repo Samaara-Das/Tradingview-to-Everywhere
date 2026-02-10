@@ -16,7 +16,7 @@ screener:
 # Alert creation settings
 alerts:
   batch_size: 4                      # Symbols per alert (hard limit — TradingView errors above 4)
-  num_browsers: 1                    # Parallel browser instances for alert creation (1-5)
+  num_browsers: 2                    # Parallel browser instances (TradingView limits to 2 simultaneous sessions)
   creation_delay: 3.0                # Seconds to wait between batches
   start_fresh: false                 # Delete all existing alerts before setup (override with --fresh flag)
 

@@ -107,15 +107,25 @@ def assign_batches_to_browsers(batches: list, num_browsers: int) -> list[list]:
 
 
 def create_browser_instance(browser_id: int, config: ComboConfig, args) -> Browser:
-    """Create a Browser instance (all browsers use same Chrome profile)."""
+    """Create a Browser instance with unique Chrome profile for parallel execution."""
     logger.info(f"Browser {browser_id}: Initializing...")
 
     # Only delete alerts on the first browser to avoid race conditions
     # Subsequent browsers will see alerts already deleted
-    start_fresh = args.fresh if browser_id == 0 else False
+    start_fresh = True if browser_id == 0 else False
 
-    if args.fresh and browser_id == 0:
-        logger.info("Deleting all existing alerts before setup (--fresh flag)")
+    if start_fresh:
+        logger.info("Browser 0: Will delete all existing alerts before setup")
+
+    # Use same profile but different user data dir suffix for each browser
+    # This allows parallel execution without profile conflicts
+    chrome_profile = "Profile 4"  # All browsers use Profile 4
+    user_data_suffix = f"_browser{browser_id}" if browser_id > 0 else ""
+    logger.info(
+        f"Browser {browser_id}: Using Chrome profile '{chrome_profile}' with suffix '{user_data_suffix}'"
+    )
+
+    # Session copying happens earlier in main() before any browser launches
 
     browser = Browser(
         keep_open=True,
@@ -135,6 +145,9 @@ def create_browser_instance(browser_id: int, config: ComboConfig, args) -> Brows
         layout_name=config.layout_name,
         chart_timeframe=config.chart_timeframe,
         bar_style=config.bar_style,
+        chrome_profile=chrome_profile,
+        user_data_suffix=user_data_suffix,
+        browser_id=browser_id,
     )
 
     if not browser.init_succeeded:
@@ -533,6 +546,8 @@ def main():
     if not all_symbols:
         logger.error("No symbols fetched — cannot continue")
         sys.exit(1)
+
+    logger.info(f"Total symbols for alert creation: {len(all_symbols)}")
 
     batches = chunk_symbols(all_symbols, config.batch_size)
     logger.info(f"Created {len(batches)} batches of {config.batch_size} symbols")
