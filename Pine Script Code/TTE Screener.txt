@@ -2,7 +2,7 @@
 // © SamaaraDas
 
 // @description
-// This screener monitors up to 4 symbols for entry signals using:
+// This screener monitors up to 3 symbols for entry signals using:
 // - Nadaraya-Watson Envelope (NWE) on 1H and 4H
 // - Order Block & FVG detection on 1H, 4H, and Daily
 // - Kernel AO Divergence (Logic 2) on 1H and 4H
@@ -33,7 +33,7 @@ string TF_H4 = '240' // 4 hour
 string TF_D1 = 'D'   // Daily
 
 // Symbol inputs
-usedSymbols = input.int(4, title = 'Used Symbols', group = 'Symbols', tooltip = 'The total number of symbols which will be checked for entries')
+usedSymbols = input.int(3, title = 'Used Symbols', group = 'Symbols', tooltip = 'The total number of symbols which will be checked for entries')
 s01 = input.symbol('GBPAUD', group = 'Symbols', inline = 's01')
 s02 = input.symbol('AUDJPY', group = 'Symbols', inline = 's02')
 s03 = input.symbol('EURCAD', group = 'Symbols', inline = 's03')
