@@ -74,7 +74,7 @@ def fetch_all_symbols() -> list[str]:
     return all_symbols
 
 
-def chunk_symbols(symbols: list[str], size: int = 4) -> list[list[str]]:
+def chunk_symbols(symbols: list[str], size: int = 3) -> list[list[str]]:
     """Split symbols into batches of `size`."""
     return [symbols[i : i + size] for i in range(0, len(symbols), size)]
 
