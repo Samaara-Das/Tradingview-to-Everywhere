@@ -23,14 +23,15 @@ TradingView to Everywhere (TTE) is an automated trading signals distribution sys
 - **Workflow**: 20 symbols (NWE) → hot symbols → 8 symbols (OBDIV)
 - **Alert lifecycle**: Create → wait → delete → repeat
 - **Key files**: `tiered_main.py`, `orchestrator.py`, `api_client.py`, `config.py`
-- **Docs**: `docs/PRD.md`
+- **Docs**: `docs/legacy/PRD.md`
 
-### 3. Combo Mode (`combo_main.py`) - **IN PLANNING**
+### 3. Combo Mode (`combo_main.py`) - **PRODUCTION**
 - **Method**: Single combo screener (NWE + OB/FVG + Divergence)
-- **Workflow**: 264 persistent alerts (4 symbols each) → webhook continuously
+- **Workflow**: 352 persistent alerts (3 symbols each) → webhook continuously
 - **Alert lifecycle**: Create once → run forever (+ maintenance every 5 mins)
-- **Key difference**: 4-symbol hard limit (more causes TradingView errors)
-- **Docs**: `docs/ARCHITECTURE v2.md`, `docs/COMBO_IMPLEMENTATION.md`
+- **Key difference**: 4-symbol hard limit per alert (using 3 for 1-min chart performance)
+- **Key files**: `combo_main.py`, `combo_config.py`, `combo_settings.yaml`
+- **Docs**: `docs/combo/ARCHITECTURE.md`, `docs/combo/PRD.md`
 
 ## Running Commands
 
@@ -38,7 +39,7 @@ TradingView to Everywhere (TTE) is an automated trading signals distribution sys
 pipenv shell                       # Activate environment
 python main.py                     # Legacy mode
 python tiered_main.py              # Tiered mode
-python combo_main.py               # Combo mode (after implementation)
+python combo_main.py               # Combo mode (production)
 ```
 
 ## Core Architecture Concepts
@@ -54,14 +55,15 @@ python combo_main.py               # Combo mode (after implementation)
 |------|--------|---------|--------|-----------|
 | Legacy | At startup | Poll alert log | Manual/restart | Continuous |
 | Tiered | Per batch | Webhook wait | After trigger | ~90s per batch |
-| Combo | Once (264 alerts) | TradingView servers | Never (persist) | One-time setup |
+| Combo | Once (352 alerts) | TradingView servers | Never (persist) | One-time setup |
 
 ### Combo Mode Critical Details
-- **4-symbol hard limit**: More causes TradingView memory/runtime errors
-- **264 persistent alerts**: ~1,054 symbols ÷ 4 = 264 alerts
+- **4-symbol hard limit**: More causes TradingView memory/runtime errors (using 3 in production)
+- **352 persistent alerts**: ~1,054 symbols ÷ 3 = 352 alerts
 - **Timeframe mismatch**: Variable names (TF_H4/TF_D1/TF_W1) are legacy; production is 1H/H4/D1
-- **Parallel setup**: Use 4 browser tabs to reduce setup from 6.6h → 1.6h
+- **Parallel setup**: Use 2 browser instances to reduce setup time
 - **Maintenance**: Every 5 mins, call `restart_inactive_alerts()` from `handle_alerts.py:240-303`
+- **Chart**: 1-minute timeframe, line bar style (for minimal resource usage)
 
 ## Configuration Essentials
 
@@ -78,22 +80,22 @@ All combo mode options are configured in `combo_settings.yaml`. Edit this file t
 | Setting | YAML Path | Default | Description |
 |---------|-----------|---------|-------------|
 | Layout | `chart.layout_name` | "Screener" | TradingView layout name |
-| Timeframe | `chart.chart_timeframe` | "1 hour" | Chart timeframe (must match dropdown label) |
-| Bar style | `chart.bar_style` | "candle" | Chart bar style data-value (candle, line, ha, etc.) |
+| Timeframe | `chart.chart_timeframe` | "1 minute" | Chart timeframe (must match dropdown label) |
+| Bar style | `chart.bar_style` | "line" | Chart bar style data-value (candle, line, ha, etc.) |
 | Screener | `screener.shorttitle` | "Screener" | Indicator short title on chart |
-| Batch size | `alerts.batch_size` | 4 | Symbols per alert (hard limit) |
-| Num tabs | `alerts.num_tabs` | 3 | Parallel browser tabs |
+| Batch size | `alerts.batch_size` | 3 | Symbols per alert (hard limit) |
+| Num browsers | `alerts.num_browsers` | 2 | Parallel browser instances |
 | Creation delay | `alerts.creation_delay` | 3.0 | Seconds between batches |
 | Maintenance | `maintenance.interval` | 300 | Seconds between restart cycles |
 
 ### Environment Variables
-See `env.py` and `.env` file. Key variables: `CHROME_PROFILES_PATH`, `TRADINGVIEW_EMAIL`, `TRADINGVIEW_PASSWORD`, `MONGODB_PWD`, `COMBO_WEBHOOK_URL`, `COMBO_NUM_TABS`
+See `env.py` and `.env` file. Key variables: `CHROME_PROFILES_PATH`, `TRADINGVIEW_EMAIL`, `TRADINGVIEW_PASSWORD`, `MONGODB_PWD`, `COMBO_WEBHOOK_URL`, `COMBO_NUM_BROWSERS`
 
 ## Critical Constants
 
 | Constant | Legacy | Tiered | Combo |
 |----------|--------|--------|-------|
-| Batch size | 5 symbols | 20 (NWE), 8 (OBDIV) | **4 (hard limit)** |
+| Batch size | 5 symbols | 20 (NWE), 8 (OBDIV) | **3 (of 4 max)** |
 | Restart interval | 10 mins | N/A | 5 mins |
 | Alert lifecycle | Create at startup | Create/delete cycle | Create once + maintain |
 
@@ -123,8 +125,8 @@ See `env.py` and `.env` file. Key variables: `CHROME_PROFILES_PATH`, `TRADINGVIE
 
 | Change Type | Update |
 |-------------|--------|
-| Architecture/workflow | `docs/ARCHITECTURE.md` (tiered), `docs/ARCHITECTURE v2.md` (combo) |
-| Implementation tasks | `docs/PRD.md` (tiered), `docs/COMBO_IMPLEMENTATION.md` (combo) |
+| Architecture/workflow | `docs/legacy/ARCHITECTURE.md` (tiered), `docs/combo/ARCHITECTURE.md` (combo) |
+| Implementation tasks | `docs/legacy/PRD.md` (tiered), `docs/combo/PRD.md` (combo) |
 | Other changes | `README.md`, `docs/SETUP.md`, `docs/API.md`, etc. |
 
 Update docs in the same PR as code changes.

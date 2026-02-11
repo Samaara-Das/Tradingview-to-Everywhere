@@ -1,3 +1,7 @@
+> **Status**: Production (Feb 2026). Originally a design document, now reflects the implemented production system.
+
+---
+
 # Architecture 1: Combo Screener — Complete Design Document
 
 ## Table of Contents
@@ -93,7 +97,7 @@ The 4-symbol hard limit (more causes memory/runtime errors in TradingView) elimi
 │  TTE Orchestrator                                              │
 │  ├── Periodically checks TradingView for stopped alerts        │
 │  ├── Restarts any alerts that stopped due to runtime errors    │
-│  └── Runs on a schedule (e.g., every 30-60 minutes)            │
+│  └── Runs every 5 minutes (configurable)                        │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -220,7 +224,7 @@ Step 6: Frontend polls signals endpoint
 ### Phase 3: Maintenance (Periodic)
 
 ```
-Step 1: TTE Orchestrator runs maintenance check (every 30-60 minutes)
+Step 1: TTE Orchestrator runs maintenance check (every 5 minutes)
 Step 2: Opens TradingView alerts panel via Selenium
 Step 3: Scans for stopped/errored alerts
 Step 4: For each stopped alert:

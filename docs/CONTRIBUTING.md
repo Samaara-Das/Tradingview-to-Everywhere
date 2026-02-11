@@ -325,9 +325,9 @@ Update documentation when:
 | Setup/configuration changes | `docs/SETUP.md` |
 | API endpoint changes | `docs/API.md` |
 | Database schema changes | `docs/DATABASE.md` |
-| Architecture/module changes | `docs/ARCHITECTURE.md` |
+| Architecture/module changes | `docs/legacy/ARCHITECTURE.md` |
 | New issues/solutions discovered | `docs/TROUBLESHOOTING.md` |
-| Implementation phase progress | `docs/PRD.md` |
+| Implementation phase progress | `docs/legacy/PRD.md` |
 
 ### Documentation Style
 
@@ -400,14 +400,14 @@ git push origin feature/my-feature
 ### Key Files for Reference
 
 - `CLAUDE.md` - Project overview and instructions
-- `docs/PRD.md` - Technical specification
-- `docs/ARCHITECTURE.md` - System design
+- `docs/legacy/PRD.md` - Technical specification
+- `docs/legacy/ARCHITECTURE.md` - System design
 - `AGENTS.md` - Lessons learned
 
 ---
 
 ## See Also
 
-- [Architecture](ARCHITECTURE.md) - System design reference
+- [Architecture](legacy/ARCHITECTURE.md) - System design reference
 - [Setup Guide](SETUP.md) - Development environment setup
 - [CLAUDE.md](../CLAUDE.md) - Project overview

@@ -1,3 +1,7 @@
+> **Note**: This document covers **Tiered Mode** only. For the overall TTE PRD covering Combo Mode (production), see [Combo PRD](../combo/PRD.md).
+
+---
+
 # TTE Tiered Architecture - Product Requirements Document
 
 **Version**: 1.0

@@ -1,3 +1,7 @@
+> **ARCHIVED** — All 89 implementation tasks completed Feb 2026. This document is kept as historical reference. For current combo mode documentation, see [PRD.md](PRD.md).
+
+---
+
 # Combo Screener Implementation Guide
 
 This document provides step-by-step implementation instructions for converting the TTE system from the two-tier architecture (NWE + OBDIV) to the single combo screener architecture. Each section specifies the exact file, exact changes, and exact code to write.

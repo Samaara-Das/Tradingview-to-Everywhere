@@ -1,3 +1,5 @@
+> ⚠️ **LEGACY**: This document describes the **Tiered mode** symbol rotation system. Production uses **Combo mode**, which has no symbol rotation — all ~1,054 symbols are monitored simultaneously via 352 persistent alerts (3 symbols per alert). See [Combo Architecture](../../../../docs/combo/ARCHITECTURE.md).
+
 # Symbol Management Reference
 
 Complete reference for Stock Buddy's priority rotation algorithm and symbol lifecycle management.

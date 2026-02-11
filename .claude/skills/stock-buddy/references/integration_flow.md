@@ -1,3 +1,7 @@
+> ⚠️ **LEGACY**: This document describes the **Tiered mode** integration flow. Production uses **Combo mode** — see [Combo Architecture](../../../../docs/combo/ARCHITECTURE.md) and [Combo PRD](../../../../docs/combo/PRD.md).
+>
+> **Combo mode summary**: 352 persistent alerts monitor ~1,054 symbols (3 per alert). Single combo screener (NWE + OB/FVG + Divergence) fires webhooks to `POST /api/tte/combo`. No batch rotation, no hot list, no alert create/delete cycles. Alerts run continuously with 5-minute maintenance checks.
+
 # Integration Flow Reference
 
 Complete reference for the TTE → Stock Buddy integration workflow.

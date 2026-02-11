@@ -145,6 +145,7 @@ Stock Buddy maintains its own MongoDB database for the tiered signal system. TTE
 | `tte_hot_list` | Symbols pending Tier 2 processing | `/api/tte/hot-symbols` |
 | `tte_signals` | Confirmed TTE signals | `/api/tte/signals` |
 | `tte_rotation_state` | Batch rotation tracking | `/api/tte/stats`, `/api/tte/init` |
+| `tte_live_signals` | Live combo mode signal state per symbol | `/api/tte/combo/signals` |
 
 ---
 
@@ -335,6 +336,76 @@ Stores the current batch rotation state (singleton document).
   "updated_at": "2024-01-15T10:30:00Z"
 }
 ```
+
+---
+
+#### 5. `tte_live_signals`
+
+Stores the current live signal state for combo mode. One document per symbol, upserted on every webhook.
+
+##### Document Schema
+
+| Field | Type | Description | Example |
+|-------|------|-------------|---------|
+| `_id` | string | Symbol name (used as document ID) | `"GBPAUD"` |
+| `symbol` | string | Trading symbol | `"GBPAUD"` |
+| `nwe` | array | NWE signal entries | See below |
+| `ob_fvg` | array | OB/FVG signal entries | See below |
+| `divergence` | array | Divergence signal entries | See below |
+| `last_updated` | Date | Last webhook update time | `"2026-02-11T12:00:00Z"` |
+
+##### NWE Entry Schema
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `zone` | string | NWE zone name (`lower_avg`, `lower_far`, `upper_avg`, `upper_far`) |
+| `type` | string | Signal direction (`bullish` or `bearish`) |
+| `overlapTimestamp` | number | Timestamp when price overlapped zone (ms) |
+| `timeframe` | string | Signal timeframe (`1H`, `H4`) |
+
+##### OB/FVG Entry Schema
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `zonetype` | string | Zone type (`OB`, `FVG`, `Breaker`) |
+| `subtype` | string | Sub-type (`unmitigated`, `unfilled`, etc.) |
+| `type` | string | Signal direction (`bullish` or `bearish`) |
+| `zoneTimestamp` | number | When the zone was created (ms) |
+| `overlapTimestamp` | number | When price overlapped the zone (ms) |
+| `timeframe` | string | Signal timeframe (`1H`, `H4`, `D1`) |
+
+##### Divergence Entry Schema
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `divType` | string | Divergence type (`Logic 2`) |
+| `type` | string | Signal direction (`bullish` or `bearish`) |
+| `timestamp` | number | Divergence detection time (ms) |
+| `timeframe` | string | Signal timeframe (`1H`, `H4`) |
+
+##### Example Document
+
+```json
+{
+  "_id": "GBPAUD",
+  "symbol": "GBPAUD",
+  "nwe": [
+    {"zone": "lower_avg", "type": "bullish", "overlapTimestamp": 1707264000000, "timeframe": "1H"}
+  ],
+  "ob_fvg": [
+    {"zonetype": "OB", "subtype": "unmitigated", "type": "bullish", "zoneTimestamp": 1707260400000, "overlapTimestamp": 1707264000000, "timeframe": "H4"}
+  ],
+  "divergence": [],
+  "last_updated": "2026-02-11T12:00:00Z"
+}
+```
+
+##### Upsert Behavior
+
+- Document `_id` is the symbol name (e.g., `"GBPAUD"`)
+- Each webhook **replaces** the entire signal state for included symbols
+- Symbols NOT in a webhook payload retain their previous state
+- Signals persist indefinitely — users judge freshness via `last_updated`
 
 ---
 
@@ -565,18 +636,19 @@ This prevents `symbol_settings.py` from loading symbols at import time, avoiding
 
 ## Database Comparison
 
-| Feature | TTE Local DB | Stock Buddy DB |
-|---------|--------------|----------------|
-| **Access** | Direct PyMongo | Via REST API |
-| **Signals** | Legacy format | Tiered (Level 1/2/3) |
-| **Symbol Management** | `symbols` collection | `tte_symbols` with priority |
-| **Rotation Tracking** | None | `tte_rotation_state` |
-| **Hot List** | None | `tte_hot_list` |
+| Feature | TTE Local DB | Stock Buddy DB (Tiered) | Stock Buddy DB (Combo) |
+|---------|--------------|-------------------------|------------------------|
+| **Access** | Direct PyMongo | Via REST API | Via REST API |
+| **Signals** | Legacy format | Tiered (Level 1/2/3) | Live state per symbol |
+| **Signal Collection** | `Point Capitalis signals` | `tte_signals` | `tte_live_signals` |
+| **Symbol Management** | `symbols` collection | `tte_symbols` with priority | N/A (all symbols) |
+| **Rotation Tracking** | None | `tte_rotation_state` | N/A (persistent alerts) |
+| **Hot List** | None | `tte_hot_list` | N/A |
 
 ---
 
 ## See Also
 
 - [Setup Guide](SETUP.md) - MongoDB configuration
-- [Architecture](ARCHITECTURE.md) - How database integrates with other components
+- [Architecture](legacy/ARCHITECTURE.md) - How database integrates with other components
 - [API Reference](API.md) - Stock Buddy API endpoints

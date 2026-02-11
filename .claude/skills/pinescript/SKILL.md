@@ -105,7 +105,7 @@ This project has specific indicators located in `Pine Script Code/`. Reference t
 
 | Indicator | File | Version | Purpose |
 |-----------|------|---------|---------|
-| **Premium Screener** | `TTE Screener.txt` | v5 | Multi-symbol scanner (up to 20 symbols) using `request.security()`. Generates JSON alerts for the Python backend. |
+| **Premium Screener** | `TTE Screener.txt` | v5 | Multi-symbol scanner (up to 4 symbols per alert, 3 in production) using `request.security()`. Generates JSON alerts for the Python backend. |
 | **OB & FVG** | `OB & FVG.txt` | v6 | Order Block and Fair Value Gap detection. Tracks institutional supply/demand zones, liquidity sweeps, breakers. Uses UDTs and arrays extensively. |
 | **Kernel AO Divergence** | `Kenel AO Divergence.txt` | v5 | Divergence detection using kernel AO oscillator. Draws swing highs/lows, range shifts, Nadaraya-Watson kernel line. Uses external libraries. |
 | **Multi Oscillator Swing** | `Multi Oscillator_swing high low.txt` | v5 | Swing high/low detection with selectable oscillators (AO, MACD 4C, RSI, Kernel AO). Includes same-side divergence logic. |

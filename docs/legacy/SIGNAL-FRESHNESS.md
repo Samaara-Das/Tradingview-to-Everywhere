@@ -1,3 +1,5 @@
+> ⚠️ **LEGACY**: This document describes signal freshness for the **Tiered mode** (NWE → OBDIV two-phase workflow with batches of 20). Production uses **Combo mode** with 352 persistent alerts monitoring ~1,054 symbols (3 per alert) continuously. Combo mode has no batch rotation — all symbols are monitored simultaneously, so signal freshness depends only on TradingView's webhook delivery timing, not scan order. See [Combo Architecture](../combo/ARCHITECTURE.md).
+
 # Signal Freshness and Dashboard Timing
 
 Understanding how the TTE tiered architecture affects signal timing, freshness, and when signals become stale.
@@ -591,7 +593,7 @@ Response includes:
 
 ## See Also
 
-- [Architecture](ARCHITECTURE.md) - System overview
-- [API Reference](API.md) - Complete endpoint documentation
-- [Database](DATABASE.md) - Schema definitions
-- [Troubleshooting](TROUBLESHOOTING.md) - Common issues
+- [Architecture](ARCHITECTURE.md) - System overview (legacy)
+- [API Reference](../API.md) - Complete endpoint documentation
+- [Database](../DATABASE.md) - Schema definitions
+- [Troubleshooting](../TROUBLESHOOTING.md) - Common issues

@@ -288,6 +288,68 @@ Common issues and solutions for TTE.
 
 ---
 
+## Combo Mode Issues
+
+### Alert Creation Failures
+
+**Symptoms**:
+- Error: `Failed to create webhook alert`
+- Alert count lower than expected after setup
+
+**Solutions**:
+1. Check TradingView alert limit (Premium allows up to 400)
+2. Use `--fresh` flag to delete existing alerts before setup
+3. Check for TradingView screener runtime errors (red indicator)
+4. Verify `combo_settings.yaml` has correct settings
+5. Check `combo_progress.json` for resume capability
+
+---
+
+### Browser Session Limits
+
+**Symptoms**:
+- Error: `Session limit exceeded`
+- Second browser fails to start
+- TradingView shows "Maximum number of connections" warning
+
+**Cause**: TradingView Premium allows only 2 simultaneous sessions.
+
+**Solutions**:
+1. Set `num_browsers: 2` in `combo_settings.yaml` (not higher)
+2. Close any other TradingView tabs/windows
+3. Ensure no other TTE instance is running
+
+---
+
+### Maintenance Restart Failures
+
+**Symptoms**:
+- Inactive alerts not being restarted
+- Alert count decreasing over time
+
+**Solutions**:
+1. Verify maintenance is running (`--maintain-only` mode)
+2. Check if alerts sidebar is accessible
+3. Look for "Restart all inactive" option in alerts settings
+4. If alerts are erroring repeatedly, check Pine Script for runtime issues
+
+---
+
+### Combo Webhook Not Received
+
+**Symptoms**:
+- Alerts are active but Stock Buddy shows no signals
+- `tte_live_signals` collection empty
+
+**Solutions**:
+1. Verify webhook URL: `https://stock-buddy-app.vercel.app/api/tte/combo`
+2. Check `COMBO_WEBHOOK_URL` in `.env`
+3. Test webhook manually with curl (see API.md)
+4. Check Vercel function logs for errors
+5. Verify the combo indicator has active signals (check TradingView)
+
+---
+
 ## Log Analysis Guide
 
 ### Log File Location
@@ -444,5 +506,5 @@ If issues persist:
 ## See Also
 
 - [Setup Guide](SETUP.md) - Configuration reference
-- [Architecture](ARCHITECTURE.md) - System internals
+- [Architecture](legacy/ARCHITECTURE.md) - System internals
 - [API Reference](API.md) - API troubleshooting
