@@ -22,7 +22,7 @@ alerts:
 
 # Webhook settings
 webhook:
-  url: ""                            # Set via COMBO_WEBHOOK_URL env var (takes precedence over this)
+  url: "https://stock-buddy-app.vercel.app/api/tte/combo"                            # Set via COMBO_WEBHOOK_URL env var (takes precedence over this)
 
 # Maintenance settings
 maintenance:
