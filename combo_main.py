@@ -1,9 +1,8 @@
 """
 TTE Combo Mode — Entry Point
 
-Creates 264 persistent webhook alerts on TradingView (4 symbols each, ~1054 total),
-using parallel browser instances to reduce setup time, then runs maintenance every 5 minutes
-to restart inactive alerts.
+Creates persistent webhook alerts on TradingView (3 symbols each, ~1054 total),
+then runs maintenance every 5 minutes to restart inactive alerts.
 
 Usage:
     python combo_main.py                  # Full setup + maintenance
@@ -21,8 +20,7 @@ os.environ["SKIP_MONGODB_SYMBOLS"] = "true"
 import argparse
 import signal
 import sys
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from time import sleep
+from time import sleep, time
 
 import logger_setup
 from combo_config import ComboConfig
@@ -48,6 +46,8 @@ def _signal_handler(signum, frame):
 
 signal.signal(signal.SIGINT, _signal_handler)
 signal.signal(signal.SIGTERM, _signal_handler)
+if hasattr(signal, "SIGBREAK"):
+    signal.signal(signal.SIGBREAK, _signal_handler)
 
 
 # ---------------------------------------------------------------------------
@@ -80,52 +80,17 @@ def chunk_symbols(symbols: list[str], size: int = 3) -> list[list[str]]:
 
 
 # ---------------------------------------------------------------------------
-# Multi-browser architecture
+# Browser setup
 # ---------------------------------------------------------------------------
 
 
-def assign_batches_to_browsers(batches: list, num_browsers: int) -> list[list]:
-    """Pre-divide batches into equal non-overlapping ranges.
+def create_browser(config: ComboConfig, args) -> Browser:
+    """Create and initialize a single Browser instance."""
+    logger.info("Initializing browser...")
 
-    Example with 258 batches, 3 browsers:
-      Browser 0: batches[0:86]    (86 batches)
-      Browser 1: batches[86:172]  (86 batches)
-      Browser 2: batches[172:258] (86 batches)
-    """
-    batch_size = len(batches) // num_browsers
-    remainder = len(batches) % num_browsers
-
-    ranges = []
-    start = 0
-    for i in range(num_browsers):
-        # Distribute remainder across first few browsers
-        size = batch_size + (1 if i < remainder else 0)
-        ranges.append(batches[start : start + size])
-        start += size
-
-    return ranges
-
-
-def create_browser_instance(browser_id: int, config: ComboConfig, args) -> Browser:
-    """Create a Browser instance with unique Chrome profile for parallel execution."""
-    logger.info(f"Browser {browser_id}: Initializing...")
-
-    # Only delete alerts on the first browser to avoid race conditions
-    # Subsequent browsers will see alerts already deleted
-    start_fresh = True if browser_id == 0 else False
-
+    start_fresh = getattr(args, "fresh", False)
     if start_fresh:
-        logger.info("Browser 0: Will delete all existing alerts before setup")
-
-    # Use same profile but different user data dir suffix for each browser
-    # This allows parallel execution without profile conflicts
-    chrome_profile = "Profile 4"  # All browsers use Profile 4
-    user_data_suffix = f"_browser{browser_id}" if browser_id > 0 else ""
-    logger.info(
-        f"Browser {browser_id}: Using Chrome profile '{chrome_profile}' with suffix '{user_data_suffix}'"
-    )
-
-    # Session copying happens earlier in main() before any browser launches
+        logger.info("Will delete all existing alerts before setup (--fresh)")
 
     browser = Browser(
         keep_open=True,
@@ -145,57 +110,51 @@ def create_browser_instance(browser_id: int, config: ComboConfig, args) -> Brows
         layout_name=config.layout_name,
         chart_timeframe=config.chart_timeframe,
         bar_style=config.bar_style,
-        chrome_profile=chrome_profile,
-        user_data_suffix=user_data_suffix,
-        browser_id=browser_id,
+        headless=config.headless,
     )
 
     if not browser.init_succeeded:
-        raise Exception(f"Browser {browser_id}: Initialization failed")
+        raise Exception("Browser initialization failed")
 
     if not browser.setup_tv():
-        raise Exception(f"Browser {browser_id}: TradingView setup failed")
+        raise Exception("TradingView setup failed")
 
-    logger.info(f"Browser {browser_id}: Ready")
+    logger.info("Browser ready")
     return browser
 
 
+# ---------------------------------------------------------------------------
+# Alert creation
+# ---------------------------------------------------------------------------
+
+
 def run_alert_creation(
-    browser_id: int,
     browser: Browser,
-    assigned_batches: list[list[str]],
+    batches: list[list[str]],
     config: ComboConfig,
 ) -> dict:
-    """Create alerts for assigned batches using an already-initialized browser.
-
-    This runs in its own thread for parallel alert creation.
-    """
+    """Create alerts for all batches sequentially."""
     completed = 0
     failed = []
+    batch_times = []
+    creation_start = time()
 
     try:
-        for i, batch in enumerate(assigned_batches):
+        for i, batch in enumerate(batches):
             if _shutdown_requested:
-                logger.info(f"Browser {browser_id}: Shutdown requested — stopping")
+                logger.info("Shutdown requested — stopping")
                 break
 
-            logger.info(
-                f"Browser {browser_id}: Batch {i+1}/{len(assigned_batches)}: {batch}"
-            )
+            batch_start = time()
+            logger.info(f"Batch {i+1}/{len(batches)}: {batch}")
 
             # Change chart symbol to match batch
-            logger.info(
-                f"[DEBUG] Browser {browser_id}: BEFORE symbol change - attempting to change to {batch[0]}"
-            )
+            t0 = time()
             symbol_change_result = browser.open_chart.change_symbol(batch[0])
-            logger.info(
-                f"[DEBUG] Browser {browser_id}: AFTER symbol change - result={symbol_change_result}, target={batch[0]}"
-            )
+            t_symbol = time() - t0
 
             if not symbol_change_result:
-                logger.error(
-                    f"Browser {browser_id}: Failed to change chart symbol to {batch[0]}"
-                )
+                logger.error(f"Failed to change chart symbol to {batch[0]}")
                 failed.append(
                     {
                         "batch": i,
@@ -206,23 +165,25 @@ def run_alert_creation(
                 continue
 
             # Change settings
+            t0 = time()
             if not browser.change_settings(batch, config.screener_shorttitle):
-                logger.error(f"Browser {browser_id}: Failed to change settings")
+                logger.error("Failed to change settings")
                 failed.append(
                     {"batch": i, "symbols": batch, "error": "change_settings_failed"}
                 )
                 continue
+            t_settings = time() - t0
 
-            sleep(3)  # Wait for screener recalculation
+            t0 = time()
+            sleep(config.recalc_wait)  # Wait for screener recalculation
+            t_recalc = time() - t0
 
             # Check for screener errors
+            t0 = time()
             if not browser.is_no_error(config.screener_shorttitle):
-                logger.warning(
-                    f"Browser {browser_id}: Screener has errors, attempting recovery"
-                )
+                logger.warning("Screener has errors, attempting recovery")
 
                 # Recovery attempt
-                # Get fresh indicator reference for reupload
                 indicator_for_reupload = browser._safe_indicator_access(
                     config.screener_shorttitle
                 )
@@ -231,20 +192,17 @@ def run_alert_creation(
                     config.screener_name,
                     config.screener_shorttitle,
                 ):
-                    logger.error(f"Browser {browser_id}: Failed to re-upload screener")
+                    logger.error("Failed to re-upload screener")
                     failed.append(
                         {"batch": i, "symbols": batch, "error": "reupload_failed"}
                     )
                     continue
 
-                # Reinitialize reference
-                sleep(2)  # Wait for indicator to fully load
+                sleep(config.recalc_wait)  # Wait for indicator to fully load
 
                 # Reapply settings
                 if not browser.change_settings(batch, config.screener_shorttitle):
-                    logger.error(
-                        f"Browser {browser_id}: Failed to reapply settings after recovery"
-                    )
+                    logger.error("Failed to reapply settings after recovery")
                     failed.append(
                         {
                             "batch": i,
@@ -254,13 +212,11 @@ def run_alert_creation(
                     )
                     continue
 
-                sleep(3)  # Wait for recalculation
+                sleep(config.recalc_wait)  # Wait for recalculation
 
                 # Recheck errors
                 if not browser.is_no_error(config.screener_shorttitle):
-                    logger.error(
-                        f"Browser {browser_id}: Screener still has errors after recovery"
-                    )
+                    logger.error("Screener still has errors after recovery")
                     failed.append(
                         {
                             "batch": i,
@@ -270,10 +226,26 @@ def run_alert_creation(
                     )
                     continue
 
-            # Click indicator
-            indicator = browser._safe_indicator_access(config.screener_shorttitle)
+            t_error_check = time() - t0
+
+            # Click indicator (is_no_error already validated it exists; get a fresh reference)
+            try:
+                indicators = browser.driver.find_elements(
+                    By.CSS_SELECTOR, 'div[data-qa-id="legend-source-item"]'
+                )
+                indicator = None
+                for ind in indicators:
+                    name = ind.find_element(
+                        By.CSS_SELECTOR, 'div[class="title-l31H9iuA"]'
+                    ).text
+                    if name == config.screener_shorttitle:
+                        indicator = ind
+                        break
+            except Exception:
+                indicator = None
+
             if not indicator:
-                logger.error(f"Browser {browser_id}: Indicator access failed")
+                logger.error("Indicator access failed")
                 failed.append(
                     {"batch": i, "symbols": batch, "error": "indicator_access_failed"}
                 )
@@ -282,50 +254,49 @@ def run_alert_creation(
             indicator.click()
 
             # Create alert
+            t0 = time()
             success, error = browser.create_webhook_alert(
                 config.screener_shorttitle, config.webhook_url
             )
+            t_alert = time() - t0
 
             if success:
                 completed += 1
-                logger.info(f"Browser {browser_id}: Alert created for {batch}")
+                t_batch = time() - batch_start
+                batch_times.append(t_batch)
+                logger.info(
+                    f"Alert created for {batch} "
+                    f"[sym={t_symbol:.1f}s set={t_settings:.1f}s recalc={t_recalc:.1f}s "
+                    f"err={t_error_check:.1f}s alert={t_alert:.1f}s total={t_batch:.1f}s]"
+                )
             else:
                 # Retry with recovery
-                logger.warning(
-                    f"Browser {browser_id}: First attempt failed, retrying with recovery..."
-                )
+                logger.warning("First attempt failed, retrying with recovery...")
 
-                # Re-upload screener
-                # Get fresh indicator reference for reupload
                 retry_indicator = browser._safe_indicator_access(
                     config.screener_shorttitle
                 )
                 if retry_indicator and browser.reupload_indicator(
                     retry_indicator, config.screener_name, config.screener_shorttitle
                 ):
-                    sleep(2)
+                    sleep(config.recalc_wait)
 
-                    # Reapply settings
                     if browser.change_settings(batch, config.screener_shorttitle):
-                        sleep(3)
+                        sleep(config.recalc_wait)
 
-                        # Click indicator again
                         indicator = browser._safe_indicator_access(
                             config.screener_shorttitle
                         )
                         if indicator:
                             indicator.click()
 
-                            # Retry alert creation
                             success, error = browser.create_webhook_alert(
                                 config.screener_shorttitle, config.webhook_url
                             )
 
                             if success:
                                 completed += 1
-                                logger.info(
-                                    f"Browser {browser_id}: Retry succeeded for {batch}"
-                                )
+                                logger.info(f"Retry succeeded for {batch}")
                             else:
                                 failed.append(
                                     {
@@ -334,9 +305,7 @@ def run_alert_creation(
                                         "error": f"retry_{error}",
                                     }
                                 )
-                                logger.warning(
-                                    f"Browser {browser_id}: Retry failed — {error}"
-                                )
+                                logger.warning(f"Retry failed — {error}")
                         else:
                             failed.append(
                                 {
@@ -345,9 +314,7 @@ def run_alert_creation(
                                     "error": "retry_indicator_access_failed",
                                 }
                             )
-                            logger.error(
-                                f"Browser {browser_id}: Retry failed - indicator access failed"
-                            )
+                            logger.error("Retry failed - indicator access failed")
                     else:
                         failed.append(
                             {
@@ -356,43 +323,38 @@ def run_alert_creation(
                                 "error": "retry_settings_failed",
                             }
                         )
-                        logger.error(
-                            f"Browser {browser_id}: Retry failed - settings reapplication failed"
-                        )
+                        logger.error("Retry failed - settings reapplication failed")
                 else:
                     failed.append(
                         {"batch": i, "symbols": batch, "error": "retry_reupload_failed"}
                     )
-                    logger.error(
-                        f"Browser {browser_id}: Retry failed - re-upload failed"
-                    )
+                    logger.error("Retry failed - re-upload failed")
 
             sleep(config.alert_creation_delay)
 
     except Exception as e:
-        logger.exception(f"Browser {browser_id}: Fatal error during alert creation")
+        logger.exception("Fatal error during alert creation")
         return {
-            "browser_id": browser_id,
             "completed": 0,
             "failed": [],
-            "total": len(assigned_batches),
+            "total": len(batches),
             "error": str(e),
         }
-    finally:
-        # Cleanup - always quit driver, even on error or shutdown
-        try:
-            browser.driver.quit()
-            logger.info(f"Browser {browser_id}: Driver closed successfully")
-        except Exception as e:
-            logger.debug(
-                f"Browser {browser_id}: Error during quit (expected during shutdown): {e}"
-            )
+
+    # Log timing summary
+    total_elapsed = time() - creation_start
+    if batch_times:
+        avg_batch = sum(batch_times) / len(batch_times)
+        logger.info(
+            f"Timing summary — "
+            f"{len(batch_times)} batches in {total_elapsed:.0f}s, "
+            f"avg {avg_batch:.1f}s/batch"
+        )
 
     return {
-        "browser_id": browser_id,
         "completed": completed,
         "failed": failed,
-        "total": len(assigned_batches),
+        "total": len(batches),
     }
 
 
@@ -579,18 +541,19 @@ def main():
         print(f"  Layout: {config.layout_name}", flush=True)
         print(f"  Chart timeframe: {config.chart_timeframe}", flush=True)
         print(f"  Bar style: {config.bar_style}", flush=True)
+        print(f"  Headless: {config.headless}", flush=True)
         print(f"  Screener: {config.screener_shorttitle}", flush=True)
         print(f"  Webhook URL: {config.webhook_url}", flush=True)
         print(f"  Batch size: {config.batch_size}", flush=True)
-        print(f"  Num browsers: {config.num_browsers}", flush=True)
+        print(f"  Creation delay: {config.alert_creation_delay}s", flush=True)
+        print(f"  Recalc wait: {config.recalc_wait}s", flush=True)
         print(f"  Maintenance interval: {config.maintenance_interval}s", flush=True)
         sys.exit(0)
 
     # --- Maintain only mode ---
     if args.maintain_only:
         logger.info("Running maintenance only (--maintain-only)")
-        # Create single browser for maintenance
-        browser = create_browser_instance(0, config, args)
+        browser = create_browser(config, args)
         run_maintenance(browser, config.maintenance_interval)
         return
 
@@ -605,116 +568,39 @@ def main():
     batches = chunk_symbols(all_symbols, config.batch_size)
     logger.info(f"Created {len(batches)} batches of {config.batch_size} symbols")
 
-    # --- Divide batches across browsers ---
-    batch_ranges = assign_batches_to_browsers(batches, config.num_browsers)
+    # --- Initialize browser ---
+    browser = create_browser(config, args)
 
-    for i, br in enumerate(batch_ranges):
-        if br:
-            first_idx = batches.index(br[0])
-            last_idx = batches.index(br[-1])
-            logger.info(
-                f"Browser {i}: assigned {len(br)} batches (indices {first_idx}-{last_idx})"
-            )
+    # --- Run alert creation ---
+    logger.info("Starting alert creation...")
+    result = run_alert_creation(browser, batches, config)
 
-    # --- Initialize browsers sequentially (avoid race conditions) ---
-    logger.info(f"Initializing {config.num_browsers} browsers sequentially...")
-    browsers = []
-
-    for browser_id in range(config.num_browsers):
-        try:
-            browser = create_browser_instance(browser_id, config, args)
-            browsers.append(browser)
-            logger.info(f"Browser {browser_id}: Initialized successfully")
-            sleep(2)  # Small delay between browser startups to avoid conflicts
-        except Exception as e:
-            logger.error(f"Browser {browser_id}: Initialization failed - {e}")
-            # Continue with remaining browsers
-            browsers.append(None)
-
-    # Filter out failed browsers
-    active_browsers = [
-        (i, b, batch_ranges[i]) for i, b in enumerate(browsers) if b is not None
-    ]
-
-    if not active_browsers:
-        logger.error("All browsers failed to initialize")
-        sys.exit(1)
-
-    logger.info(f"{len(active_browsers)}/{config.num_browsers} browsers ready")
-
-    # --- Run alert creation in parallel ---
-    logger.info("Starting parallel alert creation...")
-
-    # Create executor explicitly for proper shutdown handling
-    executor = ThreadPoolExecutor(max_workers=len(active_browsers))
-    results = []
-
-    try:
-        futures = []
-
-        for browser_id, browser, batches in active_browsers:
-            future = executor.submit(
-                run_alert_creation,
-                browser_id,
-                browser,
-                batches,
-                config,
-            )
-            futures.append(future)
-
-        # Collect results
-        for future in as_completed(futures):
-            try:
-                result = future.result()
-                results.append(result)
-                logger.info(
-                    f"Browser {result['browser_id']} finished: {result['completed']}/{result['total']} succeeded"
-                )
-            except Exception as e:
-                logger.error(f"Future execution failed: {e}")
-    finally:
-        # Graceful executor shutdown: wait for running tasks, don't cancel futures
-        executor.shutdown(wait=True, cancel_futures=False)
-        logger.info("ThreadPoolExecutor shutdown complete")
-
-    # --- Aggregate stats ---
-    total_completed = sum(r["completed"] for r in results)
-    total_batches = sum(r["total"] for r in results)
-    total_failed = sum(len(r["failed"]) for r in results)
-
-    logger.info(
-        f"All browsers finished: {total_completed}/{total_batches} total alerts created"
-    )
-    if total_failed > 0:
-        logger.warning(f"{total_failed} batches failed across all browsers")
-        for r in results:
-            if r["failed"]:
-                logger.warning(f"Browser {r['browser_id']} failures:")
-                for fb in r["failed"]:
-                    logger.warning(
-                        f"  Batch {fb['batch']}: {fb['symbols']} — {fb['error']}"
-                    )
+    logger.info(f"Finished: {result['completed']}/{result['total']} alerts created")
+    if result["failed"]:
+        logger.warning(f"{len(result['failed'])} batches failed:")
+        for fb in result["failed"]:
+            logger.warning(f"  Batch {fb['batch']}: {fb['symbols']} — {fb['error']}")
 
     # --- Setup only mode ---
     if args.setup_only:
         logger.info("Setup complete (--setup-only). Exiting.")
+        try:
+            browser.driver.quit()
+        except Exception:
+            pass
         return
 
-    # --- Maintenance loop ---
+    # --- Maintenance loop (reuse the same browser) ---
     logger.info("Starting maintenance mode...")
-    maintenance_browser = create_browser_instance(0, config, args)
 
     try:
-        run_maintenance(maintenance_browser, config.maintenance_interval)
+        run_maintenance(browser, config.maintenance_interval)
     finally:
-        # Cleanup maintenance browser
         try:
-            maintenance_browser.driver.quit()
-            logger.info("Maintenance browser: Driver closed successfully")
-        except Exception as e:
-            logger.debug(
-                f"Maintenance browser: Error during quit (expected during shutdown): {e}"
-            )
+            browser.driver.quit()
+            logger.info("Browser closed successfully")
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":

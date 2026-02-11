@@ -184,8 +184,10 @@ class OpenChart:
                 )
 
                 # Wait for chart to load
-                sleep(2)  # Increased from 1.5s to 2s for safety
-                entry_chart_logger.info(f"[DEBUG] Waited 2s for chart to load")
+                sleep(
+                    1
+                )  # Symbol already confirmed by WebDriverWait; 1s for chart rendering
+                entry_chart_logger.info(f"[DEBUG] Waited 1s for chart to load")
 
                 return True
             else:

@@ -1,22 +1,19 @@
 # Task Context Tracker
 
 **Last Updated**: 2026-02-11
-**Current Task**: Documentation complete. Next: Run TTE fresh (#109) or commit docs.
-**Last Session**: Comprehensive documentation update across TTE + Stock Buddy (15 files)
+**Current Task**: Maintenance loop improvements complete. Next: Run TTE fresh (#109).
+**Last Session**: Added alert log clearing + improved maintenance loop in combo_main.py
 **Active Branch**: `combo-architecture`
 
 ---
 
 ## Task Progress Summary
 
-**Completed Count**: 91 tasks | **In Progress**: 0 | **Pending**: 6 tasks
+**Completed Count**: 93 tasks | **In Progress**: 0 | **Pending**: 4 tasks
 
 **Pending Tasks**:
 | ID | Task | Status | Notes |
 |----|------|--------|-------|
-| 105 | Verify alert refresh mechanism on TradingView | pending | |
-| 106 | Update TTE to clear/restart alerts every 5 minutes | pending | blocked by #105 |
-| 107 | Clear TradingView alert log every 5 minutes | pending | |
 | 109 | Run TTE fresh to create alerts for all 1,032 symbols | pending | |
 | 81 | Headless Chrome mode | pending | Future enhancement |
 | 86 | Build TTE GUI executable (.exe) | pending | Future enhancement |
@@ -25,6 +22,25 @@
 ---
 
 ## Session History
+
+### Session: 2026-02-11 (Maintenance Loop Improvements — Tasks #106, #107)
+
+**Goal**: Add alert log clearing and improve the maintenance loop in combo_main.py
+
+**Changes to `combo_main.py`**:
+1. Added `clear_alert_log(driver)` — opens log tab, clicks clear button, confirms dialog
+2. Updated `run_maintenance()` — now does: page refresh → restart inactive alerts → clear alert log, wrapped in try/except
+3. Fixed `restart_inactive_alerts()` — handle disabled "Restart all inactive" button gracefully (was causing TimeoutException when no inactive alerts existed)
+   - Old selector used exact class match that missed `isDisabled-jFqVJoPk` class
+   - New approach: partial class selector (`div.item-jFqVJoPk.withIcon-jFqVJoPk`) + check for `isDisabled` in class string
+
+**Bug found during testing**: When no alerts are inactive, the "Restart all inactive" dropdown button has `isDisabled-jFqVJoPk` class, causing the old exact-match CSS selector to fail with a 10s timeout. Fixed by using partial class matching and checking for disabled state.
+
+**Verified with `test_maintenance.py`** (deleted after testing): All 3 steps passed — refresh OK, restart correctly detected disabled button, log cleared successfully.
+
+**Commit**: `75036c9` — pushed to `combo-architecture`
+
+---
 
 ### Session: 2026-02-11 (Documentation Update — Task #108)
 
@@ -172,7 +188,5 @@ python combo_main.py --validate     # Validate config only
 
 ## Next Steps
 
-1. **Commit documentation changes** — 15 files modified across TTE + Stock Buddy repos
-2. **Run TTE fresh** (Task #109) — Create alerts for all 1,032 symbols
-3. **Alert maintenance** (Tasks #105-107) — Verify refresh mechanism, implement clear/restart
-4. **Optional enhancements** — Headless Chrome (#81), GUI executable (#86), parallel optimization (#90)
+1. **Run TTE fresh** (Task #109) — Create alerts for all 1,032 symbols
+2. **Optional enhancements** — Headless Chrome (#81), GUI executable (#86), parallel optimization (#90)
