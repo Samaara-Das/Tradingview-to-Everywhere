@@ -35,6 +35,7 @@ class ComboConfig:
     layout_name: str = _yaml.get("chart", {}).get("layout_name", "Screener")
     chart_timeframe: str = _yaml.get("chart", {}).get("chart_timeframe", "1 hour")
     bar_style: str = _yaml.get("chart", {}).get("bar_style", "candle")
+    headless: bool = _yaml.get("chart", {}).get("headless", False)
 
     # Screener indicator
     screener_shorttitle: str = _yaml.get("screener", {}).get("shorttitle", "Screener")
@@ -42,10 +43,8 @@ class ComboConfig:
 
     # Alert creation
     batch_size: int = _yaml.get("alerts", {}).get("batch_size", 4)
-    num_browsers: int = int(
-        os.getenv("COMBO_NUM_BROWSERS", _yaml.get("alerts", {}).get("num_browsers", 3))
-    )
-    alert_creation_delay: float = _yaml.get("alerts", {}).get("creation_delay", 3.0)
+    alert_creation_delay: float = _yaml.get("alerts", {}).get("creation_delay", 1.5)
+    recalc_wait: float = _yaml.get("alerts", {}).get("recalc_wait", 2.0)
 
     # Webhook — env var takes precedence over yaml
     webhook_url: str = os.getenv(
@@ -76,8 +75,8 @@ class ComboConfig:
         if self.batch_size < 1 or self.batch_size > 4:
             errors.append("batch_size must be between 1 and 4 (TradingView hard limit)")
 
-        if self.num_browsers < 1 or self.num_browsers > 5:
-            errors.append("num_browsers must be between 1 and 5")
+        if self.recalc_wait < 0.5:
+            errors.append("recalc_wait must be at least 0.5 seconds")
 
         if self.maintenance_interval < 60:
             errors.append("maintenance_interval must be at least 60 seconds")

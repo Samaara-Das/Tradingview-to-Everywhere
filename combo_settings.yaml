@@ -7,6 +7,7 @@ chart:
   layout_name: "Screener"            # TradingView layout to switch to
   chart_timeframe: "1 minute"               # Chart timeframe (must match dropdown label exactly: "1 minute", "5 minutes", "15 minutes", "1 hour", "4 hours", "1 day", etc.)
   bar_style: "line"                # Bar style data-value: "candle", "line", "area", "ha" (Heikin Ashi), "hollowCandle", etc.
+  headless: false                   # Run Chrome in headless mode (no visible window)
 
 # Screener indicator settings
 screener:
@@ -16,8 +17,8 @@ screener:
 # Alert creation settings
 alerts:
   batch_size: 3                      # Symbols per alert (reduced from 4 for better 1-min chart performance)
-  num_browsers: 2                    # Parallel browser instances (TradingView limits to 2 simultaneous sessions)
-  creation_delay: 3.0                # Seconds to wait between batches
+  creation_delay: 1.5                # Seconds to wait between batches
+  recalc_wait: 1.5                   # Seconds to wait for screener recalculation (minimum 0.5)
   start_fresh: false                 # Delete all existing alerts before setup (override with --fresh flag)
 
 # Webhook settings

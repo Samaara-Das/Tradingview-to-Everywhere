@@ -61,7 +61,7 @@ python combo_main.py               # Combo mode (production)
 - **4-symbol hard limit**: More causes TradingView memory/runtime errors (using 3 in production)
 - **352 persistent alerts**: ~1,054 symbols ÷ 3 = 352 alerts
 - **Timeframe mismatch**: Variable names (TF_H4/TF_D1/TF_W1) are legacy; production is 1H/H4/D1
-- **Parallel setup**: Use 2 browser instances to reduce setup time
+- **Single browser**: Alerts created sequentially with one Chrome instance
 - **Maintenance**: Every 5 mins, call `restart_inactive_alerts()` from `handle_alerts.py:240-303`
 - **Chart**: 1-minute timeframe, line bar style (for minimal resource usage)
 
@@ -84,12 +84,11 @@ All combo mode options are configured in `combo_settings.yaml`. Edit this file t
 | Bar style | `chart.bar_style` | "line" | Chart bar style data-value (candle, line, ha, etc.) |
 | Screener | `screener.shorttitle` | "Screener" | Indicator short title on chart |
 | Batch size | `alerts.batch_size` | 3 | Symbols per alert (hard limit) |
-| Num browsers | `alerts.num_browsers` | 2 | Parallel browser instances |
-| Creation delay | `alerts.creation_delay` | 3.0 | Seconds between batches |
+| Creation delay | `alerts.creation_delay` | 1.5 | Seconds between batches |
 | Maintenance | `maintenance.interval` | 300 | Seconds between restart cycles |
 
 ### Environment Variables
-See `env.py` and `.env` file. Key variables: `CHROME_PROFILES_PATH`, `TRADINGVIEW_EMAIL`, `TRADINGVIEW_PASSWORD`, `MONGODB_PWD`, `COMBO_WEBHOOK_URL`, `COMBO_NUM_BROWSERS`
+See `env.py` and `.env` file. Key variables: `CHROME_PROFILES_PATH`, `TRADINGVIEW_EMAIL`, `TRADINGVIEW_PASSWORD`, `MONGODB_PWD`, `COMBO_WEBHOOK_URL`
 
 ## Critical Constants
 

@@ -85,6 +85,7 @@ class Browser:
         chrome_profile: str = None,
         user_data_suffix: str = "",
         browser_id: int = 0,
+        headless: bool = False,
     ) -> None:
         print("[DEBUG] Browser.__init__() called", flush=True)
 
@@ -167,6 +168,17 @@ class Browser:
             "--disable-software-rasterizer"
         )  # Helps with crashes
 
+        # Prevent Chrome from throttling backgrounded/occluded windows (critical for parallel browsers)
+        chrome_options.add_argument("--disable-background-timer-throttling")
+        chrome_options.add_argument("--disable-renderer-backgrounding")
+        chrome_options.add_argument("--disable-backgrounding-occluded-windows")
+
+        # Headless mode (Chrome 109+ new headless)
+        if headless:
+            chrome_options.add_argument("--headless=new")
+            chrome_options.add_argument("--window-size=1920,1080")
+            print("[DEBUG] Running in headless mode", flush=True)
+
         # Add unique remote debugging port per browser_id to avoid conflicts
         if chrome_profile is not None:
             debug_port = 9222 + browser_id
@@ -217,6 +229,7 @@ class Browser:
         self.layout_name = layout_name or LAYOUT_NAME
         self.chart_timeframe = chart_timeframe or CHART_TIMEFRAME
         self.bar_style = bar_style or "line"  # Legacy default
+        self.headless = headless
         self.init_succeeded = True
         self.tv_email = ""
         self.tv_password = ""
@@ -232,7 +245,8 @@ class Browser:
         """This opens `url` and maximizes the window"""
         try:
             self.driver.get(url)
-            self.driver.maximize_window()
+            if not getattr(self, "headless", False):
+                self.driver.maximize_window()
             return True
         except WebDriverException:
             open_tv_logger.exception(f"Cannot open this url: {url}. Error: ")
@@ -241,7 +255,8 @@ class Browser:
     def sign_in(self):
         """This signs in to TradingView if logged out"""
         self.driver.get("https://www.tradingview.com/accounts/signin/")
-        self.driver.maximize_window()
+        if not getattr(self, "headless", False):
+            self.driver.maximize_window()
         try:
             # If the products menu is found, the user is signed in
             WebDriverWait(self.driver, 5).until(
@@ -360,40 +375,12 @@ class Browser:
 
         # delete all alerts
         if self.start_fresh:
-            print(
-                "[DEBUG] setup_tv: start_fresh=True, deleting all alerts...", flush=True
-            )
-            open_tv_logger.info(
-                "[DEBUG] setup_tv: Attempting to delete all existing alerts (start_fresh mode)"
-            )
             if not self.delete_all_alerts():
-                print(
-                    "[DEBUG] setup_tv: First delete attempt failed, retrying...",
-                    flush=True,
-                )
-                open_tv_logger.warning(
-                    "[DEBUG] setup_tv: First alert deletion failed, retrying..."
-                )
                 self.delete_all_alerts()  # try once more
                 if not self.no_alerts():
                     open_tv_logger.error("Cannot delete all alerts. Exiting function")
-                    print(
-                        "[DEBUG] setup_tv: FAILED to delete all alerts after retry",
-                        flush=True,
-                    )
                     return False
-            print("[DEBUG] setup_tv: All alerts deleted successfully", flush=True)
-            open_tv_logger.info(
-                "[DEBUG] setup_tv: All existing alerts deleted successfully"
-            )
-        else:
-            print(
-                "[DEBUG] setup_tv: start_fresh=False, skipping alert deletion",
-                flush=True,
-            )
-            open_tv_logger.info(
-                "[DEBUG] setup_tv: start_fresh=False, preserving existing alerts"
-            )
+            open_tv_logger.info("All existing alerts deleted successfully")
 
         # --- Combo mode: single screener check, no Trade Drawer, no Alerts object ---
         if self.mode == "combo":
@@ -852,8 +839,8 @@ class Browser:
                         f"Successfully changed the inputs of screener {shorttitle}: {symbols_list}"
                     )
                     sleep(
-                        2
-                    )  # Give time for settings to apply before moving to next screener
+                        0.5
+                    )  # Brief pause for dialog close; callers add their own recalc wait
                 except Exception as e:
                     open_tv_logger.exception(
                         f"Error occurred when filling in the inputs of screener {shorttitle}. Error:"
@@ -1735,21 +1722,11 @@ class Browser:
 
         try:
             # Make sure that the Alerts tab is open
-            print("[DEBUG] delete_all_alerts: Opening alert tab...", flush=True)
             self.utils.open_alert_tab(self.driver)
-            print("[DEBUG] delete_all_alerts: Alert tab opened", flush=True)
 
             # Check if there already are no alerts
-            print(
-                "[DEBUG] delete_all_alerts: Checking if there are any alerts...",
-                flush=True,
-            )
             alert_items = self.driver.find_elements(
                 By.CSS_SELECTOR, "div.list-G90Hl2iS div.itemBody-ucBqatk5"
-            )
-            print(
-                f"[DEBUG] delete_all_alerts: Found {len(alert_items)} alert items",
-                flush=True,
             )
             if alert_items == []:
                 open_tv_logger.info(
@@ -1757,81 +1734,39 @@ class Browser:
                 )
                 return True
 
-            print("[DEBUG] delete_all_alerts: Opening dropdown menu...", flush=True)
             dropdown = open_dropdown()
-            print("[DEBUG] delete_all_alerts: Dropdown opened", flush=True)
 
             # Check if "Stop All" is disabled
-            print(
-                "[DEBUG] delete_all_alerts: Looking for Stop All button...", flush=True
-            )
             stop_all_button = WebDriverWait(dropdown, 10).until(
                 EC.presence_of_all_elements_located(
                     (By.CSS_SELECTOR, dropdown_option_selector)
                 )
             )[1]
-            print(
-                f"[DEBUG] delete_all_alerts: Stop All button class: {stop_all_button.get_attribute('class')}",
-                flush=True,
-            )
             if "isDisabled" in stop_all_button.get_attribute("class"):
                 open_tv_logger.info(
                     'The "Stop All" option is disabled. No need to click it.'
                 )
             else:
-                print("[DEBUG] delete_all_alerts: Clicking Stop All...", flush=True)
                 stop_all_button.click()
-                print(
-                    "[DEBUG] delete_all_alerts: Clicking Yes in confirm popup...",
-                    flush=True,
-                )
                 self.utils.click_yes_in_confirm_popup(self.driver)
-                print("[DEBUG] delete_all_alerts: Stop All complete", flush=True)
 
-            print(
-                "[DEBUG] delete_all_alerts: Re-opening dropdown for Delete Inactive...",
-                flush=True,
-            )
             dropdown = open_dropdown()
-            print("[DEBUG] delete_all_alerts: Dropdown re-opened", flush=True)
 
             # Check if "Delete All Inactive" is disabled
-            print(
-                "[DEBUG] delete_all_alerts: Looking for Delete All Inactive button...",
-                flush=True,
-            )
             delete_inactive_button = WebDriverWait(dropdown, 10).until(
                 EC.presence_of_all_elements_located(
                     (By.CSS_SELECTOR, dropdown_option_selector)
                 )
             )[2]
-            print(
-                f"[DEBUG] delete_all_alerts: Delete Inactive button class: {delete_inactive_button.get_attribute('class')}",
-                flush=True,
-            )
             if "isDisabled" in delete_inactive_button.get_attribute("class"):
                 open_tv_logger.info(
                     'The "Delete All Inactive" option is disabled. No need to click it.'
                 )
             else:
-                print(
-                    "[DEBUG] delete_all_alerts: Clicking Delete All Inactive...",
-                    flush=True,
-                )
                 delete_inactive_button.click()
-                print(
-                    "[DEBUG] delete_all_alerts: Clicking Yes in confirm popup...",
-                    flush=True,
-                )
                 self.utils.click_yes_in_confirm_popup(self.driver)
-                print(
-                    "[DEBUG] delete_all_alerts: Delete All Inactive complete",
-                    flush=True,
-                )
 
-            print(
-                "[DEBUG] delete_all_alerts: All alerts deleted successfully", flush=True
-            )
+            open_tv_logger.info("All alerts deleted successfully")
             return True
         except Exception as e:
             open_tv_logger.exception(
@@ -1935,7 +1870,9 @@ class Browser:
         """Returns the indicator which has the same shorttitle as `ind_shorttitle`. If an indicator with the same shorttitle can't be found or an error occurs, `None` will be returned"""
         try:
             indicator = None
-            sleep(3)  # wait for the chart to load
+            sleep(
+                0.5
+            )  # brief DOM stability buffer (WebDriverWait below handles actual waiting)
             wait = WebDriverWait(self.driver, 15)
             indicators = wait.until(
                 EC.presence_of_all_elements_located(
