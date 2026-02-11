@@ -2,7 +2,7 @@
 TTE Combo Mode GUI — tkinter interface wrapping combo_main.py via subprocess.
 
 Provides editable settings, Start/Stop buttons, and real-time log streaming.
-Build with: pyinstaller tte_gui.spec --onedir
+Build with: pyinstaller --name TTE --onefile --windowed tte_gui.py
 """
 
 import os
@@ -18,24 +18,51 @@ import yaml
 
 
 # ---------------------------------------------------------------------------
-# Theme
+# Theme — Modern dark with blue accent
 # ---------------------------------------------------------------------------
 
 
-class DarkTheme:
-    BG = "#2b2b2b"
-    FG = "#ffffff"
-    BUTTON_BG = "#404040"
-    BUTTON_ACTIVE = "#505050"
-    ENTRY_BG = "#3b3b3b"
-    ENTRY_FG = "#ffffff"
-    ERROR = "#ff5555"
-    WARNING = "#ffb86c"
-    SUCCESS = "#50fa7b"
-    STATUS_BG = "#363636"
-    LOG_BG = "#1e1e1e"
-    LOG_FG = "#d4d4d4"
-    ACCENT = "#6272a4"
+class Theme:
+    # Base
+    BG = "#1a1b2e"  # Deep navy background
+    BG_CARD = "#232540"  # Slightly lighter card background
+    BG_INPUT = "#2d2f4e"  # Input field background
+    BG_HOVER = "#363860"  # Hover state
+
+    # Text
+    FG = "#e8e8f0"  # Primary text (soft white)
+    FG_DIM = "#8b8da8"  # Secondary/label text
+    FG_HEADING = "#ffffff"  # Headings
+
+    # Accent
+    ACCENT = "#6c7bff"  # Primary blue-purple accent
+    ACCENT_HOVER = "#8490ff"
+
+    # Status colors
+    SUCCESS = "#4ade80"  # Green
+    WARNING = "#fbbf24"  # Amber
+    ERROR = "#f87171"  # Red
+    INFO = "#60a5fa"  # Light blue
+
+    # Buttons
+    BTN_START = "#22c55e"
+    BTN_START_HOVER = "#16a34a"
+    BTN_STOP = "#ef4444"
+    BTN_STOP_HOVER = "#dc2626"
+    BTN_SAVE = "#6c7bff"
+    BTN_SAVE_HOVER = "#8490ff"
+
+    # Log
+    LOG_BG = "#12132a"
+    LOG_FG = "#c8c9e0"
+
+    # Border / separator
+    BORDER = "#3a3c5c"
+
+    # Fonts
+    FONT = "Segoe UI"
+    FONT_MONO = "Cascadia Code"
+    FONT_MONO_FALLBACK = "Consolas"
 
 
 # ---------------------------------------------------------------------------
@@ -65,7 +92,6 @@ def save_settings(data: dict):
 
 LOG_MAX_LINES = 5000
 
-# Timeframe choices matching TradingView dropdown labels
 TIMEFRAME_CHOICES = [
     "1 minute",
     "3 minutes",
@@ -103,283 +129,419 @@ class TTEGui:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("TTE Combo Mode")
-        self.root.configure(bg=DarkTheme.BG)
-        self.root.geometry("820x740")
-        self.root.minsize(700, 600)
+        self.root.configure(bg=Theme.BG)
+        self.root.geometry("880x800")
+        self.root.minsize(750, 650)
 
-        self.process = None  # subprocess.Popen
+        self.process = None
         self.reader_thread = None
         self.running = False
 
-        # Tkinter variables for fields
         self.vars = {}
 
+        self._configure_styles()
         self._build_ui()
         self._load_from_yaml()
 
-    # ----- UI construction -----
+    def _configure_styles(self):
+        """Configure ttk styles for modern look."""
+        style = ttk.Style()
+        style.theme_use("clam")
+
+        # Combobox
+        style.configure(
+            "Modern.TCombobox",
+            fieldbackground=Theme.BG_INPUT,
+            background=Theme.BG_INPUT,
+            foreground=Theme.FG,
+            arrowcolor=Theme.FG_DIM,
+            borderwidth=0,
+            padding=(8, 5),
+        )
+        style.map(
+            "Modern.TCombobox",
+            fieldbackground=[("readonly", Theme.BG_INPUT)],
+            foreground=[("readonly", Theme.FG)],
+            selectbackground=[("readonly", Theme.BG_INPUT)],
+            selectforeground=[("readonly", Theme.FG)],
+        )
+
+        # Configure the Combobox dropdown (Listbox inside popdown)
+        self.root.option_add("*TCombobox*Listbox.background", Theme.BG_INPUT)
+        self.root.option_add("*TCombobox*Listbox.foreground", Theme.FG)
+        self.root.option_add("*TCombobox*Listbox.selectBackground", Theme.ACCENT)
+        self.root.option_add("*TCombobox*Listbox.selectForeground", Theme.FG_HEADING)
+        self.root.option_add("*TCombobox*Listbox.font", (Theme.FONT, 9))
+
+    # =====================================================================
+    # UI Construction
+    # =====================================================================
 
     def _build_ui(self):
-        # Main scrollable area
-        main = tk.Frame(self.root, bg=DarkTheme.BG, padx=16, pady=12)
-        main.pack(fill="both", expand=True)
+        # Outer container with padding
+        outer = tk.Frame(self.root, bg=Theme.BG, padx=20, pady=16)
+        outer.pack(fill="both", expand=True)
 
-        # Title
+        # --- Header ---
+        header = tk.Frame(outer, bg=Theme.BG)
+        header.pack(fill="x", pady=(0, 16))
+
         tk.Label(
-            main,
-            text="TTE Combo Mode",
-            font=("Segoe UI", 18, "bold"),
-            bg=DarkTheme.BG,
-            fg=DarkTheme.FG,
-        ).pack(anchor="w", pady=(0, 10))
+            header,
+            text="TTE",
+            font=(Theme.FONT, 22, "bold"),
+            bg=Theme.BG,
+            fg=Theme.ACCENT,
+        ).pack(side="left")
+        tk.Label(
+            header,
+            text="  Combo Mode",
+            font=(Theme.FONT, 22),
+            bg=Theme.BG,
+            fg=Theme.FG_HEADING,
+        ).pack(side="left")
 
-        # Settings sections
-        settings_frame = tk.Frame(main, bg=DarkTheme.BG)
-        settings_frame.pack(fill="x")
-
-        # --- Chart section ---
-        self._section_label(settings_frame, "Chart")
-        row = self._row(settings_frame)
-        self._entry(row, "layout_name", "Layout", width=15)
-        self._dropdown(row, "chart_timeframe", "Timeframe", TIMEFRAME_CHOICES, width=12)
-        self._dropdown(row, "bar_style", "Bar Style", BAR_STYLE_CHOICES, width=14)
-        self._checkbox(row, "headless", "Headless")
-
-        # --- Screener section ---
-        self._section_label(settings_frame, "Screener")
-        row = self._row(settings_frame)
-        self._entry(row, "screener_shorttitle", "Short Title", width=15)
-        self._entry(row, "screener_name", "Full Name", width=20)
-
-        # --- Alerts section ---
-        self._section_label(settings_frame, "Alerts")
-        row = self._row(settings_frame)
-        self._spinbox(row, "batch_size", "Batch Size", 1, 4, width=5)
-        self._float_entry(row, "creation_delay", "Delay (s)", width=6)
-        self._float_entry(row, "recalc_wait", "Recalc (s)", width=6)
-
-        # --- Maintenance section ---
-        self._section_label(settings_frame, "Maintenance")
-        row = self._row(settings_frame)
-        self._spinbox(row, "maintenance_interval", "Interval (s)", 60, 3600, width=7)
-
-        # --- Webhook section ---
-        self._section_label(settings_frame, "Webhook")
-        row = self._row(settings_frame)
-        self._entry(row, "webhook_url", "URL", width=55)
-
-        # --- Options (CLI flags) ---
-        self._section_label(settings_frame, "Options")
-        row = self._row(settings_frame)
-        self._checkbox(row, "setup_only", "Setup Only")
-        self._checkbox(row, "fresh", "Fresh (delete all)")
-        self._checkbox(row, "maintain_only", "Maintain Only")
-
-        # --- Buttons ---
-        btn_frame = tk.Frame(main, bg=DarkTheme.BG)
-        btn_frame.pack(fill="x", pady=(12, 6))
-
-        self.start_btn = tk.Button(
-            btn_frame,
-            text="Start",
-            width=12,
-            command=self._on_start,
-            bg="#2d6a4f",
-            fg=DarkTheme.FG,
-            activebackground="#40916c",
-            activeforeground=DarkTheme.FG,
-            font=("Segoe UI", 10, "bold"),
-            relief="flat",
-            cursor="hand2",
+        # Status indicator in header
+        self.status_var = tk.StringVar(value="Ready")
+        self.status_dot = tk.Label(
+            header,
+            text="\u2b24",  # Unicode filled circle
+            font=(Theme.FONT, 8),
+            bg=Theme.BG,
+            fg=Theme.FG_DIM,
         )
-        self.start_btn.pack(side="left", padx=(0, 8))
-
-        self.stop_btn = tk.Button(
-            btn_frame,
-            text="Stop",
-            width=12,
-            command=self._on_stop,
-            bg="#9b2226",
-            fg=DarkTheme.FG,
-            activebackground="#ae2012",
-            activeforeground=DarkTheme.FG,
-            font=("Segoe UI", 10, "bold"),
-            relief="flat",
-            state="disabled",
-            cursor="hand2",
+        self.status_dot.pack(side="right", padx=(0, 6))
+        self.status_label = tk.Label(
+            header,
+            textvariable=self.status_var,
+            font=(Theme.FONT, 9),
+            bg=Theme.BG,
+            fg=Theme.FG_DIM,
         )
-        self.stop_btn.pack(side="left", padx=(0, 8))
+        self.status_label.pack(side="right")
 
-        self.save_btn = tk.Button(
-            btn_frame,
-            text="Save Settings",
-            width=14,
-            command=self._on_save,
-            bg=DarkTheme.BUTTON_BG,
-            fg=DarkTheme.FG,
-            activebackground=DarkTheme.BUTTON_ACTIVE,
-            activeforeground=DarkTheme.FG,
-            font=("Segoe UI", 10),
-            relief="flat",
-            cursor="hand2",
+        # --- Settings card ---
+        card = tk.Frame(outer, bg=Theme.BG_CARD, padx=20, pady=16)
+        card.pack(fill="x", pady=(0, 12))
+        # Simulate rounded corners with a border frame
+        card.configure(highlightbackground=Theme.BORDER, highlightthickness=1)
+
+        # --- Chart row ---
+        self._section_heading(card, "Chart")
+        row = self._card_row(card)
+        self._labeled_entry(row, "layout_name", "Layout", width=14)
+        self._labeled_dropdown(
+            row, "chart_timeframe", "Timeframe", TIMEFRAME_CHOICES, width=12
         )
-        self.save_btn.pack(side="left")
+        self._labeled_dropdown(
+            row, "bar_style", "Bar Style", BAR_STYLE_CHOICES, width=14
+        )
+        self._modern_checkbox(row, "headless", "Headless")
+
+        self._separator(card)
+
+        # --- Screener row ---
+        self._section_heading(card, "Screener")
+        row = self._card_row(card)
+        self._labeled_entry(row, "screener_shorttitle", "Short Title", width=14)
+        self._labeled_entry(row, "screener_name", "Full Name", width=22)
+
+        self._separator(card)
+
+        # --- Alerts row ---
+        self._section_heading(card, "Alerts")
+        row = self._card_row(card)
+        self._labeled_spinbox(row, "batch_size", "Batch Size", 1, 4, width=5)
+        self._labeled_entry(row, "creation_delay", "Delay (s)", width=6)
+        self._labeled_entry(row, "recalc_wait", "Recalc (s)", width=6)
+
+        self._separator(card)
+
+        # --- Maintenance + Webhook on same visual block ---
+        cols = tk.Frame(card, bg=Theme.BG_CARD)
+        cols.pack(fill="x", pady=(0, 4))
+
+        left_col = tk.Frame(cols, bg=Theme.BG_CARD)
+        left_col.pack(side="left", fill="x", expand=True)
+        self._section_heading(left_col, "Maintenance")
+        row = self._card_row(left_col)
+        self._labeled_spinbox(
+            row, "maintenance_interval", "Interval (s)", 60, 3600, width=7
+        )
+
+        right_col = tk.Frame(cols, bg=Theme.BG_CARD)
+        right_col.pack(side="left", fill="x", expand=True)
+        self._section_heading(right_col, "Webhook")
+        row = self._card_row(right_col)
+        self._labeled_entry(row, "webhook_url", "URL", width=38)
+
+        # --- Options + Buttons row ---
+        action_frame = tk.Frame(outer, bg=Theme.BG)
+        action_frame.pack(fill="x", pady=(0, 12))
+
+        # Options on the left
+        opts = tk.Frame(action_frame, bg=Theme.BG)
+        opts.pack(side="left")
+        self._modern_checkbox(opts, "setup_only", "Setup Only")
+        self._modern_checkbox(opts, "fresh", "Fresh (delete all)")
+        self._modern_checkbox(opts, "maintain_only", "Maintain Only")
+
+        # Buttons on the right
+        btns = tk.Frame(action_frame, bg=Theme.BG)
+        btns.pack(side="right")
+
+        self.save_btn = self._action_button(
+            btns, "Save Settings", Theme.BTN_SAVE, Theme.BTN_SAVE_HOVER, self._on_save
+        )
+        self.save_btn.pack(side="right", padx=(8, 0))
+
+        self.stop_btn = self._action_button(
+            btns, "Stop", Theme.BTN_STOP, Theme.BTN_STOP_HOVER, self._on_stop
+        )
+        self.stop_btn.pack(side="right", padx=(8, 0))
+        self.stop_btn.configure(state="disabled")
+
+        self.start_btn = self._action_button(
+            btns, "Start", Theme.BTN_START, Theme.BTN_START_HOVER, self._on_start
+        )
+        self.start_btn.pack(side="right", padx=(8, 0))
 
         # --- Log output ---
-        log_label = tk.Label(
-            main,
+        log_header = tk.Frame(outer, bg=Theme.BG)
+        log_header.pack(fill="x", pady=(0, 6))
+        tk.Label(
+            log_header,
             text="Log Output",
-            font=("Segoe UI", 10, "bold"),
-            bg=DarkTheme.BG,
-            fg=DarkTheme.ACCENT,
-        )
-        log_label.pack(anchor="w", pady=(8, 2))
+            font=(Theme.FONT, 10, "bold"),
+            bg=Theme.BG,
+            fg=Theme.FG_DIM,
+        ).pack(side="left")
 
-        log_frame = tk.Frame(main, bg=DarkTheme.LOG_BG)
-        log_frame.pack(fill="both", expand=True)
+        self.clear_log_btn = tk.Label(
+            log_header,
+            text="Clear",
+            font=(Theme.FONT, 9),
+            bg=Theme.BG,
+            fg=Theme.ACCENT,
+            cursor="hand2",
+        )
+        self.clear_log_btn.pack(side="right")
+        self.clear_log_btn.bind("<Button-1>", lambda e: self._clear_log())
+        self.clear_log_btn.bind(
+            "<Enter>", lambda e: self.clear_log_btn.configure(fg=Theme.ACCENT_HOVER)
+        )
+        self.clear_log_btn.bind(
+            "<Leave>", lambda e: self.clear_log_btn.configure(fg=Theme.ACCENT)
+        )
+
+        log_container = tk.Frame(
+            outer,
+            bg=Theme.LOG_BG,
+            highlightbackground=Theme.BORDER,
+            highlightthickness=1,
+        )
+        log_container.pack(fill="both", expand=True)
+
+        # Try to use Cascadia Code, fall back to Consolas
+        mono_font = Theme.FONT_MONO
+        try:
+            test = tk.Label(self.root, font=(Theme.FONT_MONO, 9))
+            test.destroy()
+        except tk.TclError:
+            mono_font = Theme.FONT_MONO_FALLBACK
 
         self.log_text = tk.Text(
-            log_frame,
-            bg=DarkTheme.LOG_BG,
-            fg=DarkTheme.LOG_FG,
-            font=("Consolas", 9),
+            log_container,
+            bg=Theme.LOG_BG,
+            fg=Theme.LOG_FG,
+            font=(mono_font, 9),
             wrap="word",
             state="disabled",
-            insertbackground=DarkTheme.FG,
+            insertbackground=Theme.FG,
             relief="flat",
-            bd=4,
+            bd=8,
+            padx=4,
+            pady=4,
         )
-        scrollbar = tk.Scrollbar(log_frame, command=self.log_text.yview)
+        scrollbar = tk.Scrollbar(
+            log_container,
+            command=self.log_text.yview,
+            bg=Theme.BG_CARD,
+            troughcolor=Theme.LOG_BG,
+            activebackground=Theme.FG_DIM,
+            width=10,
+            relief="flat",
+        )
         self.log_text.configure(yscrollcommand=scrollbar.set)
         scrollbar.pack(side="right", fill="y")
         self.log_text.pack(side="left", fill="both", expand=True)
 
-        # Configure log tag colors
-        self.log_text.tag_configure("error", foreground=DarkTheme.ERROR)
-        self.log_text.tag_configure("warning", foreground=DarkTheme.WARNING)
-        self.log_text.tag_configure("success", foreground=DarkTheme.SUCCESS)
-        self.log_text.tag_configure("info", foreground=DarkTheme.LOG_FG)
+        # Log tag colors
+        self.log_text.tag_configure("error", foreground=Theme.ERROR)
+        self.log_text.tag_configure("warning", foreground=Theme.WARNING)
+        self.log_text.tag_configure("success", foreground=Theme.SUCCESS)
+        self.log_text.tag_configure("info", foreground=Theme.LOG_FG)
 
-        # --- Status bar ---
-        self.status_var = tk.StringVar(value="Ready")
-        status_bar = tk.Label(
-            main,
-            textvariable=self.status_var,
-            bg=DarkTheme.STATUS_BG,
-            fg=DarkTheme.FG,
-            anchor="w",
-            padx=8,
-            pady=4,
-            font=("Segoe UI", 9),
-        )
-        status_bar.pack(fill="x", pady=(6, 0))
+    # =====================================================================
+    # Widget Helpers
+    # =====================================================================
 
-    # ----- Widget helpers -----
-
-    def _section_label(self, parent, text):
+    def _section_heading(self, parent, text):
         tk.Label(
             parent,
-            text=text,
-            font=("Segoe UI", 10, "bold"),
-            bg=DarkTheme.BG,
-            fg=DarkTheme.ACCENT,
-        ).pack(anchor="w", pady=(8, 2))
+            text=text.upper(),
+            font=(Theme.FONT, 8, "bold"),
+            bg=parent.cget("bg"),
+            fg=Theme.FG_DIM,
+            anchor="w",
+        ).pack(fill="x", pady=(8, 4))
 
-    def _row(self, parent):
-        f = tk.Frame(parent, bg=DarkTheme.BG)
-        f.pack(fill="x", pady=2)
+    def _card_row(self, parent):
+        f = tk.Frame(parent, bg=parent.cget("bg"))
+        f.pack(fill="x", pady=(0, 4))
         return f
 
-    def _entry(self, parent, key, label, width=20):
+    def _separator(self, parent):
+        sep = tk.Frame(parent, bg=Theme.BORDER, height=1)
+        sep.pack(fill="x", pady=(8, 4))
+
+    def _labeled_entry(self, parent, key, label, width=20):
+        container = tk.Frame(parent, bg=parent.cget("bg"))
+        container.pack(side="left", padx=(0, 16))
+
         tk.Label(
-            parent,
-            text=f"{label}:",
-            bg=DarkTheme.BG,
-            fg=DarkTheme.FG,
-            font=("Segoe UI", 9),
-        ).pack(side="left", padx=(0, 4))
+            container,
+            text=label,
+            font=(Theme.FONT, 8),
+            bg=parent.cget("bg"),
+            fg=Theme.FG_DIM,
+        ).pack(anchor="w")
+
         var = tk.StringVar()
         e = tk.Entry(
-            parent,
+            container,
             textvariable=var,
             width=width,
-            bg=DarkTheme.ENTRY_BG,
-            fg=DarkTheme.ENTRY_FG,
-            insertbackground=DarkTheme.FG,
+            bg=Theme.BG_INPUT,
+            fg=Theme.FG,
+            insertbackground=Theme.FG,
             relief="flat",
-            bd=3,
-            font=("Segoe UI", 9),
+            bd=0,
+            font=(Theme.FONT, 10),
+            highlightthickness=1,
+            highlightbackground=Theme.BORDER,
+            highlightcolor=Theme.ACCENT,
         )
-        e.pack(side="left", padx=(0, 12))
+        e.pack(ipady=4)
         self.vars[key] = var
 
-    def _float_entry(self, parent, key, label, width=8):
-        self._entry(parent, key, label, width)
+    def _labeled_dropdown(self, parent, key, label, choices, width=12):
+        container = tk.Frame(parent, bg=parent.cget("bg"))
+        container.pack(side="left", padx=(0, 16))
 
-    def _dropdown(self, parent, key, label, choices, width=12):
         tk.Label(
-            parent,
-            text=f"{label}:",
-            bg=DarkTheme.BG,
-            fg=DarkTheme.FG,
-            font=("Segoe UI", 9),
-        ).pack(side="left", padx=(0, 4))
+            container,
+            text=label,
+            font=(Theme.FONT, 8),
+            bg=parent.cget("bg"),
+            fg=Theme.FG_DIM,
+        ).pack(anchor="w")
+
         var = tk.StringVar()
         cb = ttk.Combobox(
-            parent,
+            container,
             textvariable=var,
             values=choices,
             width=width,
             state="readonly",
-            font=("Segoe UI", 9),
+            style="Modern.TCombobox",
+            font=(Theme.FONT, 10),
         )
-        cb.pack(side="left", padx=(0, 12))
+        cb.pack()
         self.vars[key] = var
 
-    def _spinbox(self, parent, key, label, from_, to, width=5):
+    def _labeled_spinbox(self, parent, key, label, from_, to, width=5):
+        container = tk.Frame(parent, bg=parent.cget("bg"))
+        container.pack(side="left", padx=(0, 16))
+
         tk.Label(
-            parent,
-            text=f"{label}:",
-            bg=DarkTheme.BG,
-            fg=DarkTheme.FG,
-            font=("Segoe UI", 9),
-        ).pack(side="left", padx=(0, 4))
+            container,
+            text=label,
+            font=(Theme.FONT, 8),
+            bg=parent.cget("bg"),
+            fg=Theme.FG_DIM,
+        ).pack(anchor="w")
+
         var = tk.IntVar()
         sb = tk.Spinbox(
-            parent,
+            container,
             textvariable=var,
             from_=from_,
             to=to,
             width=width,
-            bg=DarkTheme.ENTRY_BG,
-            fg=DarkTheme.ENTRY_FG,
-            insertbackground=DarkTheme.FG,
+            bg=Theme.BG_INPUT,
+            fg=Theme.FG,
+            insertbackground=Theme.FG,
             relief="flat",
-            bd=3,
-            font=("Segoe UI", 9),
-            buttonbackground=DarkTheme.BUTTON_BG,
+            bd=0,
+            font=(Theme.FONT, 10),
+            buttonbackground=Theme.BG_HOVER,
+            highlightthickness=1,
+            highlightbackground=Theme.BORDER,
+            highlightcolor=Theme.ACCENT,
         )
-        sb.pack(side="left", padx=(0, 12))
+        sb.pack(ipady=4)
         self.vars[key] = var
 
-    def _checkbox(self, parent, key, label):
+    def _modern_checkbox(self, parent, key, label):
         var = tk.BooleanVar()
         cb = tk.Checkbutton(
             parent,
             text=label,
             variable=var,
-            bg=DarkTheme.BG,
-            fg=DarkTheme.FG,
-            selectcolor=DarkTheme.ENTRY_BG,
-            activebackground=DarkTheme.BG,
-            activeforeground=DarkTheme.FG,
-            font=("Segoe UI", 9),
+            bg=parent.cget("bg"),
+            fg=Theme.FG,
+            selectcolor=Theme.BG_INPUT,
+            activebackground=parent.cget("bg"),
+            activeforeground=Theme.FG,
+            font=(Theme.FONT, 9),
             cursor="hand2",
+            highlightthickness=0,
+            bd=0,
         )
-        cb.pack(side="left", padx=(0, 12))
+        cb.pack(side="left", padx=(0, 16))
         self.vars[key] = var
 
-    # ----- Load / Save YAML -----
+    def _action_button(self, parent, text, bg_color, hover_color, command):
+        btn = tk.Button(
+            parent,
+            text=text,
+            command=command,
+            bg=bg_color,
+            fg="#ffffff",
+            activebackground=hover_color,
+            activeforeground="#ffffff",
+            font=(Theme.FONT, 10, "bold"),
+            relief="flat",
+            bd=0,
+            padx=20,
+            pady=6,
+            cursor="hand2",
+            highlightthickness=0,
+        )
+        # Hover effects
+        btn.bind("<Enter>", lambda e, b=btn, c=hover_color: b.configure(bg=c))
+        btn.bind(
+            "<Leave>",
+            lambda e, b=btn, c=bg_color: (
+                b.configure(bg=c) if b["state"] != "disabled" else None
+            ),
+        )
+        return btn
+
+    # =====================================================================
+    # Load / Save YAML
+    # =====================================================================
 
     def _load_from_yaml(self):
         data = load_settings()
@@ -392,7 +554,7 @@ class TTEGui:
         self.vars["layout_name"].set(chart.get("layout_name", "Screener"))
         self.vars["chart_timeframe"].set(chart.get("chart_timeframe", "1 minute"))
         self.vars["bar_style"].set(chart.get("bar_style", "line"))
-        self.vars["headless"].set(chart.get("headless", False))
+        self.vars["headless"].set(chart.get("headless", True))
 
         self.vars["screener_shorttitle"].set(screener.get("shorttitle", "Screener"))
         self.vars["screener_name"].set(screener.get("name", "TTE Screener"))
@@ -405,9 +567,9 @@ class TTEGui:
 
         self.vars["webhook_url"].set(webhook.get("url", ""))
 
-        # CLI flags default to unchecked
+        # CLI flags — setup, fresh, and maintenance enabled by default
         self.vars["setup_only"].set(False)
-        self.vars["fresh"].set(False)
+        self.vars["fresh"].set(True)
         self.vars["maintain_only"].set(False)
 
     def _build_yaml_data(self) -> dict:
@@ -440,7 +602,9 @@ class TTEGui:
             },
         }
 
-    # ----- Validation -----
+    # =====================================================================
+    # Validation
+    # =====================================================================
 
     def _validate(self) -> list[str]:
         errors = []
@@ -482,13 +646,14 @@ class TTEGui:
         if not self.vars["webhook_url"].get().strip():
             errors.append("Webhook URL is required")
 
-        # Mutual exclusion of setup_only and maintain_only
         if self.vars["setup_only"].get() and self.vars["maintain_only"].get():
             errors.append("Cannot use both Setup Only and Maintain Only")
 
         return errors
 
-    # ----- Actions -----
+    # =====================================================================
+    # Actions
+    # =====================================================================
 
     def _on_save(self):
         errors = self._validate()
@@ -498,8 +663,8 @@ class TTEGui:
         try:
             data = self._build_yaml_data()
             save_settings(data)
-            self.status_var.set("Settings saved to combo_settings.yaml")
-            self._log("Settings saved successfully.", "success")
+            self._set_status("Settings saved", Theme.SUCCESS)
+            self._log("Settings saved to combo_settings.yaml", "success")
         except Exception as e:
             messagebox.showerror("Save Error", str(e))
 
@@ -527,7 +692,7 @@ class TTEGui:
             cmd.append("--fresh")
 
         self._log(f"Starting: {' '.join(cmd)}", "info")
-        self.status_var.set("Running...")
+        self._set_status("Running...", Theme.SUCCESS)
 
         # Launch subprocess
         try:
@@ -545,7 +710,7 @@ class TTEGui:
                 creationflags=creation_flags,
             )
             self.running = True
-            self.start_btn.configure(state="disabled")
+            self.start_btn.configure(state="disabled", bg=Theme.BG_HOVER)
             self.stop_btn.configure(state="normal")
 
             # Start reader thread
@@ -554,25 +719,23 @@ class TTEGui:
 
         except Exception as e:
             self._log(f"Failed to start: {e}", "error")
-            self.status_var.set("Error")
+            self._set_status("Error", Theme.ERROR)
 
     def _on_stop(self):
         if not self.process:
             return
 
         self._log("Sending stop signal...", "warning")
-        self.status_var.set("Stopping...")
+        self._set_status("Stopping...", Theme.WARNING)
 
         try:
             if sys.platform == "win32":
-                # Send CTRL_BREAK_EVENT to the process group
                 os.kill(self.process.pid, signal.CTRL_BREAK_EVENT)
             else:
                 self.process.send_signal(signal.SIGTERM)
         except OSError as e:
             self._log(f"Signal send failed: {e}", "error")
 
-        # Start timeout watcher
         threading.Thread(target=self._force_kill_after_timeout, daemon=True).start()
 
     def _force_kill_after_timeout(self):
@@ -583,7 +746,9 @@ class TTEGui:
             self._log("Force-killing process (30s timeout)...", "error")
             self.process.kill()
 
-    # ----- Output reading -----
+    # =====================================================================
+    # Output reading
+    # =====================================================================
 
     def _read_output(self):
         """Read subprocess stdout line by line and append to log (runs in thread)."""
@@ -591,7 +756,6 @@ class TTEGui:
             for line in self.process.stdout:
                 line = line.rstrip("\n")
                 if line:
-                    # Determine tag based on content
                     tag = "info"
                     lower = line.lower()
                     if "error" in lower or "exception" in lower or "traceback" in lower:
@@ -605,24 +769,25 @@ class TTEGui:
         except Exception:
             pass
         finally:
-            # Process has ended
             exit_code = self.process.wait() if self.process else None
             self.root.after(0, self._on_process_ended, exit_code)
 
     def _on_process_ended(self, exit_code):
         self.running = False
         self.process = None
-        self.start_btn.configure(state="normal")
+        self.start_btn.configure(state="normal", bg=Theme.BTN_START)
         self.stop_btn.configure(state="disabled")
 
         if exit_code == 0:
-            self.status_var.set("Finished (exit code 0)")
+            self._set_status("Finished", Theme.SUCCESS)
             self._log("Process finished successfully.", "success")
         else:
-            self.status_var.set(f"Stopped (exit code {exit_code})")
+            self._set_status(f"Stopped (code {exit_code})", Theme.WARNING)
             self._log(f"Process exited with code {exit_code}", "warning")
 
-    # ----- Log helper -----
+    # =====================================================================
+    # Log + Status helpers
+    # =====================================================================
 
     def _log(self, text: str, tag: str = "info"):
         self.log_text.configure(state="normal")
@@ -636,7 +801,19 @@ class TTEGui:
         self.log_text.see("end")
         self.log_text.configure(state="disabled")
 
-    # ----- Run -----
+    def _clear_log(self):
+        self.log_text.configure(state="normal")
+        self.log_text.delete("1.0", "end")
+        self.log_text.configure(state="disabled")
+
+    def _set_status(self, text: str, color: str = Theme.FG_DIM):
+        self.status_var.set(text)
+        self.status_label.configure(fg=color)
+        self.status_dot.configure(fg=color)
+
+    # =====================================================================
+    # Run
+    # =====================================================================
 
     def run(self):
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
@@ -648,7 +825,6 @@ class TTEGui:
                 "Confirm Exit", "TTE is still running. Stop and exit?"
             ):
                 self._on_stop()
-                # Wait briefly for process to end
                 self.root.after(2000, self.root.destroy)
             return
         self.root.destroy()
