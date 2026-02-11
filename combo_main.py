@@ -422,7 +422,7 @@ def restart_inactive_alerts(driver) -> bool:
         # Wait for the dropdown to show up
         dropdown = WebDriverWait(driver, 10).until(
             EC.presence_of_element_located(
-                (By.CSS_SELECTOR, 'div[data-name="menu-inner"]')
+                (By.CSS_SELECTOR, 'div[data-qa-id="menu-inner"]')
             )
         )
 
@@ -443,13 +443,20 @@ def restart_inactive_alerts(driver) -> bool:
             all_option.click()
             logger.info('Selected the "All" option')
 
-        # Click on "Restart all inactive"
-        dropdown_button = dropdown.find_element(
-            By.CSS_SELECTOR,
-            'div[class="item-jFqVJoPk item-xZRtm41u withIcon-jFqVJoPk withIcon-xZRtm41u"]',
-        )
-        if dropdown_button.text == "Restart all inactive":
-            dropdown_button.click()
+        # Find "Restart all inactive" button (may be disabled when no inactive alerts)
+        restart_buttons = [
+            el
+            for el in dropdown.find_elements(
+                By.CSS_SELECTOR, "div.item-jFqVJoPk.withIcon-jFqVJoPk"
+            )
+            if "Restart all inactive" in el.text
+        ]
+        if not restart_buttons:
+            logger.info("No 'Restart all inactive' button found in dropdown")
+        elif "isDisabled" in (restart_buttons[0].get_attribute("class") or ""):
+            logger.info("No inactive alerts to restart (button is disabled)")
+        else:
+            restart_buttons[0].click()
             logger.info('Clicked on "Restart all inactive"')
 
             # Click Yes on the confirmation popup
@@ -469,8 +476,36 @@ def restart_inactive_alerts(driver) -> bool:
         return False
 
 
+def clear_alert_log(driver) -> bool:
+    """Clear the TradingView alert log to prevent it from growing indefinitely."""
+    utils = Utils()
+    try:
+        utils.open_log_tab(driver)
+
+        # Click clear log button
+        WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable(
+                (By.CSS_SELECTOR, 'div[data-name="clear-log-button"]')
+            )
+        ).click()
+
+        # Confirm in dialog
+        popup = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located(
+                (By.CSS_SELECTOR, 'div[data-name="confirm-dialog"]')
+            )
+        )
+        popup.find_element(By.CSS_SELECTOR, 'button[name="yes"]').click()
+        logger.info("Alert log cleared!")
+        sleep(1)
+        return True
+    except Exception:
+        logger.exception("Error clearing alert log:")
+        return False
+
+
 def run_maintenance(browser: Browser, interval: int):
-    """Loop: restart inactive alerts every `interval` seconds."""
+    """Loop: restart inactive alerts + clear log every `interval` seconds."""
     global _shutdown_requested
 
     logger.info(f"Maintenance loop started (every {interval}s)")
@@ -480,8 +515,20 @@ def run_maintenance(browser: Browser, interval: int):
         if _shutdown_requested:
             break
 
-        logger.info("Running maintenance: restarting inactive alerts...")
-        restart_inactive_alerts(browser.driver)
+        logger.info("Running maintenance cycle...")
+        try:
+            # Refresh page to keep session alive
+            browser.driver.refresh()
+            sleep(5)
+
+            # Restart inactive alerts
+            restart_inactive_alerts(browser.driver)
+
+            # Clear alert log
+            clear_alert_log(browser.driver)
+
+        except Exception:
+            logger.exception("Maintenance cycle failed, will retry next cycle:")
 
     logger.info("Maintenance loop stopped")
 
