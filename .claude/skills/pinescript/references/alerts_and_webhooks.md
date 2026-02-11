@@ -722,9 +722,9 @@ When rate limit exceeded:
 Multi-symbol screeners can easily hit rate limits:
 
 **Problem scenario:**
-- Screener monitors 20 symbols
-- All 20 symbols trigger alerts on same bar (high volatility event)
-- 20 alerts × 1 bar = instant rate limit hit
+- Screener monitors 3 symbols per alert (combo mode production)
+- All 3 symbols trigger alerts on same bar (high volatility event)
+- Multiple alerts × frequent ticks = potential rate limit hit
 - Some alerts delayed by minutes
 
 **TTE's solution: Signal change detection**

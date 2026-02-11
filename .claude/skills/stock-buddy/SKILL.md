@@ -1,6 +1,6 @@
 ---
 name: stock-buddy
-description: Stock Buddy web app architecture and TTE integration. Use when working with Stock Buddy codebase, debugging TTE-Stock Buddy integration, modifying signal APIs, querying trading signals, or understanding the tiered signal workflow. Covers API endpoints, database schema, frontend components, and symbol rotation.
+description: Stock Buddy web app architecture and TTE integration. Use when working with Stock Buddy codebase, debugging TTE-Stock Buddy integration, modifying signal APIs, querying trading signals, or understanding the combo/tiered signal workflow. Covers API endpoints, database schema, frontend components, and combo live signals.
 ---
 
 # Stock Buddy Skill
@@ -40,8 +40,18 @@ Stock Buddy API (Next.js - REST endpoints)
 Stock Buddy Frontend (React - Signal display)
 ```
 
-**Data Flow**:
-1. TTE fetches 20 symbols from Stock Buddy API
+> **Production System**: Combo mode is the active production system (Feb 2026). The tiered mode described below is legacy. See [Combo Architecture](../../docs/combo/ARCHITECTURE.md) and [Combo PRD](../../docs/combo/PRD.md) for combo mode details.
+
+### Combo Mode Data Flow (Production)
+1. 352 persistent TradingView alerts monitor ~1,054 symbols (3 per alert)
+2. Combo screener (NWE + OB/FVG + Divergence) fires webhook on every tick
+3. Stock Buddy receives webhook at `POST /api/tte/combo`
+4. Upserts signal state into `tte_live_signals` collection
+5. Frontend queries via `GET /api/tte/combo/signals`
+6. Maintenance every 5 minutes restarts any inactive alerts
+
+### Tiered Mode Data Flow (Legacy)
+1. **Tiered (legacy)**: TTE fetches 20 symbols from Stock Buddy API
 2. TTE inputs symbols into TradingView NWE screener
 3. TTE creates webhook alert, TradingView fires webhook to Stock Buddy
 4. Stock Buddy stores hot symbols in `tte_hot_list` collection
@@ -62,7 +72,7 @@ Stock Buddy Frontend (React - Signal display)
 | **Signal Level** | 1 (NWE only), 2 (NWE + OB/DIV), 3 (NWE + OB + DIV) |
 | **Priority** | A (every batch), B (every 3rd rotation), C (every 10th rotation) |
 | **Rotation** | Complete cycle through all symbols once |
-| **Batch** | 20 symbols processed in a single NWE scan |
+| **Batch** | Symbols processed in a single scan (20 for tiered, 3 for combo) |
 
 ### Project Locations
 
@@ -92,7 +102,7 @@ Invoke this skill for:
 ### Two-Tier Signal Workflow
 
 **Phase 1: NWE Screening (Tier 1)**
-1. Stock Buddy API provides next batch of 20 symbols (priority-rotated)
+1. **(Tiered only)** Stock Buddy API provides next batch of 20 symbols (priority-rotated)
 2. TTE inputs symbols into TradingView NWE screener
 3. TTE creates webhook alert with URL: `/api/tte/nwe`
 4. TradingView sends batch webhook when symbols enter zones
@@ -219,7 +229,7 @@ Based on your task, read the appropriate reference file:
 | `api_client.py` | `StockBuddyAPIClient` - HTTP client for Stock Buddy API |
 | `config.py` | Configuration (API URL, timeouts, delays) |
 | `docs/API.md` | API endpoint documentation |
-| `docs/PRD.md` | Complete technical specification (1800+ lines) |
+| `docs/legacy/PRD.md` | Complete technical specification (1800+ lines) |
 
 ### Stock Buddy Codebase (TypeScript/Next.js)
 
@@ -330,7 +340,7 @@ curl -X POST https://stock-buddy-app.vercel.app/api/tte/nwe \
 ## Additional Resources
 
 - [TTE CLAUDE.md](../../CLAUDE.md) - TTE development guidelines
-- [TTE docs/PRD.md](../../docs/PRD.md) - Complete technical specification
+- [TTE docs/legacy/PRD.md](../../docs/legacy/PRD.md) - Complete technical specification
 - [Anthropic Skills Best Practices](https://github.com/anthropics/anthropic-skills) - Skill creation guide
 
 ---

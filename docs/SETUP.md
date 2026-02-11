@@ -384,6 +384,66 @@ This runs one complete NWE + OBDIV cycle and exits.
 
 ---
 
+## Combo Mode Setup
+
+### Configuration File
+
+Combo mode uses `combo_settings.yaml` for all configuration. Edit this file to customize behavior:
+
+```yaml
+chart:
+  layout_name: "Screener"        # TradingView layout name
+  chart_timeframe: "1 minute"     # Chart timeframe
+  bar_style: "line"               # Bar style (line for minimal resources)
+
+alerts:
+  batch_size: 3                   # Symbols per alert (max 4)
+  num_browsers: 2                 # Parallel browser instances
+  creation_delay: 3.0             # Seconds between batches
+
+webhook:
+  url: ""                         # Set via COMBO_WEBHOOK_URL env var
+
+maintenance:
+  interval: 300                   # Seconds between restart cycles
+```
+
+### Environment Variables
+
+Add these to your `.env` file:
+
+```bash
+COMBO_WEBHOOK_URL=https://stock-buddy-app.vercel.app/api/tte/combo
+COMBO_NUM_BROWSERS=2
+```
+
+### TradingView Layout (Combo Mode)
+
+1. Create layout named **"Screener"**
+2. Add **TTE Screener** indicator
+3. Star/favorite the indicator
+4. Set chart to **1-minute** timeframe
+5. Set bar style to **Line**
+6. Save layout
+
+### Running Combo Mode
+
+```bash
+# Validate configuration
+python combo_main.py --validate
+
+# Full setup (create all alerts) + maintenance
+python combo_main.py
+
+# Delete all alerts first, then fresh setup
+python combo_main.py --fresh
+
+# Run maintenance only (alerts already created)
+python combo_main.py --maintain-only
+```
+
+---
+
 ## Common Setup Issues
 
 ### Chrome Profile Locked
@@ -425,6 +485,6 @@ This runs one complete NWE + OBDIV cycle and exits.
 
 After successful setup:
 
-1. Review [Architecture](ARCHITECTURE.md) to understand the system
+1. Review [Architecture](legacy/ARCHITECTURE.md) to understand the system
 2. Check [API Reference](API.md) for endpoint details
 3. See [Troubleshooting](TROUBLESHOOTING.md) for runtime issues

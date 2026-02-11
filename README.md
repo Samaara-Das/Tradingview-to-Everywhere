@@ -12,9 +12,10 @@ TTE monitors TradingView for trading signals, captures and processes them, and d
 
 ## Features
 
-- **Two Operational Modes**:
+- **Three Operational Modes**:
   - **Legacy Mode**: Poll-based alert scraping with screenshot capture
   - **Tiered Mode**: Webhook-based two-tier symbol scanning (NWE + OBDIV)
+  - **Combo Mode**: Single-indicator webhook with 352 persistent alerts monitoring ~1,054 symbols
 - **Multi-Platform Distribution**: Simultaneous posting to Discord, Twitter, and Facebook
 - **Automated Browser Control**: Selenium-based TradingView automation
 - **Persistent Storage**: MongoDB integration for signal tracking
@@ -102,12 +103,41 @@ Uses webhook-based alerts for more reliable signal detection:
 
 **Tier 2 (OBDIV Screener)**: Processes "hot" symbols (those showing NWE zones) through Order Block/FVG + Divergence analysis
 
+### Combo Mode (`combo_main.py`)
+
+Uses a single combo screener indicator (NWE + OB/FVG + Divergence) with persistent webhook alerts:
+
+- **352 alerts** monitoring ~1,054 symbols (3 per alert)
+- Alerts run continuously on TradingView servers
+- Webhooks fire to Stock Buddy API on every signal
+- Maintenance every 5 minutes restarts any inactive alerts
+
+```bash
+# Full setup + maintenance
+python combo_main.py
+
+# Setup only (create alerts, then exit)
+python combo_main.py --setup-only
+
+# Maintenance only (skip setup)
+python combo_main.py --maintain-only
+
+# Delete all alerts and start fresh
+python combo_main.py --fresh
+
+# Validate configuration
+python combo_main.py --validate
+```
+
 ## Project Structure
 
 ```
 tradingview-to-everywhere/
 ├── main.py                 # Legacy mode entry point
 ├── tiered_main.py          # Tiered mode entry point
+├── combo_main.py           # Combo mode entry point
+├── combo_config.py         # Combo configuration loader
+├── combo_settings.yaml     # Combo mode settings
 ├── gui.py                  # GUI interface
 ├── orchestrator.py         # Tiered workflow orchestrator
 ├── api_client.py           # Stock Buddy API client
@@ -124,11 +154,17 @@ tradingview-to-everywhere/
 │   └── symbol_settings.py  # Symbol management
 ├── send_to_socials/        # Platform distributors
 └── docs/
-    ├── PRD.md              # Technical specification
+    ├── combo/
+    │   ├── ARCHITECTURE.md     # Combo mode architecture
+    │   ├── IMPLEMENTATION.md   # Combo implementation (archived)
+    │   └── PRD.md              # Combo mode PRD
+    ├── legacy/
+    │   ├── ARCHITECTURE.md     # Legacy/tiered architecture
+    │   ├── PRD.md              # Tiered mode specification
+    │   └── SIGNAL-FRESHNESS.md # Signal freshness analysis
     ├── SETUP.md            # Setup guide
     ├── API.md              # API reference
     ├── DATABASE.md         # Database schema
-    ├── ARCHITECTURE.md     # System architecture
     ├── TROUBLESHOOTING.md  # Common issues
     └── CONTRIBUTING.md     # Contribution guidelines
 ```
@@ -152,6 +188,10 @@ MONGODB_PWD=your_mongodb_password
 STOCK_BUDDY_API_URL=https://stock-buddy-app.vercel.app/api/tte
 NWE_CHART_URL=https://www.tradingview.com/chart/xxxxx/
 OBDIV_CHART_URL=https://www.tradingview.com/chart/yyyyy/
+
+# Combo Mode
+COMBO_WEBHOOK_URL=https://stock-buddy-app.vercel.app/api/tte/combo
+COMBO_NUM_BROWSERS=2
 ```
 
 ## Documentation
@@ -159,7 +199,10 @@ OBDIV_CHART_URL=https://www.tradingview.com/chart/yyyyy/
 - [Setup Guide](docs/SETUP.md) - Detailed installation and configuration
 - [API Reference](docs/API.md) - Stock Buddy API endpoints and webhooks
 - [Database Schema](docs/DATABASE.md) - MongoDB collections and schemas
-- [Architecture](docs/ARCHITECTURE.md) - System design and module reference
+- [Architecture (Legacy)](docs/legacy/ARCHITECTURE.md) - System design and module reference
+- [Combo Architecture](docs/combo/ARCHITECTURE.md) - Combo mode design
+- [Combo PRD](docs/combo/PRD.md) - Combo mode product requirements
+- [Tiered PRD](docs/legacy/PRD.md) - Tiered mode specification
 - [Troubleshooting](docs/TROUBLESHOOTING.md) - Common issues and solutions
 - [Contributing](docs/CONTRIBUTING.md) - Development guidelines
 

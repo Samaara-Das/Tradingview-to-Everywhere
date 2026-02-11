@@ -567,6 +567,95 @@ Receives Order Block + Divergence confirmation signals and creates confirmed tra
 
 ---
 
+## Combo Mode Endpoints
+
+Combo mode uses a different set of endpoints than tiered mode. Instead of separate NWE/OBDIV webhooks, combo mode uses a single webhook endpoint that receives all signal types in one payload.
+
+### POST /api/tte/combo — Combo Webhook
+
+Receives the combo screener webhook payload containing NWE, OB/FVG, and Divergence signals for multiple symbols.
+
+**URL**: `POST /api/tte/combo`
+
+**Payload Format** (sent by TradingView):
+```json
+{
+  "timestamp": 1707264000000,
+  "signals": [
+    {
+      "symbol": "GBPAUD",
+      "nwe": [{"zone": "lower_avg", "type": "bullish", "overlapTimestamp": 1707264000000, "timeframe": "1H"}],
+      "ob_fvg": [{"zonetype": "OB", "subtype": "unmitigated", "type": "bullish", "zoneTimestamp": 1707260400000, "overlapTimestamp": 1707264000000, "timeframe": "H4"}],
+      "divergence": [{"divType": "Logic 2", "type": "bullish", "timestamp": 1707264000000, "timeframe": "1H"}]
+    }
+  ]
+}
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "updated": 1
+}
+```
+
+---
+
+### GET /api/tte/combo/signals — Query Combo Signals
+
+Query live combo signals with pagination and filtering.
+
+**Endpoint**: `GET /api/tte/combo/signals`
+
+**Query Parameters**:
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `limit` | integer | 50 | Max signals to return (1-200) |
+| `offset` | integer | 0 | Pagination offset |
+| `sort` | string | `last_updated` | Sort field (`last_updated`, `symbol`) |
+| `order` | string | `desc` | Sort order (`asc` or `desc`) |
+| `direction` | string | - | Filter by direction (`bullish` or `bearish`) |
+| `signalType` | string | - | Filter by signal type (`nwe`, `ob_fvg`, `divergence`) |
+| `symbol` | string | - | Filter by symbol name |
+
+**Response**:
+```json
+{
+  "success": true,
+  "signals": [
+    {
+      "_id": "GBPAUD",
+      "symbol": "GBPAUD",
+      "nwe": [...],
+      "ob_fvg": [...],
+      "divergence": [...],
+      "last_updated": "2026-02-11T12:00:00Z"
+    }
+  ],
+  "total": 150,
+  "limit": 50,
+  "offset": 0
+}
+```
+
+### Testing Combo Endpoints
+
+```bash
+# Test combo webhook
+curl -X POST https://stock-buddy-app.vercel.app/api/tte/combo \
+  -H "Content-Type: application/json" \
+  -d '{"timestamp":1707264000000,"signals":[{"symbol":"EURUSD","nwe":[{"zone":"lower_avg","type":"bullish","overlapTimestamp":1707264000000,"timeframe":"1H"}],"ob_fvg":[],"divergence":[]}]}'
+
+# Query combo signals
+curl "https://stock-buddy-app.vercel.app/api/tte/combo/signals?limit=10"
+
+# Filter by signal type
+curl "https://stock-buddy-app.vercel.app/api/tte/combo/signals?signalType=nwe&direction=bullish"
+```
+
+---
+
 ## Signal Levels System
 
 Stock Buddy uses a signal level system (1, 2, 3) to indicate signal strength:
@@ -766,7 +855,7 @@ curl -X POST https://stock-buddy-app.vercel.app/api/tte/nwe \
 
 ## See Also
 
-- [Architecture](ARCHITECTURE.md) - How the API integrates with the orchestrator
+- [Architecture](legacy/ARCHITECTURE.md) - How the API integrates with the orchestrator
 - [Setup Guide](SETUP.md) - API configuration setup
 - [Database](DATABASE.md) - Stock Buddy database collections
 - [Troubleshooting](TROUBLESHOOTING.md) - API-related issues
