@@ -17,6 +17,14 @@ from pathlib import Path
 import yaml
 
 
+def _get_project_dir() -> Path:
+    """Get the project root directory, handling both script and frozen exe."""
+    if getattr(sys, "frozen", False):
+        # Frozen exe in dist/ — project root is one level up
+        return Path(sys.executable).parent.parent
+    return Path(__file__).parent
+
+
 # ---------------------------------------------------------------------------
 # Theme — Modern dark with blue accent
 # ---------------------------------------------------------------------------
@@ -69,7 +77,7 @@ class Theme:
 # Settings YAML helpers
 # ---------------------------------------------------------------------------
 
-SETTINGS_FILE = Path(__file__).parent / "combo_settings.yaml"
+SETTINGS_FILE = _get_project_dir() / "combo_settings.yaml"
 
 
 def load_settings() -> dict:
@@ -565,7 +573,9 @@ class TTEGui:
 
         self.vars["maintenance_interval"].set(maintenance.get("interval", 300))
 
-        self.vars["webhook_url"].set(webhook.get("url", ""))
+        self.vars["webhook_url"].set(
+            webhook.get("url", "https://stock-buddy-app.vercel.app/api/tte/combo")
+        )
 
         # CLI flags — setup, fresh, and maintenance enabled by default
         self.vars["setup_only"].set(False)
@@ -683,7 +693,15 @@ class TTEGui:
             return
 
         # Build command
-        cmd = [sys.executable, "combo_main.py"]
+        if getattr(sys, "frozen", False):
+            python_exe = "python"
+        else:
+            python_exe = sys.executable
+
+        project_dir = _get_project_dir()
+
+        combo_main_path = project_dir / "combo_main.py"
+        cmd = [python_exe, str(combo_main_path)]
         if self.vars["setup_only"].get():
             cmd.append("--setup-only")
         if self.vars["maintain_only"].get():
@@ -698,7 +716,9 @@ class TTEGui:
         try:
             creation_flags = 0
             if sys.platform == "win32":
-                creation_flags = subprocess.CREATE_NEW_PROCESS_GROUP
+                creation_flags = (
+                    subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW
+                )
 
             self.process = subprocess.Popen(
                 cmd,
@@ -706,7 +726,7 @@ class TTEGui:
                 stderr=subprocess.STDOUT,
                 text=True,
                 bufsize=1,
-                cwd=str(Path(__file__).parent),
+                cwd=str(project_dir),
                 creationflags=creation_flags,
             )
             self.running = True
