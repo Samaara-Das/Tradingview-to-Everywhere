@@ -66,11 +66,11 @@ class Browser:
         browser_id: int = 0,
         headless: bool = False,
     ) -> None:
-        print("[DEBUG] Browser.__init__() called", flush=True)
+        open_tv_logger.debug("Browser.__init__() called")
 
         # Use provided chrome_profile or fall back to env var PROFILE
         actual_profile = chrome_profile or PROFILE
-        print(f"[DEBUG] Chrome profile: {actual_profile}", flush=True)
+        open_tv_logger.debug(f"Chrome profile: {actual_profile}")
 
         # Kill Chrome processes that would conflict with our user-data-dir
         import subprocess
@@ -78,7 +78,7 @@ class Browser:
         if browser_id == 0:
             # Combo mode (first browser only): kill Chrome processes using TTE user-data-dirs
             # This prevents profile lock conflicts without killing unrelated Chrome windows
-            print("[DEBUG] Killing Chrome processes using TTE profiles...", flush=True)
+            open_tv_logger.debug("Killing Chrome processes using TTE profiles...")
             try:
                 ps_cmd = (
                     "Get-CimInstance Win32_Process -Filter \"Name='chrome.exe'\" | "
@@ -103,25 +103,21 @@ class Browser:
                             capture_output=True,
                             timeout=5,
                         )
-                    print(
-                        f"[DEBUG] Killed {len(pids)} Chrome processes using TTE profiles",
-                        flush=True,
+                    open_tv_logger.debug(
+                        f"Killed {len(pids)} Chrome processes using TTE profiles"
                     )
                     sleep(2)
                 else:
-                    print("[DEBUG] No existing TTE Chrome processes found", flush=True)
+                    open_tv_logger.debug("No existing TTE Chrome processes found")
             except Exception as e:
-                print(
-                    f"[DEBUG] Could not check/kill TTE Chrome processes: {e}",
-                    flush=True,
-                )
+                open_tv_logger.debug(f"Could not check/kill TTE Chrome processes: {e}")
 
         chrome_options = Options()
         chrome_options.add_experimental_option("detach", keep_open)
 
         # Apply user data suffix for parallel browsers
         user_data_dir = f"{CHROME_PROFILES_PATH}/TTE{user_data_suffix}"
-        print(f"[DEBUG] Chrome user data dir: {user_data_dir}", flush=True)
+        open_tv_logger.debug(f"Chrome user data dir: {user_data_dir}")
         chrome_options.add_argument(f"--profile-directory={actual_profile}")
         chrome_options.add_argument(f"--user-data-dir={user_data_dir}")
         # Removed --remote-debugging-port=9224 as it can cause conflicts
@@ -141,39 +137,37 @@ class Browser:
         if headless:
             chrome_options.add_argument("--headless=new")
             chrome_options.add_argument("--window-size=1920,1080")
-            print("[DEBUG] Running in headless mode", flush=True)
+            open_tv_logger.debug("Running in headless mode")
 
         # Add unique remote debugging port per browser_id to avoid conflicts
         if chrome_profile is not None:
             debug_port = 9222 + browser_id
             chrome_options.add_argument(f"--remote-debugging-port={debug_port}")
-            print(
-                f"[DEBUG] Remote debugging port: {debug_port} (browser_id={browser_id})",
-                flush=True,
+            open_tv_logger.debug(
+                f"Remote debugging port: {debug_port} (browser_id={browser_id})"
             )
 
-        print("[DEBUG] Getting Chrome version...", flush=True)
+        open_tv_logger.debug("Getting Chrome version...")
         cmd = "powershell -command \"&{(Get-Item 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe').VersionInfo.ProductVersion}\""
         version = read_version_from_cmd(cmd, PATTERN["google-chrome"])
-        print(f"[DEBUG] Chrome version: {version}", flush=True)
+        open_tv_logger.debug(f"Chrome version: {version}")
 
-        print("[DEBUG] Installing/getting ChromeDriver...", flush=True)
+        open_tv_logger.debug("Installing/getting ChromeDriver...")
         service = ChromeDriverManager(driver_version=version).install()
-        print(f"[DEBUG] ChromeDriver path: {service}", flush=True)
+        open_tv_logger.debug(f"ChromeDriver path: {service}")
 
-        print("[DEBUG] Creating Chrome webdriver...", flush=True)
+        open_tv_logger.debug("Creating Chrome webdriver...")
         # Use unique ChromeDriver service port per browser to avoid collisions
         # port=0 means auto-assign (preserves legacy behavior when no chrome_profile)
         service_port = 9515 + browser_id if chrome_profile is not None else 0
         if service_port:
-            print(
-                f"[DEBUG] ChromeDriver service port: {service_port} (browser_id={browser_id})",
-                flush=True,
+            open_tv_logger.debug(
+                f"ChromeDriver service port: {service_port} (browser_id={browser_id})"
             )
         self.driver = webdriver.Chrome(
             service=ChromeService(service, port=service_port), options=chrome_options
         )
-        print("[DEBUG] Chrome webdriver created successfully", flush=True)
+        open_tv_logger.debug("Chrome webdriver created successfully")
 
         self.open_chart = OpenChart(self.driver)
         self.utils = Utils()
@@ -1309,7 +1303,7 @@ class Browser:
                     (By.CSS_SELECTOR, 'button[data-qa-id="legend-delete-action"]')
                 )
             )
-            print("Found remove button: ", delete_action)
+            open_tv_logger.debug(f"Found remove button: {delete_action}")
             delete_action.click()
 
             # click on "Favorites" dropdowm
@@ -1321,7 +1315,7 @@ class Browser:
                     )
                 )
             ).click()
-            print("favorites dropdown was clicked")
+            open_tv_logger.debug("Favorites dropdown was clicked")
 
             # Wait for the dropdown menu to appear
             menu = WebDriverWait(self.driver, 10).until(
@@ -1329,7 +1323,7 @@ class Browser:
                     (By.CSS_SELECTOR, 'div[data-qa-id="menu-inner"]')
                 )
             )
-            print("dropdown menu appeared")
+            open_tv_logger.debug("Dropdown menu appeared")
 
             # find the indicator in the dropdown menu and click on it
             dropdown_indicators = WebDriverWait(menu, 10).until(
@@ -1338,13 +1332,13 @@ class Browser:
                 )
             )
             for el in dropdown_indicators:
-                print("current indicator: ", el)
+                open_tv_logger.debug(f"Current indicator: {el}")
                 text = el.find_element(
                     By.CSS_SELECTOR,
                     'span[class="label-l0nf43ai apply-overflow-tooltip"]',
                 ).text
                 if indicator_name == text:
-                    print(f"Found {indicator_name}")
+                    open_tv_logger.debug(f"Found {indicator_name}")
                     if el.is_displayed():
                         el.click()
                         break
