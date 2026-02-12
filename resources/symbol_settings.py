@@ -1,5 +1,5 @@
 """
-This holds all the functions and variables related to the symbols.
+Functions for loading symbols from MongoDB.
 
 Currencies - 30
 US Stocks - 719
@@ -9,10 +9,8 @@ Indices - 18
 """
 
 import logger_setup
-from env import *
 import os
 from pymongo import MongoClient
-from pymongo.errors import PyMongoError
 
 # Set up logger for this file
 symbol_logger = logger_setup.setup_logger(__name__, logger_setup.DEBUG)
@@ -20,19 +18,6 @@ symbol_logger = logger_setup.setup_logger(__name__, logger_setup.DEBUG)
 # MongoDB connection cache
 _mongodb_client = None
 _mongodb_db = None
-
-
-# Initialize empty dictionaries that will be populated from MongoDB
-main_symbols = {}
-symbol_categories = {}
-
-# this is the same as main_symbols except that each list will have sublists of a certain amount of symbols. The remaining symbols will be in the last sublist
-symbol_set = {
-    CURRENCIES_WEBHOOK_NAME: [],
-    CRYPTO_WEBHOOK_NAME: [],
-    INDIAN_STOCKS_WEBHOOK_NAME: [],
-    US_STOCKS_WEBHOOK_NAME: [],
-}
 
 
 def _get_mongodb_connection():
@@ -135,63 +120,3 @@ def get_symbols():
 def get_symbol_categories():
     """Get symbol categories from MongoDB. Raises exception if MongoDB is unavailable."""
     return _load_symbol_categories_from_mongodb()
-
-
-# Update the global symbols and categories to use MongoDB by default
-# Skip if SKIP_MONGODB_SYMBOLS is set (used by tiered orchestrator which gets symbols from API)
-_skip_mongodb = os.getenv("SKIP_MONGODB_SYMBOLS", "").lower() in ("true", "1", "yes")
-
-if _skip_mongodb:
-    symbol_logger.info("SKIP_MONGODB_SYMBOLS is set - skipping MongoDB symbol loading")
-else:
-    try:
-        _mongodb_main_symbols = get_symbols()
-        _mongodb_symbol_categories = get_symbol_categories()
-
-        # Update global variables with MongoDB data
-        main_symbols.clear()
-        main_symbols.update(_mongodb_main_symbols)
-        symbol_logger.info("Updated main_symbols with data from MongoDB")
-
-        symbol_categories.clear()
-        symbol_categories.update(_mongodb_symbol_categories)
-        symbol_logger.info("Updated symbol_categories with data from MongoDB")
-
-    except Exception as e:
-        symbol_logger.error(f"Failed to load symbols from MongoDB: {e}")
-        symbol_logger.error(
-            "Application will not function without MongoDB symbols data"
-        )
-        raise RuntimeError(f"Critical error: Cannot load symbols from MongoDB: {e}")
-
-
-def fill_symbol_set(symbol_inputs: int):
-    """This fills up the `symbol_set` dictionary. Every key's value is a list with sublists inside it. Each sublist has a maximum of `symbol_inputs` elements. The elements of those sublists are symbols."""
-    # Use the MongoDB symbols (will raise exception if MongoDB fails)
-    symbols_data = get_symbols()
-
-    for category, symbols in symbols_data.items():
-        sublists = [
-            symbols[i : i + symbol_inputs]
-            for i in range(0, len(symbols), symbol_inputs)
-        ]  # Split symbols into sublists of symbol_inputs
-        if (
-            sublists and len(sublists[-1]) < symbol_inputs
-        ):  # If some symbols are remaining
-            last_sublist = (
-                sublists.pop() if sublists else []
-            )  # Pop the last sublist if it exists
-            sublists.append(last_sublist)  # Add the remaining symbols in a new sublist
-        symbol_set[category] = sublists  # Fill up the symbol_set dictionary
-
-    symbol_logger.info("Filled up symbol_set!")
-    return True  # Return True if symbol_set is successfully filled up
-
-
-def symbol_category(symbol):
-    """
-    This function returns the symbol category. It retrieves the category of `symbol` (the category can be a US stock, forex pair, crypto pair, etc.)
-    """
-    # Use the MongoDB categories (will raise exception if MongoDB fails)
-    categories = get_symbol_categories()
-    return categories.get(symbol, None)
