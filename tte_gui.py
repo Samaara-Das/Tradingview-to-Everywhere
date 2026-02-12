@@ -745,26 +745,57 @@ class TTEGui:
         if not self.process:
             return
 
-        self._log("Sending stop signal...", "warning")
+        self._log("Stopping process...", "warning")
         self._set_status("Stopping...", Theme.WARNING)
 
+        # Check if process is still running
+        if self.process.poll() is not None:
+            # Process already exited
+            self._log("Process already stopped.", "info")
+            self._on_process_ended(self.process.returncode)
+            return
+
+        # Terminate the process tree on Windows using taskkill
         try:
             if sys.platform == "win32":
-                os.kill(self.process.pid, signal.CTRL_BREAK_EVENT)
+                # Use taskkill to terminate the entire process tree
+                # /F = force, /T = tree (children), /PID = process ID
+                subprocess.run(
+                    ["taskkill", "/F", "/T", "/PID", str(self.process.pid)],
+                    capture_output=True,
+                    timeout=5,
+                )
+                self._log(f"Terminated process tree (PID {self.process.pid})", "info")
             else:
-                self.process.send_signal(signal.SIGTERM)
-        except OSError as e:
-            self._log(f"Signal send failed: {e}", "error")
+                # Unix: send SIGTERM
+                self.process.terminate()
+                self._log(f"Sent SIGTERM to process (PID {self.process.pid})", "info")
+        except subprocess.TimeoutExpired:
+            self._log("Taskkill command timed out", "error")
+        except FileNotFoundError:
+            self._log("taskkill not found, trying fallback termination", "warning")
+            # Fallback: try process.terminate()
+            try:
+                self.process.terminate()
+            except Exception as e:
+                self._log(f"Fallback termination failed: {e}", "error")
+        except Exception as e:
+            self._log(f"Error during termination: {e}", "error")
 
+        # Start force-kill timeout thread
         threading.Thread(target=self._force_kill_after_timeout, daemon=True).start()
 
     def _force_kill_after_timeout(self):
-        """Force-kill if process doesn't exit within 30 seconds."""
+        """Force-kill if process doesn't exit within 10 seconds."""
         try:
-            self.process.wait(timeout=30)
+            self.process.wait(timeout=10)
         except subprocess.TimeoutExpired:
-            self._log("Force-killing process (30s timeout)...", "error")
-            self.process.kill()
+            self._log("Force-killing process (10s timeout)...", "error")
+            try:
+                self.process.kill()
+                self.process.wait(timeout=5)
+            except Exception as e:
+                self._log(f"Force-kill failed: {e}", "error")
 
     # =====================================================================
     # Output reading
