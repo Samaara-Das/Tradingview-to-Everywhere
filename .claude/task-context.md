@@ -1,8 +1,8 @@
 # Task Context Tracker
 
 **Last Updated**: 2026-02-12
-**Current Task**: Documentation update complete. All 6 outdated doc files updated for single-browser/headless/GUI changes.
-**Last Session**: Updated README, PRD, ARCHITECTURE, SETUP, TROUBLESHOOTING, CONTRIBUTING docs
+**Current Task**: Fixed divergence detection in TTE Pine Script screener — confirmed working via debug table test.
+**Last Session**: Pine Script divergence fix (3 production changes + 5 debug helper fixes)
 **Active Branch**: `combo-architecture`
 
 ---
@@ -16,6 +16,33 @@ All tasks complete. Documentation fully synced with production state.
 ---
 
 ## Session History
+
+### Session: 2026-02-12 (Fix Divergence Detection in Pine Script Screener)
+
+**Goal**: Fix divergence detection that was always empty (`divergence: []`) in all 950 symbols in `tte_live_signals`.
+
+**Root cause**: Two issues working together in `Pine Script Code/TTE Screener.txt`:
+1. `buildDivEntry()` (line 792) checked `divTime == currTime` — comparing HTF bar timestamp vs 1-minute chart timestamp (virtually never match)
+2. `detectBullishDiv()`/`detectBearishDiv()` scanned 300 bars back with no recency gate — relaxing #1 alone would flood stale divergences
+
+**Production changes (3 edits, atomic set)**:
+1. **Line 289**: `if inDownleg and lowerLow` → `if inDownleg and lowerLow and currLowShift <= 1` — gate bullish div to shift 0/1 on HTF
+2. **Line 316**: `if inUpleg and higherHigh` → `if inUpleg and higherHigh and currHighShift <= 1` — gate bearish div to shift 0/1 on HTF
+3. **Line 792**: `divTime == currTime` → `divTime > 0` — replace impossible timestamp match with non-zero check
+4. **Line 790**: Updated stale comment to match new logic
+
+**Debug helper functions fixed (5 edits, same `== currTime` → `> 0` pattern)**:
+- `buildDivDetailTable` (line 860) — table cell text
+- `buildDivTooltip` (line 922) — hover tooltip
+- `formatSingleDivSignal` (line 969) — B/S/- display
+- `getSingleDivColor` (line 982) — green/red/gray coloring
+- `hasAnySignal` (line 995) — signal presence check
+
+**Testing**: Uncommented debug table for 1 symbol (s01) on 1H + H4 timeframes. User confirmed divergence detection working correctly on shift 0 and 1. Table re-commented for production.
+
+**Note**: D1 timeframe uses `checkOBOnly()` (no divergence detection). Only 1H and H4 divergences appear. Adding D1 divergence would require additional `request.security()` calls — separate scope.
+
+---
 
 ### Session: 2026-02-12 (Documentation Update — 6 Outdated Files)
 

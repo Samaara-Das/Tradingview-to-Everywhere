@@ -286,7 +286,7 @@ detectBullishDiv(float osc, int maxLookback) =>
     // currDownleg: from negStart (current negative range) to now (shift 0)
     float currDownlegAO = findLowestAoInRange(osc, negStartShift, 0)
 
-    if inDownleg and lowerLow
+    if inDownleg and lowerLow and currLowShift <= 1
         // Higher AO low (less negative) = bullish divergence
         if prevDownlegAO < currDownlegAO
             result := time[currLowShift]
@@ -313,7 +313,7 @@ detectBearishDiv(float osc, int maxLookback) =>
     // currUpleg: from posStart (current positive range) to now (shift 0)
     float currUplegAO = findHighestAoInRange(osc, posStartShift, 0)
 
-    if inUpleg and higherHigh
+    if inUpleg and higherHigh and currHighShift <= 1
         // Lower AO high = bearish divergence
         if prevUplegAO > currUplegAO
             result := time[currHighShift]
@@ -787,9 +787,9 @@ buildObEntry(int found, int zoneType, int subType, int zoneTime, int overlapTime
     else
         ''
 
-// Build Divergence JSON entry (if divergence timestamp matches current time)
+// Build Divergence JSON entry (if divergence was detected, i.e. timestamp > 0)
 buildDivEntry(int divTime, int currTime, string tf, string signalType) =>
-    divTime == currTime ? '{"divType":"Logic 2","type":"' + signalType + '","timestamp":' + str.tostring(divTime) + ',"timeframe":"' + tf + '"}' : ''
+    divTime > 0 ? '{"divType":"Logic 2","type":"' + signalType + '","timestamp":' + str.tostring(divTime) + ',"timeframe":"' + tf + '"}' : ''
 
 // Join array entries with commas (skip empty strings)
 joinEntries(string e1, string e2) =>
@@ -859,10 +859,10 @@ buildObDetailTable(int h4, int d1, int w1) =>
 // Helper function to build DIV detail string for table
 buildDivDetailTable(int divH4, int divD1, int currTime) =>
     string result = ''
-    if divH4 == currTime
+    if divH4 > 0
         result := 'H4'
         result
-    if divD1 == currTime
+    if divD1 > 0
         result := result + (str.length(result) > 0 ? ',' : '') + 'D1'
         result
     result
@@ -921,8 +921,8 @@ buildObTooltip(int bullFound, int bearFound, int bullZT, int bullT, int bullTm, 
 // Build Divergence tooltip with timestamp (UTC timezone)
 buildDivTooltip(int divBullTime, int divBearTime, int currTime) =>
     string tooltip = ''
-    bool bullish = divBullTime == currTime
-    bool bearish = divBearTime == currTime
+    bool bullish = divBullTime > 0
+    bool bearish = divBearTime > 0
     if bullish
         tooltip := 'BULLISH DIV\nLogic 2\nTime: ' + str.format_time(divBullTime, 'yyyy-MM-dd HH:mm', "UTC") + ' UTC'
         tooltip
@@ -967,8 +967,8 @@ getSingleObColor(int bullFound, int bearFound) =>
 
 // Format Divergence signal (timestamp version)
 formatSingleDivSignal(int divBullTime, int divBearTime, int currTime) =>
-    bool bullish = divBullTime == currTime
-    bool bearish = divBearTime == currTime
+    bool bullish = divBullTime > 0
+    bool bearish = divBearTime > 0
     if bullish and bearish
         'B S'
     else if bullish
@@ -980,8 +980,8 @@ formatSingleDivSignal(int divBullTime, int divBearTime, int currTime) =>
 
 // Get color for Divergence signal
 getSingleDivColor(int divBullTime, int divBearTime, int currTime) =>
-    bool bullish = divBullTime == currTime
-    bool bearish = divBearTime == currTime
+    bool bullish = divBullTime > 0
+    bool bearish = divBearTime > 0
     if bullish and bearish
         color.yellow
     else if bullish
@@ -995,7 +995,7 @@ getSingleDivColor(int divBullTime, int divBearTime, int currTime) =>
 hasAnySignal(bool nweBullH4, bool nweBearH4, bool nweBullD1, bool nweBearD1, int bullFH4, int bearFH4, int bullFD1, int bearFD1, int bullFW1, int bearFW1, int divBullH4, int divBearH4, int divBullD1, int divBearD1, int currTime) =>
     bool hasNwe = nweBullH4 or nweBearH4 or nweBullD1 or nweBearD1
     bool hasOb = bullFH4 == 1 or bearFH4 == 1 or bullFD1 == 1 or bearFD1 == 1 or bullFW1 == 1 or bearFW1 == 1
-    bool hasDiv = divBullH4 == currTime or divBearH4 == currTime or divBullD1 == currTime or divBearD1 == currTime
+    bool hasDiv = divBullH4 > 0 or divBearH4 > 0 or divBullD1 > 0 or divBearD1 > 0
     hasNwe or hasOb or hasDiv
 
 ////////////////////////////
@@ -1184,7 +1184,7 @@ getDivCellColor(int divBullH4, int divBearH4, int divBullD1, int divBearD1, int 
 //     table.cell(sigTable, 6, 0, 'DIV-1H', text_color = color.white, text_size = size.small)
 //     table.cell(sigTable, 7, 0, 'DIV-H4', text_color = color.white, text_size = size.small)
 
-//     // Symbol 01 - GBPAUD
+//     // Symbol 01
 //     table.cell(sigTable, 0, 1, getSymbolName(s01), text_color = color.white, text_size = size.small)
 //     // NWE-1H (from TF_1H)
 //     table.cell(sigTable, 1, 1, formatSingleTfSignal(nweBull01_1h, nweBear01_1h), text_color = getSingleTfColor(nweBull01_1h, nweBear01_1h), text_size = size.small, tooltip = buildNweTooltip(nweBull01_1h, nweBear01_1h, bullZone01_1h, bearZone01_1h, time))
