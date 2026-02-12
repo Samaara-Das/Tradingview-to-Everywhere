@@ -4,78 +4,47 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-TradingView to Everywhere (TTE) is an automated trading signals distribution system that bridges TradingView alerts with multiple platforms. It uses Selenium browser automation to interact with TradingView and webhooks to distribute signals to Stock Buddy API.
+TradingView to Everywhere (TTE) is an automated trading signals distribution system that bridges TradingView alerts with Stock Buddy API. It uses Selenium browser automation to interact with TradingView and webhooks to distribute signals.
 
 ### Critical Principles
 1. **Reuse existing code**: Before implementing anything, check if it already exists in the codebase
-2. **Three operational modes**: Legacy (poll-based), Tiered (two-phase webhook), Combo (single-indicator webhook)
-3. **Never modify `open_tv.py`**: All browser automation is reusable with different parameters
+2. **Changes to `open_tv.py` should be tested carefully**: It contains all browser automation logic
+3. **Use built-in task management**: Always use TaskCreate/TaskUpdate/TaskList tools for tracking work
 
-## Three Operational Modes
+## Combo Mode (`combo_main.py`) — Production
 
-### 1. Legacy Mode (`main.py`)
-- **Method**: Poll-based alert scraping with Selenium
-- **Use case**: Screenshot capture + social distribution
-- **Key files**: `main.py`, `handle_alerts.py`, `exits.py`
-
-### 2. Tiered Mode (`tiered_main.py`)
-- **Method**: Two-phase webhook filtering (NWE → OBDIV)
-- **Workflow**: 20 symbols (NWE) → hot symbols → 8 symbols (OBDIV)
-- **Alert lifecycle**: Create → wait → delete → repeat
-- **Key files**: `tiered_main.py`, `orchestrator.py`, `api_client.py`, `config.py`
-- **Docs**: `docs/legacy/PRD.md`
-
-### 3. Combo Mode (`combo_main.py`) - **PRODUCTION**
-- **Method**: Single combo screener (NWE + OB/FVG + Divergence)
-- **Workflow**: 352 persistent alerts (3 symbols each) → webhook continuously
+- **Method**: Single combo screener (NWE + OB/FVG + Divergence) with persistent webhook alerts
+- **Workflow**: ~352 persistent alerts (3 symbols each) → webhook continuously to Stock Buddy API
 - **Alert lifecycle**: Create once → run forever (+ maintenance every 5 mins)
-- **Key difference**: 4-symbol hard limit per alert (using 3 for 1-min chart performance)
+- **4-symbol hard limit**: More causes TradingView memory/runtime errors (using 3 in production)
+- **Single browser**: Alerts created sequentially with one Chrome instance (headless by default)
+- **Chart**: 1-minute timeframe, line bar style (for minimal resource usage)
 - **Key files**: `combo_main.py`, `combo_config.py`, `combo_settings.yaml`
 - **Docs**: `docs/combo/ARCHITECTURE.md`, `docs/combo/PRD.md`
 
 ## Running Commands
 
 ```bash
-pipenv shell                       # Activate environment
-python main.py                     # Legacy mode
-python tiered_main.py              # Tiered mode
-python combo_main.py               # Combo mode (production)
+pipenv shell                              # Activate environment
+python combo_main.py                      # Full setup + maintenance
+python combo_main.py --setup-only         # Create alerts, then exit
+python combo_main.py --maintain-only      # Skip setup, run maintenance only
+python combo_main.py --fresh              # Delete all existing alerts before setup
+python combo_main.py --validate           # Validate config and exit
+python tte_gui.py                         # GUI interface
 ```
 
-## Core Architecture Concepts
+## Core Architecture
 
 ### Browser Automation (`open_tv.py`)
-- **DO NOT MODIFY**: All methods are reusable with different parameters
 - Manages all Selenium interactions with TradingView
 - Key pattern: `_safe_indicator_access()` handles stale elements with retry logic
+- `create_webhook_alert()` creates alerts with webhook notification
+- `reupload_indicator()` recovers from screener errors
+- `change_settings()` fills in symbol inputs for the screener
 
-### Alert Lifecycles
-
-| Mode | Create | Monitor | Delete | Timeframe |
-|------|--------|---------|--------|-----------|
-| Legacy | At startup | Poll alert log | Manual/restart | Continuous |
-| Tiered | Per batch | Webhook wait | After trigger | ~90s per batch |
-| Combo | Once (352 alerts) | TradingView servers | Never (persist) | One-time setup |
-
-### Combo Mode Critical Details
-- **4-symbol hard limit**: More causes TradingView memory/runtime errors (using 3 in production)
-- **352 persistent alerts**: ~1,054 symbols ÷ 3 = 352 alerts
-- **Timeframe mismatch**: Variable names (TF_H4/TF_D1/TF_W1) are legacy; production is 1H/H4/D1
-- **Single browser**: Alerts created sequentially with one Chrome instance
-- **Maintenance**: Every 5 mins, call `restart_inactive_alerts()` from `handle_alerts.py:240-303`
-- **Chart**: 1-minute timeframe, line bar style (for minimal resource usage)
-
-## Configuration Essentials
-
-### TradingView Requirements (All Modes)
-- **2FA**: Must be disabled
-- **Social accounts**: None linked
-- **Subscription**: Premium (for webhooks in Tiered/Combo)
-- **Layouts**: Mode-specific (Legacy: "Screener"+"Exits", Tiered: "NWE"+"OBDIV", Combo: "Screener")
-- **Indicators**: Must be starred/favorited
-
-### Combo Mode Settings (`combo_settings.yaml`)
-All combo mode options are configured in `combo_settings.yaml`. Edit this file to change chart timeframe, layout, bar style, batch size, tabs, etc. Secrets (webhook URL) are in `.env` and override the YAML.
+### Settings (`combo_settings.yaml`)
+All combo mode options are configured in `combo_settings.yaml`. Secrets (webhook URL) are in `.env`.
 
 | Setting | YAML Path | Default | Description |
 |---------|-----------|---------|-------------|
@@ -90,42 +59,35 @@ All combo mode options are configured in `combo_settings.yaml`. Edit this file t
 ### Environment Variables
 See `env.py` and `.env` file. Key variables: `CHROME_PROFILES_PATH`, `TRADINGVIEW_EMAIL`, `TRADINGVIEW_PASSWORD`, `MONGODB_PWD`, `COMBO_WEBHOOK_URL`
 
-## Critical Constants
-
-| Constant | Legacy | Tiered | Combo |
-|----------|--------|--------|-------|
-| Batch size | 5 symbols | 20 (NWE), 8 (OBDIV) | **3 (of 4 max)** |
-| Restart interval | 10 mins | N/A | 5 mins |
-| Alert lifecycle | Create at startup | Create/delete cycle | Create once + maintain |
-
-**Combo Pine Script Timeframes** (production values):
-- `TF_H4="60"` (1H), `TF_D1="240"` (H4), `TF_W1="D"` (D1) — variable names are legacy
+### TradingView Requirements
+- **2FA**: Must be disabled
+- **Social accounts**: None linked
+- **Subscription**: Premium (for webhooks)
+- **Layout**: "Screener" with the combo indicator starred/favorited
 
 ## Development Guidelines
 
 1. **Reuse existing code**: Check before implementing — patterns for alerts, tabs, indicators already exist
-2. **Always log**: Use `print(..., flush=True)` or `logger.info/debug/error()` in every significant code block
-3. **Never modify `open_tv.py`**: All browser automation is reusable with parameters
+2. **Always log**: Use `logger.info/debug/error()` in every significant code block
+3. **Test `open_tv.py` changes carefully**: Browser automation is fragile; verify with a real browser
 4. **Document mistakes**: Write learnings to `AGENTS.md` to prevent repetition
-5. **Use built-in task management**: Always use TaskCreate/TaskUpdate/TaskList tools (NOT MCP task-master-ai) for tracking work
 
-## Key Reusable Code Locations
+## Key Code Locations
 
 | What | Where | Use Case |
 |------|-------|----------|
-| Restart inactive alerts | `handle_alerts.py:240-303` | Combo maintenance (every 5 mins) |
-| Tab switching | `open_entry_chart.py:277-318` | Parallel alert creation (combo setup) |
-| Create webhook alert | `open_tv.py:1007-1361` | All webhook modes |
-| Delete all alerts | `open_tv.py:1502-1627` | Tiered mode only (NOT combo) |
-| Safe element access | `open_tv.py:1757-1780` | When Selenium elements go stale |
-
+| Restart inactive alerts | `combo_main.py:366-438` | Maintenance (every 5 mins) |
+| Create webhook alert | `open_tv.py` `create_webhook_alert()` | Alert creation |
+| Change screener settings | `open_tv.py` `change_settings()` | Symbol configuration |
+| Safe element access | `open_tv.py` `_safe_indicator_access()` | When Selenium elements go stale |
+| Re-upload indicator | `open_tv.py` `reupload_indicator()` | Screener error recovery |
 
 ## Documentation
 
 | Change Type | Update |
 |-------------|--------|
-| Architecture/workflow | `docs/legacy/ARCHITECTURE.md` (tiered), `docs/combo/ARCHITECTURE.md` (combo) |
-| Implementation tasks | `docs/legacy/PRD.md` (tiered), `docs/combo/PRD.md` (combo) |
+| Architecture/workflow | `docs/combo/ARCHITECTURE.md` |
+| Implementation tasks | `docs/combo/PRD.md` |
 | Other changes | `README.md`, `docs/SETUP.md`, `docs/API.md`, etc. |
 
 Update docs in the same PR as code changes.

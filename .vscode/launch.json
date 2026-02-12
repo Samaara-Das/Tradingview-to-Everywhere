@@ -5,10 +5,17 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "TTE",
+            "name": "TTE Combo",
             "type": "debugpy",
             "request": "launch",
-            "module": "main",
+            "module": "combo_main",
+            "justMyCode": true
+        },
+        {
+            "name": "TTE GUI",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "tte_gui",
             "justMyCode": true
         }
     ]

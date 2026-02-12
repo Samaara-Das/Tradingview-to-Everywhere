@@ -31,12 +31,12 @@ def get_next_symbol_batch(size: int = 20):
     return batch_response
 
 # Use PascalCase for classes
-class TieredOrchestrator:
+class Browser:
     pass
 
 # Use UPPER_SNAKE_CASE for constants
-NWE_BATCH_SIZE = 20
-CHART_TIMEFRAME = "5 minutes"
+BATCH_SIZE = 3
+CHART_TIMEFRAME = "1 minute"
 ```
 
 ### Naming Guidelines
@@ -45,9 +45,9 @@ CHART_TIMEFRAME = "5 minutes"
 |------|------------|---------|
 | Variables | snake_case | `symbol_list`, `batch_count` |
 | Functions | snake_case, verb prefix | `get_symbols()`, `create_alert()` |
-| Classes | PascalCase | `Browser`, `TieredOrchestrator` |
-| Constants | UPPER_SNAKE_CASE | `MAX_RETRIES`, `API_TIMEOUT` |
-| Files | snake_case | `api_client.py`, `handle_alerts.py` |
+| Classes | PascalCase | `Browser`, `ComboConfig` |
+| Constants | UPPER_SNAKE_CASE | `MAX_RETRIES`, `LAYOUT_NAME` |
+| Files | snake_case | `combo_main.py`, `open_tv.py` |
 
 ### Function Guidelines
 
@@ -97,7 +97,7 @@ except:
 
 ## Logging Requirements
 
-**CRITICAL**: Every new function or significant code block MUST include debug logging.
+**CRITICAL**: Every new function or significant code block MUST include logging.
 
 ### Why Logging is Essential
 
@@ -108,54 +108,26 @@ except:
 
 ### Logging Methods
 
-Use both immediate print output and file logging:
+Use the project's logger setup:
 
 ```python
-# Immediate console output (for real-time debugging)
-print(f"[DEBUG] Starting {operation_name}...", flush=True)
-print(f"[DEBUG] {variable} = {value}", flush=True)
+import logger_setup
+
+logger = logger_setup.setup_logger(__name__, logger_setup.DEBUG)
 
 # File logging (for persistent records)
 logger.info(f"Successfully completed {operation}")
+logger.debug(f"Detailed step: {variable} = {value}")
 logger.warning(f"Non-critical issue: {issue}")
 logger.error(f"Operation failed: {error}")
 logger.exception(f"Exception in {function}:")  # Includes stack trace
-```
-
-### Logging Patterns
-
-```python
-def process_batch(self, symbols: List[str]) -> bool:
-    """Example function with proper logging."""
-    print(f"[DEBUG] process_batch called with {len(symbols)} symbols", flush=True)
-    logger.info(f"Processing batch of {len(symbols)} symbols")
-
-    try:
-        # Log before critical operations
-        print("[DEBUG] Calling API to fetch data...", flush=True)
-        data = self.api.fetch_data(symbols)
-        print(f"[DEBUG] API returned {len(data)} items", flush=True)
-
-        # Log state changes
-        for item in data:
-            print(f"[DEBUG] Processing item: {item['id']}", flush=True)
-            self._process_item(item)
-
-        logger.info(f"Successfully processed batch of {len(symbols)} symbols")
-        print("[DEBUG] process_batch complete", flush=True)
-        return True
-
-    except Exception as e:
-        print(f"[DEBUG] process_batch failed: {e}", flush=True)
-        logger.exception(f"Error processing batch: {e}")
-        return False
 ```
 
 ### Log Level Guidelines
 
 | Level | Usage | Example |
 |-------|-------|---------|
-| DEBUG (print) | Detailed execution flow | `[DEBUG] Entering function X` |
+| DEBUG | Detailed execution flow | `Entering function X` |
 | INFO | Normal operations | `Successfully created alert` |
 | WARNING | Non-critical issues | `Could not save layout` |
 | ERROR | Operation failures | `Failed to sign in` |
@@ -175,10 +147,10 @@ docs/description       # Documentation changes
 ```
 
 Examples:
-- `feature/add-obdiv-screener`
+- `feature/add-maintenance-retry`
 - `fix/stale-element-retry`
-- `refactor/api-client-cleanup`
-- `docs/add-api-reference`
+- `refactor/alert-creation-cleanup`
+- `docs/update-api-reference`
 
 ### Commit Messages
 
@@ -189,7 +161,7 @@ Examples:
 <longer description if needed>
 
 # Examples
-feat: Add webhook alert creation for tiered mode
+feat: Add webhook alert creation for combo mode
 
 Implement create_webhook_alert() method in Browser class.
 This enables TradingView to POST to Stock Buddy API when
@@ -223,20 +195,16 @@ docs: Add API reference documentation
 
 1. Run validation:
    ```bash
-   python tiered_main.py --validate
+   python combo_main.py --validate
    ```
 
-2. Test API connection:
+2. Verify all Python files compile:
    ```bash
-   python tiered_main.py --test-api
+   python -m py_compile combo_main.py
+   python -m py_compile open_tv.py
    ```
 
-3. Run a single cycle (if code changes affect execution):
-   ```bash
-   python tiered_main.py --single-cycle
-   ```
-
-4. Update relevant documentation
+3. Update relevant documentation
 
 ### PR Requirements
 
@@ -276,32 +244,18 @@ Before submitting changes:
 
 1. **Configuration validation**:
    ```bash
-   python tiered_main.py --validate   # Tiered mode
-   python combo_main.py --validate    # Combo mode
+   python combo_main.py --validate
    ```
 
-2. **API connectivity**:
+2. **Browser automation** (if changed browser code):
+   Run with `headless: false` to visually verify behavior
+
+3. **Setup test** (for alert creation changes):
    ```bash
-   python tiered_main.py --test-api
+   python combo_main.py --setup-only
    ```
 
-3. **Browser automation** (if changed browser code):
-   ```bash
-   python tiered_main.py --test-browser
-   ```
-
-4. **Single cycle / setup** (for workflow changes):
-   ```bash
-   python tiered_main.py --single-cycle    # Tiered mode
-   python combo_main.py --setup-only       # Combo mode
-   ```
-
-5. **Phase 2 testing** (if OBDIV-related):
-   ```bash
-   python tiered_main.py --test-phase2
-   ```
-
-6. **Combo maintenance** (if changed maintenance code):
+4. **Maintenance test** (if changed maintenance code):
    ```bash
    python combo_main.py --maintain-only
    ```
@@ -310,12 +264,11 @@ Before submitting changes:
 
 - [ ] No Python syntax errors
 - [ ] Configuration validates successfully
-- [ ] API connection works
 - [ ] Browser launches correctly
 - [ ] TradingView login succeeds
 - [ ] Layout switching works
 - [ ] Indicator detection works
-- [ ] Alert creation/deletion works
+- [ ] Alert creation works
 - [ ] No new warnings or errors in logs
 
 ---
@@ -332,10 +285,8 @@ Update documentation when:
 | Setup/configuration changes | `docs/SETUP.md` |
 | API endpoint changes | `docs/API.md` |
 | Database schema changes | `docs/DATABASE.md` |
-| Tiered architecture/module changes | `docs/legacy/ARCHITECTURE.md` |
 | Combo architecture/module changes | `docs/combo/ARCHITECTURE.md` |
 | New issues/solutions discovered | `docs/TROUBLESHOOTING.md` |
-| Tiered implementation progress | `docs/legacy/PRD.md` |
 | Combo implementation progress | `docs/combo/PRD.md` |
 
 ### Documentation Style
@@ -345,21 +296,6 @@ Update documentation when:
 - Keep formatting consistent
 - Update table of contents if adding sections
 - Test all code examples
-
-### Record Learnings
-
-When you make a mistake or discover something important:
-
-1. Add the learning to `AGENTS.md`:
-   ```markdown
-   ## Lesson Learned: [Date]
-
-   **Issue**: Description of what went wrong
-   **Solution**: How it was fixed
-   **Prevention**: How to avoid in future
-   ```
-
-2. Update `TROUBLESHOOTING.md` if it's a common issue
 
 ---
 
@@ -395,8 +331,7 @@ git checkout -b feature/my-feature
 # Make changes...
 
 # Test
-python tiered_main.py --validate      # Tiered mode
-python combo_main.py --validate       # Combo mode
+python combo_main.py --validate
 
 # Commit
 git add .
@@ -409,16 +344,13 @@ git push origin feature/my-feature
 ### Key Files for Reference
 
 - `CLAUDE.md` - Project overview and instructions
-- `docs/legacy/PRD.md` - Tiered mode specification
-- `docs/legacy/ARCHITECTURE.md` - Tiered mode system design
 - `docs/combo/PRD.md` - Combo mode specification
 - `docs/combo/ARCHITECTURE.md` - Combo mode system design
-- `AGENTS.md` - Lessons learned
 
 ---
 
 ## See Also
 
-- [Architecture](legacy/ARCHITECTURE.md) - System design reference
+- [Combo Architecture](combo/ARCHITECTURE.md) - System design reference
 - [Setup Guide](SETUP.md) - Development environment setup
 - [CLAUDE.md](../CLAUDE.md) - Project overview

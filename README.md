@@ -1,34 +1,28 @@
 # TradingView to Everywhere (TTE)
 
-An automated trading signals distribution system that bridges TradingView alerts with multiple social media platforms and databases.
+An automated trading signals distribution system that bridges TradingView alerts with Stock Buddy API via webhooks.
 
 ## Overview
 
-TTE monitors TradingView for trading signals, captures and processes them, and distributes formatted trade information to:
-- Discord (via webhooks)
-- Twitter/X
-- Facebook
-- MongoDB (for persistence and analytics)
+TTE uses Selenium browser automation to create and maintain persistent webhook alerts on TradingView. A single combo screener indicator (NWE + OB/FVG + Divergence) monitors ~1,054 symbols across 352 alerts, sending signals to Stock Buddy API continuously.
 
 ## Features
 
-- **Three Operational Modes**:
-  - **Legacy Mode**: Poll-based alert scraping with screenshot capture
-  - **Tiered Mode**: Webhook-based two-tier symbol scanning (NWE + OBDIV)
-  - **Combo Mode**: Single-indicator webhook with 338 persistent alerts monitoring ~1,028 symbols
-- **Multi-Platform Distribution**: Simultaneous posting to Discord, Twitter, and Facebook
-- **Automated Browser Control**: Selenium-based TradingView automation
-- **Persistent Storage**: MongoDB integration for signal tracking
-- **Exit Monitoring**: Automatic trade exit detection and notification
+- **Combo Mode**: Single-indicator webhook with 352 persistent alerts monitoring ~1,054 symbols
+- **Automated Browser Control**: Selenium-based TradingView automation (headless Chrome)
+- **Webhook Distribution**: Signals fire to Stock Buddy API on every trigger
+- **Alert Maintenance**: Automatic restart of inactive alerts every 5 minutes
+- **GUI Interface**: Visual interface for configuration and monitoring (`TTE.exe` or `tte_gui.py`)
+- **Resume Capability**: Progress tracking allows resuming interrupted alert creation
 
-## Quick Start (5 Minutes)
+## Quick Start
 
 ### Prerequisites
 
 - Python 3.11
 - Google Chrome browser
-- TradingView account (Premium recommended, 2FA disabled)
-- MongoDB Atlas account (or local MongoDB)
+- TradingView account (Premium, 2FA disabled)
+- MongoDB Atlas account (for symbol storage)
 
 ### Installation
 
@@ -50,136 +44,77 @@ cp .env.example .env
 
 ### Running
 
-**Legacy Mode** (poll-based alerts):
+**CLI**:
 ```bash
-python main.py
-```
+# Validate configuration
+python combo_main.py --validate
 
-**Tiered Mode** (webhook-based, recommended):
-```bash
-# Validate configuration first
-python tiered_main.py --validate
-
-# Test API connection
-python tiered_main.py --test-api
-
-# Run continuously
-python tiered_main.py
-
-# Run single cycle (for testing)
-python tiered_main.py --single-cycle
-```
-
-**GUI Mode**:
-```bash
-python tte_gui.py
-# Or use the standalone executable:
-dist\TTE.exe
-```
-
-## Operational Modes
-
-### Legacy Mode (`main.py`)
-
-Uses Selenium to scrape TradingView alerts directly:
-1. Monitors TradingView alert log
-2. Captures screenshots of trade entries
-3. Distributes to social platforms
-4. Tracks exits and sends notifications
-
-
-### Critical Notes (legacy mode)
-
-- Never manually interact with the Selenium-controlled browser
-- Ensure all Chrome browsers are closed before running
-- The Alerts log must be maximized (not minimized) in TradingView
-- The application will delete existing alerts when `START_FRESH=True`
-- MongoDB symbols must be synced with TradingView alerts
-
-
-### Tiered Mode (`tiered_main.py`)
-
-Uses webhook-based alerts for more reliable signal detection:
-
-**Tier 1 (NWE Screener)**: Scans batches of 20 symbols for Nadaraya-Watson Envelope zones on H4/D1 timeframes
-
-**Tier 2 (OBDIV Screener)**: Processes "hot" symbols (those showing NWE zones) through Order Block/FVG + Divergence analysis
-
-### Combo Mode (`combo_main.py`)
-
-Uses a single combo screener indicator (NWE + OB/FVG + Divergence) with persistent webhook alerts:
-
-- **338 alerts** monitoring ~1,028 symbols (3 per alert)
-- Alerts run continuously on TradingView servers
-- Webhooks fire to Stock Buddy API on every signal
-- Runs in headless Chrome by default (no visible browser window)
-- Maintenance every 5 minutes restarts any inactive alerts
-
-```bash
-# Full setup + maintenance
+# Full setup (create all alerts) + maintenance
 python combo_main.py
+
+# Delete all alerts and start fresh
+python combo_main.py --fresh
 
 # Setup only (create alerts, then exit)
 python combo_main.py --setup-only
 
 # Maintenance only (skip setup)
 python combo_main.py --maintain-only
+```
 
-# Delete all alerts and start fresh
-python combo_main.py --fresh
-
-# Validate configuration
-python combo_main.py --validate
+**GUI** (recommended):
+```bash
+python tte_gui.py
+# Or use the standalone executable:
+dist\TTE.exe
 ```
 
 ## Project Structure
 
 ```
 tradingview-to-everywhere/
-├── main.py                 # Legacy mode entry point
-├── tiered_main.py          # Tiered mode entry point
-├── combo_main.py           # Combo mode entry point
-├── combo_config.py         # Combo configuration loader
-├── combo_settings.yaml     # Combo mode settings
+├── combo_main.py           # Entry point (production)
+├── combo_config.py         # Configuration loader
+├── combo_settings.yaml     # All combo mode settings
 ├── tte_gui.py              # GUI interface
 ├── dist/TTE.exe            # Standalone GUI executable
-├── orchestrator.py         # Tiered workflow orchestrator
-├── api_client.py           # Stock Buddy API client
-├── config.py               # Configuration management
-├── open_tv.py              # Browser automation
-├── handle_alerts.py        # Alert processing
-├── open_entry_chart.py     # Chart navigation
-├── exits.py                # Exit monitoring
+├── open_tv.py              # Browser automation (Selenium)
+├── open_entry_chart.py     # Chart navigation & snapshots
 ├── env.py                  # Environment constants
 ├── logger_setup.py         # Logging configuration
-├── database/
-│   └── local_db.py         # MongoDB operations
 ├── resources/
-│   └── symbol_settings.py  # Symbol management
-├── send_to_socials/        # Platform distributors
-└── docs/
-    ├── combo/
-    │   ├── ARCHITECTURE.md     # Combo mode architecture
-    │   ├── IMPLEMENTATION.md   # Combo implementation (archived)
-    │   └── PRD.md              # Combo mode PRD
-    ├── legacy/
-    │   ├── ARCHITECTURE.md     # Legacy/tiered architecture
-    │   ├── PRD.md              # Tiered mode specification
-    │   └── SIGNAL-FRESHNESS.md # Signal freshness analysis
-    ├── SETUP.md            # Setup guide
-    ├── API.md              # API reference
-    ├── DATABASE.md         # Database schema
-    ├── TROUBLESHOOTING.md  # Common issues
-    └── CONTRIBUTING.md     # Contribution guidelines
+│   ├── symbol_settings.py  # Symbol management (MongoDB)
+│   └── utils.py            # Utility functions
+├── docs/
+│   ├── combo/
+│   │   ├── ARCHITECTURE.md # Combo mode architecture
+│   │   └── PRD.md          # Combo mode PRD
+│   ├── SETUP.md            # Setup guide
+│   ├── API.md              # Stock Buddy API reference
+│   ├── DATABASE.md         # Database schema
+│   ├── TROUBLESHOOTING.md  # Common issues
+│   └── CONTRIBUTING.md     # Contribution guidelines
+└── Pine Script Code/       # TradingView indicator source
 ```
 
 ## Configuration
 
-Key environment variables (see [docs/SETUP.md](docs/SETUP.md) for complete list):
+### Settings (`combo_settings.yaml`)
+
+All options are configured in `combo_settings.yaml`. The GUI provides a visual editor for this file.
+
+Key settings:
+- `chart.layout_name` — TradingView layout name (default: `"Screener"`)
+- `chart.chart_timeframe` — Chart timeframe (default: `"1 minute"`)
+- `chart.headless` — Run Chrome without visible window (default: `true`)
+- `alerts.batch_size` — Symbols per alert (default: `3`, hard limit: `4`)
+- `maintenance.interval` — Seconds between restart cycles (default: `300`)
+
+### Environment Variables
 
 ```bash
 # Chrome
-CHROME_PROFILES_PATH=/path/to/chrome/user/data
+CHROME_PROFILES_PATH=C:\Users\<YourUsername>\AppData\Local\Google\Chrome\User Data
 
 # TradingView
 TRADINGVIEW_EMAIL=your@email.com
@@ -188,26 +123,19 @@ TRADINGVIEW_PASSWORD=your_password
 # MongoDB
 MONGODB_PWD=your_mongodb_password
 
-# Tiered Mode
-STOCK_BUDDY_API_URL=https://stock-buddy-app.vercel.app/api/tte
-NWE_CHART_URL=https://www.tradingview.com/chart/xxxxx/
-OBDIV_CHART_URL=https://www.tradingview.com/chart/yyyyy/
-
-# Combo Mode
+# Webhook
 COMBO_WEBHOOK_URL=https://stock-buddy-app.vercel.app/api/tte/combo
 ```
 
 ## Documentation
 
-- [Setup Guide](docs/SETUP.md) - Detailed installation and configuration
-- [API Reference](docs/API.md) - Stock Buddy API endpoints and webhooks
-- [Database Schema](docs/DATABASE.md) - MongoDB collections and schemas
-- [Architecture (Legacy)](docs/legacy/ARCHITECTURE.md) - System design and module reference
-- [Combo Architecture](docs/combo/ARCHITECTURE.md) - Combo mode design
-- [Combo PRD](docs/combo/PRD.md) - Combo mode product requirements
-- [Tiered PRD](docs/legacy/PRD.md) - Tiered mode specification
-- [Troubleshooting](docs/TROUBLESHOOTING.md) - Common issues and solutions
-- [Contributing](docs/CONTRIBUTING.md) - Development guidelines
+- [Setup Guide](docs/SETUP.md) — Installation and configuration
+- [API Reference](docs/API.md) — Stock Buddy API endpoints and webhooks
+- [Database Schema](docs/DATABASE.md) — MongoDB collections
+- [Combo Architecture](docs/combo/ARCHITECTURE.md) — System design
+- [Combo PRD](docs/combo/PRD.md) — Product requirements
+- [Troubleshooting](docs/TROUBLESHOOTING.md) — Common issues and solutions
+- [Contributing](docs/CONTRIBUTING.md) — Development guidelines
 
 ## Requirements
 
@@ -216,7 +144,7 @@ COMBO_WEBHOOK_URL=https://stock-buddy-app.vercel.app/api/tte/combo
 - TradingView account with:
   - Two-factor authentication disabled
   - No linked social accounts
-  - Required layouts and indicators saved
+  - "Screener" layout with TTE Screener indicator saved and starred
 
 ## License
 
