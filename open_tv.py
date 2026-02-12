@@ -6,7 +6,6 @@ There are a few other things this does that are related to all the things mentio
 """
 
 from resources.utils import Utils
-import handle_alerts
 import logger_setup
 from env import PROFILE
 from os import getenv

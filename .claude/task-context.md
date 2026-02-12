@@ -1,17 +1,17 @@
 # Task Context Tracker
 
 **Last Updated**: 2026-02-12
-**Current Task**: Entry Setups feature — Pine Script payload changes + OB timestamp fix complete; Stock Buddy changes done by separate Claude instance; alert recreation pending.
-**Last Session**: Pine Script v2 payload (zoneHigh/zoneLow/close) + D1 OB timestamp fix
+**Current Task**: Entry Setups feature complete end-to-end. Pine Script saved in TradingView. Stock Buddy UAT passed (3 rounds, 41 tests). Alert recreation via `combo_main.py --fresh` (or `dist/TTE.exe`) is next.
+**Last Session**: Comment debug table, fix GUI stop button, rebuild exe
 **Active Branch**: `combo-architecture`
 
 ---
 
 ## Task Progress Summary
 
-**Completed Count**: 97+ tasks | **In Progress**: 0 | **Pending**: 1 (alert recreation)
+**Completed Count**: 97+ tasks | **In Progress**: 0 | **Pending**: 1 (alert recreation via exe/fresh)
 
-Entry setup feature: Pine Script + Stock Buddy changes complete. Alert recreation pending (user saves Pine Script in TradingView first, then `combo_main.py --fresh`).
+Entry setup feature fully complete. Stock Buddy needs commit + Vercel deploy, then run `dist/TTE.exe` (Fresh mode) to recreate alerts with v2 payload.
 
 ---
 
@@ -47,9 +47,40 @@ Entry setup feature: Pine Script + Stock Buddy changes complete. Alert recreatio
 - Task C: Database layer — `tte_entry_setups` append-only collection + updated `upsertLiveSignal()`
 - Task D: Webhook handler — dual writes (upsert live + insert history)
 - Task E: Grid UI — NWE 1H/H4, OB 1H/H4/D1, DIV 1H/H4, + Entry/Price/SL/TP columns
-- Task F: Tests — 25 tests passing
+- Task F: Tests — 41 tests passing across 3 suites (combo-schemas + entry-setup + entry-setup-edge)
+- UAT: 3 rounds completed — code-level (3 bugs fixed), API curl (6 endpoints), Playwright browser (grid verified)
 
 **Pending**: Alert recreation (`combo_main.py --fresh`) after user saves updated Pine Script in TradingView.
+
+---
+
+### Session: 2026-02-12 (Debug Table + GUI Stop Button Fix + Exe Rebuild)
+
+**Goal**: Prepare screener for production (comment debug table), fix GUI stop button "invalid handle" error, rebuild exe.
+
+**1. Pine Script debug table commented out** (`Pine Script Code/TTE Screener.txt`):
+- Commented `var table sigTable = table.new(...)` (line 1099)
+- Commented entire `if barstate.islast` block (lines 1180–1265) — all 4 symbol rows + header
+- Helper functions (1102–1177) left uncommented (harmless without table)
+
+**2. GUI stop button fix** (`tte_gui.py`):
+- **Root cause**: `os.kill(pid, signal.CTRL_BREAK_EVENT)` doesn't work reliably with `CREATE_NEW_PROCESS_GROUP` on Windows — throws "invalid handle" when process already exited or handle is stale
+- **Fix in `_on_stop()`**:
+  - Added `process.poll()` check before attempting kill (handles already-exited processes)
+  - Replaced `os.kill()` with `taskkill /F /T /PID` — kills entire process tree (Python + Chrome)
+  - Added fallback to `process.terminate()` if taskkill fails
+- **Fix in `_force_kill_after_timeout()`**: Reduced timeout 30s→10s, added exception handling around `process.kill()`
+
+**3. Exe rebuilt**: `dist/TTE.exe` rebuilt with stop button fix. Reverted accidental `headless: false` in `combo_settings.yaml` (kept `true`).
+
+**Commits**:
+- `afea7e9` — Comment out debug table for production and update coordination with UAT results
+- `56747b0` — Fix GUI stop button invalid handle error and rebuild exe
+
+**Next steps** (deployment order matters):
+1. Commit + deploy Stock Buddy to Vercel (so v2 webhook handler is live)
+2. Run `dist/TTE.exe` with Fresh mode to recreate all alerts with v2 payload
+3. Verify entry setups appear in Stock Buddy grid
 
 ---
 
@@ -211,6 +242,8 @@ Updated 16 doc files for combo mode in production.
 12. **Entry setups stored in TWO places**: `tte_live_signals` (overwritten per webhook, for grid display) + `tte_entry_setups` (append-only, NEVER overwritten, for profitability tracking)
 13. **D1 OB timestamps use `time_close`**: Forex daily bar `time` falls on previous UTC day; conditional `tf == 'D' ? time_close : time` handles all TFs correctly
 14. **Grid timeframe columns fixed**: NWE 1H/H4 (2), OB 1H/H4/D1 (3), DIV 1H/H4 (2) = 7 signal cols + 4 setup cols + symbol + last_updated = 13 total
+15. **GUI stop uses `taskkill`**: `os.kill(CTRL_BREAK_EVENT)` unreliable on Windows with `CREATE_NEW_PROCESS_GROUP`; `taskkill /F /T /PID` kills entire process tree reliably
+16. **Deployment order**: Stock Buddy deploy first → then TTE alert recreation (so v2 webhook handler is ready when new alerts fire)
 
 ---
 
@@ -279,6 +312,7 @@ pyinstaller --name TTE --onefile --windowed tte_gui.py
 - `SETTINGS_FILE` must use `_get_project_dir()`, not `Path(__file__).parent`.
 - Subprocess needs `CREATE_NO_WINDOW` flag to hide terminal on Windows.
 - Missing pip packages (e.g. `facebook-sdk`) won't be caught until runtime — test imports after fresh install.
+- Stop button: Use `taskkill /F /T /PID` instead of `os.kill(CTRL_BREAK_EVENT)` — the latter causes "invalid handle" with `CREATE_NEW_PROCESS_GROUP`.
 
 ---
 
