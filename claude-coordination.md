@@ -131,4 +131,14 @@ Plus: Symbol (1) + Entry (1) + Entry Price (1) + Stop Loss (1) + Take Profit (1)
 - [x] Task C: Database layer (upsert + insert + aggregation) — tte_entry_setups append-only collection added
 - [x] Task D: Webhook handler updates — dual writes (upsert live + insert history)
 - [x] Task E: Grid UI changes — NWE 1H/H4, OB 1H/H4/D1, DIV 1H/H4, + Entry/Price/SL/TP columns
-- [x] Task F: Tests — 25 tests passing (combo-schemas + entry-setup)
+- [x] Task F: Tests — 41 tests passing across 3 suites (combo-schemas + entry-setup + entry-setup-edge)
+
+### UAT Testing (3 rounds completed 2026-02-12)
+- [x] Round 1 (code-level): Found 3 bugs, all fixed:
+  - Critical: SL validation — skip setups where SL is on wrong side of entry (added guards in entry-setup.ts)
+  - Minor: Stale close in DB — changed `close` to `close ?? null` in upsertLiveSignal
+  - Minor: ESLint/Prettier formatting fixes
+- [x] Round 2 (API curl): 6 endpoint tests, backward compat verified, production build passed
+- [x] Round 3 (Playwright browser): Webhook API, grid columns verified (13 cols), no horizontal scroll at 1366px, 0 console errors, entry setup rendering confirmed (AAPL: Buy 232.50, SL 230.00, TP 237.50)
+
+### Status: ALL STOCK BUDDY TASKS COMPLETE — awaiting commit + TTE alert recreation (Task 6)
