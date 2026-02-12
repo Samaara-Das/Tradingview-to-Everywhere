@@ -1,91 +1,94 @@
 # Task Context Tracker
 
 **Last Updated**: 2026-02-11
-**Current Task**: GUI redesigned, single browser mode. Next: Run TTE fresh (#109).
-**Last Session**: Switched to single browser, reduced sleeps, added headless mode, built GUI exe
+**Current Task**: GUI exe working end-to-end. TTE ran successfully via exe (headless, no terminal).
+**Last Session**: Fixed GUI exe path resolution, headless default, terminal suppression, missing dependency
 **Active Branch**: `combo-architecture`
 
 ---
 
 ## Task Progress Summary
 
-**Completed Count**: 96 tasks | **In Progress**: 0 | **Pending**: 1 task
+**Completed Count**: 97 tasks | **In Progress**: 0 | **Pending**: 0
 
-**Pending Tasks**:
-| ID | Task | Status | Notes |
-|----|------|--------|-------|
-| 109 | Run TTE fresh to create alerts for all 1,032 symbols | pending | Manual step — `python combo_main.py --setup-only --fresh` |
+All tasks complete. TTE GUI exe is functional and alert creation ran successfully.
 
 ---
 
 ## Session History
 
+### Session: 2026-02-11 (GUI Exe Fixes — Multiple Bugs)
+
+**Goal**: Get `dist/TTE.exe` to correctly launch `combo_main.py` headlessly without extra windows
+
+**Bugs fixed chronologically**:
+
+1. **GUI defaults updated** (`tte_gui.py`):
+   - Set `headless` default to `True` (line 557)
+   - Set `fresh` checkbox default to `True` (line 572)
+   - Set webhook URL fallback to `https://stock-buddy-app.vercel.app/api/tte/combo` (line 568-570)
+
+2. **Exe spawning itself recursively** — Clicking Start opened another GUI window instead of running TTE.
+   - **Root cause**: `sys.executable` points to `TTE.exe` when frozen, not Python
+   - **Fix**: Added `getattr(sys, 'frozen', False)` detection; use `"python"` from PATH when frozen (line 689-694)
+
+3. **`combo_main.py` not found** — `python: can't open file 'C:\...\dist\combo_main.py'`
+   - **Root cause**: `Path(sys.executable).parent` = `dist/`, but `combo_main.py` is in project root
+   - **Fix**: Added `_get_project_dir()` helper that goes up one level from exe dir (lines 20-26)
+   - Also fixed `SETTINGS_FILE` (line 80) — was using `__file__` which points to PyInstaller temp dir when frozen
+   - Also fixed `cwd` for subprocess (line 727) to use project root
+
+4. **Missing `facebook-sdk` package** — `ModuleNotFoundError: No module named 'facebook'`
+   - **Fix**: `pip install facebook-sdk` (required by `send_to_socials/_facebook.py`, imported transitively via `handle_alerts.py` → `open_tv.py` → `combo_main.py`)
+
+5. **Terminal window opening** — Python console appeared when subprocess launched
+   - **Fix**: Added `subprocess.CREATE_NO_WINDOW` flag alongside `CREATE_NEW_PROCESS_GROUP` (line 718-720)
+
+6. **Headless not applying** — Browser still opened visibly
+   - **Root cause**: `combo_settings.yaml` had `headless: false` which overrode GUI default
+   - **Fix**: Set `headless: true` in `combo_settings.yaml`
+
+**Commits**:
+- `86e4b02` — Set GUI defaults: headless on, fresh mode enabled
+- `ffe74b5` — Updated exe
+- `8d62486` — Fix GUI exe: resolve path issues, hide terminal, enable headless by default
+
+**Key pattern — PyInstaller frozen exe path resolution**:
+```python
+def _get_project_dir() -> Path:
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).parent.parent  # exe in dist/, project is parent
+    return Path(__file__).parent
+```
+
+---
+
 ### Session: 2026-02-11 (Single Browser + Sleep Optimization + GUI — Tasks #81, #86, #90)
 
 **Goal**: Optimize browser performance, add headless mode, build GUI executable
 
-**Chronological changes**:
+**Key changes**:
+1. Switched from parallel to single browser (`combo_main.py` rewrite)
+2. Sleep optimizations: `get_indicator()` 3s→0.5s, `change_settings()` 2s→0.5s, `change_symbol()` 2s→1s
+3. Chrome anti-throttling flags added
+4. Headless Chrome mode (`--headless=new`, guarded `maximize_window()`)
+5. Built TTE GUI (`tte_gui.py`) with modern dark theme, rebuilt as `dist/TTE.exe`
 
-1. **Added debug logs to `delete_all_alerts()`** (`open_tv.py`) and `click_yes_in_confirm_popup()` (`resources/utils.py`) to diagnose alert deletion issues. Included `dump_dropdown_items()` to log all menu items with indices, `find_menu_item()` for text-based lookup (instead of hardcoded indices), `count_alerts()` for verification at each step, and popup result checking.
-
-2. **Removed debug logs** — Alert deletion was working fine, user confirmed. Reverted both files to clean state. Also cleaned up debug prints from `setup_tv()`.
-
-3. **Switched from parallel to single browser** — Parallel browsers were still slow despite optimizations. Rewrote `combo_main.py`:
-   - Removed `ThreadPoolExecutor`, `concurrent.futures`, `assign_batches_to_browsers()`
-   - Replaced `create_browser_instance(browser_id, ...)` with simpler `create_browser(config, args)`
-   - `run_alert_creation()` runs sequentially on one browser (no `browser_id` param)
-   - `main()` simplified: no batch splitting, no parallel init, no result aggregation
-   - Maintenance reuses the same browser instead of creating a new one
-   - Removed `num_browsers` from `combo_config.py`, `combo_settings.yaml`, `tte_gui.py`, `.env`, `CLAUDE.md`
-
-4. **Sleep optimizations** (from earlier plan, applied in this session):
-   - `get_indicator()` sleep: 3s → 0.5s (`open_tv.py:1948`) — WebDriverWait already handles waiting
-   - `change_settings()` post-submit sleep: 2s → 0.5s (`open_tv.py:864`)
-   - `change_symbol()` sleep: 2s → 1s (`open_entry_chart.py:187`)
-   - Added Chrome anti-throttling flags: `--disable-background-timer-throttling`, `--disable-renderer-backgrounding`, `--disable-backgrounding-occluded-windows`
-
-5. **Headless Chrome mode** (#81):
-   - Added `headless: bool` to `combo_config.py` and `combo_settings.yaml`
-   - Added `headless: bool = False` param to `Browser.__init__()` in `open_tv.py`
-   - Chrome flags: `--headless=new`, `--window-size=1920,1080`
-   - Guarded `maximize_window()` in `open_page()` and `sign_in()`
-
-6. **Built TTE GUI** (#86):
-   - Created `tte_gui.py` — tkinter GUI with settings editor, Start/Stop, real-time log streaming
-   - Built `dist/TTE.exe` via `pyinstaller --name TTE --onefile --windowed tte_gui.py`
-   - Initial design: dark theme, all settings editable, subprocess management with CTRL_BREAK_EVENT
-
-7. **Redesigned GUI** — Modern look with:
-   - Deep navy color scheme (`#1a1b2e`) with blue-purple accent (`#6c7bff`)
-   - Card-based settings layout with separators, labels above inputs
-   - Status dot indicator in header with color-coded states
-   - Hover effects on buttons, styled combobox dropdowns
-   - "Clear" link for log output
-   - Rebuilt exe successfully
-
-**Commits**:
-- `4b9b246` — Switch to single browser, reduce sleeps, add headless mode and GUI
-
-**Key decision**: Abandoned parallel browsers — single browser is simpler and TradingView throttles parallel sessions regardless of Chrome flags.
+**Commit**: `4b9b246`
 
 ---
 
-### Session: 2026-02-11 (Maintenance Loop Improvements — Tasks #106, #107)
+### Session: 2026-02-11 (Maintenance Loop — Tasks #106, #107)
 
-**Goal**: Add alert log clearing and improve the maintenance loop in combo_main.py
-
-**Changes to `combo_main.py`**:
-1. Added `clear_alert_log(driver)` — opens log tab, clicks clear button, confirms dialog
-2. Updated `run_maintenance()` — now does: page refresh → restart inactive alerts → clear alert log
-3. Fixed `restart_inactive_alerts()` — handle disabled "Restart all inactive" button gracefully
+Added `clear_alert_log()`, improved `run_maintenance()`, fixed `restart_inactive_alerts()`.
 
 **Commit**: `75036c9`
 
 ---
 
-### Session: 2026-02-11 (Documentation Update — Task #108)
+### Session: 2026-02-11 (Documentation — Task #108)
 
-Updated all TTE and Stock Buddy documentation (16 files) to reflect combo mode in production.
+Updated 16 doc files for combo mode in production.
 
 **Commit**: `0c89589`
 
@@ -93,8 +96,8 @@ Updated all TTE and Stock Buddy documentation (16 files) to reflect combo mode i
 
 ### Earlier Sessions (2026-02-10 — 2026-02-11)
 
-- **Combo Signal Grid** (#99-104, #60): Replaced /tte dashboard with paginated signal grid in Stock Buddy
-- **Stock Buddy Combo API** (#32-38, #91-98): Built webhook endpoints + dashboard UI
+- **Combo Signal Grid** (#99-104, #60): Paginated signal grid in Stock Buddy
+- **Stock Buddy Combo API** (#32-38, #91-98): Webhook endpoints + dashboard UI
 - **Production alerts**: 352 alerts, batch_size=3, 1-min chart, graceful shutdown
 - **Pine Script**: Screener development, NWE signal detection, timeframe fixes
 - **Error recovery**: is_no_error(), reupload_indicator(), batch retry logic
@@ -113,6 +116,7 @@ Updated all TTE and Stock Buddy documentation (16 files) to reflect combo mode i
 8. **Main page integration**: Signals as third nav tab (not separate route)
 9. **Server-side pagination & filtering**: Better performance for large datasets
 10. **Doc renames**: PRD.md → legacy/PRD.md, ARCHITECTURE v2.md → combo/ARCHITECTURE.md
+11. **GUI exe uses `python` from PATH**: When frozen, subprocess calls `python combo_main.py` (not bundled)
 
 ---
 
@@ -124,10 +128,9 @@ Updated all TTE and Stock Buddy documentation (16 files) to reflect combo mode i
 | `CLAUDE.md` | Project instructions (updated for single browser) |
 | `combo_main.py` | Combo mode entry point (single browser) |
 | `combo_config.py` | Combo configuration dataclass |
-| `combo_settings.yaml` | All combo settings (no num_browsers) |
-| `tte_gui.py` | Tkinter GUI for combo mode |
-| `tte_gui.spec` | PyInstaller spec (legacy, use CLI instead) |
-| `dist/TTE.exe` | Built GUI executable |
+| `combo_settings.yaml` | All combo settings (headless: true) |
+| `tte_gui.py` | Tkinter GUI for combo mode (frozen exe path handling) |
+| `dist/TTE.exe` | Built GUI executable (working) |
 | `open_tv.py` | Browser automation (sleep-optimized, headless support) |
 | `open_entry_chart.py` | Chart symbol/timeframe changes |
 | `docs/combo/PRD.md` | Combo mode PRD |
@@ -160,15 +163,23 @@ bar_style: "line"
 recalc_wait: 1.5
 creation_delay: 1.5
 maintenance_interval: 300
-headless: false
+headless: true
 ```
 
 ### Building the GUI Exe
 ```bash
+# Kill existing TTE.exe first: taskkill //F //IM TTE.exe
 pyinstaller --name TTE --onefile --windowed tte_gui.py
 # Output: dist/TTE.exe
 # Delete build/ and TTE.spec after
 ```
+
+### PyInstaller Gotchas (tte_gui.py)
+- `sys.executable` → points to the exe, not Python. Use `getattr(sys, 'frozen', False)` to detect.
+- `__file__` → points to temp extraction dir (`_MEI*`). Use `Path(sys.executable).parent.parent` for project root.
+- `SETTINGS_FILE` must use `_get_project_dir()`, not `Path(__file__).parent`.
+- Subprocess needs `CREATE_NO_WINDOW` flag to hide terminal on Windows.
+- Missing pip packages (e.g. `facebook-sdk`) won't be caught until runtime — test imports after fresh install.
 
 ---
 
@@ -182,15 +193,10 @@ python combo_main.py --fresh        # Delete alerts & recreate
 python combo_main.py --setup-only   # Create alerts, no maintenance
 python combo_main.py --validate     # Validate config only
 python tte_gui.py                   # Run GUI directly (no exe needed)
+dist/TTE.exe                        # Run GUI exe
 
 # Stock Buddy
 cd "C:/Users/dassa/Work/Stock-Buddy-App"
 npm run dev                                  # Dev server
 npx tsc --project tsconfig.json --noEmit     # Type check
 ```
-
----
-
-## Next Steps
-
-1. **Run TTE fresh** (Task #109) — `python combo_main.py --setup-only --fresh` to create all 352 alerts
