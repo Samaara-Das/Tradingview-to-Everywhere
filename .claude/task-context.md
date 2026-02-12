@@ -1,21 +1,57 @@
 # Task Context Tracker
 
 **Last Updated**: 2026-02-12
-**Current Task**: Fixed divergence detection in TTE Pine Script screener — confirmed working via debug table test.
-**Last Session**: Pine Script divergence fix (3 production changes + 5 debug helper fixes)
+**Current Task**: Entry Setups feature — Pine Script payload changes + OB timestamp fix complete; Stock Buddy changes done by separate Claude instance; alert recreation pending.
+**Last Session**: Pine Script v2 payload (zoneHigh/zoneLow/close) + D1 OB timestamp fix
 **Active Branch**: `combo-architecture`
 
 ---
 
 ## Task Progress Summary
 
-**Completed Count**: 97 tasks | **In Progress**: 0 | **Pending**: 0
+**Completed Count**: 97+ tasks | **In Progress**: 0 | **Pending**: 1 (alert recreation)
 
-All tasks complete. Documentation fully synced with production state.
+Entry setup feature: Pine Script + Stock Buddy changes complete. Alert recreation pending (user saves Pine Script in TradingView first, then `combo_main.py --fresh`).
 
 ---
 
 ## Session History
+
+### Session: 2026-02-12 (Entry Setups — Pine Script Payload v2 + OB Timestamp Fix)
+
+**Goal**: Add `zoneHigh`/`zoneLow` to OB entries + `close` price per symbol in webhook payload. Fix D1 OB timestamps showing 1 day earlier than the chart candle.
+
+**Pine Script changes** (`Pine Script Code/TTE Screener.txt`):
+
+1. **`buildObEntry()` (line 785)**: Added `float zoneHigh, float zoneLow` params → outputs `"zoneHigh":X,"zoneLow":Y` in JSON
+2. **`buildObArray()` (line 1019)**: Added 12 new float params (`bullZH/bullZL/bearZH/bearZL` × 3 TFs), passed through to `buildObEntry()`
+3. **4 `buildObArray()` call sites** (lines 1053, 1059, 1065, 1071): Pass zone high/low from existing `request.security()` destructured variables
+4. **Close price** (lines 744-747): Added 3 new `request.security(s01/s02/s03, timeframe.period, close)` calls → 15 total (within 40 limit)
+5. **`buildSymbolJson()` (line 1037)**: Added `float closePrice` param → outputs `"close":X` in symbol JSON
+6. **4 `buildSymbolJson()` call sites**: Pass `close01`/`close02`/`close03` (s04 unused, passes `0.0`)
+
+**OB timestamp bug fix** — D1 timestamps off by 1 day:
+- **Root cause**: Forex daily bars open at ~22:00 UTC the previous calendar day (17:00 NY time). `time` returns bar opening time → formatted in UTC shows wrong date for D1.
+- **Initial fix**: Changed `time[i - timeShift]` → `time_close[i - timeShift]` in all 6 `scanOBRange()` locations
+- **Problem**: This fixed D1 but broke 1H/H4 (showed timestamps 1 bar late — `time_close` = next bar's label for intraday)
+- **Final fix**: Conditional — `tf == 'D' ? time_close[i - timeShift] : time[i - timeShift]` at all 6 locations (lines 478, 488, 501, 586, 596, 609)
+- `tf` values: `'60'` (1H), `'240'` (H4), `'D'` (D1) — condition correctly targets only daily
+
+**Debug table**: Uncommented for testing with 9 columns (added Close column). OB tooltips already showed ZoneHigh/ZoneLow via existing `buildObTooltip()`. User verified all values correct.
+
+**Coordination file created**: `claude-coordination.md` — shared contract between TTE Claude and Stock Buddy Claude documenting v2 payload format, entry setup schema, detection rules, and task status.
+
+**Stock Buddy changes** (completed by separate Claude instance):
+- Task A: Schema updates (zoneHigh, zoneLow, close, EntrySetup, EntrySetupRecord)
+- Task B: Entry setup logic (`computeEntrySetups`) — new file `src/lib/tte/entry-setup.ts`
+- Task C: Database layer — `tte_entry_setups` append-only collection + updated `upsertLiveSignal()`
+- Task D: Webhook handler — dual writes (upsert live + insert history)
+- Task E: Grid UI — NWE 1H/H4, OB 1H/H4/D1, DIV 1H/H4, + Entry/Price/SL/TP columns
+- Task F: Tests — 25 tests passing
+
+**Pending**: Alert recreation (`combo_main.py --fresh`) after user saves updated Pine Script in TradingView.
+
+---
 
 ### Session: 2026-02-12 (Fix Divergence Detection in Pine Script Screener)
 
@@ -172,6 +208,9 @@ Updated 16 doc files for combo mode in production.
 9. **Server-side pagination & filtering**: Better performance for large datasets
 10. **Doc renames**: PRD.md → legacy/PRD.md, ARCHITECTURE v2.md → combo/ARCHITECTURE.md
 11. **GUI exe uses `python` from PATH**: When frozen, subprocess calls `python combo_main.py` (not bundled)
+12. **Entry setups stored in TWO places**: `tte_live_signals` (overwritten per webhook, for grid display) + `tte_entry_setups` (append-only, NEVER overwritten, for profitability tracking)
+13. **D1 OB timestamps use `time_close`**: Forex daily bar `time` falls on previous UTC day; conditional `tf == 'D' ? time_close : time` handles all TFs correctly
+14. **Grid timeframe columns fixed**: NWE 1H/H4 (2), OB 1H/H4/D1 (3), DIV 1H/H4 (2) = 7 signal cols + 4 setup cols + symbol + last_updated = 13 total
 
 ---
 
@@ -189,7 +228,8 @@ Updated 16 doc files for combo mode in production.
 | `open_tv.py` | Browser automation (sleep-optimized, headless support) |
 | `open_entry_chart.py` | Chart symbol/timeframe changes |
 | `docs/combo/PRD.md` | Combo mode PRD |
-| `Pine Script Code/TTE Screener.txt` | Production screener |
+| `Pine Script Code/TTE Screener.txt` | Production screener (v2 payload with close/zoneHigh/zoneLow) |
+| `claude-coordination.md` | TTE ↔ Stock Buddy payload contract and task status |
 
 ### Stock Buddy App
 | File | Purpose |
@@ -197,7 +237,9 @@ Updated 16 doc files for combo mode in production.
 | `src/components/tte/ComboSignalGrid.tsx` | Main paginated signal grid |
 | `src/store/api/comboSignalsApi.ts` | RTK Query API for combo signals |
 | `src/lib/tte/schemas.ts` | All Zod schemas |
-| `src/lib/tte/collections.ts` | All DB functions |
+| `src/lib/tte/collections.ts` | All DB functions (incl. tte_entry_setups append-only) |
+| `src/lib/tte/entry-setup.ts` | Entry setup detection (computeEntrySetups) |
+| `src/app/api/tte/combo/route.ts` | Webhook handler (dual writes: live + history) |
 
 ---
 
@@ -205,7 +247,9 @@ Updated 16 doc files for combo mode in production.
 
 ### Stock Buddy API Endpoints
 ```
-POST /api/tte/combo          — Webhook: {timestamp, signals: [{symbol, nwe, ob_fvg, divergence}]}
+POST /api/tte/combo          — Webhook v2: {timestamp, signals: [{symbol, close, nwe, ob_fvg, divergence}]}
+                               ob_fvg entries now include zoneHigh/zoneLow
+                               Handler: computes entry setups, dual-writes to tte_live_signals + tte_entry_setups
 GET  /api/tte/combo/signals  — Query: ?limit=20&offset=0&sort=signal_count&order=desc&direction=bullish&signalType=nwe&symbol=GBP
 GET  /api/tte/stats           — Returns combo stats in "combo" field
 ```
