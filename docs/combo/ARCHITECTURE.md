@@ -26,27 +26,27 @@
 ## 1. Context & Why This Architecture
 
 ### Problem
-TTE needs to monitor ~1,054 trading symbols across multiple timeframes for NWE, Order Block/FVG, and Divergence signals, then display those signals in real-time on the Stock Buddy dashboard.
+TTE needs to monitor ~1,028 trading symbols across multiple timeframes for NWE, Order Block/FVG, and Divergence signals, then display those signals in real-time on the Stock Buddy dashboard.
 
 ### Why Combo Screener (Architecture 1) Over Separate Screeners (Architecture 2)
 
 Two architectures were evaluated:
 
-- **Architecture 1 (Combo)**: Single Pine Script indicator combining NWE + OB/FVG + Divergence. 4 symbols per batch, 1 alert per batch.
-- **Architecture 2 (Separate)**: 3 separate Pine Script indicators (NWE, OB, Divergence). 4 symbols per batch, 3 alerts per batch.
+- **Architecture 1 (Combo)**: Single Pine Script indicator combining NWE + OB/FVG + Divergence. 3 symbols per batch, 1 alert per batch.
+- **Architecture 2 (Separate)**: 3 separate Pine Script indicators (NWE, OB, Divergence). 3 symbols per batch, 3 alerts per batch.
 
 Architecture 1 was chosen because:
 
 | Factor | Arch 1 (Combo) | Arch 2 (Separate) |
 |--------|---------------|-------------------|
-| Alert cycles for 1,054 symbols | **264** | **792** (3x more) |
-| Browser automation interactions | 264 create + 264 delete | 792 create + 792 delete |
-| Full rotation time | **~6.6 hours** | **~19.8 hours** |
+| Alert cycles for 1,028 symbols | **338** | **1,014** (3x more) |
+| Browser automation interactions | 338 create | 1,014 create |
+| Setup approach | Single browser, sequential | Single browser, sequential |
 | Signal merging needed | No — single payload has all data | Yes — 3 payloads must be correlated per batch |
 | Pine Script already built | Yes | No — would need 3 new scripts |
 | Selenium failure surface | Lower | 3x higher |
 
-The 4-symbol hard limit (more causes memory/runtime errors in TradingView) eliminates Architecture 2's main advantage (larger batch sizes per screener).
+The 4-symbol hard limit (more causes memory/runtime errors in TradingView) eliminates Architecture 2's main advantage (larger batch sizes per screener). Production uses 3 symbols per batch for optimal 1-minute chart performance.
 
 ---
 
@@ -56,13 +56,13 @@ The 4-symbol hard limit (more causes memory/runtime errors in TradingView) elimi
 ┌─────────────────────────────────────────────────────────────────┐
 │                    ONE-TIME SETUP PHASE                         │
 │                                                                 │
-│  TTE Orchestrator (Python + Selenium)                          │
-│  ├── Fetches ~1,054 symbols                                    │
-│  ├── Takes batch of 4 symbols                                  │
+│  TTE Orchestrator (Python + Selenium, headless Chrome)          │
+│  ├── Fetches ~1,028 symbols                                    │
+│  ├── Takes batch of 3 symbols                                  │
 │  ├── Opens TradingView, inputs symbols into combo screener     │
 │  ├── Creates webhook alert → points to Stock Buddy API         │
-│  ├── Repeats for all 264 batches                               │
-│  └── Result: 264 alerts live on TradingView                    │
+│  ├── Repeats for all 338 batches (single browser, sequential)  │
+│  └── Result: 338 alerts live on TradingView                    │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -70,15 +70,15 @@ The 4-symbol hard limit (more causes memory/runtime errors in TradingView) elimi
 │                   CONTINUOUS OPERATION                          │
 │                                                                 │
 │  TradingView (Server-Side)                                     │
-│  ├── 264 alerts running continuously                           │
-│  ├── Each alert monitors 4 symbols via combo screener          │
+│  ├── 338 alerts running continuously                           │
+│  ├── Each alert monitors 3 symbols via combo screener          │
 │  ├── On every tick: evaluates all signals                      │
 │  ├── Fires webhook with JSON payload when signals exist        │
 │  └── Alerts persist even when browser is closed                │
 │           │                                                     │
 │           ▼                                                     │
 │  Stock Buddy API (Vercel / Next.js)                            │
-│  ├── POST /api/tte/signal — receives webhook                   │
+│  ├── POST /api/tte/combo — receives webhook                    │
 │  ├── Validates payload (Zod)                                   │
 │  ├── Upserts signal state into MongoDB                         │
 │  └── Frontend polls for latest state                           │
@@ -95,7 +95,8 @@ The 4-symbol hard limit (more causes memory/runtime errors in TradingView) elimi
 │                   MAINTENANCE (Periodic)                        │
 │                                                                 │
 │  TTE Orchestrator                                              │
-│  ├── Periodically checks TradingView for stopped alerts        │
+│  ├── Refreshes page to prevent stale browser state             │
+│  ├── Clears alert log to reduce memory usage                   │
 │  ├── Restarts any alerts that stopped due to runtime errors    │
 │  └── Runs every 5 minutes (configurable)                        │
 └─────────────────────────────────────────────────────────────────┘
@@ -110,41 +111,42 @@ The 4-symbol hard limit (more causes memory/runtime errors in TradingView) elimi
 - **File**: `Pine Script Code/TTE Screener.txt`
 - **Version**: Pine Script v6
 - **Indicator name**: "TTE Screener" (short title: "Screener")
-- **Symbols**: 4 per instance (hard limit — more causes memory/runtime errors)
+- **Symbols**: 3 per instance in production (4-symbol hard limit — more causes memory/runtime errors)
 - **Timeframes scanned**: H4, D1 (NWE + OB + Divergence), W1 (OB only)
-- **`request.security()` calls**: 12 of 40 max (4×H4 + 4×D1 + 4×W1)
+- **`request.security()` calls**: 12 of 40 max (4×H4 + 4×D1 + 4×W1) — uses 4-symbol capacity
 - **Signal types detected**:
   - **NWE (Nadaraya-Watson Envelope)**: Price in lower/upper envelope zones on H4/D1
   - **OB/FVG (Order Block / Fair Value Gap)**: Unmitigated OBs, breaker zones, unfilled FVGs on H4/D1/W1
   - **Divergence (Kernel AO)**: Logic 2 divergence on H4/D1
-- **Alert behavior**: Fires on every tick (`alert.freq_all`) when at least 1 signal exists across any of its 4 symbols
+- **Alert behavior**: Fires on every tick (`alert.freq_all`) when at least 1 signal exists across any of its symbols
 - **No signal hierarchy**: All raw signals are sent; Stock Buddy calculates levels
 - **Continuous webhook delivery**: Fires on every evaluation when signals are present, providing real-time updates
 - **Payload**: Rich nested JSON with all signal details (see Section 8)
 
 ### 3.2 TTE Orchestrator (Python)
 
-- **File**: `orchestrator.py`, `tiered_main.py`
-- **Purpose**: One-time setup of all 264 alerts, plus periodic maintenance
-- **Technology**: Python + Selenium (Chrome browser automation)
+- **File**: `combo_main.py`, `combo_config.py`
+- **Purpose**: One-time setup of all 338 alerts, plus periodic maintenance
+- **Technology**: Python + Selenium (single headless Chrome browser)
+- **GUI**: `tte_gui.py` (or standalone `dist/TTE.exe`) provides a desktop interface for settings and execution
 - **Responsibilities**:
-  1. Fetch symbol list (~1,054 symbols)
-  2. Batch into groups of 4
-  3. For each batch: open TradingView → input symbols → create webhook alert
-  4. Periodically check for stopped alerts and restart them
+  1. Fetch symbol list (~1,028 symbols)
+  2. Batch into groups of 3
+  3. For each batch: open TradingView → input symbols → create webhook alert (sequential, single browser)
+  4. Periodically: refresh page, clear alert log, restart stopped alerts
 
 ### 3.3 TradingView Platform
 
 - **Subscription**: Premium (required for webhooks)
-- **264 alerts**: All running simultaneously as server-side alerts
-- **Each alert**: Monitors 4 symbols via the combo screener indicator
+- **338 alerts**: All running simultaneously as server-side alerts
+- **Each alert**: Monitors 3 symbols via the combo screener indicator
 - **Server-side execution**: Alerts continue running after browser is closed
 - **Alert snapshots**: When an alert is created, TradingView captures a snapshot of the indicator. Editing the script does NOT update existing alerts — they must be deleted and recreated.
 
 ### 3.4 Stock Buddy API (Next.js / Vercel)
 
 - **Repository**: `C:\Users\dassa\Work\Stock-Buddy-App`
-- **New endpoint needed**: `POST /api/tte/signal`
+- **Endpoint**: `POST /api/tte/combo`
 - **Responsibilities**:
   - Receive webhook payload from TradingView
   - Validate with Zod schema
@@ -175,49 +177,47 @@ The 4-symbol hard limit (more causes memory/runtime errors in TradingView) elimi
 ```
 Step 1: TTE Orchestrator starts
 Step 2: Fetches symbol list from Stock Buddy API or local config
-        → Returns ~1,054 symbols
-Step 3: Divides into 264 batches of 4 symbols each
-Step 4: For batch #1 (e.g., GBPAUD, AUDJPY, EURCAD, EURGBP):
-        a. Opens TradingView in Chrome via Selenium
+        → Returns ~1,028 symbols
+Step 3: Divides into 338 batches of 3 symbols each
+Step 4: For batch #1 (e.g., GBPAUD, AUDJPY, EURCAD):
+        a. Opens TradingView in headless Chrome via Selenium
         b. Loads the "Screener" layout (has TTE Screener indicator)
         c. Opens indicator settings panel
-        d. Inputs 4 symbols into s01-s04 fields
+        d. Inputs 3 symbols into s01-s03 fields
         e. Clicks the indicator on chart to select it
         f. Opens alert dialog
         g. Selects "Any alert() function call" as condition
         h. Goes to Notifications tab
         i. Enables webhook checkbox
-        j. Enters webhook URL: https://stock-buddy-app.vercel.app/api/tte/signal
+        j. Enters webhook URL: https://stock-buddy-app.vercel.app/api/tte/combo
         k. Clicks Create
-Step 5: Repeats Step 4 for all 264 batches
-Step 6: All 264 alerts are now live on TradingView's servers
+Step 5: Repeats Step 4 for all 338 batches (sequential, single browser)
+Step 6: All 338 alerts are now live on TradingView's servers
 ```
 
 ### Phase 2: Continuous Signal Flow
 
 ```
-Step 1: TradingView server evaluates alert #47 (symbols: GBPAUD, AUDJPY, EURCAD, EURGBP)
+Step 1: TradingView server evaluates alert #47 (symbols: GBPAUD, AUDJPY, EURCAD)
 Step 2: Combo screener runs on current tick
         → GBPAUD has bullish NWE on 1H + bullish OB on H4
         → AUDJPY has no signals
         → EURCAD has bearish NWE on H4
-        → EURGBP has no signals
 Step 3: Screener builds JSON payload:
         - GBPAUD included with NWE + OB data
         - AUDJPY excluded (no signals)
         - EURCAD included with NWE data
-        - EURGBP excluded (no signals)
 Step 4: alert() fires → TradingView sends POST to Stock Buddy webhook URL
 Step 5: Stock Buddy receives payload
         a. Zod validates the JSON structure
         b. For GBPAUD: upserts signal state (NWE + OB active, last_updated = now)
         c. For EURCAD: upserts signal state (NWE active, last_updated = now)
-        d. AUDJPY/EURGBP: not in payload, their existing state (if any) is untouched
+        d. AUDJPY: not in payload, its existing state (if any) is untouched
         e. Returns 200 OK
 Step 6: Frontend polls signals endpoint
         → Shows GBPAUD with NWE + OB signals (last updated: just now)
         → Shows EURCAD with NWE signal (last updated: just now)
-        → AUDJPY/EURGBP: if they had old signals, those persist with old last_updated
+        → AUDJPY: if it had old signals, those persist with old last_updated
         → User sees timestamps and judges freshness
 ```
 
@@ -225,13 +225,11 @@ Step 6: Frontend polls signals endpoint
 
 ```
 Step 1: TTE Orchestrator runs maintenance check (every 5 minutes)
-Step 2: Opens TradingView alerts panel via Selenium
-Step 3: Scans for stopped/errored alerts
-Step 4: For each stopped alert:
-        a. Identifies which 4 symbols it covered
-        b. Deletes the stopped alert
-        c. Recreates it with the same symbols and webhook URL
-Step 5: Alert is now running again on TradingView's servers
+Step 2: Refreshes the TradingView page to prevent stale browser state
+Step 3: Clears the alert log to reduce memory usage
+Step 4: Opens TradingView alerts panel via Selenium
+Step 5: Clicks "Restart all inactive" to restart any stopped alerts
+Step 6: All alerts are running again on TradingView's servers
 ```
 
 ---
@@ -303,7 +301,7 @@ Step 5: Alert is now running again on TradingView's servers
 ```python
 # Pseudocode for the setup phase
 def setup_all_alerts(symbols: list[str]):
-    batches = chunk(symbols, size=4)  # 264 batches
+    batches = chunk(symbols, size=3)  # 338 batches
 
     browser = Browser()  # Selenium Chrome
     browser.open_tradingview()
@@ -319,7 +317,7 @@ def setup_all_alerts(symbols: list[str]):
         # Create webhook alert
         browser.click_indicator()  # Select it
         browser.create_webhook_alert(
-            webhook_url="https://stock-buddy-app.vercel.app/api/tte/signal",
+            webhook_url="https://stock-buddy-app.vercel.app/api/tte/combo",
             condition="Any alert() function call"
         )
 
@@ -335,32 +333,30 @@ def setup_all_alerts(symbols: list[str]):
 # Pseudocode for periodic maintenance
 def maintain_alerts():
     browser = Browser()
-    browser.open_tradingview()
+
+    # Refresh page to prevent stale browser state
+    browser.refresh_page()
+
+    # Clear alert log to reduce memory usage
+    browser.clear_alert_log()
+
+    # Restart any inactive alerts
     browser.open_alerts_panel()
+    browser.restart_inactive_alerts()  # Clicks "Restart all inactive"
 
-    stopped_alerts = browser.find_stopped_alerts()
-
-    for alert in stopped_alerts:
-        symbols = get_symbols_for_alert(alert)
-        browser.delete_alert(alert)
-
-        # Recreate
-        browser.load_layout("Screener")
-        browser.input_symbols(symbols)
-        browser.create_webhook_alert(webhook_url=WEBHOOK_URL)
-
-    print(f"Restarted {len(stopped_alerts)} stopped alerts")
+    print("Maintenance cycle complete")
 ```
 
 ### Key Orchestrator Files
 
 | File | Purpose |
 |------|---------|
-| `tiered_main.py` | CLI entry point |
-| `orchestrator.py` | TieredOrchestrator class |
+| `combo_main.py` | CLI entry point |
+| `combo_config.py` | ComboConfig dataclass (loads combo_settings.yaml) |
+| `combo_settings.yaml` | All combo mode settings |
+| `tte_gui.py` | GUI interface (also `dist/TTE.exe`) |
 | `open_tv.py` | Browser automation (Selenium) |
-| `api_client.py` | Stock Buddy API client |
-| `config.py` | Configuration and validation |
+| `handle_alerts.py` | Alert processing + maintenance |
 
 ---
 
@@ -405,7 +401,7 @@ def maintain_alerts():
 ### Webhook URL
 
 ```
-https://stock-buddy-app.vercel.app/api/tte/signal
+https://stock-buddy-app.vercel.app/api/tte/combo
 ```
 
 ### JSON Payload Structure (from the screener)
@@ -466,7 +462,7 @@ https://stock-buddy-app.vercel.app/api/tte/signal
 - Empty arrays mean no signal of that type for that symbol
 - `timestamp` is the bar's opening time in milliseconds
 
-### Stock Buddy Endpoint Design: `POST /api/tte/signal`
+### Stock Buddy Endpoint Design: `POST /api/tte/combo`
 
 **Receives**: Webhook payload from TradingView
 **Action**: Upserts signal state for each symbol in the payload
@@ -578,10 +574,10 @@ With production timeframes (1H, H4, D1) and `alert.freq_all`:
 
 ### Overview
 
-- **Total symbols**: ~1,054
-- **Batch size**: 4 symbols per alert
-- **Total batches**: ~264 alerts
-- **Full rotation**: All 1,054 symbols covered by 264 simultaneously running alerts
+- **Total symbols**: ~1,028
+- **Batch size**: 3 symbols per alert
+- **Total batches**: 338 alerts (targets 343 for full coverage)
+- **Full rotation**: All 1,028 symbols covered by 338+ simultaneously running alerts
 
 ### Priority System
 
@@ -598,18 +594,18 @@ Stored in MongoDB `tte_rotation_state`:
 ```json
 {
   "_id": "current",
-  "batch_number": 264,
+  "batch_number": 338,
   "rotation_number": 1,
-  "symbols_scanned_this_rotation": 1054,
-  "total_symbols": 1054,
+  "symbols_scanned_this_rotation": 1028,
+  "total_symbols": 1028,
   "last_batch_at": "2026-02-06T12:00:00Z"
 }
 ```
 
 ### Important Note
 
-In this architecture, "rotation" is really about the **initial setup**. Once all 264 alerts are created and running, they continuously monitor their 4 symbols. The rotation concept applies to:
-1. **Initial setup**: Creating all 264 alerts (takes ~6.6 hours at ~90s per batch)
+In this architecture, "rotation" is really about the **initial setup**. Once all 338 alerts are created and running, they continuously monitor their 3 symbols. The rotation concept applies to:
+1. **Initial setup**: Creating all 338 alerts (sequential, single browser)
 2. **Re-setup**: If all alerts need to be recreated (e.g., after script update)
 3. **Symbol list changes**: If the symbol list changes, alerts need to be recreated for affected batches
 
@@ -623,7 +619,7 @@ In this architecture, "rotation" is really about the **initial setup**. Once all
 - **Mitigation**:
   - Defensive coding in Pine Script (na checks, validation)
   - TTE Orchestrator periodically detects and restarts stopped alerts
-- **Impact**: 4 symbols go unmonitored until alert is restarted
+- **Impact**: 3 symbols go unmonitored until alert is restarted
 
 ### TradingView Platform Issues
 
@@ -645,7 +641,7 @@ In this architecture, "rotation" is really about the **initial setup**. Once all
 
 ### Stale Data on Dashboard
 
-- **Problem**: If an alert stops and isn't restarted, its 4 symbols show stale data
+- **Problem**: If an alert stops and isn't restarted, its 3 symbols show stale data
 - **Mitigation**: Frontend checks `last_updated` timestamp and visually indicates staleness
 - **Threshold**: If `last_updated` > 60 seconds old, show as stale
 
@@ -677,9 +673,9 @@ With production timeframes (1H, H4, D1) and `alert.freq_all`:
 
 | Constraint | Value | Impact |
 |------------|-------|--------|
-| Symbols per batch | 4 (hard limit) | More causes memory/runtime errors |
+| Symbols per batch | 3 in production (4 hard limit) | More causes memory/runtime errors |
 | `request.security()` per indicator | 40 max (12 used) | 28 calls available for future expansion |
-| Total alerts needed | 264 | One-time setup takes ~6.6 hours |
+| Total alerts needed | 338 | One-time setup, single browser sequential |
 | Alert snapshot behavior | Code frozen at creation time | Must delete & recreate after script edits |
 | Webhook payload size | ~500 bytes - 2 KB | Well within TradingView's limits |
 | Continuous webhook delivery | Every tick when signals present | Requires efficient backend (tested and working) |
@@ -712,7 +708,7 @@ With production timeframes (1H, H4, D1) and `alert.freq_all`:
 | # | Question | Decision |
 |---|----------|----------|
 | Q5 | Alert maintenance frequency | **Every 5 minutes**. Orchestrator runs continuously and calls `restart_inactive_alerts()` (existing method in `handle_alerts.py:240-303`) on each cycle. This method opens the TradingView alerts settings menu → selects "All" → clicks "Restart all inactive" → confirms. Logs each restart event. |
-| Q9 | Alert creation approach | **Parallelize with multiple browser tabs/windows**. Each tab handles a separate batch of 4 symbols. Selenium manages multiple tabs via `driver.window_handles` and `driver.switch_to.window()` (pattern already used in `open_entry_chart.py:277-318`). This reduces the ~6.6 hour sequential setup time proportionally to the number of parallel tabs. |
+| Q9 | Alert creation approach | **Single browser, sequential**. Each batch of 3 symbols is processed one at a time in a single headless Chrome instance. Parallel tab approach was evaluated but abandoned in favor of simplicity and reliability. |
 
 ### Q5 Detail: Alert Maintenance
 
@@ -728,17 +724,13 @@ With production timeframes (1H, H4, D1) and `alert.freq_all`:
 - **Logging**: Each restart cycle logs whether inactive alerts were found and restarted
 - **Runs continuously**: The orchestrator's maintenance loop sleeps 5 minutes between checks (not cron-based)
 
-### Q9 Detail: Parallel Alert Creation
+### Q9 Detail: Single Browser Sequential Creation
 
-- **Approach**: Multiple browser tabs, each creating alerts for different batches
-- **Selenium tab management**: Uses existing patterns from the codebase:
-  - `driver.execute_script("window.open('about:blank')")` to open new tabs
-  - `driver.window_handles` to list all tabs
-  - `driver.switch_to.window(handle)` to switch between tabs
+- **Approach**: Single headless Chrome browser, processing batches sequentially
+- **Why not parallel**: Parallel tab approach was evaluated but abandoned — single browser is simpler, more reliable, and avoids TradingView session limit issues
 - **Workflow**:
-  1. Open N tabs (e.g., 4 tabs), each loading TradingView with the "Screener" layout
-  2. Assign each tab a subset of the 264 batches (e.g., tab 1 gets batches 1-66, tab 2 gets 67-132, etc.)
-  3. Round-robin through tabs: input symbols → create alert → move to next tab
-  4. While one tab waits for alert creation confirmation, the orchestrator works on the next tab
-- **Estimated speedup**: With 4 parallel tabs, setup drops from ~6.6 hours to ~1.6 hours
-- **Constraint**: All tabs share the same TradingView session/account, so alert creation is still serialized on TradingView's side — but the browser automation steps (inputting symbols, navigating UI) overlap with TradingView's server-side processing
+  1. Open one headless Chrome instance with the "Screener" layout
+  2. For each of the 338 batches: input 3 symbols → create webhook alert → next batch
+  3. Progress tracked in `combo_progress.json` for resume capability
+- **Headless mode**: Runs without visible browser window (`headless: true` in combo_settings.yaml)
+- **GUI**: `tte_gui.py` (or `dist/TTE.exe`) provides a desktop interface for configuration and execution

@@ -395,17 +395,26 @@ chart:
   layout_name: "Screener"        # TradingView layout name
   chart_timeframe: "1 minute"     # Chart timeframe
   bar_style: "line"               # Bar style (line for minimal resources)
+  headless: true                  # Run Chrome without visible window
+
+screener:
+  shorttitle: "Screener"          # Indicator short title on chart
+  name: "TTE Screener"           # Full indicator name
 
 alerts:
   batch_size: 3                   # Symbols per alert (max 4)
-  num_browsers: 2                 # Parallel browser instances
-  creation_delay: 3.0             # Seconds between batches
+  creation_delay: 1.5             # Seconds between batches
+  recalc_wait: 1.5                # Wait for indicator recalculation
+  start_fresh: false              # Delete all alerts before setup
 
 webhook:
   url: ""                         # Set via COMBO_WEBHOOK_URL env var
 
 maintenance:
   interval: 300                   # Seconds between restart cycles
+
+progress:
+  file: combo_progress.json       # Progress tracking for resume
 ```
 
 ### Environment Variables
@@ -414,7 +423,6 @@ Add these to your `.env` file:
 
 ```bash
 COMBO_WEBHOOK_URL=https://stock-buddy-app.vercel.app/api/tte/combo
-COMBO_NUM_BROWSERS=2
 ```
 
 ### TradingView Layout (Combo Mode)
@@ -428,6 +436,7 @@ COMBO_NUM_BROWSERS=2
 
 ### Running Combo Mode
 
+**CLI**:
 ```bash
 # Validate configuration
 python combo_main.py --validate
@@ -441,6 +450,17 @@ python combo_main.py --fresh
 # Run maintenance only (alerts already created)
 python combo_main.py --maintain-only
 ```
+
+**GUI** (recommended):
+```bash
+# Launch the GUI
+python tte_gui.py
+
+# Or use the standalone executable (no Python needed)
+dist\TTE.exe
+```
+
+The GUI provides a visual interface for editing `combo_settings.yaml`, selecting run modes, and monitoring progress.
 
 ---
 

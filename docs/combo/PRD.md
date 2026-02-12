@@ -9,14 +9,14 @@
 
 ## 1. Product Overview
 
-TradingView to Everywhere (TTE) Combo Mode is an automated trading signal distribution system. It creates persistent webhook alerts on TradingView that continuously monitor ~1,054 trading symbols for NWE, OB/FVG, and Divergence signals, sending results to the Stock Buddy API for display on a real-time signal grid.
+TradingView to Everywhere (TTE) Combo Mode is an automated trading signal distribution system. It creates persistent webhook alerts on TradingView that continuously monitor ~1,028 trading symbols for NWE, OB/FVG, and Divergence signals, sending results to the Stock Buddy API for display on a real-time signal grid.
 
 ### Why Combo Mode Replaced Tiered Mode
 
 | Factor | Tiered Mode | Combo Mode |
 |--------|-------------|------------|
 | Alert lifecycle | Create → wait → delete → repeat | Create once → run forever |
-| Symbol coverage | 20 per cycle, rotating | All ~1,054 simultaneously |
+| Symbol coverage | 20 per cycle, rotating | All ~1,028 simultaneously |
 | Browser needed | Every cycle (~90s each) | Only setup + maintenance |
 | Signal merging | 2 separate webhooks to correlate | Single payload with all data |
 | Webhook delivery | After each batch cycle | Continuous, real-time |
@@ -29,7 +29,7 @@ TradingView to Everywhere (TTE) Combo Mode is an automated trading signal distri
 
 ```
 TradingView Pine Script (TTE Screener)
-    → 352 persistent alerts (3 symbols each)
+    → 338 persistent alerts (3 symbols each)
     → Webhook fires on every tick with signals
     → POST /api/tte/combo (Stock Buddy API)
     → Upsert into tte_live_signals (MongoDB)
@@ -51,10 +51,10 @@ TradingView Pine Script (TTE Screener)
 
 | Setting | Value | Notes |
 |---------|-------|-------|
-| Total symbols | ~1,054 | Forex, stocks, crypto, indices |
+| Total symbols | ~1,028 | Forex, stocks, crypto, indices |
 | Batch size | 3 | Of 4-symbol hard limit (reduced for 1-min chart) |
-| Total alerts | 352 | ~1,054 ÷ 3 |
-| Browser instances | 2 | TradingView limits to 2 simultaneous sessions |
+| Total alerts | 338 | ~1,028 ÷ 3 (targets 343 for full coverage) |
+| Browser mode | Single (sequential) | Headless Chrome, one browser instance |
 | Chart timeframe | 1 minute | Fastest signal detection |
 | Bar style | Line | Minimal resource usage |
 | Maintenance interval | 5 minutes | Restart inactive alerts |
@@ -97,11 +97,16 @@ chart:
   layout_name: "Screener"
   chart_timeframe: "1 minute"
   bar_style: "line"
+  headless: true
+
+screener:
+  shorttitle: "Screener"
+  name: "TTE Screener"
 
 alerts:
   batch_size: 3
-  num_browsers: 2
-  creation_delay: 3.0
+  creation_delay: 1.5
+  recalc_wait: 1.5
   start_fresh: false
 
 webhook:
@@ -109,6 +114,9 @@ webhook:
 
 maintenance:
   interval: 300
+
+progress:
+  file: combo_progress.json
 ```
 
 ### Environment Variables
@@ -116,7 +124,6 @@ maintenance:
 | Variable | Description |
 |----------|-------------|
 | `COMBO_WEBHOOK_URL` | Stock Buddy combo endpoint (overrides YAML) |
-| `COMBO_NUM_BROWSERS` | Parallel browser instances (overrides YAML) |
 | `CHROME_PROFILES_PATH` | Chrome user data directory |
 | `TRADINGVIEW_EMAIL` | TradingView login email |
 | `TRADINGVIEW_PASSWORD` | TradingView login password |
@@ -195,7 +202,7 @@ python combo_main.py --validate       # Validate config and exit
 
 | Limitation | Details |
 |------------|---------|
-| TradingView 2-session limit | Max 2 browser instances simultaneously |
+| Single browser architecture | Sequential alert creation with one Chrome instance |
 | 4-symbol hard limit per alert | More causes TradingView memory/runtime errors |
 | Alert snapshot behavior | Editing Pine Script doesn't update existing alerts — must recreate |
 | Rate limit | 15 triggers per 3 minutes per individual alert (auto-disabled if exceeded) |
@@ -203,22 +210,28 @@ python combo_main.py --validate       # Validate config and exit
 
 ---
 
-## 8. Future Enhancements
+## 8. Completed Enhancements
 
 | Enhancement | Issue | Description |
 |------------|-------|-------------|
-| Headless Chrome | #81 | Run browsers without GUI for server deployment |
-| GUI executable | #86 | Desktop app with combo_settings.yaml editor |
-| Parallel optimization | #90 | Improve multi-browser performance |
+| Headless Chrome | #81 | Runs in headless mode by default (`headless: true` in YAML) |
+| GUI executable | #86 | Desktop app (`tte_gui.py` / `dist/TTE.exe`) with settings editor |
+| Single browser | — | Switched from parallel multi-browser to single sequential browser |
+
+## 9. Future Enhancements
+
+| Enhancement | Issue | Description |
+|------------|-------|-------------|
 | Failed batch retry | #67 | Automatic retry for failed alert creation batches |
 
 ---
 
-## 9. Production Metrics
+## 10. Production Metrics
 
-- **Total symbols**: ~1,054 (forex, US stocks, Indian stocks, crypto, indices, commodities)
-- **Total alerts**: 352
-- **Setup time**: ~2-3 hours with 2 parallel browsers
-- **Maintenance cycle**: Every 5 minutes
+- **Total symbols**: ~1,028 (forex, US stocks, Indian stocks, crypto, indices, commodities)
+- **Total alerts**: 338 (targets 343 for full coverage of all 1,028 symbols)
+- **Setup time**: Sequential with single headless browser
+- **Browser mode**: Single Chrome instance, headless by default
+- **Maintenance cycle**: Every 5 minutes (includes page refresh + alert log clearing)
 - **Webhook volume**: ~5,000-50,000/day depending on market conditions
-- **Tasks completed**: 89 implementation tasks (Feb 2026)
+- **Tasks completed**: 97 implementation tasks (Feb 2026)

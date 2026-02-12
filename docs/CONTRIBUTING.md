@@ -276,7 +276,8 @@ Before submitting changes:
 
 1. **Configuration validation**:
    ```bash
-   python tiered_main.py --validate
+   python tiered_main.py --validate   # Tiered mode
+   python combo_main.py --validate    # Combo mode
    ```
 
 2. **API connectivity**:
@@ -289,14 +290,20 @@ Before submitting changes:
    python tiered_main.py --test-browser
    ```
 
-4. **Single cycle** (for workflow changes):
+4. **Single cycle / setup** (for workflow changes):
    ```bash
-   python tiered_main.py --single-cycle
+   python tiered_main.py --single-cycle    # Tiered mode
+   python combo_main.py --setup-only       # Combo mode
    ```
 
 5. **Phase 2 testing** (if OBDIV-related):
    ```bash
    python tiered_main.py --test-phase2
+   ```
+
+6. **Combo maintenance** (if changed maintenance code):
+   ```bash
+   python combo_main.py --maintain-only
    ```
 
 ### What to Verify
@@ -325,9 +332,11 @@ Update documentation when:
 | Setup/configuration changes | `docs/SETUP.md` |
 | API endpoint changes | `docs/API.md` |
 | Database schema changes | `docs/DATABASE.md` |
-| Architecture/module changes | `docs/legacy/ARCHITECTURE.md` |
+| Tiered architecture/module changes | `docs/legacy/ARCHITECTURE.md` |
+| Combo architecture/module changes | `docs/combo/ARCHITECTURE.md` |
 | New issues/solutions discovered | `docs/TROUBLESHOOTING.md` |
-| Implementation phase progress | `docs/legacy/PRD.md` |
+| Tiered implementation progress | `docs/legacy/PRD.md` |
+| Combo implementation progress | `docs/combo/PRD.md` |
 
 ### Documentation Style
 
@@ -386,8 +395,8 @@ git checkout -b feature/my-feature
 # Make changes...
 
 # Test
-python tiered_main.py --validate
-python tiered_main.py --single-cycle
+python tiered_main.py --validate      # Tiered mode
+python combo_main.py --validate       # Combo mode
 
 # Commit
 git add .
@@ -400,8 +409,10 @@ git push origin feature/my-feature
 ### Key Files for Reference
 
 - `CLAUDE.md` - Project overview and instructions
-- `docs/legacy/PRD.md` - Technical specification
-- `docs/legacy/ARCHITECTURE.md` - System design
+- `docs/legacy/PRD.md` - Tiered mode specification
+- `docs/legacy/ARCHITECTURE.md` - Tiered mode system design
+- `docs/combo/PRD.md` - Combo mode specification
+- `docs/combo/ARCHITECTURE.md` - Combo mode system design
 - `AGENTS.md` - Lessons learned
 
 ---

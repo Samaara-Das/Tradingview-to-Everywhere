@@ -1,8 +1,8 @@
 # Task Context Tracker
 
-**Last Updated**: 2026-02-11
-**Current Task**: GUI exe working end-to-end. TTE ran successfully via exe (headless, no terminal).
-**Last Session**: Fixed GUI exe path resolution, headless default, terminal suppression, missing dependency
+**Last Updated**: 2026-02-12
+**Current Task**: Documentation update complete. All 6 outdated doc files updated for single-browser/headless/GUI changes.
+**Last Session**: Updated README, PRD, ARCHITECTURE, SETUP, TROUBLESHOOTING, CONTRIBUTING docs
 **Active Branch**: `combo-architecture`
 
 ---
@@ -11,11 +11,39 @@
 
 **Completed Count**: 97 tasks | **In Progress**: 0 | **Pending**: 0
 
-All tasks complete. TTE GUI exe is functional and alert creation ran successfully.
+All tasks complete. Documentation fully synced with production state.
 
 ---
 
 ## Session History
+
+### Session: 2026-02-12 (Documentation Update — 6 Outdated Files)
+
+**Goal**: Update 6 documentation files that were outdated after the Feb 2026 single-browser/headless/GUI changes.
+
+**Production numbers used**: ~1,028 symbols (MongoDB), 338 alerts (338 × 3 = 1,014 covered), targets 343 for full coverage.
+
+**Files updated (by priority)**:
+
+1. **`README.md`** (HIGH): Updated alert count (352→338), symbol count (~1,054→~1,028), `gui.py`→`tte_gui.py`, added `dist/TTE.exe`, removed `COMBO_NUM_BROWSERS`, added headless note.
+
+2. **`docs/combo/PRD.md`** (HIGH): Updated all counts, changed "Browser instances: 2" → "Browser mode: Single (sequential)", updated YAML example to match actual `combo_settings.yaml`, removed `COMBO_NUM_BROWSERS` env var, split "Future Enhancements" into Completed (headless, GUI) + remaining, updated production metrics (task count 89→97).
+
+3. **`docs/combo/ARCHITECTURE.md`** (MEDIUM — largest, 745 lines): Systematic replacement of 264→338, 4 symbols→3 symbols, ~1,054→~1,028 throughout all 14 sections. Changed `/api/tte/signal`→`/api/tte/combo` (4 locations). Updated orchestrator files (`orchestrator.py`→`combo_main.py`), setup diagram, maintenance pseudocode (added page refresh + alert log clearing), data flow examples, Q9 parallel→single browser.
+
+4. **`docs/SETUP.md`** (MEDIUM): Updated YAML example (added headless, screener, progress sections; removed num_browsers; fixed creation_delay), removed `COMBO_NUM_BROWSERS`, added GUI subsection.
+
+5. **`docs/TROUBLESHOOTING.md`** (LOW): Rewrote "Browser Session Limits" for single browser, added GUI/exe troubleshooting section, added headless mode issues section.
+
+6. **`docs/CONTRIBUTING.md`** (LOW): Added combo test commands, added combo docs to update table and key files reference.
+
+**Verification** (all passed):
+- `num_browsers` → 0 matches in docs + README
+- `gui.py` (without `tte_` prefix) → 0 matches
+- `264` in combo docs → only in JSON timestamp values (correct)
+- `/api/tte/signal` in combo docs → only in archived `IMPLEMENTATION.md` (out of scope)
+
+---
 
 ### Session: 2026-02-11 (GUI Exe Fixes — Multiple Bugs)
 
@@ -98,7 +126,7 @@ Updated 16 doc files for combo mode in production.
 
 - **Combo Signal Grid** (#99-104, #60): Paginated signal grid in Stock Buddy
 - **Stock Buddy Combo API** (#32-38, #91-98): Webhook endpoints + dashboard UI
-- **Production alerts**: 352 alerts, batch_size=3, 1-min chart, graceful shutdown
+- **Production alerts**: 338 alerts, batch_size=3, 1-min chart, graceful shutdown
 - **Pine Script**: Screener development, NWE signal detection, timeframe fixes
 - **Error recovery**: is_no_error(), reupload_indicator(), batch retry logic
 

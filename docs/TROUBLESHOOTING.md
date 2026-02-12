@@ -305,19 +305,20 @@ Common issues and solutions for TTE.
 
 ---
 
-### Browser Session Limits
+### Browser Issues (Combo Mode)
 
 **Symptoms**:
-- Error: `Session limit exceeded`
-- Second browser fails to start
+- Browser fails to start
 - TradingView shows "Maximum number of connections" warning
+- Headless mode not working
 
-**Cause**: TradingView Premium allows only 2 simultaneous sessions.
+**Cause**: Another Chrome/TTE instance may be running, or headless mode incompatibility.
 
 **Solutions**:
-1. Set `num_browsers: 2` in `combo_settings.yaml` (not higher)
-2. Close any other TradingView tabs/windows
-3. Ensure no other TTE instance is running
+1. Close any other TradingView tabs/windows
+2. Ensure no other TTE instance is running
+3. If headless mode fails, set `headless: false` in `combo_settings.yaml` to debug visually
+4. TTE uses a single browser instance — no session limit concerns
 
 ---
 
@@ -500,6 +501,60 @@ If issues persist:
 3. Record steps to reproduce
 4. Check if TradingView UI has changed
 5. Create an issue with full details
+
+---
+
+## GUI / Executable Issues
+
+### TTE.exe Won't Start
+
+**Symptoms**:
+- Double-click `dist/TTE.exe` but nothing happens
+- Error about missing DLL or module
+
+**Solutions**:
+1. Run from command line to see error output: `dist\TTE.exe`
+2. Ensure `combo_settings.yaml` is in the project root (not inside `dist/`)
+3. Check Windows Defender hasn't quarantined the exe
+4. Try running `python tte_gui.py` directly instead
+
+### GUI Can't Find Settings File
+
+**Symptoms**:
+- GUI shows default/empty settings
+- Changes don't persist
+
+**Solutions**:
+1. Ensure `combo_settings.yaml` exists in the project root
+2. Check file permissions
+3. The GUI reads/writes `combo_settings.yaml` relative to the working directory
+
+---
+
+## Headless Mode Issues
+
+### Headless Chrome Crashes
+
+**Symptoms**:
+- Error: `Chrome failed to start` in headless mode
+- Process exits silently
+
+**Solutions**:
+1. Set `headless: false` in `combo_settings.yaml` to debug visually
+2. Ensure Chrome is updated to latest version
+3. Check available system memory (headless still requires ~500MB)
+4. Try running `python combo_main.py` from CLI instead of GUI
+
+### Elements Not Found in Headless Mode
+
+**Symptoms**:
+- Errors about elements not clickable or not found
+- Works in visible mode but fails headless
+
+**Solutions**:
+1. Headless Chrome uses a default viewport — some elements may be off-screen
+2. Set `headless: false` temporarily to identify the issue
+3. Report the specific element/step that fails
 
 ---
 

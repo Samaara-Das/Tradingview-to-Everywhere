@@ -15,7 +15,7 @@ TTE monitors TradingView for trading signals, captures and processes them, and d
 - **Three Operational Modes**:
   - **Legacy Mode**: Poll-based alert scraping with screenshot capture
   - **Tiered Mode**: Webhook-based two-tier symbol scanning (NWE + OBDIV)
-  - **Combo Mode**: Single-indicator webhook with 352 persistent alerts monitoring ~1,054 symbols
+  - **Combo Mode**: Single-indicator webhook with 338 persistent alerts monitoring ~1,028 symbols
 - **Multi-Platform Distribution**: Simultaneous posting to Discord, Twitter, and Facebook
 - **Automated Browser Control**: Selenium-based TradingView automation
 - **Persistent Storage**: MongoDB integration for signal tracking
@@ -72,7 +72,9 @@ python tiered_main.py --single-cycle
 
 **GUI Mode**:
 ```bash
-python gui.py
+python tte_gui.py
+# Or use the standalone executable:
+dist\TTE.exe
 ```
 
 ## Operational Modes
@@ -107,9 +109,10 @@ Uses webhook-based alerts for more reliable signal detection:
 
 Uses a single combo screener indicator (NWE + OB/FVG + Divergence) with persistent webhook alerts:
 
-- **352 alerts** monitoring ~1,054 symbols (3 per alert)
+- **338 alerts** monitoring ~1,028 symbols (3 per alert)
 - Alerts run continuously on TradingView servers
 - Webhooks fire to Stock Buddy API on every signal
+- Runs in headless Chrome by default (no visible browser window)
 - Maintenance every 5 minutes restarts any inactive alerts
 
 ```bash
@@ -138,7 +141,8 @@ tradingview-to-everywhere/
 ├── combo_main.py           # Combo mode entry point
 ├── combo_config.py         # Combo configuration loader
 ├── combo_settings.yaml     # Combo mode settings
-├── gui.py                  # GUI interface
+├── tte_gui.py              # GUI interface
+├── dist/TTE.exe            # Standalone GUI executable
 ├── orchestrator.py         # Tiered workflow orchestrator
 ├── api_client.py           # Stock Buddy API client
 ├── config.py               # Configuration management
@@ -191,7 +195,6 @@ OBDIV_CHART_URL=https://www.tradingview.com/chart/yyyyy/
 
 # Combo Mode
 COMBO_WEBHOOK_URL=https://stock-buddy-app.vercel.app/api/tte/combo
-COMBO_NUM_BROWSERS=2
 ```
 
 ## Documentation
