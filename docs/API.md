@@ -1,14 +1,12 @@
 # API Reference
 
-Stock Buddy API reference and webhook documentation for the TTE Tiered Orchestrator.
+Stock Buddy API reference and webhook documentation for TTE.
 
 ## Overview
 
-The Stock Buddy API manages symbol rotation, batch tracking, hot symbol queuing, and signal storage for the tiered scanning workflow. The API is hosted at Vercel and communicates with the TTE orchestrator.
+The Stock Buddy API manages signal storage, symbol data, and combo mode live signals. TTE sends webhook payloads to Stock Buddy when TradingView alerts fire.
 
 **Base URL**: `https://stock-buddy-app.vercel.app/api/tte`
-
-**Client Implementation**: `api_client.py` - `StockBuddyAPIClient` class
 
 ---
 
@@ -40,12 +38,6 @@ Check if the API is healthy and responding.
 {
   "status": "healthy"
 }
-```
-
-**Client Usage**:
-```python
-api = StockBuddyAPIClient(base_url, timeout)
-is_healthy = api.health_check()  # Returns True/False
 ```
 
 ---
@@ -178,13 +170,6 @@ Retrieve comprehensive system statistics including signals, hot list, rotation s
 }
 ```
 
-**Client Usage**:
-```python
-stats = api.get_stats()
-print(f"Total signals: {stats.get('signals', {}).get('total')}")
-print(f"Level 3 signals: {stats.get('signals', {}).get('level3')}")
-```
-
 ---
 
 ### Get Next Symbol Batch
@@ -223,16 +208,6 @@ Fetch the next batch of symbols for NWE (Tier 1) scanning. Uses priority-based r
 - Priority C symbols are included every 10th rotation
 - Remaining slots are filled with least-recently-scanned symbols
 
-**Client Usage**:
-```python
-batch_response = api.get_next_symbol_batch(size=20)
-
-if batch_response.get("success"):
-    symbols = batch_response.get("batch", [])
-    # Extract symbol strings
-    symbol_strings = [s["symbol"] if isinstance(s, dict) else s for s in symbols]
-```
-
 ---
 
 ### Mark Symbols as Scanned
@@ -255,13 +230,6 @@ Mark symbols as scanned after NWE processing completes.
   "marked_count": 20,
   "rotation_complete": false
 }
-```
-
-**Client Usage**:
-```python
-response = api.mark_symbols_scanned(["EURUSD", "GBPUSD", "USDJPY"])
-if response.get("success"):
-    print(f"Marked {response.get('marked_count')} symbols as scanned")
 ```
 
 ---
@@ -341,14 +309,6 @@ Retrieve hot symbols that need OBDIV (Tier 2) processing. Hot symbols are those 
   ],
   "count": 5
 }
-```
-
-**Client Usage**:
-```python
-hot_symbols = api.get_hot_symbols(limit=8)
-
-for symbol in hot_symbols:
-    print(f"{symbol['symbol']}: {symbol['direction']}")
 ```
 
 ---
@@ -744,85 +704,11 @@ The Stock Buddy API has the following rate limits:
 | All endpoints | 100 requests | per minute |
 | Webhook endpoints | 60 requests | per minute |
 
-### Handling Rate Limits
-
-The orchestrator uses configurable delays between operations:
-
-```python
-# config.py settings
-nwe_batch_wait: int = 60    # Wait after NWE alert creation
-obdiv_batch_wait: int = 60  # Wait after OBDIV alert creation
-cycle_interval: int = 300   # Wait between complete cycles
-```
+TTE's combo mode uses persistent alerts that fire continuously, so rate limiting is generally not a concern for the TTE client.
 
 ---
 
-## Retry Logic
-
-The API client includes built-in retry logic for transient failures:
-
-```python
-# config.py settings
-max_retries: int = 3    # Maximum retry attempts
-retry_delay: int = 5    # Seconds between retries
-api_timeout: int = 30   # Request timeout in seconds
-```
-
-### Retry Behavior
-
-1. Connection errors trigger automatic retry
-2. 5xx errors trigger retry with exponential backoff
-3. 4xx errors do not trigger retry (client error)
-4. Timeouts trigger retry after `retry_delay`
-
----
-
-## API Client Reference
-
-### Initialization
-
-```python
-from api_client import StockBuddyAPIClient
-from config import config
-
-api = StockBuddyAPIClient(
-    base_url=config.api_base_url,  # Default: https://stock-buddy-app.vercel.app/api/tte
-    timeout=config.api_timeout      # Default: 30 seconds
-)
-```
-
-### Available Methods
-
-| Method | Description | Returns |
-|--------|-------------|---------|
-| `health_check()` | Check API health | `bool` |
-| `get_stats()` | Get system statistics | `dict` or `None` |
-| `get_next_symbol_batch(size)` | Get next batch of symbols | `dict` |
-| `mark_symbols_scanned(symbols)` | Mark symbols as scanned | `dict` |
-| `get_hot_symbols(limit)` | Get hot symbols for OBDIV | `list[dict]` |
-| `close()` | Close the HTTP session | `None` |
-
-### Context Manager Support
-
-```python
-with StockBuddyAPIClient(base_url, timeout) as api:
-    stats = api.get_stats()
-    # Session automatically closed on exit
-```
-
----
-
-## Testing API Connection
-
-Use the CLI to test API connectivity:
-
-```bash
-# Full API test
-python tiered_main.py --test-api
-
-# View current statistics
-python tiered_main.py --stats
-```
+## Testing Endpoints
 
 ### Manual Testing with curl
 
@@ -855,7 +741,7 @@ curl -X POST https://stock-buddy-app.vercel.app/api/tte/nwe \
 
 ## See Also
 
-- [Architecture](legacy/ARCHITECTURE.md) - How the API integrates with the orchestrator
+- [Combo Architecture](combo/ARCHITECTURE.md) - How the API integrates with TTE
 - [Setup Guide](SETUP.md) - API configuration setup
 - [Database](DATABASE.md) - Stock Buddy database collections
 - [Troubleshooting](TROUBLESHOOTING.md) - API-related issues

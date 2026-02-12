@@ -5,11 +5,13 @@ Common issues and solutions for TTE.
 ## Table of Contents
 
 1. [Browser Automation Issues](#browser-automation-issues)
-2. [API and Webhook Issues](#api-and-webhook-issues)
+2. [Webhook Issues](#webhook-issues)
 3. [MongoDB Issues](#mongodb-issues)
 4. [Alert Issues](#alert-issues)
-5. [Log Analysis Guide](#log-analysis-guide)
-6. [Debug Techniques](#debug-techniques)
+5. [GUI / Executable Issues](#gui--executable-issues)
+6. [Headless Mode Issues](#headless-mode-issues)
+7. [Log Analysis Guide](#log-analysis-guide)
+8. [Debug Techniques](#debug-techniques)
 
 ---
 
@@ -45,10 +47,7 @@ Common issues and solutions for TTE.
 
 **Solutions**:
 1. TTE has built-in retry logic via `_safe_indicator_access()`
-2. If persistent, increase wait times in `config.py`:
-   ```python
-   nwe_batch_wait: int = 90  # Increase from 60
-   ```
+2. If persistent, increase wait times in `combo_settings.yaml`
 3. Check if TradingView updated their UI
 
 ---
@@ -108,9 +107,7 @@ Common issues and solutions for TTE.
 **Solutions**:
 1. Verify indicator is added to the correct layout
 2. Verify indicator is starred/favorited
-3. Check indicator short title matches exactly:
-   - NWE: `TTE NWE Screener`
-   - OBDIV: `TTE OBDIV Screener`
+3. Check indicator short title matches `screener.shorttitle` in `combo_settings.yaml`
 4. Increase page load wait time
 5. Save the layout after adding indicators
 
@@ -125,9 +122,7 @@ Common issues and solutions for TTE.
 **Cause**: Layout doesn't exist or timing issue.
 
 **Solutions**:
-1. Verify layout exists with exact name:
-   - Tiered mode: `NWE` and `OBDIV`
-   - Legacy mode: `Screener` and `Exits`
+1. Verify layout exists with exact name matching `chart.layout_name` in `combo_settings.yaml`
 2. Names are case-sensitive
 3. Save layouts in TradingView before running TTE
 4. Check if layout dropdown is accessible
@@ -142,66 +137,26 @@ Common issues and solutions for TTE.
 
 **Solutions**:
 1. Valid timeframe values include:
-   - `"5 minutes"`, `"15 minutes"`, `"1 hour"`, `"4 hours"`, `"1 day"`
+   - `"1 minute"`, `"5 minutes"`, `"15 minutes"`, `"1 hour"`, `"4 hours"`, `"1 day"`
 2. Ensure timeframe button is visible and clickable
 3. Check for popup dialogs blocking interaction
 
 ---
 
-## API and Webhook Issues
+## Webhook Issues
 
-### API Health Check Failed
-
-**Symptoms**:
-- Error: `API health check failed`
-- Error: `Failed to connect to API`
-
-**Solutions**:
-1. Check API URL in config:
-   ```bash
-   STOCK_BUDDY_API_URL=https://stock-buddy-app.vercel.app/api/tte
-   ```
-2. Test manually:
-   ```bash
-   curl https://stock-buddy-app.vercel.app/api/health
-   ```
-3. Check if Vercel deployment is active
-4. Verify network connectivity
-
----
-
-### Batch Fetch Failed
+### Combo Webhook Not Received
 
 **Symptoms**:
-- Error: `Failed to get symbol batch`
-- Empty batch returned
+- Alerts are active but Stock Buddy shows no signals
+- `tte_live_signals` collection empty
 
 **Solutions**:
-1. Check API stats: `python tiered_main.py --stats`
-2. If rotation complete, symbols may need reset on API side
-3. Verify API endpoint is returning valid JSON
-4. Check `api_timeout` setting (default 30s)
-
----
-
-### Webhook Not Firing
-
-**Symptoms**:
-- Alert created but no webhook received
-- Hot symbols queue stays empty
-
-**Cause**: Alert misconfigured, webhook URL wrong, or indicator not triggering.
-
-**Solutions**:
-1. Verify webhook URL is correct:
-   ```
-   https://stock-buddy-app.vercel.app/api/tte/nwe
-   https://stock-buddy-app.vercel.app/api/tte/obdiv
-   ```
-2. Check alert was created successfully in TradingView
-3. Verify indicator is calculating (no errors shown)
-4. Increase wait time: `nwe_batch_wait` or `obdiv_batch_wait`
-5. Check TradingView's webhook limit (may be rate limited)
+1. Verify webhook URL: `https://stock-buddy-app.vercel.app/api/tte/combo`
+2. Check `COMBO_WEBHOOK_URL` in `.env`
+3. Test webhook manually with curl (see API.md)
+4. Check Vercel function logs for errors
+5. Verify the combo indicator has active signals (check TradingView)
 
 ---
 
@@ -223,7 +178,7 @@ Common issues and solutions for TTE.
 2. Verify IP is whitelisted in MongoDB Atlas
 3. Test connection:
    ```bash
-   python -c "from database.local_db import Database; db = Database(); print('OK')"
+   python -c "from resources.symbol_settings import get_symbols; print('OK')"
    ```
 4. For local MongoDB, ensure service is running
 
@@ -237,27 +192,24 @@ Common issues and solutions for TTE.
 
 **Solutions**:
 1. Populate the `symbols` collection with symbol data
-2. For tiered mode, set `SKIP_MONGODB_SYMBOLS=true` (uses API instead)
-3. Verify collection name in database
+2. Verify collection name in database
 
 ---
 
 ## Alert Issues
 
-### Failed to Create Alert
+### Alert Creation Failures
 
 **Symptoms**:
 - Error: `Failed to create webhook alert`
-- Error: `Alert failed to get saved`
-
-**Cause**: Rate limit, invalid indicator, or dialog blocked.
+- Alert count lower than expected after setup
 
 **Solutions**:
-1. Check TradingView alert limit (varies by subscription)
-2. Delete existing alerts: ensure `delete_all_alerts()` succeeds
-3. Verify indicator is selected before creating alert
-4. Check for error messages in alert dialog
-5. Look for popup blocking the dialog
+1. Check TradingView alert limit (Premium allows up to 400)
+2. Use `--fresh` flag to delete existing alerts before setup
+3. Check for TradingView screener runtime errors (red indicator)
+4. Verify `combo_settings.yaml` has correct settings
+5. Check `combo_progress.json` for resume capability
 
 ---
 
@@ -275,53 +227,6 @@ Common issues and solutions for TTE.
 
 ---
 
-### Alert Duplicated
-
-**Symptoms**:
-- Two alerts created for same symbols
-
-**Cause**: Known issue - sometimes TradingView creates duplicate alerts.
-
-**Solutions**:
-1. This is non-critical and doesn't affect functionality
-2. The `delete_all_alerts()` function cleans up duplicates between cycles
-
----
-
-## Combo Mode Issues
-
-### Alert Creation Failures
-
-**Symptoms**:
-- Error: `Failed to create webhook alert`
-- Alert count lower than expected after setup
-
-**Solutions**:
-1. Check TradingView alert limit (Premium allows up to 400)
-2. Use `--fresh` flag to delete existing alerts before setup
-3. Check for TradingView screener runtime errors (red indicator)
-4. Verify `combo_settings.yaml` has correct settings
-5. Check `combo_progress.json` for resume capability
-
----
-
-### Browser Issues (Combo Mode)
-
-**Symptoms**:
-- Browser fails to start
-- TradingView shows "Maximum number of connections" warning
-- Headless mode not working
-
-**Cause**: Another Chrome/TTE instance may be running, or headless mode incompatibility.
-
-**Solutions**:
-1. Close any other TradingView tabs/windows
-2. Ensure no other TTE instance is running
-3. If headless mode fails, set `headless: false` in `combo_settings.yaml` to debug visually
-4. TTE uses a single browser instance — no session limit concerns
-
----
-
 ### Maintenance Restart Failures
 
 **Symptoms**:
@@ -336,171 +241,20 @@ Common issues and solutions for TTE.
 
 ---
 
-### Combo Webhook Not Received
+### Browser Issues
 
 **Symptoms**:
-- Alerts are active but Stock Buddy shows no signals
-- `tte_live_signals` collection empty
+- Browser fails to start
+- TradingView shows "Maximum number of connections" warning
+- Headless mode not working
+
+**Cause**: Another Chrome/TTE instance may be running, or headless mode incompatibility.
 
 **Solutions**:
-1. Verify webhook URL: `https://stock-buddy-app.vercel.app/api/tte/combo`
-2. Check `COMBO_WEBHOOK_URL` in `.env`
-3. Test webhook manually with curl (see API.md)
-4. Check Vercel function logs for errors
-5. Verify the combo indicator has active signals (check TradingView)
-
----
-
-## Log Analysis Guide
-
-### Log File Location
-
-```
-app_log.log
-```
-
-### Log Levels
-
-| Level | Usage |
-|-------|-------|
-| DEBUG | Detailed debugging info |
-| INFO | Normal operation messages |
-| WARNING | Non-critical issues |
-| ERROR | Failures that affect operation |
-| EXCEPTION | Errors with stack traces |
-
-### Key Log Patterns
-
-**Successful Operations**:
-```
-INFO - Successfully signed in to TradingView
-INFO - Fetched batch #6 with 20 symbols
-INFO - Webhook alert created successfully for TTE NWE Screener
-INFO - Marked 20 symbols as scanned
-```
-
-**Warning Signs**:
-```
-WARNING - API health check failed - proceeding anyway
-WARNING - Failed to delete alerts, continuing anyway...
-WARNING - Could not save layout
-```
-
-**Error Indicators**:
-```
-ERROR - Failed to sign in to TradingView
-ERROR - Could not switch to NWE layout
-ERROR - Failed to create webhook alert
-EXCEPTION - Error occurred when...
-```
-
-### Debug Output
-
-TTE uses both logging and print statements for debugging:
-
-```python
-print("[DEBUG] Starting phase 1...", flush=True)  # Immediate output
-logger.info("Phase 1 complete")  # Written to log file
-```
-
-Look for `[DEBUG]` prefixed lines in console output for real-time debugging.
-
----
-
-## Debug Techniques
-
-### Test Individual Components
-
-```bash
-# Test configuration
-python tiered_main.py --validate
-
-# Test API
-python tiered_main.py --test-api
-
-# Test browser
-python tiered_main.py --test-browser
-
-# Test Phase 2 with mock data
-python tiered_main.py --test-phase2
-
-# Run single cycle
-python tiered_main.py --single-cycle
-```
-
-### View Current Stats
-
-```bash
-python tiered_main.py --stats
-```
-
-### Clear Log File
-
-```bash
-echo "" > app_log.log
-```
-
-### Inspect Browser State
-
-When running `--test-browser`, the browser stays open for inspection:
-1. Check if correct layout is loaded
-2. Verify indicators are visible
-3. Check alerts sidebar
-4. Inspect any error messages on indicators
-
-### Add Debug Logging
-
-When troubleshooting, add print statements:
-
-```python
-print(f"[DEBUG] variable_name = {variable_name}", flush=True)
-```
-
-The `flush=True` ensures immediate output.
-
-### Check Selenium Waits
-
-If elements aren't being found, the wait timeout may be too short:
-
-```python
-# Default is usually 10 seconds
-WebDriverWait(self.driver, 15).until(...)  # Increase to 15
-```
-
-### Capture Screenshots
-
-For debugging browser issues, add screenshot capture:
-
-```python
-self.driver.save_screenshot("debug_screenshot.png")
-```
-
----
-
-## Quick Fixes Checklist
-
-- [ ] Close all Chrome windows
-- [ ] Verify `.env` file has correct credentials
-- [ ] Check TradingView 2FA is disabled
-- [ ] Verify layouts exist with correct names
-- [ ] Confirm indicators are starred/favorited
-- [ ] Test MongoDB connection
-- [ ] Test API connection
-- [ ] Clear and check log file
-- [ ] Run `--validate` to check configuration
-- [ ] Try `--single-cycle` for isolated testing
-
----
-
-## Getting Help
-
-If issues persist:
-
-1. Collect relevant log output
-2. Note the exact error message
-3. Record steps to reproduce
-4. Check if TradingView UI has changed
-5. Create an issue with full details
+1. Close any other TradingView tabs/windows
+2. Ensure no other TTE instance is running
+3. If headless mode fails, set `headless: false` in `combo_settings.yaml` to debug visually
+4. TTE uses a single browser instance -- no session limit concerns
 
 ---
 
@@ -552,14 +306,123 @@ If issues persist:
 - Works in visible mode but fails headless
 
 **Solutions**:
-1. Headless Chrome uses a default viewport — some elements may be off-screen
+1. Headless Chrome uses a default viewport -- some elements may be off-screen
 2. Set `headless: false` temporarily to identify the issue
 3. Report the specific element/step that fails
+
+---
+
+## Log Analysis Guide
+
+### Log File Location
+
+```
+app_log.log
+```
+
+### Log Levels
+
+| Level | Usage |
+|-------|-------|
+| DEBUG | Detailed debugging info |
+| INFO | Normal operation messages |
+| WARNING | Non-critical issues |
+| ERROR | Failures that affect operation |
+| EXCEPTION | Errors with stack traces |
+
+### Key Log Patterns
+
+**Successful Operations**:
+```
+INFO - Successfully signed in to TradingView
+INFO - Webhook alert created successfully
+INFO - Restarting inactive alerts...
+```
+
+**Warning Signs**:
+```
+WARNING - Could not save layout
+WARNING - Indicator loading timeout
+```
+
+**Error Indicators**:
+```
+ERROR - Failed to sign in to TradingView
+ERROR - Failed to create webhook alert
+EXCEPTION - Error occurred when...
+```
+
+---
+
+## Debug Techniques
+
+### Test Individual Components
+
+```bash
+# Validate configuration
+python combo_main.py --validate
+
+# Run setup only (create alerts, then exit)
+python combo_main.py --setup-only
+
+# Run maintenance only
+python combo_main.py --maintain-only
+```
+
+### Inspect Browser State
+
+When running with `headless: false`, the browser stays visible for inspection:
+1. Check if correct layout is loaded
+2. Verify indicators are visible
+3. Check alerts sidebar
+4. Inspect any error messages on indicators
+
+### Capture Screenshots
+
+For debugging browser issues, the driver can capture screenshots:
+
+```python
+self.driver.save_screenshot("debug_screenshot.png")
+```
+
+### Check Selenium Waits
+
+If elements aren't being found, the wait timeout may be too short:
+
+```python
+# Default is usually 10 seconds
+WebDriverWait(self.driver, 15).until(...)  # Increase to 15
+```
+
+---
+
+## Quick Fixes Checklist
+
+- [ ] Close all Chrome windows
+- [ ] Verify `.env` file has correct credentials
+- [ ] Check TradingView 2FA is disabled
+- [ ] Verify "Screener" layout exists with correct name
+- [ ] Confirm TTE Screener indicator is starred/favorited
+- [ ] Test MongoDB connection
+- [ ] Clear and check log file
+- [ ] Run `--validate` to check configuration
+
+---
+
+## Getting Help
+
+If issues persist:
+
+1. Collect relevant log output
+2. Note the exact error message
+3. Record steps to reproduce
+4. Check if TradingView UI has changed
+5. Create an issue with full details
 
 ---
 
 ## See Also
 
 - [Setup Guide](SETUP.md) - Configuration reference
-- [Architecture](legacy/ARCHITECTURE.md) - System internals
+- [Combo Architecture](combo/ARCHITECTURE.md) - System internals
 - [API Reference](API.md) - API troubleshooting

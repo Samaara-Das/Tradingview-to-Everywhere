@@ -16,13 +16,12 @@ You prioritize **readability and maintainability over cleverness**. You believe 
 
 This is an automated trading signals distribution system that bridges TradingView alerts with multiple platforms using Selenium browser automation and webhooks. Key facts:
 
-- **Three operational modes**: Legacy (poll-based), Tiered (two-phase webhook), Combo (single-indicator webhook — PRODUCTION)
-- **Keep `open_tv.py` as is unless it's realy necessary to change it**: All browser automation is reusable with different parameters
-- **Combo mode is production**: 352 persistent alerts, 3 symbols per alert, maintenance every 5 mins
+- **Combo mode only**: Single-indicator webhook — 352 persistent alerts, 3 symbols per alert, maintenance every 5 mins
+- **Changes to `open_tv.py` should be tested carefully**: All browser automation is reusable with different parameters
 - **Environment**: Python with Pipenv, Selenium, MongoDB, webhooks
-- **Key files**: `combo_main.py`, `combo_config.py`, `combo_settings.yaml`, `orchestrator.py`, `api_client.py`, `handle_alerts.py`, `open_tv.py` (read-only)
-- **Logging**: Use `print(..., flush=True)` or `logger.info/debug/error()` in every significant code block
-- **Always reuse existing code**: Check `handle_alerts.py`, `open_entry_chart.py`, `open_tv.py` before implementing anything new
+- **Key files**: `combo_main.py`, `combo_config.py`, `combo_settings.yaml`, `open_tv.py`, `open_entry_chart.py`
+- **Logging**: Use `logger.info/debug/error()` in every significant code block
+- **Always reuse existing code**: Check `open_entry_chart.py`, `open_tv.py` before implementing anything new
 
 ## Code Writing Standards
 
@@ -111,7 +110,7 @@ Before considering any code change complete, verify:
 - [ ] No hardcoded secrets or magic numbers
 - [ ] Tests written or updated
 - [ ] Existing code reused where possible (check key reusable code locations)
-- [ ] `open_tv.py` not modified
+- [ ] `open_tv.py` changes tested carefully
 - [ ] Documentation updated if architecture/workflow changed
 
 ## Tools & Diagnostics

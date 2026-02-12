@@ -4,24 +4,20 @@ MongoDB schema and collections documentation for TTE and Stock Buddy integration
 
 ## Overview
 
-TTE uses two separate MongoDB databases:
+TTE uses two MongoDB databases:
 
-1. **TTE Local Database**: Stores trading signals captured by TTE's legacy mode
-2. **Stock Buddy Database**: Stores tiered signals, hot list, and symbol rotation data (accessed via API)
+1. **TTE Symbols Database**: Stores symbol definitions used by TTE's combo screener (accessed via `resources/symbol_settings.py`)
+2. **Stock Buddy Database**: Stores live combo signals, symbol data, and rotation state (accessed via Stock Buddy API)
 
 ---
 
-## TTE Local Database
+## TTE Symbols Database
 
-TTE's local database stores trading signals and symbol management for legacy mode. The application supports both MongoDB Atlas (cloud) and local MongoDB installations.
+TTE's symbols database stores symbol definitions used by the combo screener. Accessed via `resources/symbol_settings.py`.
 
 **Database Name**: `tte` (configurable via `MONGODB_DATABASE` environment variable)
 
-**Client Implementation**: `database/local_db.py` - `Database` class
-
 ### Connection Configuration
-
-#### Environment Variables
 
 ```bash
 # Option 1: Full connection string (preferred)
@@ -34,78 +30,11 @@ MONGODB_PWD=your_password
 MONGODB_DATABASE=tte
 ```
 
-#### Connection Code
-
-```python
-from database.local_db import Database
-
-# Initialize connection
-db = Database()
-
-# With document deletion on init (use carefully)
-db = Database(delete=True)
-```
-
 ### Collections
 
-#### 1. `Point Capitalis signals`
+#### `symbols`
 
-Stores trading signals captured from TradingView (legacy mode).
-
-**Collection Name**: Defined in `env.py` as `COLLECTION`
-
-##### Document Schema
-
-| Field | Type | Description | Example |
-|-------|------|-------------|---------|
-| `_id` | ObjectId | MongoDB auto-generated ID | `ObjectId("...")` |
-| `symbol` | string | Trading symbol | `"EURUSD"` |
-| `direction` | string | Trade direction | `"bullish"` or `"bearish"` |
-| `timeframe` | string | Signal timeframe | `"H4"` |
-| `entry_price` | number | Entry price level | `1.0850` |
-| `stop_loss` | number | Stop loss price | `1.0800` |
-| `take_profit` | number | Take profit price | `1.0950` |
-| `category` | string | Symbol category | `"currencies"` |
-| `unixTime` | number | Unix timestamp (seconds) | `1705312800` |
-| `tvEntrySnapshot` | string | TradingView entry chart URL | `"https://..."` |
-| `tvExitSnapshot` | string | TradingView exit chart URL | `"https://..."` |
-| `status` | string | Signal status | `"active"`, `"closed"` |
-| `exit_price` | number | Exit price (if closed) | `1.0920` |
-| `profit_loss` | number | P/L percentage | `0.65` |
-
-##### Example Document
-
-```json
-{
-  "_id": "ObjectId('65a5b2c1d4e5f6a7b8c9d0e1')",
-  "symbol": "EURUSD",
-  "direction": "bullish",
-  "timeframe": "H4",
-  "entry_price": 1.0850,
-  "stop_loss": 1.0800,
-  "take_profit": 1.0950,
-  "category": "currencies",
-  "unixTime": 1705312800,
-  "tvEntrySnapshot": "https://www.tradingview.com/x/abc123/",
-  "tvExitSnapshot": "",
-  "status": "active"
-}
-```
-
-##### Indexes
-
-```javascript
-// Recommended indexes for query optimization
-db["Point Capitalis signals"].createIndex({ "unixTime": -1 })
-db["Point Capitalis signals"].createIndex({ "symbol": 1, "status": 1 })
-db["Point Capitalis signals"].createIndex({ "category": 1 })
-```
-
----
-
-#### 2. `symbols`
-
-Stores symbol definitions and categories for the screeners.
+Stores symbol definitions and categories for the combo screener.
 
 ##### Document Schema
 
@@ -119,19 +48,19 @@ Stores symbol definitions and categories for the screeners.
 
 ##### Categories
 
-| Category | Webhook Name | Typical Count |
-|----------|-------------|---------------|
-| `currencies` | `CURRENCIES_WEBHOOK_NAME` | ~30 |
-| `us_stocks` | `US_STOCKS_WEBHOOK_NAME` | ~719 |
-| `indian_stocks` | `INDIAN_STOCKS_WEBHOOK_NAME` | ~268 |
-| `crypto` | `CRYPTO_WEBHOOK_NAME` | ~19 |
-| `indices` | - | ~18 |
+| Category | Typical Count |
+|----------|---------------|
+| `currencies` | ~30 |
+| `us_stocks` | ~719 |
+| `indian_stocks` | ~268 |
+| `crypto` | ~19 |
+| `indices` | ~18 |
 
 ---
 
 ## Stock Buddy Database
 
-Stock Buddy maintains its own MongoDB database for the tiered signal system. TTE interacts with this database through the Stock Buddy API, not directly.
+Stock Buddy maintains its own MongoDB database for signal storage. TTE interacts with this database through the Stock Buddy API, not directly.
 
 **Database Name**: `tte` (on Stock Buddy's MongoDB Atlas cluster)
 
@@ -411,157 +340,31 @@ Stores the current live signal state for combo mode. One document per symbol, up
 
 ## Database Operations
 
-### TTE Local Database Operations
+### TTE Symbols Access
 
-The `Database` class in `database/local_db.py` provides these methods:
-
-#### `add_doc(doc: dict) -> bool`
-
-Add a document to the signals collection.
+Symbols are accessed via `resources/symbol_settings.py`:
 
 ```python
-db = Database()
-doc = {
-    "symbol": "EURUSD",
-    "direction": "bullish",
-    "timeframe": "H4",
-    "unixTime": int(time.time())
-}
-success = db.add_doc(doc)
+from resources.symbol_settings import get_symbols, get_symbol_categories
+
+# Get all symbols grouped by category
+symbols = get_symbols()
+# Returns: {"currencies": ["OANDA:EURUSD", ...], "us_stocks": [...], ...}
+
+# Get symbol-to-category mapping
+categories = get_symbol_categories()
+# Returns: {"EURUSD": "currencies", "AAPL": "us_stocks", ...}
 ```
-
-#### `get_latest_doc() -> dict | None`
-
-Get the most recent document by `unixTime`.
-
-```python
-latest = db.get_latest_doc()
-if latest:
-    print(f"Latest signal: {latest['symbol']}")
-```
-
-#### `delete_all()`
-
-Delete all documents in the collection (use with caution).
-
-```python
-db = Database(delete=True)  # Deletes on init
-# OR
-db.delete_all()
-```
-
-#### `delete_some(count: int)`
-
-Keep the latest `count` documents and delete the rest.
-
-```python
-db.delete_some(100)  # Keep only the 100 most recent signals
-```
-
----
 
 ### Stock Buddy Database Operations
 
 Stock Buddy database is accessed via API. See [API.md](API.md) for complete endpoint documentation.
 
-**Common Operations via API:**
-
-```python
-from api_client import StockBuddyAPIClient
-
-api = StockBuddyAPIClient(base_url, timeout)
-
-# Get next batch of symbols
-batch = api.get_next_symbol_batch(size=20)
-
-# Mark symbols as scanned
-api.mark_symbols_scanned(["EURUSD", "GBPUSD"])
-
-# Get hot symbols pending Tier 2
-hot_symbols = api.get_hot_symbols(limit=8)
-
-# Get statistics
-stats = api.get_stats()
-```
-
 ---
-
-## Symbol Operations
-
-The `resources/symbol_settings.py` module provides symbol management for legacy mode:
-
-### `get_symbols() -> dict`
-
-Get all symbols grouped by category.
-
-```python
-from resources.symbol_settings import get_symbols
-
-symbols = get_symbols()
-# Returns: {"currencies": ["OANDA:EURUSD", ...], "us_stocks": [...], ...}
-```
-
-### `get_symbol_categories() -> dict`
-
-Get symbol-to-category mapping.
-
-```python
-from resources.symbol_settings import get_symbol_categories
-
-categories = get_symbol_categories()
-# Returns: {"EURUSD": "currencies", "AAPL": "us_stocks", ...}
-```
-
-### `symbol_category(symbol: str) -> str | None`
-
-Get the category for a specific symbol.
-
-```python
-from resources.symbol_settings import symbol_category
-
-category = symbol_category("EURUSD")
-# Returns: "currencies"
-```
 
 ---
 
 ## Query Examples
-
-### MongoDB Shell (TTE Local)
-
-```javascript
-// Find all active signals
-db["Point Capitalis signals"].find({ status: "active" })
-
-// Find signals for a specific symbol
-db["Point Capitalis signals"].find({ symbol: "EURUSD" }).sort({ unixTime: -1 })
-
-// Count signals by category
-db["Point Capitalis signals"].aggregate([
-  { $group: { _id: "$category", count: { $sum: 1 } } }
-])
-
-// Find signals from last 24 hours
-db["Point Capitalis signals"].find({
-  unixTime: { $gte: (Date.now() / 1000) - 86400 }
-})
-```
-
-### Python (PyMongo) - TTE Local
-
-```python
-from database.local_db import Database
-
-db = Database()
-
-# Find active signals
-active_signals = db.db[db.collection_name].find({"status": "active"})
-
-# Find by symbol with sorting
-signals = db.db[db.collection_name].find(
-    {"symbol": "EURUSD"}
-).sort("unixTime", -1).limit(10)
-```
 
 ### Stock Buddy Signals (via API)
 
@@ -621,34 +424,17 @@ db.change_tv_links()
 
 ---
 
-## Tiered Mode Considerations
+## Database Summary
 
-In tiered mode, symbols are fetched from the Stock Buddy API rather than TTE's local MongoDB. The environment variable `SKIP_MONGODB_SYMBOLS` controls this:
-
-```python
-# In tiered_main.py
-os.environ["SKIP_MONGODB_SYMBOLS"] = "true"
-```
-
-This prevents `symbol_settings.py` from loading symbols at import time, avoiding MongoDB dependency for the tiered orchestrator's symbol management.
-
----
-
-## Database Comparison
-
-| Feature | TTE Local DB | Stock Buddy DB (Tiered) | Stock Buddy DB (Combo) |
-|---------|--------------|-------------------------|------------------------|
-| **Access** | Direct PyMongo | Via REST API | Via REST API |
-| **Signals** | Legacy format | Tiered (Level 1/2/3) | Live state per symbol |
-| **Signal Collection** | `Point Capitalis signals` | `tte_signals` | `tte_live_signals` |
-| **Symbol Management** | `symbols` collection | `tte_symbols` with priority | N/A (all symbols) |
-| **Rotation Tracking** | None | `tte_rotation_state` | N/A (persistent alerts) |
-| **Hot List** | None | `tte_hot_list` | N/A |
+| Database | Access | Key Collections |
+|----------|--------|-----------------|
+| **TTE Symbols** | Direct PyMongo (`resources/symbol_settings.py`) | `symbols` |
+| **Stock Buddy** | Via REST API | `tte_live_signals`, `tte_symbols`, `tte_signals` |
 
 ---
 
 ## See Also
 
 - [Setup Guide](SETUP.md) - MongoDB configuration
-- [Architecture](legacy/ARCHITECTURE.md) - How database integrates with other components
+- [Combo Architecture](combo/ARCHITECTURE.md) - How database integrates with other components
 - [API Reference](API.md) - Stock Buddy API endpoints
