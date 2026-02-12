@@ -12,11 +12,7 @@ Usage:
     python combo_main.py --validate       # Validate config and exit
 """
 
-# Prevent MongoDB auto-loading at import time (combo loads symbols on demand)
 import os
-
-os.environ["SKIP_MONGODB_SYMBOLS"] = "true"
-
 import argparse
 import signal
 import sys
