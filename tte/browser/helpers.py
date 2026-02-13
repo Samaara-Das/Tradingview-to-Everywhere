@@ -3,7 +3,7 @@ A class that contains commonly used methods.
 """
 
 from time import sleep
-import logger_setup
+from tte import log
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
@@ -11,7 +11,7 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.common.exceptions import TimeoutException, StaleElementReferenceException
 
 # Set up a logger for this file
-utils_logger = logger_setup.setup_logger(__name__, logger_setup.INFO)
+utils_logger = log.setup_logger(__name__, log.INFO)
 
 
 class Utils:

@@ -3,12 +3,12 @@ Browser automation for TradingView. Handles sign-in, layout/timeframe management
 screener indicator configuration, webhook alert creation, and indicator re-uploading.
 """
 
-from resources.utils import Utils
-import logger_setup
-from env import PROFILE
+from tte.browser.helpers import Utils
+from tte import log
+from tte.config import PROFILE
 from os import getenv
 from time import sleep, time
-from open_entry_chart import OpenChart
+from tte.browser.chart import OpenChart
 from selenium import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
 from webdriver_manager.core.utils import read_version_from_cmd
@@ -27,7 +27,7 @@ from selenium.common.exceptions import (
 )
 
 # Set up logger for this file
-open_tv_logger = logger_setup.setup_logger(__name__, logger_setup.INFO)
+open_tv_logger = log.setup_logger(__name__, log.INFO)
 
 # some constants
 LAYOUT_NAME = "Screener"  # Name of the layout for the screener

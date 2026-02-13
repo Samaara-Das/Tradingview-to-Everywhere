@@ -12,7 +12,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-SETTINGS_FILE = Path(__file__).parent / "combo_settings.yaml"
+# Chrome profile (previously in env.py)
+PROFILE = "Profile 4"
+
+SETTINGS_FILE = Path(__file__).parent.parent / "combo_settings.yaml"
 
 
 def _load_yaml() -> dict:

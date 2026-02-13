@@ -8,7 +8,7 @@
             "name": "TTE Combo",
             "type": "debugpy",
             "request": "launch",
-            "module": "combo_main",
+            "module": "tte.main",
             "justMyCode": true
         },
         {

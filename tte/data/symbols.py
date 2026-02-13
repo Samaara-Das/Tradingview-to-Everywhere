@@ -8,12 +8,12 @@ Crypto - 19
 Indices - 18
 """
 
-import logger_setup
+from tte import log
 import os
 from pymongo import MongoClient
 
 # Set up logger for this file
-symbol_logger = logger_setup.setup_logger(__name__, logger_setup.DEBUG)
+symbol_logger = log.setup_logger(__name__, log.DEBUG)
 
 # MongoDB connection cache
 _mongodb_client = None
