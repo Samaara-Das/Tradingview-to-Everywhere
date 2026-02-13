@@ -761,47 +761,113 @@ class TTEGui:
             self._on_process_ended(self.process.returncode)
             return
 
-        # Terminate the process tree on Windows using taskkill
+        # Send SIGBREAK to subprocess on Windows (allows graceful shutdown)
         try:
             if sys.platform == "win32":
-                # Use taskkill to terminate the entire process tree
-                # /F = force, /T = tree (children), /PID = process ID
-                subprocess.run(
-                    ["taskkill", "/F", "/T", "/PID", str(self.process.pid)],
-                    capture_output=True,
-                    timeout=5,
-                )
-                self._log(f"Terminated process tree (PID {self.process.pid})", "info")
+                # Send Ctrl-Break signal (SIGBREAK) to the process group
+                # This triggers the signal handler in tte/main.py
+                import ctypes
+
+                kernel32 = ctypes.windll.kernel32
+                # CTRL_BREAK_EVENT = 1
+                result = kernel32.GenerateConsoleCtrlEvent(1, self.process.pid)
+                if result:
+                    self._log(
+                        f"Sent shutdown signal to process (PID {self.process.pid})",
+                        "info",
+                    )
+                else:
+                    self._log(
+                        "Failed to send shutdown signal, will force terminate",
+                        "warning",
+                    )
+                    raise Exception("GenerateConsoleCtrlEvent failed")
             else:
                 # Unix: send SIGTERM
                 self.process.terminate()
                 self._log(f"Sent SIGTERM to process (PID {self.process.pid})", "info")
-        except subprocess.TimeoutExpired:
-            self._log("Taskkill command timed out", "error")
-        except FileNotFoundError:
-            self._log("taskkill not found, trying fallback termination", "warning")
-            # Fallback: try process.terminate()
-            try:
-                self.process.terminate()
-            except Exception as e:
-                self._log(f"Fallback termination failed: {e}", "error")
         except Exception as e:
-            self._log(f"Error during termination: {e}", "error")
+            self._log(f"Error sending shutdown signal: {e}", "warning")
+            # Fall back to force termination
+            self._force_terminate()
+            return
 
-        # Start force-kill timeout thread
-        threading.Thread(target=self._force_kill_after_timeout, daemon=True).start()
+        # Wait up to 15 seconds for graceful shutdown
+        threading.Thread(target=self._wait_for_graceful_shutdown, daemon=True).start()
 
-    def _force_kill_after_timeout(self):
-        """Force-kill if process doesn't exit within 10 seconds."""
+    def _wait_for_graceful_shutdown(self):
+        """Wait for process to exit gracefully, then force-kill if needed."""
         try:
-            self.process.wait(timeout=10)
+            self.process.wait(timeout=15)
+            self.root.after(0, self._log, "Process stopped gracefully", "success")
         except subprocess.TimeoutExpired:
-            self._log("Force-killing process (10s timeout)...", "error")
-            try:
+            self.root.after(
+                0, self._log, "Graceful shutdown timed out, force-killing...", "error"
+            )
+            self.root.after(0, self._force_terminate)
+
+    def _force_terminate(self):
+        """Force-kill the subprocess and all Chrome/chromedriver children."""
+        if not self.process:
+            return
+
+        try:
+            if sys.platform == "win32":
+                # Kill the entire process tree (Python subprocess + Chrome + chromedriver)
+                # /F = force, /T = tree (all children), /PID = process ID
+                subprocess.run(
+                    ["taskkill", "/F", "/T", "/PID", str(self.process.pid)],
+                    capture_output=True,
+                    timeout=10,
+                )
+                self._log(
+                    f"Force-killed process tree (PID {self.process.pid})", "warning"
+                )
+
+                # Also kill any orphaned Chrome processes that might be from TTE
+                # (in case they detached from the process tree)
+                try:
+                    ps_cmd = (
+                        "Get-CimInstance Win32_Process -Filter \"Name='chrome.exe' or Name='chromedriver.exe'\" | "
+                        "Where-Object { $_.CommandLine -match 'TTE' } | "
+                        "Select-Object -ExpandProperty ProcessId"
+                    )
+                    result = subprocess.run(
+                        ["powershell", "-NoProfile", "-Command", ps_cmd],
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
+                    )
+                    pids = [
+                        p.strip()
+                        for p in result.stdout.strip().split("\n")
+                        if p.strip().isdigit()
+                    ]
+                    if pids:
+                        for pid in pids:
+                            subprocess.run(
+                                ["taskkill", "/F", "/PID", pid],
+                                capture_output=True,
+                                timeout=5,
+                            )
+                        self._log(
+                            f"Cleaned up {len(pids)} orphaned Chrome processes", "info"
+                        )
+                except Exception as e:
+                    self._log(
+                        f"Could not clean up orphaned Chrome processes: {e}", "warning"
+                    )
+            else:
+                # Unix: send SIGKILL
                 self.process.kill()
-                self.process.wait(timeout=5)
-            except Exception as e:
-                self._log(f"Force-kill failed: {e}", "error")
+                self._log(f"Force-killed process (PID {self.process.pid})", "warning")
+
+            # Wait for process to die
+            self.process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            self._log("Force-kill timed out — process may still be running", "error")
+        except Exception as e:
+            self._log(f"Error during force termination: {e}", "error")
 
     # =====================================================================
     # Output reading

@@ -463,32 +463,48 @@ def clear_alert_log(driver) -> bool:
 
 
 def run_maintenance(browser: Browser, interval: int):
-    """Loop: restart inactive alerts + clear log every `interval` seconds."""
+    """Loop: restart inactive alerts + clear log every `interval` seconds.
+
+    Handles graceful shutdown by checking _shutdown_requested flag and cleaning up browser.
+    """
     global _shutdown_requested
 
     logger.info(f"Maintenance loop started (every {interval}s)")
 
-    while not _shutdown_requested:
-        sleep(interval)
-        if _shutdown_requested:
-            break
+    try:
+        while not _shutdown_requested:
+            # Sleep in small increments to be more responsive to shutdown signals
+            sleep_remaining = interval
+            while sleep_remaining > 0 and not _shutdown_requested:
+                sleep(min(1, sleep_remaining))  # Check every 1 second
+                sleep_remaining -= 1
 
-        logger.info("Running maintenance cycle...")
+            if _shutdown_requested:
+                break
+
+            logger.info("Running maintenance cycle...")
+            try:
+                # Refresh page to keep session alive
+                browser.driver.refresh()
+                sleep(5)
+
+                # Restart inactive alerts
+                restart_inactive_alerts(browser.driver)
+
+                # Clear alert log
+                clear_alert_log(browser.driver)
+
+            except Exception:
+                logger.exception("Maintenance cycle failed, will retry next cycle:")
+
+        logger.info("Maintenance loop stopped — cleaning up browser")
+    finally:
+        # Always clean up browser when exiting maintenance loop
         try:
-            # Refresh page to keep session alive
-            browser.driver.refresh()
-            sleep(5)
-
-            # Restart inactive alerts
-            restart_inactive_alerts(browser.driver)
-
-            # Clear alert log
-            clear_alert_log(browser.driver)
-
-        except Exception:
-            logger.exception("Maintenance cycle failed, will retry next cycle:")
-
-    logger.info("Maintenance loop stopped")
+            browser.driver.quit()
+            logger.info("Browser closed successfully")
+        except Exception as e:
+            logger.error(f"Error closing browser: {e}")
 
 
 # ---------------------------------------------------------------------------
@@ -554,6 +570,7 @@ def main():
         logger.info("Running maintenance only (--maintain-only)")
         browser = create_browser(config, args)
         run_maintenance(browser, config.maintenance_interval)
+        # Browser cleanup is handled in run_maintenance's finally block
         return
 
     # --- Fetch symbols and create batches ---
@@ -591,15 +608,8 @@ def main():
 
     # --- Maintenance loop (reuse the same browser) ---
     logger.info("Starting maintenance mode...")
-
-    try:
-        run_maintenance(browser, config.maintenance_interval)
-    finally:
-        try:
-            browser.driver.quit()
-            logger.info("Browser closed successfully")
-        except Exception:
-            pass
+    run_maintenance(browser, config.maintenance_interval)
+    # Browser cleanup is handled in run_maintenance's finally block
 
 
 if __name__ == "__main__":
