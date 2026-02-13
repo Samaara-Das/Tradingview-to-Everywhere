@@ -2,7 +2,7 @@
 this can change the Trade Drawer's settings, change the chart's symbol and timeframe and take a snapshot of the chart.
 """
 
-import logger_setup
+from tte import log
 from time import sleep, time
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -11,7 +11,7 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
 
 # Set up logger for this file
-entry_chart_logger = logger_setup.setup_logger(__name__, logger_setup.DEBUG)
+entry_chart_logger = log.setup_logger(__name__, log.DEBUG)
 
 
 # class
