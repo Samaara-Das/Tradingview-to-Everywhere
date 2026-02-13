@@ -1,228 +1,127 @@
 # Task Context Tracker
 
-**Last Updated**: 2026-02-12
-**Current Task**: Entry Setups feature complete end-to-end. Pine Script saved in TradingView. Stock Buddy UAT passed (3 rounds, 41 tests). Alert recreation via `combo_main.py --fresh` (or `dist/TTE.exe`) is next.
-**Last Session**: Comment debug table, fix GUI stop button, rebuild exe
-**Active Branch**: `combo-architecture`
+**Last Updated**: 2026-02-13
+**Current Task**: Codebase reorganization into `tte/` package complete. PR #4 open. Pending: alert recreation via exe/fresh after Stock Buddy deploy.
+**Last Session**: Codebase reorganization — move all Python files into `tte/` package structure
+**Active Branch**: `codebase-reorg` (PR #4)
 
 ---
 
 ## Task Progress Summary
 
-**Completed Count**: 97+ tasks | **In Progress**: 0 | **Pending**: 1 (alert recreation via exe/fresh)
+**Completed Count**: 104+ tasks | **In Progress**: 0 | **Pending**: 1 (alert recreation via exe/fresh)
 
-Entry setup feature fully complete. Stock Buddy needs commit + Vercel deploy, then run `dist/TTE.exe` (Fresh mode) to recreate alerts with v2 payload.
+Codebase reorganization complete (8 files moved, imports updated, docs updated). Entry setup feature complete. Stock Buddy needs commit + Vercel deploy, then run `dist/TTE.exe` (Fresh mode) to recreate alerts with v2 payload.
 
 ---
 
 ## Session History
+
+### Session: 2026-02-13 (Codebase Reorganization into `tte/` Package)
+
+**Goal**: Reorganize flat root Python files into a proper `tte/` package with `browser/` and `data/` sub-packages.
+
+**Branch**: `codebase-reorg` | **PR**: #4 (https://github.com/Samaara-Das/Tradingview-to-Everywhere/pull/4)
+
+**Files moved (git mv)**:
+| From | To |
+|------|-----|
+| `logger_setup.py` | `tte/log.py` |
+| `resources/utils.py` | `tte/browser/helpers.py` |
+| `open_entry_chart.py` | `tte/browser/chart.py` |
+| `resources/symbol_settings.py` | `tte/data/symbols.py` |
+| `open_tv.py` | `tte/browser/tradingview.py` |
+| `combo_config.py` | `tte/config.py` |
+| `combo_main.py` | `tte/main.py` |
+| `resources/STOCK_BUDDY_TECHNICAL_ARCHITECTURE.md` | `docs/` |
+
+**Files created**:
+- `tte/__init__.py` — re-exports `ComboConfig`, `Browser`
+- `tte/browser/__init__.py` — re-exports `Browser`, `OpenChart`, `Utils`
+- `tte/data/__init__.py` — re-exports `get_symbols`, `get_symbol_categories`
+- Root `combo_main.py` — 3-line backward-compat shim delegating to `tte.main`
+
+**Files deleted**: `env.py` (absorbed into `tte/config.py`), `resources/` directory
+
+**Import updates** (6 files): All `import logger_setup` → `from tte import log`, all cross-module imports updated to `tte.` prefix.
+
+**Key changes in `tte/config.py`**:
+- Added `PROFILE = "Profile 4"` (from deleted `env.py`)
+- Changed `SETTINGS_FILE` path: `Path(__file__).parent` → `Path(__file__).parent.parent` (file moved one level deeper)
+
+**Documentation updated** (~13 files): CLAUDE.md, README.md, docs/combo/ARCHITECTURE.md, docs/SETUP.md, docs/TROUBLESHOOTING.md, docs/CONTRIBUTING.md, docs/DATABASE.md, .claude/agents/ (4 agent files), .claude/skills/mongodb/SKILL.md, .vscode/launch.json
+
+**Verification** (all passed):
+- `py_compile` on all .py files
+- `python combo_main.py --validate` (shim works)
+- `python -m tte.main --validate` (direct module works)
+- All import chain tests pass
+
+**Commits**:
+- `9c87d44` — Reorganize codebase into tte/ package (Phases 1-3)
+- `d38293b` — Update documentation for tte/ package structure (Phase 4)
+
+---
+
+### Session: 2026-02-12 (Codebase Cleanup — Phases 1-6 on `codebase-cleanup` branch)
+
+**Goal**: Clean up legacy/dead code, unused deps, and improve code quality.
+
+**Completed phases**:
+1. Delete legacy/tiered files (Tasks #124)
+2. Clean dead code from open_tv.py (#125)
+3. Clean env.py and symbol_settings.py (#126)
+4. Code quality fixes (#127)
+5. Remove unused dependencies (#128)
+6. Update documentation (#129)
+7. Verification & testing (#130)
+
+**Commits**:
+- `5fa9578` — Replace debug prints with proper logging
+- `762800a` — Remove unused dependencies, add pyyaml
+- `3b18d38` — Update documentation for combo-only codebase
+- `80d713a` — Add auto-start on boot, maintain-only default, and 3-hour log auto-clear
+- `02e3127` — Move setup_startup.ps1 to dist/ and remove unused tte_gui.spec
+
+---
 
 ### Session: 2026-02-12 (Entry Setups — Pine Script Payload v2 + OB Timestamp Fix)
 
 **Goal**: Add `zoneHigh`/`zoneLow` to OB entries + `close` price per symbol in webhook payload. Fix D1 OB timestamps showing 1 day earlier than the chart candle.
 
 **Pine Script changes** (`Pine Script Code/TTE Screener.txt`):
+- `buildObEntry()`: Added `zoneHigh`/`zoneLow` params
+- `buildObArray()`: Added 12 new float params for zone high/low
+- Close price: 3 new `request.security()` calls (15 total, within 40 limit)
+- `buildSymbolJson()`: Added `closePrice` param
 
-1. **`buildObEntry()` (line 785)**: Added `float zoneHigh, float zoneLow` params → outputs `"zoneHigh":X,"zoneLow":Y` in JSON
-2. **`buildObArray()` (line 1019)**: Added 12 new float params (`bullZH/bullZL/bearZH/bearZL` × 3 TFs), passed through to `buildObEntry()`
-3. **4 `buildObArray()` call sites** (lines 1053, 1059, 1065, 1071): Pass zone high/low from existing `request.security()` destructured variables
-4. **Close price** (lines 744-747): Added 3 new `request.security(s01/s02/s03, timeframe.period, close)` calls → 15 total (within 40 limit)
-5. **`buildSymbolJson()` (line 1037)**: Added `float closePrice` param → outputs `"close":X` in symbol JSON
-6. **4 `buildSymbolJson()` call sites**: Pass `close01`/`close02`/`close03` (s04 unused, passes `0.0`)
+**OB timestamp bug fix**: `tf == 'D' ? time_close[i - timeShift] : time[i - timeShift]` at 6 locations
 
-**OB timestamp bug fix** — D1 timestamps off by 1 day:
-- **Root cause**: Forex daily bars open at ~22:00 UTC the previous calendar day (17:00 NY time). `time` returns bar opening time → formatted in UTC shows wrong date for D1.
-- **Initial fix**: Changed `time[i - timeShift]` → `time_close[i - timeShift]` in all 6 `scanOBRange()` locations
-- **Problem**: This fixed D1 but broke 1H/H4 (showed timestamps 1 bar late — `time_close` = next bar's label for intraday)
-- **Final fix**: Conditional — `tf == 'D' ? time_close[i - timeShift] : time[i - timeShift]` at all 6 locations (lines 478, 488, 501, 586, 596, 609)
-- `tf` values: `'60'` (1H), `'240'` (H4), `'D'` (D1) — condition correctly targets only daily
-
-**Debug table**: Uncommented for testing with 9 columns (added Close column). OB tooltips already showed ZoneHigh/ZoneLow via existing `buildObTooltip()`. User verified all values correct.
-
-**Coordination file created**: `claude-coordination.md` — shared contract between TTE Claude and Stock Buddy Claude documenting v2 payload format, entry setup schema, detection rules, and task status.
-
-**Stock Buddy changes** (completed by separate Claude instance):
-- Task A: Schema updates (zoneHigh, zoneLow, close, EntrySetup, EntrySetupRecord)
-- Task B: Entry setup logic (`computeEntrySetups`) — new file `src/lib/tte/entry-setup.ts`
-- Task C: Database layer — `tte_entry_setups` append-only collection + updated `upsertLiveSignal()`
-- Task D: Webhook handler — dual writes (upsert live + insert history)
-- Task E: Grid UI — NWE 1H/H4, OB 1H/H4/D1, DIV 1H/H4, + Entry/Price/SL/TP columns
-- Task F: Tests — 41 tests passing across 3 suites (combo-schemas + entry-setup + entry-setup-edge)
-- UAT: 3 rounds completed — code-level (3 bugs fixed), API curl (6 endpoints), Playwright browser (grid verified)
-
-**Pending**: Alert recreation (`combo_main.py --fresh`) after user saves updated Pine Script in TradingView.
+**Stock Buddy UAT**: 3 rounds, 41 tests passing. Entry setup feature complete end-to-end.
 
 ---
 
 ### Session: 2026-02-12 (Debug Table + GUI Stop Button Fix + Exe Rebuild)
 
-**Goal**: Prepare screener for production (comment debug table), fix GUI stop button "invalid handle" error, rebuild exe.
-
-**1. Pine Script debug table commented out** (`Pine Script Code/TTE Screener.txt`):
-- Commented `var table sigTable = table.new(...)` (line 1099)
-- Commented entire `if barstate.islast` block (lines 1180–1265) — all 4 symbol rows + header
-- Helper functions (1102–1177) left uncommented (harmless without table)
-
-**2. GUI stop button fix** (`tte_gui.py`):
-- **Root cause**: `os.kill(pid, signal.CTRL_BREAK_EVENT)` doesn't work reliably with `CREATE_NEW_PROCESS_GROUP` on Windows — throws "invalid handle" when process already exited or handle is stale
-- **Fix in `_on_stop()`**:
-  - Added `process.poll()` check before attempting kill (handles already-exited processes)
-  - Replaced `os.kill()` with `taskkill /F /T /PID` — kills entire process tree (Python + Chrome)
-  - Added fallback to `process.terminate()` if taskkill fails
-- **Fix in `_force_kill_after_timeout()`**: Reduced timeout 30s→10s, added exception handling around `process.kill()`
-
-**3. Exe rebuilt**: `dist/TTE.exe` rebuilt with stop button fix. Reverted accidental `headless: false` in `combo_settings.yaml` (kept `true`).
-
-**Commits**:
-- `afea7e9` — Comment out debug table for production and update coordination with UAT results
-- `56747b0` — Fix GUI stop button invalid handle error and rebuild exe
-
-**Next steps** (deployment order matters):
-1. Commit + deploy Stock Buddy to Vercel (so v2 webhook handler is live)
-2. Run `dist/TTE.exe` with Fresh mode to recreate all alerts with v2 payload
-3. Verify entry setups appear in Stock Buddy grid
+Pine Script debug table commented for production. GUI stop button fixed (`taskkill /F /T /PID` replaces unreliable `os.kill`). Exe rebuilt.
 
 ---
 
 ### Session: 2026-02-12 (Fix Divergence Detection in Pine Script Screener)
 
-**Goal**: Fix divergence detection that was always empty (`divergence: []`) in all 950 symbols in `tte_live_signals`.
-
-**Root cause**: Two issues working together in `Pine Script Code/TTE Screener.txt`:
-1. `buildDivEntry()` (line 792) checked `divTime == currTime` — comparing HTF bar timestamp vs 1-minute chart timestamp (virtually never match)
-2. `detectBullishDiv()`/`detectBearishDiv()` scanned 300 bars back with no recency gate — relaxing #1 alone would flood stale divergences
-
-**Production changes (3 edits, atomic set)**:
-1. **Line 289**: `if inDownleg and lowerLow` → `if inDownleg and lowerLow and currLowShift <= 1` — gate bullish div to shift 0/1 on HTF
-2. **Line 316**: `if inUpleg and higherHigh` → `if inUpleg and higherHigh and currHighShift <= 1` — gate bearish div to shift 0/1 on HTF
-3. **Line 792**: `divTime == currTime` → `divTime > 0` — replace impossible timestamp match with non-zero check
-4. **Line 790**: Updated stale comment to match new logic
-
-**Debug helper functions fixed (5 edits, same `== currTime` → `> 0` pattern)**:
-- `buildDivDetailTable` (line 860) — table cell text
-- `buildDivTooltip` (line 922) — hover tooltip
-- `formatSingleDivSignal` (line 969) — B/S/- display
-- `getSingleDivColor` (line 982) — green/red/gray coloring
-- `hasAnySignal` (line 995) — signal presence check
-
-**Testing**: Uncommented debug table for 1 symbol (s01) on 1H + H4 timeframes. User confirmed divergence detection working correctly on shift 0 and 1. Table re-commented for production.
-
-**Note**: D1 timeframe uses `checkOBOnly()` (no divergence detection). Only 1H and H4 divergences appear. Adding D1 divergence would require additional `request.security()` calls — separate scope.
-
----
-
-### Session: 2026-02-12 (Documentation Update — 6 Outdated Files)
-
-**Goal**: Update 6 documentation files that were outdated after the Feb 2026 single-browser/headless/GUI changes.
-
-**Production numbers used**: ~1,028 symbols (MongoDB), 338 alerts (338 × 3 = 1,014 covered), targets 343 for full coverage.
-
-**Files updated (by priority)**:
-
-1. **`README.md`** (HIGH): Updated alert count (352→338), symbol count (~1,054→~1,028), `gui.py`→`tte_gui.py`, added `dist/TTE.exe`, removed `COMBO_NUM_BROWSERS`, added headless note.
-
-2. **`docs/combo/PRD.md`** (HIGH): Updated all counts, changed "Browser instances: 2" → "Browser mode: Single (sequential)", updated YAML example to match actual `combo_settings.yaml`, removed `COMBO_NUM_BROWSERS` env var, split "Future Enhancements" into Completed (headless, GUI) + remaining, updated production metrics (task count 89→97).
-
-3. **`docs/combo/ARCHITECTURE.md`** (MEDIUM — largest, 745 lines): Systematic replacement of 264→338, 4 symbols→3 symbols, ~1,054→~1,028 throughout all 14 sections. Changed `/api/tte/signal`→`/api/tte/combo` (4 locations). Updated orchestrator files (`orchestrator.py`→`combo_main.py`), setup diagram, maintenance pseudocode (added page refresh + alert log clearing), data flow examples, Q9 parallel→single browser.
-
-4. **`docs/SETUP.md`** (MEDIUM): Updated YAML example (added headless, screener, progress sections; removed num_browsers; fixed creation_delay), removed `COMBO_NUM_BROWSERS`, added GUI subsection.
-
-5. **`docs/TROUBLESHOOTING.md`** (LOW): Rewrote "Browser Session Limits" for single browser, added GUI/exe troubleshooting section, added headless mode issues section.
-
-6. **`docs/CONTRIBUTING.md`** (LOW): Added combo test commands, added combo docs to update table and key files reference.
-
-**Verification** (all passed):
-- `num_browsers` → 0 matches in docs + README
-- `gui.py` (without `tte_` prefix) → 0 matches
-- `264` in combo docs → only in JSON timestamp values (correct)
-- `/api/tte/signal` in combo docs → only in archived `IMPLEMENTATION.md` (out of scope)
-
----
-
-### Session: 2026-02-11 (GUI Exe Fixes — Multiple Bugs)
-
-**Goal**: Get `dist/TTE.exe` to correctly launch `combo_main.py` headlessly without extra windows
-
-**Bugs fixed chronologically**:
-
-1. **GUI defaults updated** (`tte_gui.py`):
-   - Set `headless` default to `True` (line 557)
-   - Set `fresh` checkbox default to `True` (line 572)
-   - Set webhook URL fallback to `https://stock-buddy-app.vercel.app/api/tte/combo` (line 568-570)
-
-2. **Exe spawning itself recursively** — Clicking Start opened another GUI window instead of running TTE.
-   - **Root cause**: `sys.executable` points to `TTE.exe` when frozen, not Python
-   - **Fix**: Added `getattr(sys, 'frozen', False)` detection; use `"python"` from PATH when frozen (line 689-694)
-
-3. **`combo_main.py` not found** — `python: can't open file 'C:\...\dist\combo_main.py'`
-   - **Root cause**: `Path(sys.executable).parent` = `dist/`, but `combo_main.py` is in project root
-   - **Fix**: Added `_get_project_dir()` helper that goes up one level from exe dir (lines 20-26)
-   - Also fixed `SETTINGS_FILE` (line 80) — was using `__file__` which points to PyInstaller temp dir when frozen
-   - Also fixed `cwd` for subprocess (line 727) to use project root
-
-4. **Missing `facebook-sdk` package** — `ModuleNotFoundError: No module named 'facebook'`
-   - **Fix**: `pip install facebook-sdk` (required by `send_to_socials/_facebook.py`, imported transitively via `handle_alerts.py` → `open_tv.py` → `combo_main.py`)
-
-5. **Terminal window opening** — Python console appeared when subprocess launched
-   - **Fix**: Added `subprocess.CREATE_NO_WINDOW` flag alongside `CREATE_NEW_PROCESS_GROUP` (line 718-720)
-
-6. **Headless not applying** — Browser still opened visibly
-   - **Root cause**: `combo_settings.yaml` had `headless: false` which overrode GUI default
-   - **Fix**: Set `headless: true` in `combo_settings.yaml`
-
-**Commits**:
-- `86e4b02` — Set GUI defaults: headless on, fresh mode enabled
-- `ffe74b5` — Updated exe
-- `8d62486` — Fix GUI exe: resolve path issues, hide terminal, enable headless by default
-
-**Key pattern — PyInstaller frozen exe path resolution**:
-```python
-def _get_project_dir() -> Path:
-    if getattr(sys, "frozen", False):
-        return Path(sys.executable).parent.parent  # exe in dist/, project is parent
-    return Path(__file__).parent
-```
-
----
-
-### Session: 2026-02-11 (Single Browser + Sleep Optimization + GUI — Tasks #81, #86, #90)
-
-**Goal**: Optimize browser performance, add headless mode, build GUI executable
-
-**Key changes**:
-1. Switched from parallel to single browser (`combo_main.py` rewrite)
-2. Sleep optimizations: `get_indicator()` 3s→0.5s, `change_settings()` 2s→0.5s, `change_symbol()` 2s→1s
-3. Chrome anti-throttling flags added
-4. Headless Chrome mode (`--headless=new`, guarded `maximize_window()`)
-5. Built TTE GUI (`tte_gui.py`) with modern dark theme, rebuilt as `dist/TTE.exe`
-
-**Commit**: `4b9b246`
-
----
-
-### Session: 2026-02-11 (Maintenance Loop — Tasks #106, #107)
-
-Added `clear_alert_log()`, improved `run_maintenance()`, fixed `restart_inactive_alerts()`.
-
-**Commit**: `75036c9`
-
----
-
-### Session: 2026-02-11 (Documentation — Task #108)
-
-Updated 16 doc files for combo mode in production.
-
-**Commit**: `0c89589`
+Root cause: `buildDivEntry()` compared HTF bar timestamp vs 1-min chart timestamp (never match). Fix: `divTime > 0` + recency gate `currLowShift <= 1` / `currHighShift <= 1`.
 
 ---
 
 ### Earlier Sessions (2026-02-10 — 2026-02-11)
 
-- **Combo Signal Grid** (#99-104, #60): Paginated signal grid in Stock Buddy
-- **Stock Buddy Combo API** (#32-38, #91-98): Webhook endpoints + dashboard UI
-- **Production alerts**: 338 alerts, batch_size=3, 1-min chart, graceful shutdown
-- **Pine Script**: Screener development, NWE signal detection, timeframe fixes
-- **Error recovery**: is_no_error(), reupload_indicator(), batch retry logic
+- Single browser + sleep optimization + GUI exe build
+- Maintenance loop improvements
+- Documentation updates (16 files)
+- Combo Signal Grid in Stock Buddy
+- Stock Buddy Combo API endpoints
+- Pine Script screener development
+- Error recovery patterns
 
 ---
 
@@ -234,16 +133,15 @@ Updated 16 doc files for combo mode in production.
 4. **3 symbol batch limit**: Reduced from 4 for 1-min chart performance
 5. **1-minute chart timeframe**: Fires once per minute (rate limit safe)
 6. **Single browser**: Parallel browsers abandoned — slower due to TradingView throttling
-7. **Paginated grid over basic table**: Better UX for 483+ symbols
-8. **Main page integration**: Signals as third nav tab (not separate route)
-9. **Server-side pagination & filtering**: Better performance for large datasets
-10. **Doc renames**: PRD.md → legacy/PRD.md, ARCHITECTURE v2.md → combo/ARCHITECTURE.md
-11. **GUI exe uses `python` from PATH**: When frozen, subprocess calls `python combo_main.py` (not bundled)
-12. **Entry setups stored in TWO places**: `tte_live_signals` (overwritten per webhook, for grid display) + `tte_entry_setups` (append-only, NEVER overwritten, for profitability tracking)
-13. **D1 OB timestamps use `time_close`**: Forex daily bar `time` falls on previous UTC day; conditional `tf == 'D' ? time_close : time` handles all TFs correctly
-14. **Grid timeframe columns fixed**: NWE 1H/H4 (2), OB 1H/H4/D1 (3), DIV 1H/H4 (2) = 7 signal cols + 4 setup cols + symbol + last_updated = 13 total
-15. **GUI stop uses `taskkill`**: `os.kill(CTRL_BREAK_EVENT)` unreliable on Windows with `CREATE_NEW_PROCESS_GROUP`; `taskkill /F /T /PID` kills entire process tree reliably
-16. **Deployment order**: Stock Buddy deploy first → then TTE alert recreation (so v2 webhook handler is ready when new alerts fire)
+7. **GUI exe uses `python` from PATH**: When frozen, subprocess calls `python combo_main.py` (not bundled)
+8. **Entry setups stored in TWO places**: `tte_live_signals` (overwritten per webhook) + `tte_entry_setups` (append-only)
+9. **D1 OB timestamps use `time_close`**: Conditional for daily bars only
+10. **GUI stop uses `taskkill`**: Replaces unreliable `os.kill(CTRL_BREAK_EVENT)` on Windows
+11. **Deployment order**: Stock Buddy deploy first → then TTE alert recreation
+12. **`tte/` package structure**: All Python modules organized under `tte/` with `browser/` and `data/` sub-packages
+13. **Root `combo_main.py` shim**: 3-line backward-compat wrapper so CLI, GUI subprocess, .vscode/launch.json all still work
+14. **`tte/log.py` not `tte/logging.py`**: Avoids shadowing Python's stdlib `logging` module
+15. **`combo_settings.yaml` stays at root**: Both `tte/config.py` and `tte_gui.py` expect it there; exe build expects it there
 
 ---
 
@@ -252,27 +150,28 @@ Updated 16 doc files for combo mode in production.
 ### TTE Project
 | File | Purpose |
 |------|---------|
-| `CLAUDE.md` | Project instructions (updated for single browser) |
-| `combo_main.py` | Combo mode entry point (single browser) |
-| `combo_config.py` | Combo configuration dataclass |
+| `CLAUDE.md` | Project instructions |
+| `combo_main.py` | Backward-compatible entry point (shim → `tte.main`) |
+| `tte/main.py` | Actual entry point (orchestrator) |
+| `tte/config.py` | Config dataclass + PROFILE constant |
 | `combo_settings.yaml` | All combo settings (headless: true) |
-| `tte_gui.py` | Tkinter GUI for combo mode (frozen exe path handling) |
-| `dist/TTE.exe` | Built GUI executable (working) |
-| `open_tv.py` | Browser automation (sleep-optimized, headless support) |
-| `open_entry_chart.py` | Chart symbol/timeframe changes |
-| `docs/combo/PRD.md` | Combo mode PRD |
-| `Pine Script Code/TTE Screener.txt` | Production screener (v2 payload with close/zoneHigh/zoneLow) |
-| `claude-coordination.md` | TTE ↔ Stock Buddy payload contract and task status |
+| `tte_gui.py` | Tkinter GUI (frozen exe path handling) |
+| `dist/TTE.exe` | Built GUI executable |
+| `tte/browser/tradingview.py` | Browser automation (Selenium) |
+| `tte/browser/chart.py` | Chart symbol/timeframe changes |
+| `tte/browser/helpers.py` | Selenium utility functions |
+| `tte/data/symbols.py` | MongoDB symbol loading |
+| `tte/log.py` | Logger setup |
+| `Pine Script Code/TTE Screener.txt` | Production screener (v2 payload) |
 
 ### Stock Buddy App
 | File | Purpose |
 |------|---------|
 | `src/components/tte/ComboSignalGrid.tsx` | Main paginated signal grid |
-| `src/store/api/comboSignalsApi.ts` | RTK Query API for combo signals |
 | `src/lib/tte/schemas.ts` | All Zod schemas |
-| `src/lib/tte/collections.ts` | All DB functions (incl. tte_entry_setups append-only) |
-| `src/lib/tte/entry-setup.ts` | Entry setup detection (computeEntrySetups) |
-| `src/app/api/tte/combo/route.ts` | Webhook handler (dual writes: live + history) |
+| `src/lib/tte/collections.ts` | All DB functions |
+| `src/lib/tte/entry-setup.ts` | Entry setup detection |
+| `src/app/api/tte/combo/route.ts` | Webhook handler (dual writes) |
 
 ---
 
@@ -281,10 +180,8 @@ Updated 16 doc files for combo mode in production.
 ### Stock Buddy API Endpoints
 ```
 POST /api/tte/combo          — Webhook v2: {timestamp, signals: [{symbol, close, nwe, ob_fvg, divergence}]}
-                               ob_fvg entries now include zoneHigh/zoneLow
-                               Handler: computes entry setups, dual-writes to tte_live_signals + tte_entry_setups
-GET  /api/tte/combo/signals  — Query: ?limit=20&offset=0&sort=signal_count&order=desc&direction=bullish&signalType=nwe&symbol=GBP
-GET  /api/tte/stats           — Returns combo stats in "combo" field
+GET  /api/tte/combo/signals  — Query with pagination, sorting, filtering
+GET  /api/tte/stats           — Returns combo stats
 ```
 
 ### Combo Settings (production)
@@ -298,21 +195,16 @@ maintenance_interval: 300
 headless: true
 ```
 
-### Building the GUI Exe
-```bash
-# Kill existing TTE.exe first: taskkill //F //IM TTE.exe
-pyinstaller --name TTE --onefile --windowed tte_gui.py
-# Output: dist/TTE.exe
-# Delete build/ and TTE.spec after
+### Package Import Patterns
+```python
+from tte.config import ComboConfig, PROFILE
+from tte.browser.tradingview import Browser
+from tte.browser.chart import OpenChart
+from tte.browser.helpers import Utils
+from tte.data.symbols import get_symbols
+from tte import log
+logger = log.setup_logger(__name__, log.INFO)
 ```
-
-### PyInstaller Gotchas (tte_gui.py)
-- `sys.executable` → points to the exe, not Python. Use `getattr(sys, 'frozen', False)` to detect.
-- `__file__` → points to temp extraction dir (`_MEI*`). Use `Path(sys.executable).parent.parent` for project root.
-- `SETTINGS_FILE` must use `_get_project_dir()`, not `Path(__file__).parent`.
-- Subprocess needs `CREATE_NO_WINDOW` flag to hide terminal on Windows.
-- Missing pip packages (e.g. `facebook-sdk`) won't be caught until runtime — test imports after fresh install.
-- Stop button: Use `taskkill /F /T /PID` instead of `os.kill(CTRL_BREAK_EVENT)` — the latter causes "invalid handle" with `CREATE_NEW_PROCESS_GROUP`.
 
 ---
 
@@ -321,11 +213,12 @@ pyinstaller --name TTE --onefile --windowed tte_gui.py
 ```bash
 # TTE
 cd "C:/Users/dassa/Work/For Poolsifi/tradingview to everywhere"
-python combo_main.py                # Run combo mode (setup + maintenance)
+python combo_main.py                # Run via shim (setup + maintenance)
+python -m tte.main                  # Run directly as module
 python combo_main.py --fresh        # Delete alerts & recreate
 python combo_main.py --setup-only   # Create alerts, no maintenance
 python combo_main.py --validate     # Validate config only
-python tte_gui.py                   # Run GUI directly (no exe needed)
+python tte_gui.py                   # Run GUI directly
 dist/TTE.exe                        # Run GUI exe
 
 # Stock Buddy
