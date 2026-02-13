@@ -98,7 +98,7 @@ CHROME_PROFILES_PATH=C:\Users\<YourUsername>\AppData\Local\Google\Chrome\User Da
 
 ### 4. Configure Profile Name
 
-In `env.py`, verify the `PROFILE` constant matches your setup:
+In `tte/config.py`, verify the `PROFILE` constant matches your setup:
 
 ```python
 PROFILE = "Profile 4"  # Or the profile number you want to use
@@ -196,7 +196,7 @@ The following collections are used:
 ### Verify MongoDB Connection
 
 ```bash
-python -c "from resources.symbol_settings import get_symbols; print(f'Loaded {sum(len(v) for v in get_symbols().values())} symbols')"
+python -c "from tte.data.symbols import get_symbols; print(f'Loaded {sum(len(v) for v in get_symbols().values())} symbols')"
 ```
 
 ---
@@ -283,7 +283,7 @@ Run combo mode without `--setup-only` and verify:
 ### 3. Verify MongoDB Connection
 
 ```bash
-python -c "from resources.symbol_settings import get_symbols; symbols = get_symbols(); print(f'OK: {sum(len(v) for v in symbols.values())} symbols loaded')"
+python -c "from tte.data.symbols import get_symbols; symbols = get_symbols(); print(f'OK: {sum(len(v) for v in symbols.values())} symbols loaded')"
 ```
 
 ---

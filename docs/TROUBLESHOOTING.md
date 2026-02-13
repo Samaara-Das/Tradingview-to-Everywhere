@@ -178,7 +178,7 @@ Common issues and solutions for TTE.
 2. Verify IP is whitelisted in MongoDB Atlas
 3. Test connection:
    ```bash
-   python -c "from resources.symbol_settings import get_symbols; print('OK')"
+   python -c "from tte.data.symbols import get_symbols; print('OK')"
    ```
 4. For local MongoDB, ensure service is running
 

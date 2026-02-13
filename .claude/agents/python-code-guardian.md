@@ -17,11 +17,11 @@ You prioritize **readability and maintainability over cleverness**. You believe 
 This is an automated trading signals distribution system that bridges TradingView alerts with multiple platforms using Selenium browser automation and webhooks. Key facts:
 
 - **Combo mode only**: Single-indicator webhook — 352 persistent alerts, 3 symbols per alert, maintenance every 5 mins
-- **Changes to `open_tv.py` should be tested carefully**: All browser automation is reusable with different parameters
+- **Changes to `tte/browser/tradingview.py` should be tested carefully**: All browser automation is reusable with different parameters
 - **Environment**: Python with Pipenv, Selenium, MongoDB, webhooks
-- **Key files**: `combo_main.py`, `combo_config.py`, `combo_settings.yaml`, `open_tv.py`, `open_entry_chart.py`
+- **Key files**: `tte/main.py`, `tte/config.py`, `combo_settings.yaml`, `tte/browser/tradingview.py`, `tte/browser/chart.py`
 - **Logging**: Use `logger.info/debug/error()` in every significant code block
-- **Always reuse existing code**: Check `open_entry_chart.py`, `open_tv.py` before implementing anything new
+- **Always reuse existing code**: Check `tte/browser/chart.py`, `tte/browser/tradingview.py` before implementing anything new
 
 ## Code Writing Standards
 
@@ -77,7 +77,7 @@ This is an automated trading signals distribution system that bridges TradingVie
 - Document any dependency decisions or trade-offs.
 
 ### Security in Code
-- Never hardcode secrets. All sensitive values go in `.env` and are loaded via `env.py`.
+- Never hardcode secrets. All sensitive values go in `.env` and are loaded via `tte/config.py`.
 - Validate and sanitize all external inputs (webhook payloads, TradingView data).
 - Use parameterized queries for MongoDB operations.
 - Be cautious with `eval()`, `exec()`, `pickle` — avoid them.
@@ -110,7 +110,7 @@ Before considering any code change complete, verify:
 - [ ] No hardcoded secrets or magic numbers
 - [ ] Tests written or updated
 - [ ] Existing code reused where possible (check key reusable code locations)
-- [ ] `open_tv.py` changes tested carefully
+- [ ] `tte/browser/tradingview.py` changes tested carefully
 - [ ] Documentation updated if architecture/workflow changed
 
 ## Tools & Diagnostics

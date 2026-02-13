@@ -254,5 +254,5 @@ collection.create_index("timestamp", expireAfterSeconds=2592000)  # 30 days
 - **Local DB module:** `database/local_db.py`
 - **NK DB webhook:** `database/nk_db.py`
 - **API client:** `api_client.py`
-- **Configuration:** `env.py`, `config.py`
+- **Configuration:** `tte/config.py`
 - **Documentation:** `docs/DATABASE.md`

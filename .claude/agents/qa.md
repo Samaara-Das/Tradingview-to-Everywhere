@@ -38,7 +38,7 @@ Also manually verify `combo_settings.yaml` against these rules:
 ### 3. Critical Invariants
 
 Check these project rules:
-- **`open_tv.py` must NOT be modified** — If it appears in `git diff`, flag it immediately
+- **`tte/browser/tradingview.py` must NOT be modified** — If it appears in `git diff`, flag it immediately
 - **`batch_size` must be <= 4** — More causes TradingView memory/runtime errors
 - **`request.security()` budget** — Pine Script screener must use <= 40 calls (currently 12 of 40)
 - **Logging** — Every new function should include `print(..., flush=True)` or `logger.info/debug/error()`
@@ -57,12 +57,12 @@ Flag these if found in changed code:
 
 Check that no new circular imports were introduced. The critical import chain is:
 ```
-combo_main.py → combo_config.py → (yaml, dotenv only)
-combo_main.py → open_tv.py → (selenium, resources)
-combo_main.py → handle_alerts.py → open_tv.py
+combo_main.py (shim) → tte.main → tte.config → (yaml, dotenv only)
+tte.main → tte.browser.tradingview → (selenium, tte.browser.helpers)
+tte.main → tte.data.symbols → (pymongo)
 ```
 
-`open_tv.py` must NOT import from `combo_main.py`, `tiered_main.py`, or `main.py`.
+`tte/browser/tradingview.py` must NOT import from `tte/main.py`.
 
 ### 6. Git Hygiene
 
@@ -84,7 +84,7 @@ Report findings in this structure:
 - [PASS/FAIL] details
 
 ### Critical Invariants
-- [PASS/FAIL] open_tv.py unmodified
+- [PASS/FAIL] tte/browser/tradingview.py unmodified
 - [PASS/FAIL] batch_size within limits
 - [PASS/FAIL] logging present in new functions
 
@@ -106,9 +106,9 @@ Overall: PASS / NEEDS ATTENTION / FAIL
 | File | Purpose |
 |------|---------|
 | `combo_settings.yaml` | All combo settings |
-| `combo_config.py` | Config loader + validation logic |
-| `combo_main.py` | Production entry point |
-| `open_tv.py` | Browser automation (DO NOT MODIFY) |
-| `handle_alerts.py` | Alert processing + maintenance |
+| `tte/config.py` | Config loader + validation logic |
+| `combo_main.py` | Backward-compatible entry point (shim) |
+| `tte/main.py` | Production entry point (orchestrator) |
+| `tte/browser/tradingview.py` | Browser automation (DO NOT MODIFY) |
 | `tte_gui.py` | GUI (PyInstaller path gotchas) |
 | `.env` | Secrets (never commit) |

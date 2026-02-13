@@ -6,14 +6,14 @@ MongoDB schema and collections documentation for TTE and Stock Buddy integration
 
 TTE uses two MongoDB databases:
 
-1. **TTE Symbols Database**: Stores symbol definitions used by TTE's combo screener (accessed via `resources/symbol_settings.py`)
+1. **TTE Symbols Database**: Stores symbol definitions used by TTE's combo screener (accessed via `tte/data/symbols.py`)
 2. **Stock Buddy Database**: Stores live combo signals, symbol data, and rotation state (accessed via Stock Buddy API)
 
 ---
 
 ## TTE Symbols Database
 
-TTE's symbols database stores symbol definitions used by the combo screener. Accessed via `resources/symbol_settings.py`.
+TTE's symbols database stores symbol definitions used by the combo screener. Accessed via `tte/data/symbols.py`.
 
 **Database Name**: `tte` (configurable via `MONGODB_DATABASE` environment variable)
 
@@ -342,10 +342,10 @@ Stores the current live signal state for combo mode. One document per symbol, up
 
 ### TTE Symbols Access
 
-Symbols are accessed via `resources/symbol_settings.py`:
+Symbols are accessed via `tte/data/symbols.py`:
 
 ```python
-from resources.symbol_settings import get_symbols, get_symbol_categories
+from tte.data.symbols import get_symbols, get_symbol_categories
 
 # Get all symbols grouped by category
 symbols = get_symbols()
@@ -428,7 +428,7 @@ db.change_tv_links()
 
 | Database | Access | Key Collections |
 |----------|--------|-----------------|
-| **TTE Symbols** | Direct PyMongo (`resources/symbol_settings.py`) | `symbols` |
+| **TTE Symbols** | Direct PyMongo (`tte/data/symbols.py`) | `symbols` |
 | **Stock Buddy** | Via REST API | `tte_live_signals`, `tte_symbols`, `tte_signals` |
 
 ---

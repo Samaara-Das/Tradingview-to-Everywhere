@@ -125,7 +125,7 @@ The 4-symbol hard limit (more causes memory/runtime errors in TradingView) elimi
 
 ### 3.2 TTE Orchestrator (Python)
 
-- **File**: `combo_main.py`, `combo_config.py`
+- **File**: `tte/main.py`, `tte/config.py`
 - **Purpose**: One-time setup of all 338 alerts, plus periodic maintenance
 - **Technology**: Python + Selenium (single headless Chrome browser)
 - **GUI**: `tte_gui.py` (or standalone `dist/TTE.exe`) provides a desktop interface for settings and execution
@@ -351,12 +351,12 @@ def maintain_alerts():
 
 | File | Purpose |
 |------|---------|
-| `combo_main.py` | CLI entry point |
-| `combo_config.py` | ComboConfig dataclass (loads combo_settings.yaml) |
+| `combo_main.py` | Backward-compatible entry point (shim for `tte/main.py`) |
+| `tte/main.py` | CLI entry point (orchestrator) |
+| `tte/config.py` | ComboConfig dataclass (loads combo_settings.yaml) |
 | `combo_settings.yaml` | All combo mode settings |
 | `tte_gui.py` | GUI interface (also `dist/TTE.exe`) |
-| `open_tv.py` | Browser automation (Selenium) |
-| `handle_alerts.py` | Alert processing + maintenance |
+| `tte/browser/tradingview.py` | Browser automation (Selenium) |
 
 ---
 

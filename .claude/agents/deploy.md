@@ -48,7 +48,7 @@ Check that critical files are accessible from the exe's perspective:
 - `combo_settings.yaml` must exist in the project root (one level up from `dist/`)
 - `combo_main.py` must exist in the project root
 - `.env` must exist in the project root
-- `open_tv.py` and all imports must be pip-installed
+- `tte/` package and all imports must be pip-installed
 
 ## PyInstaller Gotchas
 
@@ -89,16 +89,16 @@ subprocess.Popen(cmd, creationflags=creation_flags, ...)
 ```
 
 ### 4. Settings File Path
-`combo_config.py` uses `Path(__file__).parent` which breaks when frozen:
+`tte/config.py` uses `Path(__file__).parent.parent` to reach the project root:
 
 ```python
-# In combo_config.py — this works from both script and exe because
-# combo_config.py is run by the subprocess (python combo_main.py),
+# In tte/config.py — this works from both script and exe because
+# tte/config.py is run by the subprocess (python combo_main.py),
 # not by the frozen exe directly.
-SETTINGS_FILE = Path(__file__).parent / "combo_settings.yaml"
+SETTINGS_FILE = Path(__file__).parent.parent / "combo_settings.yaml"
 ```
 
-The exe only runs `tte_gui.py`. It spawns `python combo_main.py` as a subprocess, so `combo_config.py` resolves paths normally via Python, not PyInstaller.
+The exe only runs `tte_gui.py`. It spawns `python combo_main.py` as a subprocess, so `tte/config.py` resolves paths normally via Python, not PyInstaller.
 
 ### 5. Missing Dependencies
 Some pip packages aren't caught until runtime:
@@ -162,6 +162,7 @@ Ready to deploy: YES / NO
 | `tte_gui.py` | GUI source (855 LOC) — the file being packaged |
 | `dist/TTE.exe` | Built executable output |
 | `combo_settings.yaml` | Must be in project root, NOT bundled |
-| `combo_main.py` | Spawned by exe as subprocess |
+| `combo_main.py` | Backward-compatible shim (spawned by exe as subprocess) |
+| `tte/main.py` | Actual entry point (called by shim) |
 | `.env` | Secrets — never bundled, must exist at project root |
 | `tte_gui.spec` | PyInstaller spec (regenerated each build, delete after) |
