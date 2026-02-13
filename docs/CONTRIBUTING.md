@@ -47,7 +47,7 @@ CHART_TIMEFRAME = "1 minute"
 | Functions | snake_case, verb prefix | `get_symbols()`, `create_alert()` |
 | Classes | PascalCase | `Browser`, `ComboConfig` |
 | Constants | UPPER_SNAKE_CASE | `MAX_RETRIES`, `LAYOUT_NAME` |
-| Files | snake_case | `combo_main.py`, `open_tv.py` |
+| Files | snake_case | `tte/main.py`, `tte/browser/tradingview.py` |
 
 ### Function Guidelines
 
@@ -111,9 +111,9 @@ except:
 Use the project's logger setup:
 
 ```python
-import logger_setup
+from tte import log
 
-logger = logger_setup.setup_logger(__name__, logger_setup.DEBUG)
+logger = log.setup_logger(__name__, log.DEBUG)
 
 # File logging (for persistent records)
 logger.info(f"Successfully completed {operation}")
@@ -200,8 +200,8 @@ docs: Add API reference documentation
 
 2. Verify all Python files compile:
    ```bash
-   python -m py_compile combo_main.py
-   python -m py_compile open_tv.py
+   python -m py_compile tte/main.py
+   python -m py_compile tte/browser/tradingview.py
    ```
 
 3. Update relevant documentation

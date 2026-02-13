@@ -73,28 +73,33 @@ dist\TTE.exe
 
 ```
 tradingview-to-everywhere/
-├── combo_main.py           # Entry point (production)
-├── combo_config.py         # Configuration loader
-├── combo_settings.yaml     # All combo mode settings
-├── tte_gui.py              # GUI interface
-├── dist/TTE.exe            # Standalone GUI executable
-├── open_tv.py              # Browser automation (Selenium)
-├── open_entry_chart.py     # Chart navigation & snapshots
-├── env.py                  # Environment constants
-├── logger_setup.py         # Logging configuration
-├── resources/
-│   ├── symbol_settings.py  # Symbol management (MongoDB)
-│   └── utils.py            # Utility functions
+├── combo_main.py               # Backward-compatible entry point (shim)
+├── combo_settings.yaml         # All combo mode settings
+├── tte_gui.py                  # GUI interface
+├── dist/TTE.exe                # Standalone GUI executable
+├── tte/                        # Main package
+│   ├── __init__.py             # Re-exports: Browser, ComboConfig
+│   ├── main.py                 # Entry point (orchestrator)
+│   ├── config.py               # Configuration loader + PROFILE
+│   ├── log.py                  # Logger setup
+│   ├── browser/                # Browser automation sub-package
+│   │   ├── __init__.py         # Re-exports: Browser, OpenChart, Utils
+│   │   ├── tradingview.py      # TradingView automation (Selenium)
+│   │   ├── chart.py            # Chart navigation & snapshots
+│   │   └── helpers.py          # Selenium utility functions
+│   └── data/                   # Data access layer
+│       ├── __init__.py         # Re-exports: get_symbols, get_symbol_categories
+│       └── symbols.py          # MongoDB symbol fetching
 ├── docs/
 │   ├── combo/
-│   │   ├── ARCHITECTURE.md # Combo mode architecture
-│   │   └── PRD.md          # Combo mode PRD
-│   ├── SETUP.md            # Setup guide
-│   ├── API.md              # Stock Buddy API reference
-│   ├── DATABASE.md         # Database schema
-│   ├── TROUBLESHOOTING.md  # Common issues
-│   └── CONTRIBUTING.md     # Contribution guidelines
-└── Pine Script Code/       # TradingView indicator source
+│   │   ├── ARCHITECTURE.md     # Combo mode architecture
+│   │   └── PRD.md              # Combo mode PRD
+│   ├── SETUP.md                # Setup guide
+│   ├── API.md                  # Stock Buddy API reference
+│   ├── DATABASE.md             # Database schema
+│   ├── TROUBLESHOOTING.md      # Common issues
+│   └── CONTRIBUTING.md         # Contribution guidelines
+└── Pine Script Code/           # TradingView indicator source
 ```
 
 ## Configuration

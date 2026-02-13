@@ -8,10 +8,10 @@ TradingView to Everywhere (TTE) is an automated trading signals distribution sys
 
 ### Critical Principles
 1. **Reuse existing code**: Before implementing anything, check if it already exists in the codebase
-2. **Changes to `open_tv.py` should be tested carefully**: It contains all browser automation logic
+2. **Changes to `tte/browser/tradingview.py` should be tested carefully**: It contains all browser automation logic
 3. **Use built-in task management**: Always use TaskCreate/TaskUpdate/TaskList tools for tracking work
 
-## Combo Mode (`combo_main.py`) — Production
+## Combo Mode (`tte/main.py`) — Production
 
 - **Method**: Single combo screener (NWE + OB/FVG + Divergence) with persistent webhook alerts
 - **Workflow**: ~352 persistent alerts (3 symbols each) → webhook continuously to Stock Buddy API
@@ -19,14 +19,15 @@ TradingView to Everywhere (TTE) is an automated trading signals distribution sys
 - **4-symbol hard limit**: More causes TradingView memory/runtime errors (using 3 in production)
 - **Single browser**: Alerts created sequentially with one Chrome instance (headless by default)
 - **Chart**: 1-minute timeframe, line bar style (for minimal resource usage)
-- **Key files**: `combo_main.py`, `combo_config.py`, `combo_settings.yaml`
+- **Key files**: `tte/main.py`, `tte/config.py`, `combo_settings.yaml`
 - **Docs**: `docs/combo/ARCHITECTURE.md`, `docs/combo/PRD.md`
 
 ## Running Commands
 
 ```bash
 pipenv shell                              # Activate environment
-python combo_main.py                      # Full setup + maintenance
+python combo_main.py                      # Full setup + maintenance (shim)
+python -m tte.main                        # Full setup + maintenance (direct)
 python combo_main.py --setup-only         # Create alerts, then exit
 python combo_main.py --maintain-only      # Skip setup, run maintenance only
 python combo_main.py --fresh              # Delete all existing alerts before setup
@@ -36,7 +37,16 @@ python tte_gui.py                         # GUI interface
 
 ## Core Architecture
 
-### Browser Automation (`open_tv.py`)
+### Package Structure (`tte/`)
+- `tte/main.py` — Entry point (orchestrator)
+- `tte/config.py` — Configuration loader + PROFILE constant
+- `tte/log.py` — Logger setup (named `log` to avoid shadowing stdlib `logging`)
+- `tte/browser/tradingview.py` — TradingView browser automation (Selenium)
+- `tte/browser/chart.py` — Chart navigation & snapshots
+- `tte/browser/helpers.py` — Selenium utility functions
+- `tte/data/symbols.py` — MongoDB symbol fetching
+
+### Browser Automation (`tte/browser/tradingview.py`)
 - Manages all Selenium interactions with TradingView
 - Key pattern: `_safe_indicator_access()` handles stale elements with retry logic
 - `create_webhook_alert()` creates alerts with webhook notification
@@ -57,7 +67,7 @@ All combo mode options are configured in `combo_settings.yaml`. Secrets (webhook
 | Maintenance | `maintenance.interval` | 300 | Seconds between restart cycles |
 
 ### Environment Variables
-See `env.py` and `.env` file. Key variables: `CHROME_PROFILES_PATH`, `TRADINGVIEW_EMAIL`, `TRADINGVIEW_PASSWORD`, `MONGODB_PWD`, `COMBO_WEBHOOK_URL`
+See `tte/config.py` and `.env` file. Key variables: `CHROME_PROFILES_PATH`, `TRADINGVIEW_EMAIL`, `TRADINGVIEW_PASSWORD`, `MONGODB_PWD`, `COMBO_WEBHOOK_URL`
 
 ### TradingView Requirements
 - **2FA**: Must be disabled
@@ -69,18 +79,18 @@ See `env.py` and `.env` file. Key variables: `CHROME_PROFILES_PATH`, `TRADINGVIE
 
 1. **Reuse existing code**: Check before implementing — patterns for alerts, tabs, indicators already exist
 2. **Always log**: Use `logger.info/debug/error()` in every significant code block
-3. **Test `open_tv.py` changes carefully**: Browser automation is fragile; verify with a real browser
+3. **Test `tte/browser/tradingview.py` changes carefully**: Browser automation is fragile; verify with a real browser
 4. **Document mistakes**: Write learnings to `AGENTS.md` to prevent repetition
 
 ## Key Code Locations
 
 | What | Where | Use Case |
 |------|-------|----------|
-| Restart inactive alerts | `combo_main.py:366-438` | Maintenance (every 5 mins) |
-| Create webhook alert | `open_tv.py` `create_webhook_alert()` | Alert creation |
-| Change screener settings | `open_tv.py` `change_settings()` | Symbol configuration |
-| Safe element access | `open_tv.py` `_safe_indicator_access()` | When Selenium elements go stale |
-| Re-upload indicator | `open_tv.py` `reupload_indicator()` | Screener error recovery |
+| Restart inactive alerts | `tte/main.py` `restart_inactive_alerts()` | Maintenance (every 5 mins) |
+| Create webhook alert | `tte/browser/tradingview.py` `create_webhook_alert()` | Alert creation |
+| Change screener settings | `tte/browser/tradingview.py` `change_settings()` | Symbol configuration |
+| Safe element access | `tte/browser/tradingview.py` `_safe_indicator_access()` | When Selenium elements go stale |
+| Re-upload indicator | `tte/browser/tradingview.py` `reupload_indicator()` | Screener error recovery |
 
 ## Documentation
 

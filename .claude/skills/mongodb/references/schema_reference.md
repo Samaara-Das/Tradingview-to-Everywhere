@@ -107,7 +107,7 @@ Primary collection for storing trading signals in legacy mode.
 
 - **category** - Asset class
   - Valid values: "currencies", "us_stocks", "indian_stocks", "crypto"
-  - Defined in `resources/symbol_settings.py`
+  - Defined in `tte/data/symbols.py`
 
 **Trade Management (Optional):**
 
