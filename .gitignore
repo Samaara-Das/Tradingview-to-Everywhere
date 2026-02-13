@@ -29,6 +29,13 @@ node_modules/
 # OS specific
 .DS_Store
 
+# PyInstaller
+build/
+*.spec
+
+# Runtime state
+combo_progress.json
+
 # Task files
 tasks.json
-tasks/ 
+tasks/

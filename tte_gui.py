@@ -151,6 +151,12 @@ class TTEGui:
         self._build_ui()
         self._load_from_yaml()
 
+        # Auto-clear log every 3 hours (10_800_000 ms)
+        self._schedule_log_clear()
+
+        # Auto-start in maintain-only mode after UI is ready
+        self.root.after(1000, self._auto_start)
+
     def _configure_styles(self):
         """Configure ttk styles for modern look."""
         style = ttk.Style()
@@ -577,10 +583,10 @@ class TTEGui:
             webhook.get("url", "https://stock-buddy-app.vercel.app/api/tte/combo")
         )
 
-        # CLI flags — setup, fresh, and maintenance enabled by default
+        # CLI flags — maintain-only enabled by default for background operation
         self.vars["setup_only"].set(False)
-        self.vars["fresh"].set(True)
-        self.vars["maintain_only"].set(False)
+        self.vars["fresh"].set(False)
+        self.vars["maintain_only"].set(True)
 
     def _build_yaml_data(self) -> dict:
         """Build the nested dict from current GUI values."""
@@ -865,6 +871,34 @@ class TTEGui:
     # =====================================================================
     # Run
     # =====================================================================
+
+    # =====================================================================
+    # Auto-start & Scheduled log clear
+    # =====================================================================
+
+    LOG_CLEAR_INTERVAL_MS = 3 * 60 * 60 * 1000  # 3 hours in milliseconds
+
+    def _schedule_log_clear(self):
+        """Schedule periodic log clearing every 3 hours."""
+        self.root.after(self.LOG_CLEAR_INTERVAL_MS, self._auto_clear_log)
+
+    def _auto_clear_log(self):
+        """Clear the log and reschedule."""
+        self._clear_log()
+        self._log("Log auto-cleared (3-hour interval)", "info")
+        self._schedule_log_clear()
+
+    def _auto_start(self):
+        """Automatically click Start on launch (for background/startup use)."""
+        if not self.running:
+            errors = self._validate()
+            if errors:
+                self._log("Auto-start skipped due to validation errors:", "warning")
+                for err in errors:
+                    self._log(f"  - {err}", "warning")
+                return
+            self._log("Auto-starting in maintain-only mode...", "info")
+            self._on_start()
 
     def run(self):
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
