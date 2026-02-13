@@ -15,6 +15,8 @@ from tkinter import ttk, messagebox
 from pathlib import Path
 
 import yaml
+import pystray
+from PIL import Image, ImageDraw
 
 
 def _get_project_dir() -> Path:
@@ -141,9 +143,13 @@ class TTEGui:
         self.root.geometry("880x800")
         self.root.minsize(750, 650)
 
+        # Start hidden — lives in system tray
+        self.root.withdraw()
+
         self.process = None
         self.reader_thread = None
         self.running = False
+        self.tray_icon = None
 
         self.vars = {}
 
@@ -153,6 +159,9 @@ class TTEGui:
 
         # Auto-clear log every 3 hours (10_800_000 ms)
         self._schedule_log_clear()
+
+        # Set up system tray icon
+        self._setup_tray()
 
         # Auto-start in maintain-only mode after UI is ready
         self.root.after(1000, self._auto_start)
@@ -935,8 +944,62 @@ class TTEGui:
         self.status_dot.configure(fg=color)
 
     # =====================================================================
-    # Run
+    # System Tray
     # =====================================================================
+
+    def _create_tray_image(self):
+        """Create a simple icon for the system tray."""
+        img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(img)
+        # Blue-purple filled circle (matches accent color)
+        draw.ellipse([4, 4, 60, 60], fill=(108, 123, 255))
+        # Dark inner circle for a ring look
+        draw.ellipse([18, 18, 46, 46], fill=(26, 27, 46))
+        return img
+
+    def _setup_tray(self):
+        """Set up the system tray icon with right-click menu."""
+        image = self._create_tray_image()
+        menu = pystray.Menu(
+            pystray.MenuItem("Show", self._tray_show, default=True),
+            pystray.MenuItem("Stop", self._tray_stop),
+            pystray.Menu.SEPARATOR,
+            pystray.MenuItem("Exit", self._tray_exit),
+        )
+        self.tray_icon = pystray.Icon("TTE", image, "TTE Combo Mode", menu)
+        threading.Thread(target=self.tray_icon.run, daemon=True).start()
+
+    def _tray_show(self):
+        """Show/restore the main window (called from tray)."""
+        self.root.after(0, self._show_window)
+
+    def _show_window(self):
+        """Restore and bring the window to front."""
+        self.root.deiconify()
+        self.root.lift()
+        self.root.focus_force()
+
+    def _tray_stop(self):
+        """Stop TTE process (called from tray)."""
+        self.root.after(0, self._on_stop)
+
+    def _tray_exit(self):
+        """Exit the application completely (called from tray)."""
+        self.root.after(0, self._exit_app)
+
+    def _exit_app(self):
+        """Stop process, remove tray icon, destroy window."""
+        if self.running and self.process:
+            self._on_stop()
+            self.root.after(3000, self._cleanup_and_exit)
+        else:
+            self._cleanup_and_exit()
+
+    def _cleanup_and_exit(self):
+        """Remove tray icon and destroy the root window."""
+        if self.tray_icon:
+            self.tray_icon.stop()
+        self.root.destroy()
 
     # =====================================================================
     # Auto-start & Scheduled log clear
@@ -971,14 +1034,8 @@ class TTEGui:
         self.root.mainloop()
 
     def _on_close(self):
-        if self.running and self.process:
-            if messagebox.askyesno(
-                "Confirm Exit", "TTE is still running. Stop and exit?"
-            ):
-                self._on_stop()
-                self.root.after(2000, self.root.destroy)
-            return
-        self.root.destroy()
+        """Window close (X) → hide to system tray instead of exiting."""
+        self.root.withdraw()
 
 
 if __name__ == "__main__":
