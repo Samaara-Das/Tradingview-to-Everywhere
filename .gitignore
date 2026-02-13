@@ -43,3 +43,6 @@ combo_progress.json
 # Task files
 tasks.json
 tasks/
+
+# Claude settings (contains webhook tokens)
+.claude/settings.json

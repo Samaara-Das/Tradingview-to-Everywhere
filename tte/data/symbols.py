@@ -25,19 +25,13 @@ def _get_mongodb_connection():
     global _mongodb_client, _mongodb_db
 
     if _mongodb_client is None:
-        # Get MongoDB connection details from environment variables
+        # Get MongoDB connection string from environment
         mongo_uri = os.getenv("MONGODB_URI")
         if not mongo_uri:
-            # Fall back to password-based connection
-            pwd = os.getenv("MONGODB_PWD")
-            if pwd:
-                mongo_uri = f"mongodb+srv://sammy:{pwd}@cluster1.565lfln.mongodb.net/?retryWrites=true&w=majority"
-            else:
-                # Use local connection as fallback
-                mongo_uri = "mongodb://127.0.0.1:27017/?directConnection=true&serverSelectionTimeoutMS=2000"
-                symbol_logger.warning(
-                    "No MongoDB credentials found in environment, using local connection"
-                )
+            raise ValueError(
+                "MONGODB_URI environment variable is required. "
+                "Set it in .env (e.g. mongodb+srv://user:pass@host/...)"
+            )
 
         _mongodb_client = MongoClient(mongo_uri)
 

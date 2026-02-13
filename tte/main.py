@@ -539,7 +539,10 @@ def main():
         print(f"  Bar style: {config.bar_style}", flush=True)
         print(f"  Headless: {config.headless}", flush=True)
         print(f"  Screener: {config.screener_shorttitle}", flush=True)
-        print(f"  Webhook URL: {config.webhook_url}", flush=True)
+        from urllib.parse import urlparse
+
+        parsed = urlparse(config.webhook_url)
+        print(f"  Webhook URL: {parsed.scheme}://{parsed.netloc}/***", flush=True)
         print(f"  Batch size: {config.batch_size}", flush=True)
         print(f"  Creation delay: {config.alert_creation_delay}s", flush=True)
         print(f"  Recalc wait: {config.recalc_wait}s", flush=True)
