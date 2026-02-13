@@ -33,6 +33,10 @@ node_modules/
 build/
 *.spec
 
+# Test artifacts
+.coverage
+.pytest_cache/
+
 # Runtime state
 combo_progress.json
 
