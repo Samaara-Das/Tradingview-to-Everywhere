@@ -36,16 +36,16 @@ class ComboConfig:
 
     # Chart settings
     layout_name: str = _yaml.get("chart", {}).get("layout_name", "Screener")
-    chart_timeframe: str = _yaml.get("chart", {}).get("chart_timeframe", "1 hour")
-    bar_style: str = _yaml.get("chart", {}).get("bar_style", "candle")
-    headless: bool = _yaml.get("chart", {}).get("headless", False)
+    chart_timeframe: str = _yaml.get("chart", {}).get("chart_timeframe", "1 minute")
+    bar_style: str = _yaml.get("chart", {}).get("bar_style", "line")
+    headless: bool = _yaml.get("chart", {}).get("headless", True)
 
     # Screener indicator
     screener_shorttitle: str = _yaml.get("screener", {}).get("shorttitle", "Screener")
     screener_name: str = _yaml.get("screener", {}).get("name", "TTE Screener")
 
     # Alert creation
-    batch_size: int = _yaml.get("alerts", {}).get("batch_size", 4)
+    batch_size: int = _yaml.get("alerts", {}).get("batch_size", 3)
     alert_creation_delay: float = _yaml.get("alerts", {}).get("creation_delay", 1.5)
     recalc_wait: float = _yaml.get("alerts", {}).get("recalc_wait", 2.0)
 
