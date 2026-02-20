@@ -92,13 +92,26 @@ The 4-symbol hard limit (more causes memory/runtime errors in TradingView) elimi
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                   MAINTENANCE (Periodic)                        │
+│                   MAINTENANCE (Every 5 min)                     │
 │                                                                 │
 │  TTE Orchestrator                                              │
 │  ├── Refreshes page to prevent stale browser state             │
 │  ├── Clears alert log to reduce memory usage                   │
 │  ├── Restarts any alerts that stopped due to runtime errors    │
-│  └── Runs every 5 minutes (configurable)                        │
+│  └── Has priority over snapshots (same browser)                │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                   CHART SNAPSHOTS (Every 60s)                   │
+│                                                                 │
+│  TTE Snapshot Worker (async polling, same browser)             │
+│  ├── Polls Stock Buddy for pending setup snapshots             │
+│  ├── Switches to "Snapshot" layout (NWE + Trade Drawer)        │
+│  ├── For each: symbol → timeframe → Trade Drawer inputs        │
+│  ├── Takes screenshot via Alt+S → gets PNG/TV URLs             │
+│  ├── Reports URLs back to Stock Buddy API                      │
+│  └── Setup messages display chart images in Stock Buddy UI     │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -168,6 +181,30 @@ The 4-symbol hard limit (more causes memory/runtime errors in TradingView) elimi
 - **Polling**: RTK Query polls the signals endpoint at regular intervals
 - **Staleness detection**: If `last_updated` for a symbol is too old, show as "stale"
 
+### 3.7 Chart Snapshot Worker
+
+- **File**: `tte/snapshot_worker.py`
+- **Purpose**: Asynchronously captures TradingView chart screenshots for setup messages
+- **Technology**: Same Selenium browser as orchestrator, polls Stock Buddy API
+- **Components**:
+  - `StockBuddyClient`: HTTP client for `GET /api/tte/snapshots/pending` and `POST /api/tte/snapshots/update`
+  - `SnapshotWorker`: Orchestrates chart screenshots using existing browser automation
+- **TradingView layout**: "Snapshot" (separate from "Screener") with NWE + Trade Drawer v2 indicators
+- **Trade Drawer v2**: Pine Script indicator (`Pine Script Code/Trade Drawer.txt`, v6) that draws entry/SL/TP levels on the chart. Controlled via 4 input fields: entry_time, entry_price, sl, tp1.
+- **Dual-timer integration**: Runs every 60s in the maintenance loop. Maintenance (every 5 min) has priority — if both timers fire simultaneously, snapshots skip that tick.
+- **Snapshot method**: Alt+S keyboard shortcut → reads clipboard URL via `navigator.clipboard.readText()` (CDP clipboard permission granted for headless Chrome)
+- **Workflow per setup**: change_symbol → force_change_tframe → show legend → set Trade Drawer inputs → hide legend → Alt+S snapshot → show legend → report URL
+- **Error handling**: Each setup processed independently; failures reported to Stock Buddy (max 3 retries). "Processing" snapshots older than 10 min auto-reset to "pending" by Stock Buddy.
+
+### 3.8 Trade Drawer Indicator (Pine Script)
+
+- **File**: `Pine Script Code/Trade Drawer.txt`
+- **Version**: Pine Script v6
+- **Purpose**: Draws entry/SL/TP levels on chart for snapshot screenshots
+- **Inputs**: entry_time (Unix ms), entry_price, sl_price, tp1_price, tp2_price, tp3_price + 20 symbol inputs (for TTE to find the indicator)
+- **Drawing behavior**: Only draws on `barstate.islast` (avoids broken coordinates from bar 0). Deletes old drawings before redrawing.
+- **Colors**: Orange `#FF6D00` for SL zone, Blue `#2962FF` for TP zone (distinct from NWE's red/green)
+
 ---
 
 ## 4. Data Flow — End to End
@@ -221,7 +258,7 @@ Step 6: Frontend polls signals endpoint
         → User sees timestamps and judges freshness
 ```
 
-### Phase 3: Maintenance (Periodic)
+### Phase 3: Maintenance (Every 5 min)
 
 ```
 Step 1: TTE Orchestrator runs maintenance check (every 5 minutes)
@@ -231,6 +268,34 @@ Step 4: Opens TradingView alerts panel via Selenium
 Step 5: Clicks "Restart all inactive" to restart any stopped alerts
 Step 6: All alerts are running again on TradingView's servers
 ```
+
+### Phase 4: Chart Snapshots (Every 60s)
+
+```
+Step 1: TTE Snapshot Worker polls Stock Buddy: GET /api/tte/snapshots/pending
+Step 2: If pending setups exist (up to 5 per batch):
+        a. Switches to "Snapshot" layout (NWE + Trade Drawer indicators)
+        b. Sets bar style to candle
+        c. Ensures legend is visible
+Step 3: For each pending setup:
+        a. Changes chart symbol (e.g., GBPCAD)
+        b. Changes timeframe (1H or 4H based on nweTf)
+        c. Opens Trade Drawer settings, fills entry_time/entry_price/sl/tp1
+        d. Hides indicator legend (clean screenshot)
+        e. Alt+S → captures snapshot URL from clipboard
+        f. Shows legend again
+        g. Reports PNG/TV URLs back: POST /api/tte/snapshots/update
+Step 4: Setup message in Stock Buddy now displays the chart image
+        (pending → completed, with clickable snapshot)
+```
+
+**Timing**: Setup text appears instantly in Stock Buddy. Chart image appears
+within ~1-2 minutes (60-second polling interval). Similar to how messaging
+apps load link previews asynchronously.
+
+**Browser contention**: Maintenance has priority. If both timers fire at the
+same time (e.g., at 300s), maintenance runs and snapshots skip that tick.
+The same browser instance is shared — they never run concurrently.
 
 ---
 
@@ -327,24 +392,27 @@ def setup_all_alerts(symbols: list[str]):
     print(f"Created {len(batches)} alerts covering {len(symbols)} symbols")
 ```
 
-### Maintenance Phase Workflow
+### Maintenance Loop (Dual Timers)
 
 ```python
-# Pseudocode for periodic maintenance
-def maintain_alerts():
-    browser = Browser()
+# Pseudocode for the dual-timer maintenance loop
+def run_maintenance(browser, config):
+    snapshot_worker = SnapshotWorker(browser, config) if config.snapshot_enabled else None
 
-    # Refresh page to prevent stale browser state
-    browser.refresh_page()
+    while not shutdown_requested:
+        maintenance_due = (now - last_maintenance) >= 300  # 5 minutes
 
-    # Clear alert log to reduce memory usage
-    browser.clear_alert_log()
+        # Maintenance has priority (same browser, can't run concurrently)
+        if maintenance_due:
+            browser.refresh_page()
+            browser.restart_inactive_alerts()
+            browser.clear_alert_log()
 
-    # Restart any inactive alerts
-    browser.open_alerts_panel()
-    browser.restart_inactive_alerts()  # Clicks "Restart all inactive"
+        # Snapshots run only when maintenance isn't running
+        if snapshot_worker and (now - last_snapshot) >= 60 and not maintenance_due:
+            snapshot_worker.process_pending_snapshots()
 
-    print("Maintenance cycle complete")
+        sleep(60)  # Tick interval = min(snapshot_interval, maintenance_interval)
 ```
 
 ### Key Orchestrator Files
@@ -352,11 +420,13 @@ def maintain_alerts():
 | File | Purpose |
 |------|---------|
 | `combo_main.py` | Backward-compatible entry point (shim for `tte/main.py`) |
-| `tte/main.py` | CLI entry point (orchestrator) |
+| `tte/main.py` | CLI entry point (orchestrator + dual-timer maintenance) |
 | `tte/config.py` | ComboConfig dataclass (loads combo_settings.yaml) |
-| `combo_settings.yaml` | All combo mode settings |
+| `tte/snapshot_worker.py` | Chart snapshot polling + browser orchestration |
+| `combo_settings.yaml` | All combo mode settings (incl. snapshot config) |
 | `tte_gui.py` | GUI interface (also `dist/TTE.exe`) |
 | `tte/browser/tradingview.py` | Browser automation (Selenium) |
+| `Pine Script Code/Trade Drawer.txt` | Trade Drawer v6 indicator for chart snapshots |
 
 ---
 
