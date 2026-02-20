@@ -252,55 +252,71 @@ class OpenChart:
         """Forces the timeframe change without checking current value first.
 
         Use this after layout switches where the aria-label might not be accurate.
+        Retries once on stale element errors.
         """
-        try:
-            tf_button = WebDriverWait(self.driver, 15).until(
-                EC.element_to_be_clickable(
-                    (By.XPATH, '//*[@id="header-toolbar-intervals"]/button')
+        for attempt in range(2):
+            try:
+                tf_button = WebDriverWait(self.driver, 15).until(
+                    EC.element_to_be_clickable(
+                        (By.XPATH, '//*[@id="header-toolbar-intervals"]/button')
+                    )
                 )
-            )
 
-            # Log current aria-label for debugging
-            current_label = tf_button.get_attribute("aria-label")
-            entry_chart_logger.info(
-                f"Current timeframe aria-label: '{current_label}', target: '{timeframe}'"
-            )
-
-            # Always click to open dropdown, regardless of current timeframe
-            tf_button.click()
-
-            dropdown = WebDriverWait(self.driver, 15).until(
-                EC.presence_of_element_located(
-                    (By.CSS_SELECTOR, 'div[data-qa-id="menu-inner"]')
+                # Log current aria-label for debugging
+                current_label = tf_button.get_attribute("aria-label")
+                entry_chart_logger.info(
+                    f"Current timeframe aria-label: '{current_label}', target: '{timeframe}'"
                 )
-            )
-            options = dropdown.find_elements(
-                By.CSS_SELECTOR,
-                "div.menuItem-RmqZNwwp",
-            )
 
-            for option in options:
-                label_els = option.find_elements(By.CSS_SELECTOR, "span.label-jFqVJoPk")
-                label_text = label_els[0].text if label_els else ""
-                if label_text == timeframe:
-                    option.click()
+                # Always click to open dropdown, regardless of current timeframe
+                tf_button.click()
+
+                dropdown = WebDriverWait(self.driver, 15).until(
+                    EC.presence_of_element_located(
+                        (By.CSS_SELECTOR, 'div[data-qa-id="menu-inner"]')
+                    )
+                )
+
+                # Use JavaScript to find and click the matching option (avoids stale elements)
+                clicked = self.driver.execute_script(
+                    """
+                    var items = arguments[0].querySelectorAll('[class*="menuItem"]');
+                    for (var i = 0; i < items.length; i++) {
+                        var labels = items[i].querySelectorAll('[class*="label-"]');
+                        if (labels.length > 0 && labels[0].textContent === arguments[1]) {
+                            items[i].click();
+                            return true;
+                        }
+                    }
+                    return false;
+                    """,
+                    dropdown,
+                    timeframe,
+                )
+
+                if clicked:
                     entry_chart_logger.info(
                         f"Force changed the timeframe to {timeframe}!"
                     )
                     return True
 
-            # If we didn't find the timeframe, close the dropdown by pressing Escape
-            entry_chart_logger.warning(f"Timeframe '{timeframe}' not found in dropdown")
-            from selenium.webdriver.common.keys import Keys
+                # If we didn't find the timeframe, close the dropdown
+                entry_chart_logger.warning(f"Timeframe '{timeframe}' not found in dropdown")
+                ActionChains(self.driver).send_keys(Keys.ESCAPE).perform()
+                return False
 
-            ActionChains(self.driver).send_keys(Keys.ESCAPE).perform()
-            return False
-
-        except Exception as e:
-            entry_chart_logger.exception(
-                f"Failed to force change the timeframe to {timeframe}. Error:"
-            )
-            return False
+            except Exception as e:
+                if attempt == 0 and "stale" in str(e).lower():
+                    entry_chart_logger.warning(
+                        f"Stale element in force_change_tframe, retrying..."
+                    )
+                    sleep(1)
+                    continue
+                entry_chart_logger.exception(
+                    f"Failed to force change the timeframe to {timeframe}. Error:"
+                )
+                return False
+        return False
 
     def save_chart_img(self):
         """Clicks on the camera icon to take a snapshot of the chart and opens it in a new tab. The link of the tab and image are returned in a dictionary. If an error occurs, an empty string is returned.
@@ -373,15 +389,20 @@ class OpenChart:
             wait = WebDriverWait(self.driver, 15)
             indicators = wait.until(
                 EC.presence_of_all_elements_located(
-                    (By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')
+                    (By.CSS_SELECTOR, 'div[data-qa-id="legend-source-item"]')
                 )
             )
 
             for ind in indicators:
-                indicator_name = ind.find_element(
-                    By.CSS_SELECTOR, 'div[class="title-l31H9iuA"]'
-                ).text
-                if indicator_name == ind_shorttitle:  # finding the indicator
+                # Use JS to get the title text — avoids hashed CSS class selectors
+                indicator_name = self.driver.execute_script(
+                    """
+                    var divs = arguments[0].querySelectorAll('div[class*="title-"]');
+                    return divs.length > 0 ? divs[0].textContent : "";
+                    """,
+                    ind,
+                )
+                if indicator_name == ind_shorttitle:
                     entry_chart_logger.info(f"Found indicator {ind_shorttitle}!")
                     indicator = ind
                     break

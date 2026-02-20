@@ -1,0 +1,116 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © SamaaraDas
+
+// @description
+// Draws trade levels (entry, SL, TP) on the chart. Used by TTE's snapshot worker
+// to visualize setups. Draws only on the last bar to ensure valid time references.
+
+//@version=6
+indicator("Trade Drawer", overlay = true, precision = 5, max_lines_count = 10, max_labels_count = 10)
+
+// --- Inputs ---
+dateTime = input.int(0, 'Entry Time')
+entry = input.float(0, 'Entry Price')
+sl = input.float(0, 'SL Price')
+tp1 = input.float(0, 'TP1 Price')
+tp2 = input.float(0, 'TP2 Price')
+tp3 = input.float(0, 'TP3 Price')
+
+// Symbol inputs (for TTE Python to find this indicator on the chart)
+s01 = input.symbol('AUDUSD', group='Symbols', inline='s01')
+s02 = input.symbol('EURUSD', group='Symbols', inline='s02')
+s03 = input.symbol('GBPJPY', group='Symbols', inline='s03')
+s04 = input.symbol('USDCAD', group='Symbols', inline='s04')
+s05 = input.symbol('XAUUSD', group='Symbols', inline='s05')
+s06 = input.symbol('USDJPY', group='Symbols', inline='s06')
+s07 = input.symbol('AUDNZD', group='Symbols', inline='s07')
+s08 = input.symbol('NZDUSD', group='Symbols', inline='s08')
+s09 = input.symbol('USDCHF', group='Symbols', inline='s09')
+s10 = input.symbol('EURJPY', group='Symbols', inline='s10')
+s11 = input.symbol('EURGBP', group='Symbols', inline='s11')
+s12 = input.symbol('GBPAUD', group='Symbols', inline='s12')
+s13 = input.symbol('AUDJPY', group='Symbols', inline='s13')
+s14 = input.symbol('EURCAD', group='Symbols', inline='s14')
+s15 = input.symbol('GBPCHF', group='Symbols', inline='s15')
+s16 = input.symbol('GBPUSD', group='Symbols', inline='s16')
+s17 = input.symbol('GBPNZD', group='Symbols', inline='s17')
+s18 = input.symbol('NZDJPY', group='Symbols', inline='s18')
+s19 = input.symbol('NZDAUD', group='Symbols', inline='s19')
+s20 = input.symbol('CHFJPY', group='Symbols', inline='s20')
+
+// --- Colors ---
+// Complementary to NWE's red (#f23645) and green (#089981) but distinct
+COLOR_TP      = color.new(#2962FF, 75)  // Blue, 75% transparent — profit zone
+COLOR_SL      = color.new(#FF6D00, 75)  // Orange, 75% transparent — risk zone
+COLOR_ENTRY   = #FFFFFF                 // White — entry level
+COLOR_SL_LINE = #FF6D00                // Orange — stop loss line
+COLOR_TP_LINE = #2962FF                // Blue — take profit line
+COLOR_LABEL   = #E0E0E0               // Light gray — label text
+
+// --- Drawing objects (persistent, deleted and recreated on each last-bar execution) ---
+var line entryLine = na
+var line slLine    = na
+var line tp1Line   = na
+var line tp2Line   = na
+var line tp3Line   = na
+var linefill slFill  = na
+var linefill tp1Fill = na
+var linefill tp2Fill = na
+var linefill tp3Fill = na
+var label entryLabel = na
+var label slLabel    = na
+var label tp1Label   = na
+var label tp2Label   = na
+var label tp3Label   = na
+
+// --- Only draw on the last bar where time/time[1] are always valid ---
+bool hasValidInputs = entry != 0 and sl != 0 and tp1 != 0
+
+if barstate.islast and hasValidInputs
+    // Delete old drawings
+    line.delete(entryLine)
+    line.delete(slLine)
+    line.delete(tp1Line)
+    line.delete(tp2Line)
+    line.delete(tp3Line)
+    linefill.delete(slFill)
+    linefill.delete(tp1Fill)
+    linefill.delete(tp2Fill)
+    linefill.delete(tp3Fill)
+    label.delete(entryLabel)
+    label.delete(slLabel)
+    label.delete(tp1Label)
+    label.delete(tp2Label)
+    label.delete(tp3Label)
+
+    // Calculate time range: 30 bars forward from the entry time
+    int dt = time - time[1]  // duration of one bar (always valid on last bar)
+    int startTime = dateTime > 0 ? dateTime : time
+    int endTime = startTime + 30 * dt
+
+    // --- Lines ---
+    entryLine := line.new(startTime, entry, endTime, entry, xloc.bar_time, color = COLOR_ENTRY, width = 2)
+    slLine    := line.new(startTime, sl, endTime, sl, xloc.bar_time, color = COLOR_SL_LINE, width = 1, style = line.style_dashed)
+    tp1Line   := line.new(startTime, tp1, endTime, tp1, xloc.bar_time, color = COLOR_TP_LINE, width = 1, style = line.style_dashed)
+
+    if tp2 != 0
+        tp2Line := line.new(startTime, tp2, endTime, tp2, xloc.bar_time, color = COLOR_TP_LINE, width = 1, style = line.style_dashed)
+    if tp3 != 0
+        tp3Line := line.new(startTime, tp3, endTime, tp3, xloc.bar_time, color = COLOR_TP_LINE, width = 1, style = line.style_dashed)
+
+    // --- Fill zones (separate bands, no overlap) ---
+    slFill  := linefill.new(slLine, entryLine, COLOR_SL)
+    tp1Fill := linefill.new(entryLine, tp1Line, COLOR_TP)
+    if tp2 != 0 and not na(tp2Line)
+        tp2Fill := linefill.new(tp1Line, tp2Line, COLOR_TP)
+    if tp3 != 0 and not na(tp3Line)
+        tp3Fill := linefill.new(tp2Line, tp3Line, COLOR_TP)
+
+    // --- Labels (at end of lines) ---
+    entryLabel := label.new(endTime, entry, str.format('Entry {0}', str.tostring(entry, '#.#####')), xloc = xloc.bar_time, yloc = yloc.price, style = label.style_none, textcolor = COLOR_LABEL, textalign = text.align_left, size = size.normal)
+    slLabel    := label.new(endTime, sl, str.format('SL {0}', str.tostring(sl, '#.#####')), xloc = xloc.bar_time, yloc = yloc.price, style = label.style_none, textcolor = COLOR_SL_LINE, textalign = text.align_left, size = size.normal)
+    tp1Label   := label.new(endTime, tp1, str.format('TP1 {0}', str.tostring(tp1, '#.#####')), xloc = xloc.bar_time, yloc = yloc.price, style = label.style_none, textcolor = COLOR_TP_LINE, textalign = text.align_left, size = size.normal)
+    if tp2 != 0
+        tp2Label := label.new(endTime, tp2, str.format('TP2 {0}', str.tostring(tp2, '#.#####')), xloc = xloc.bar_time, yloc = yloc.price, style = label.style_none, textcolor = COLOR_TP_LINE, textalign = text.align_left, size = size.normal)
+    if tp3 != 0
+        tp3Label := label.new(endTime, tp3, str.format('TP3 {0}', str.tostring(tp3, '#.#####')), xloc = xloc.bar_time, yloc = yloc.price, style = label.style_none, textcolor = COLOR_TP_LINE, textalign = text.align_left, size = size.normal)
