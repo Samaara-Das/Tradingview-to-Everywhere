@@ -122,6 +122,9 @@ class SnapshotWorker:
         # Set bar style for snapshots
         self.browser.change_candles_type(self.config.snapshot_bar_style)
 
+        # Ensure legend is visible (needed to double-click Trade Drawer for first setup)
+        self._show_legend()
+
         completed = 0
         for setup in pending:
             try:

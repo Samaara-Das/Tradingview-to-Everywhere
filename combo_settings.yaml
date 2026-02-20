@@ -2,7 +2,7 @@ chart:
   layout_name: Screener
   chart_timeframe: 1 minute
   bar_style: line
-  headless: false
+  headless: true
 screener:
   shorttitle: Screener
   name: TTE Screener

@@ -499,17 +499,10 @@ def run_maintenance(browser: Browser, config: ComboConfig):
     try:
         while not _shutdown_requested:
             now = time()
+            maintenance_due = now - last_maintenance >= interval
 
-            # --- Snapshot check ---
-            if snapshot_worker and (now - last_snapshot >= snapshot_interval):
-                last_snapshot = now
-                try:
-                    snapshot_worker.process_pending_snapshots()
-                except Exception:
-                    logger.exception("Snapshot cycle failed, will retry next cycle:")
-
-            # --- Maintenance check ---
-            if now - last_maintenance >= interval:
+            # --- Maintenance check (runs first — has priority over snapshots) ---
+            if maintenance_due:
                 last_maintenance = now
                 logger.info("Running maintenance cycle...")
                 try:
@@ -525,6 +518,14 @@ def run_maintenance(browser: Browser, config: ComboConfig):
 
                 except Exception:
                     logger.exception("Maintenance cycle failed, will retry next cycle:")
+
+            # --- Snapshot check (skipped if maintenance just ran this tick) ---
+            if snapshot_worker and (now - last_snapshot >= snapshot_interval) and not maintenance_due:
+                last_snapshot = now
+                try:
+                    snapshot_worker.process_pending_snapshots()
+                except Exception:
+                    logger.exception("Snapshot cycle failed, will retry next cycle:")
 
             # Sleep in small increments to be responsive to shutdown signals
             sleep_remaining = tick

@@ -3,7 +3,7 @@
 
 // @description
 // Draws trade levels (entry, SL, TP) on the chart. Used by TTE's snapshot worker
-// to visualize setups. Draws only once when inputs change, not on every tick.
+// to visualize setups. Draws only on the last bar to ensure valid time references.
 
 //@version=6
 indicator("Trade Drawer", overlay = true, precision = 5, max_lines_count = 10, max_labels_count = 10)
@@ -40,43 +40,33 @@ s20 = input.symbol('CHFJPY', group='Symbols', inline='s20')
 
 // --- Colors ---
 // Complementary to NWE's red (#f23645) and green (#089981) but distinct
-// Using blue tones for TP zones and warm orange for SL zone
-COLOR_TP = color.new(#2962FF, 75)      // Blue, 75% transparent — profit zone
-COLOR_SL = color.new(#FF6D00, 75)      // Orange, 75% transparent — risk zone
-COLOR_ENTRY_LINE = #FFFFFF              // White — entry level
+COLOR_TP      = color.new(#2962FF, 75)  // Blue, 75% transparent — profit zone
+COLOR_SL      = color.new(#FF6D00, 75)  // Orange, 75% transparent — risk zone
+COLOR_ENTRY   = #FFFFFF                 // White — entry level
 COLOR_SL_LINE = #FF6D00                // Orange — stop loss line
 COLOR_TP_LINE = #2962FF                // Blue — take profit line
-COLOR_LABEL = #E0E0E0                  // Light gray — label text
+COLOR_LABEL   = #E0E0E0               // Light gray — label text
 
-// --- State tracking (draw only once per input change) ---
-var int prevDateTime = 0
-var float prevEntry = 0.0
-var float prevSl = 0.0
-var float prevTp1 = 0.0
-var float prevTp2 = 0.0
-var float prevTp3 = 0.0
-
-// Track drawing objects so we can delete old ones before redrawing
+// --- Drawing objects (persistent, deleted and recreated on each last-bar execution) ---
 var line entryLine = na
-var line slLine = na
-var line tp1Line = na
-var line tp2Line = na
-var line tp3Line = na
-var linefill slFill = na
+var line slLine    = na
+var line tp1Line   = na
+var line tp2Line   = na
+var line tp3Line   = na
+var linefill slFill  = na
 var linefill tp1Fill = na
 var linefill tp2Fill = na
 var linefill tp3Fill = na
 var label entryLabel = na
-var label slLabel = na
-var label tp1Label = na
-var label tp2Label = na
-var label tp3Label = na
+var label slLabel    = na
+var label tp1Label   = na
+var label tp2Label   = na
+var label tp3Label   = na
 
-// --- Detect input changes ---
-bool inputsChanged = dateTime != prevDateTime or entry != prevEntry or sl != prevSl or tp1 != prevTp1 or tp2 != prevTp2 or tp3 != prevTp3
+// --- Only draw on the last bar where time/time[1] are always valid ---
 bool hasValidInputs = entry != 0 and sl != 0 and tp1 != 0
 
-if inputsChanged and hasValidInputs
+if barstate.islast and hasValidInputs
     // Delete old drawings
     line.delete(entryLine)
     line.delete(slLine)
@@ -93,23 +83,23 @@ if inputsChanged and hasValidInputs
     label.delete(tp2Label)
     label.delete(tp3Label)
 
-    // Calculate time range
-    dt = time - time[1]
-    startTime = dateTime > 0 ? dateTime : time
-    endTime = startTime + 30 * dt
+    // Calculate time range: 30 bars forward from the entry time
+    int dt = time - time[1]  // duration of one bar (always valid on last bar)
+    int startTime = dateTime > 0 ? dateTime : time
+    int endTime = startTime + 30 * dt
 
-    // --- Draw lines ---
-    entryLine := line.new(startTime, entry, endTime, entry, xloc.bar_time, color = COLOR_ENTRY_LINE, width = 2)
-    slLine := line.new(startTime, sl, endTime, sl, xloc.bar_time, color = COLOR_SL_LINE, width = 1, style = line.style_dashed)
-    tp1Line := line.new(startTime, tp1, endTime, tp1, xloc.bar_time, color = COLOR_TP_LINE, width = 1, style = line.style_dashed)
+    // --- Lines ---
+    entryLine := line.new(startTime, entry, endTime, entry, xloc.bar_time, color = COLOR_ENTRY, width = 2)
+    slLine    := line.new(startTime, sl, endTime, sl, xloc.bar_time, color = COLOR_SL_LINE, width = 1, style = line.style_dashed)
+    tp1Line   := line.new(startTime, tp1, endTime, tp1, xloc.bar_time, color = COLOR_TP_LINE, width = 1, style = line.style_dashed)
 
     if tp2 != 0
         tp2Line := line.new(startTime, tp2, endTime, tp2, xloc.bar_time, color = COLOR_TP_LINE, width = 1, style = line.style_dashed)
     if tp3 != 0
         tp3Line := line.new(startTime, tp3, endTime, tp3, xloc.bar_time, color = COLOR_TP_LINE, width = 1, style = line.style_dashed)
 
-    // --- Fill zones (no overlap — each zone is a separate band) ---
-    slFill := linefill.new(slLine, entryLine, COLOR_SL)
+    // --- Fill zones (separate bands, no overlap) ---
+    slFill  := linefill.new(slLine, entryLine, COLOR_SL)
     tp1Fill := linefill.new(entryLine, tp1Line, COLOR_TP)
     if tp2 != 0 and not na(tp2Line)
         tp2Fill := linefill.new(tp1Line, tp2Line, COLOR_TP)
@@ -118,17 +108,9 @@ if inputsChanged and hasValidInputs
 
     // --- Labels (at end of lines) ---
     entryLabel := label.new(endTime, entry, str.format('Entry {0}', str.tostring(entry, '#.#####')), xloc = xloc.bar_time, yloc = yloc.price, style = label.style_none, textcolor = COLOR_LABEL, textalign = text.align_left, size = size.normal)
-    slLabel := label.new(endTime, sl, str.format('SL {0}', str.tostring(sl, '#.#####')), xloc = xloc.bar_time, yloc = yloc.price, style = label.style_none, textcolor = COLOR_SL_LINE, textalign = text.align_left, size = size.normal)
-    tp1Label := label.new(endTime, tp1, str.format('TP1 {0}', str.tostring(tp1, '#.#####')), xloc = xloc.bar_time, yloc = yloc.price, style = label.style_none, textcolor = COLOR_TP_LINE, textalign = text.align_left, size = size.normal)
+    slLabel    := label.new(endTime, sl, str.format('SL {0}', str.tostring(sl, '#.#####')), xloc = xloc.bar_time, yloc = yloc.price, style = label.style_none, textcolor = COLOR_SL_LINE, textalign = text.align_left, size = size.normal)
+    tp1Label   := label.new(endTime, tp1, str.format('TP1 {0}', str.tostring(tp1, '#.#####')), xloc = xloc.bar_time, yloc = yloc.price, style = label.style_none, textcolor = COLOR_TP_LINE, textalign = text.align_left, size = size.normal)
     if tp2 != 0
         tp2Label := label.new(endTime, tp2, str.format('TP2 {0}', str.tostring(tp2, '#.#####')), xloc = xloc.bar_time, yloc = yloc.price, style = label.style_none, textcolor = COLOR_TP_LINE, textalign = text.align_left, size = size.normal)
     if tp3 != 0
         tp3Label := label.new(endTime, tp3, str.format('TP3 {0}', str.tostring(tp3, '#.#####')), xloc = xloc.bar_time, yloc = yloc.price, style = label.style_none, textcolor = COLOR_TP_LINE, textalign = text.align_left, size = size.normal)
-
-    // Update state
-    prevDateTime := dateTime
-    prevEntry := entry
-    prevSl := sl
-    prevTp1 := tp1
-    prevTp2 := tp2
-    prevTp3 := tp3
