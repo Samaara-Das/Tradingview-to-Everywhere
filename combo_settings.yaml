@@ -2,7 +2,7 @@ chart:
   layout_name: Screener
   chart_timeframe: 1 minute
   bar_style: line
-  headless: true
+  headless: false
 screener:
   shorttitle: Screener
   name: TTE Screener
@@ -21,6 +21,6 @@ snapshot:
   enabled: true
   layout_name: Snapshot
   drawer_shorttitle: Trade Drawer
-  bar_style: bar
+  bar_style: candle
   batch_size: 5
   poll_interval: 60

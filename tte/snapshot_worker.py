@@ -22,6 +22,8 @@ TF_MAP = {
     "HTF": "4 hours",
     "1H": "1 hour",
     "4H": "4 hours",
+    "H1": "1 hour",
+    "H4": "4 hours",
     "1h": "1 hour",
     "4h": "4 hours",
 }
@@ -173,7 +175,10 @@ class SnapshotWorker:
 
         sleep(1)  # Wait for chart to render
 
-        # 3. Change Trade Drawer indicator settings (v2 — 6 inputs)
+        # 3. Show legend (needed to double-click Trade Drawer indicator)
+        self._show_legend()
+
+        # 4. Change Trade Drawer indicator settings (v2 — 4 inputs)
         if not self._set_trade_drawer(setup):
             logger.error("Failed to set Trade Drawer settings")
             self.client.update_snapshot(
@@ -183,8 +188,15 @@ class SnapshotWorker:
 
         sleep(1)  # Wait for indicator to render
 
-        # 4. Take snapshot
-        links = self.browser.open_chart.save_chart_img()
+        # 5. Hide indicator legend so it doesn't appear in the snapshot
+        self._hide_legend()
+
+        # 6. Take snapshot via Alt+S
+        links = self._take_chart_snapshot()
+
+        # 7. Show legend again (ready for next setup)
+        self._show_legend()
+
         if not links:
             logger.error("Failed to take chart snapshot")
             self.client.update_snapshot(
@@ -192,7 +204,7 @@ class SnapshotWorker:
             )
             return False
 
-        # 5. Report success
+        # 7. Report success
         self.client.update_snapshot(
             setup_id,
             snapshot_url=links["png"],
@@ -200,6 +212,40 @@ class SnapshotWorker:
         )
         logger.info(f"Snapshot completed for {symbol}: {links['tv']}")
         return True
+
+    def _hide_legend(self):
+        """Hide the indicator legend overlay on the chart."""
+        from selenium.webdriver.common.by import By
+
+        try:
+            toggler = self.browser.driver.find_element(
+                By.CSS_SELECTOR, 'button[data-qa-id="legend-toggler"]'
+            )
+            if toggler.get_attribute("aria-label") == "Hide indicators legend":
+                toggler.click()
+                sleep(0.3)
+                logger.info("Legend hidden")
+            else:
+                logger.debug("Legend already hidden")
+        except Exception:
+            logger.debug("Legend toggler not found")
+
+    def _show_legend(self):
+        """Show the indicator legend overlay on the chart."""
+        from selenium.webdriver.common.by import By
+
+        try:
+            toggler = self.browser.driver.find_element(
+                By.CSS_SELECTOR, 'button[data-qa-id="legend-toggler"]'
+            )
+            if toggler.get_attribute("aria-label") == "Show indicators legend":
+                toggler.click()
+                sleep(0.3)
+                logger.info("Legend shown")
+            else:
+                logger.debug("Legend already visible")
+        except Exception:
+            logger.debug("Legend toggler not found")
 
     def _set_trade_drawer(self, setup: dict) -> bool:
         """Set Trade Drawer v2 indicator settings (6 inputs).
@@ -247,38 +293,47 @@ class SnapshotWorker:
                 return False
 
             # Click Inputs tab
-            settings.find_element(
-                By.CSS_SELECTOR, 'div[class="tabs-vwgPOHG8"] button[id="inputs"]'
-            ).click()
+            inputs_tab = settings.find_element(By.CSS_SELECTOR, 'button[id="inputs"]')
+            inputs_tab.click()
+            sleep(0.5)
 
-            # Get the 6 input fields
-            inputs = settings.find_elements(By.CSS_SELECTOR, ".cell-tBgV1m0B input")[:6]
-            if len(inputs) < 6:
+            # Find the 6 numeric input fields using stable data-qa-id selector
+            inputs = settings.find_elements(
+                By.CSS_SELECTOR, 'input[data-qa-id="ui-lib-Input-input"]'
+            )
+
+            logger.info(f"Found {len(inputs)} Trade Drawer inputs")
+
+            if len(inputs) < 4:
                 logger.error(
-                    f"Expected 6 Trade Drawer inputs, found {len(inputs)}. "
-                    "Is this Trade Drawer v2?"
+                    f"Expected at least 4 Trade Drawer inputs, found {len(inputs)}"
                 )
                 # Close dialog
-                driver.find_element(By.CSS_SELECTOR, 'button[name="cancel"]').click()
+                try:
+                    settings.find_element(By.CSS_SELECTOR, 'button[name="cancel"]').click()
+                except Exception:
+                    ActionChains(driver).send_keys(Keys.ESCAPE).perform()
                 return False
 
-            # Map setup data to the 6 inputs
+            # Map setup data to first 4 inputs only (entry_time, entry_price, sl, tp1)
+            # tp2 and tp3 are left unchanged (redundant)
             # alertTimestamp from Stock Buddy is already Unix milliseconds
             alert_ts = setup.get("alertTimestamp", "")
             values = [
-                str(alert_ts),                                  # entry_time (Unix ms)
-                str(setup.get("entryPrice", "")),      # entry_price
-                str(setup.get("stopLoss", "")),        # sl
-                str(setup.get("takeProfit", "")),       # tp1
-                "",                                     # tp2 (not used yet)
-                "",                                     # tp3 (not used yet)
+                str(alert_ts),                             # entry_time (Unix ms)
+                str(setup.get("entryPrice", "")),          # entry_price
+                str(setup.get("stopLoss", "")),            # sl
+                str(setup.get("takeProfit", "")),          # tp1
             ]
 
-            for i, inp in enumerate(inputs):
+            for i, inp in enumerate(inputs[:4]):
+                # Click the input to focus it, then Ctrl+A to select all, then type new value
+                inp.click()
+                sleep(0.1)
                 ActionChains(driver).key_down(Keys.CONTROL, inp).send_keys(
                     "a"
-                ).perform()
-                inp.send_keys(Keys.DELETE)
+                ).key_up(Keys.CONTROL).perform()
+                inp.send_keys(Keys.BACKSPACE)
                 inp.send_keys(values[i])
 
             logger.info(
@@ -291,23 +346,84 @@ class SnapshotWorker:
                 EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[name="submit"]'))
             ).click()
 
-            # Wait for indicator to load
-            start = time()
-            sleep(2)
-            while time() - start <= 15:
-                try:
-                    class_attr = drawer.get_attribute("class")
-                    if "Loading" not in class_attr:
-                        logger.info("Trade Drawer loaded successfully")
-                        return True
-                except Exception:
-                    break  # Element might be stale after settings change
-                sleep(0.5)
-
-            # Even if loading check fails, the settings were submitted
-            logger.warning("Trade Drawer loading check timed out — proceeding anyway")
+            sleep(2)  # Wait for indicator to render
+            logger.info("Trade Drawer settings applied")
             return True
 
         except Exception:
             logger.exception("Failed to set Trade Drawer settings")
+            # Try to close any open dialog
+            try:
+                ActionChains(driver).send_keys(Keys.ESCAPE).perform()
+            except Exception:
+                pass
             return False
+
+    def _take_chart_snapshot(self) -> dict:
+        """Take a chart snapshot using Alt+S shortcut.
+
+        Returns {"png": url, "tv": url} on success, or {} on failure.
+
+        Uses Alt+S which copies the snapshot link to clipboard.
+        Reads clipboard via JavaScript to avoid interference with user's
+        desktop clipboard operations.
+        """
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.common.keys import Keys
+        from selenium.webdriver.common.action_chains import ActionChains
+
+        driver = self.browser.driver
+
+        try:
+            # Click on the chart to make it active/focused
+            chart = driver.find_element(
+                By.CSS_SELECTOR, 'div.chart-markup-table'
+            )
+            ActionChains(driver).click(chart).perform()
+            sleep(0.5)
+
+            # Send Alt+S to take snapshot (copies link to clipboard)
+            ActionChains(driver).key_down(Keys.ALT).send_keys("s").key_up(
+                Keys.ALT
+            ).perform()
+
+            logger.info("Sent Alt+S to take snapshot, waiting for clipboard...")
+            sleep(2)  # Wait for TradingView to upload and copy link
+
+            # Read clipboard via JavaScript (isolated from desktop clipboard race)
+            # Retry a few times in case the upload takes longer
+            for attempt in range(5):
+                try:
+                    clip_text = driver.execute_async_script(
+                        """
+                        var callback = arguments[arguments.length - 1];
+                        navigator.clipboard.readText().then(
+                            text => callback(text),
+                            err => callback("")
+                        );
+                        """
+                    )
+                except Exception:
+                    clip_text = ""
+
+                if clip_text and "tradingview.com" in clip_text:
+                    # Extract the TV page URL and construct the PNG URL
+                    tv_url = clip_text.strip()
+                    # TradingView snapshot URLs: https://www.tradingview.com/x/XXXXXXXX/
+                    # PNG URLs: https://s3.tradingview.com/snapshots/XXXXXXXX.png
+                    # Extract the snapshot ID from the URL
+                    snapshot_id = tv_url.rstrip("/").split("/")[-1]
+                    png_url = f"https://s3.tradingview.com/snapshots/{snapshot_id}.png"
+
+                    logger.info(f"Snapshot captured: {tv_url}")
+                    return {"png": png_url, "tv": tv_url}
+
+                if attempt < 4:
+                    sleep(1)
+
+            logger.error("Failed to get snapshot URL from clipboard after Alt+S")
+            return {}
+
+        except Exception:
+            logger.exception("Failed to take chart snapshot via Alt+S")
+            return {}

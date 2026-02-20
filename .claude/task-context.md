@@ -1,147 +1,106 @@
 # Task Context Tracker
 
 **Last Updated**: 2026-02-20
-**Current Task**: All tasks complete. Ready for new work.
-**Last Session**: Context review — marked pending task #116 as done
-**Active Branch**: `combo-architecture`
+**Current Task**: Chart Snapshots feature — TTE code complete, debugging Pine Script Trade Drawer
+**Active Branch**: `feature/chart-snapshots`
+**PR**: https://github.com/Samaara-Das/Tradingview-to-Everywhere/pull/6
 
 ---
 
 ## Task Progress Summary
 
-**Completed Count**: 105+ tasks | **In Progress**: 0 | **Pending**: 0
+**Completed**: 6 | **In Progress**: 0 | **Pending**: 2
 
-All major work complete: codebase reorg, cleanup, Pine Script v2 screener, entry setups, GUI fixes, security fixes, indicator docs, exe rebuild. The `combo-architecture` branch has ~20 commits ahead of main (not yet merged).
+| # | Task | Status |
+|---|------|--------|
+| 131 | Add snapshot config to combo_settings.yaml and config.py | completed |
+| 132 | Create tte/snapshot_worker.py with StockBuddyClient and SnapshotWorker | completed |
+| 133 | Integrate snapshot worker into maintenance loop with dual timers | completed |
+| 134 | Stock Buddy: Add snapshot schema fields and collection functions | completed |
+| 135 | Stock Buddy: Create snapshot API endpoints | completed |
+| 136 | Stock Buddy: Update SetupMessageBubble to display snapshot images | completed |
+| 137 | Manual verification: End-to-end snapshot workflow testing | pending |
+| 138 | Verify snapshot images render in Stock Buddy UI | pending |
 
 ---
 
 ## Session History
 
+### Session: 2026-02-20 (Chart Snapshots Feature)
+
+**Goal**: Add TradingView chart snapshots to Stock Buddy setup messages. TTE takes screenshots of the chart with correct symbol/timeframe/Trade Drawer levels and reports URLs back to Stock Buddy.
+
+**Architecture**: Async polling — Stock Buddy stores `snapshotStatus: "pending"` on setup messages. TTE polls every 60s, takes screenshots, reports URLs back. Stale recovery resets "processing" snapshots >10min back to "pending".
+
+**Files created/modified (TTE side)**:
+- `tte/snapshot_worker.py` — NEW: `StockBuddyClient` (HTTP client) + `SnapshotWorker` (orchestrator)
+- `tte/config.py` — Added 6 `snapshot_*` fields to `ComboConfig`
+- `combo_settings.yaml` — Added `snapshot:` section
+- `tte/main.py` — Dual-timer maintenance loop (snapshots 60s, maintenance 300s)
+- `tte/browser/chart.py` — Fixed `legend-source-item` selector (`data-name` → `data-qa-id`)
+- `.claude/agent-comms.md` — API contract + inter-agent communication
+- `Pine Script Code/Trade Drawer.txt` — NEW: Rewritten Trade Drawer v2 with proper colors
+
+**Stock Buddy side** (separate repo, `feature/chart-snapshots` merged to main):
+- Schema: `snapshotStatus`, `snapshotUrl`, `snapshotTvUrl`, `snapshotAttempts`, `snapshotUpdatedAt`
+- Collection functions: `getPendingSnapshots()`, `updateSetupSnapshot()`, `resetStaleSnapshots()`
+- APIs: `GET /api/tte/snapshots/pending`, `POST /api/tte/snapshots/update`
+- UI: `SetupMessageBubble.tsx` shows image (completed), loading placeholder (pending), or "unavailable" (failed)
+- Chat API: pass-through of snapshot fields
+
+**Bugs fixed during testing**:
+
+1. **`legend-source-item` selector stale**: `data-name="legend-source-item"` → `data-qa-id="legend-source-item"` in `chart.py:376`
+
+2. **`nweTf` values mismatch**: Stock Buddy sends `"1H"`/`"4H"`/`"H1"`/`"H4"`, not `"LTF"`/`"HTF"`. Added all variants to `TF_MAP`.
+
+3. **`alertTimestamp` already milliseconds**: Stock Buddy agent initially said Unix seconds, but actual data was ms (e.g., `1771591380000`). Removed `* 1000` multiplication.
+
+4. **Trade Drawer input selector stale**: `.cell-tBgV1m0B input` found 0 elements. Changed to `input[data-qa-id="ui-lib-Input-input"]` (stable data-qa-id selector).
+
+5. **Snapshot method**: Camera icon approach (`save_chart_img()`) replaced with Alt+S shortcut. Click chart → Alt+S → read clipboard via `navigator.clipboard.readText()` (browser JS, isolated from desktop clipboard).
+
+6. **Legend toggle selector**: `data-qa-id="legend-toggler"` is same in both states. Must use `aria-label` to distinguish ("Hide indicators legend" vs "Show indicators legend").
+
+7. **Bar style**: Changed from `"bar"` to `"candle"` per user preference.
+
+8. **Trade Drawer fills only 4 inputs**: Skips TP2/TP3 (redundant). Only fills entry_time, entry_price, sl, tp1.
+
+9. **Trade Drawer Pine Script rewrite**: Original drew lines/fills on every tick (hundreds of overlapping objects). Brownish color from green+red overlap. Rewritten to draw once (change detection with `var` state), delete old drawings before redrawing, use orange (SL) + blue (TP) colors distinct from NWE's red/green.
+
+**Working snapshot flow** (verified in logs):
+```
+Fetched 5 pending snapshots → Switch to Snapshot layout → Change candles to candle →
+For each: change_symbol → force_change_tframe → show_legend → set Trade Drawer (4 inputs) →
+hide_legend → Alt+S snapshot → show_legend → report URL → Switch back to Screener layout
+```
+
+**Inter-agent communication**: `.claude/agent-comms.md` used for TTE ↔ Stock Buddy agent coordination. Documented API contract, field format clarifications, deployment status.
+
+---
+
+### Session: 2026-02-20 (Branch Cleanup)
+Reset `main` to `combo-architecture` HEAD. Force-pushed. Closed stale PRs. Final state: `main` = `4d08793`.
+
 ### Session: 2026-02-13 (Codebase Reorganization into `tte/` Package)
+Moved flat Python files into `tte/` package. PR #4.
 
-**Goal**: Reorganize flat root Python files into a proper `tte/` package with `browser/` and `data/` sub-packages.
-
-**Branch**: `codebase-reorg` | **PR**: #4 (https://github.com/Samaara-Das/Tradingview-to-Everywhere/pull/4)
-
-**Files moved (git mv)**:
-| From | To |
-|------|-----|
-| `logger_setup.py` | `tte/log.py` |
-| `resources/utils.py` | `tte/browser/helpers.py` |
-| `open_entry_chart.py` | `tte/browser/chart.py` |
-| `resources/symbol_settings.py` | `tte/data/symbols.py` |
-| `open_tv.py` | `tte/browser/tradingview.py` |
-| `combo_config.py` | `tte/config.py` |
-| `combo_main.py` | `tte/main.py` |
-| `resources/STOCK_BUDDY_TECHNICAL_ARCHITECTURE.md` | `docs/` |
-
-**Files created**:
-- `tte/__init__.py` — re-exports `ComboConfig`, `Browser`
-- `tte/browser/__init__.py` — re-exports `Browser`, `OpenChart`, `Utils`
-- `tte/data/__init__.py` — re-exports `get_symbols`, `get_symbol_categories`
-- Root `combo_main.py` — 3-line backward-compat shim delegating to `tte.main`
-
-**Files deleted**: `env.py` (absorbed into `tte/config.py`), `resources/` directory
-
-**Import updates** (6 files): All `import logger_setup` → `from tte import log`, all cross-module imports updated to `tte.` prefix.
-
-**Key changes in `tte/config.py`**:
-- Added `PROFILE = "Profile 4"` (from deleted `env.py`)
-- Changed `SETTINGS_FILE` path: `Path(__file__).parent` → `Path(__file__).parent.parent` (file moved one level deeper)
-
-**Documentation updated** (~13 files): CLAUDE.md, README.md, docs/combo/ARCHITECTURE.md, docs/SETUP.md, docs/TROUBLESHOOTING.md, docs/CONTRIBUTING.md, docs/DATABASE.md, .claude/agents/ (4 agent files), .claude/skills/mongodb/SKILL.md, .vscode/launch.json
-
-**Verification** (all passed):
-- `py_compile` on all .py files
-- `python combo_main.py --validate` (shim works)
-- `python -m tte.main --validate` (direct module works)
-- All import chain tests pass
-
-**Commits**:
-- `9c87d44` — Reorganize codebase into tte/ package (Phases 1-3)
-- `d38293b` — Update documentation for tte/ package structure (Phase 4)
-
----
-
-### Session: 2026-02-12 (Codebase Cleanup — Phases 1-6 on `codebase-cleanup` branch)
-
-**Goal**: Clean up legacy/dead code, unused deps, and improve code quality.
-
-**Completed phases**:
-1. Delete legacy/tiered files (Tasks #124)
-2. Clean dead code from open_tv.py (#125)
-3. Clean env.py and symbol_settings.py (#126)
-4. Code quality fixes (#127)
-5. Remove unused dependencies (#128)
-6. Update documentation (#129)
-7. Verification & testing (#130)
-
-**Commits**:
-- `5fa9578` — Replace debug prints with proper logging
-- `762800a` — Remove unused dependencies, add pyyaml
-- `3b18d38` — Update documentation for combo-only codebase
-- `80d713a` — Add auto-start on boot, maintain-only default, and 3-hour log auto-clear
-- `02e3127` — Move setup_startup.ps1 to dist/ and remove unused tte_gui.spec
-
----
-
-### Session: 2026-02-12 (Entry Setups — Pine Script Payload v2 + OB Timestamp Fix)
-
-**Goal**: Add `zoneHigh`/`zoneLow` to OB entries + `close` price per symbol in webhook payload. Fix D1 OB timestamps showing 1 day earlier than the chart candle.
-
-**Pine Script changes** (`Pine Script Code/TTE Screener.txt`):
-- `buildObEntry()`: Added `zoneHigh`/`zoneLow` params
-- `buildObArray()`: Added 12 new float params for zone high/low
-- Close price: 3 new `request.security()` calls (15 total, within 40 limit)
-- `buildSymbolJson()`: Added `closePrice` param
-
-**OB timestamp bug fix**: `tf == 'D' ? time_close[i - timeShift] : time[i - timeShift]` at 6 locations
-
-**Stock Buddy UAT**: 3 rounds, 41 tests passing. Entry setup feature complete end-to-end.
-
----
-
-### Session: 2026-02-12 (Debug Table + GUI Stop Button Fix + Exe Rebuild)
-
-Pine Script debug table commented for production. GUI stop button fixed (`taskkill /F /T /PID` replaces unreliable `os.kill`). Exe rebuilt.
-
----
-
-### Session: 2026-02-12 (Fix Divergence Detection in Pine Script Screener)
-
-Root cause: `buildDivEntry()` compared HTF bar timestamp vs 1-min chart timestamp (never match). Fix: `divTime > 0` + recency gate `currLowShift <= 1` / `currHighShift <= 1`.
-
----
-
-### Earlier Sessions (2026-02-10 — 2026-02-11)
-
-- Single browser + sleep optimization + GUI exe build
-- Maintenance loop improvements
-- Documentation updates (16 files)
-- Combo Signal Grid in Stock Buddy
-- Stock Buddy Combo API endpoints
-- Pine Script screener development
-- Error recovery patterns
+### Earlier Sessions (2026-02-10 — 2026-02-12)
+Codebase cleanup, Pine Script screener v2, entry setups, divergence detection fix, GUI stop button fix, exe rebuild, Stock Buddy combo API.
 
 ---
 
 ## Important Decisions Made
 
-1. **Architecture**: Combo screener (single indicator) over separate screeners
-2. **Webhook destination**: Stock Buddy API (Vercel) at `/api/tte/combo`
-3. **tte_live_signals collection**: One document per symbol (`_id = symbol`), upserted on each webhook
-4. **3 symbol batch limit**: Reduced from 4 for 1-min chart performance
-5. **1-minute chart timeframe**: Fires once per minute (rate limit safe)
-6. **Single browser**: Parallel browsers abandoned — slower due to TradingView throttling
-7. **GUI exe uses `python` from PATH**: When frozen, subprocess calls `python combo_main.py` (not bundled)
-8. **Entry setups stored in TWO places**: `tte_live_signals` (overwritten per webhook) + `tte_entry_setups` (append-only)
-9. **D1 OB timestamps use `time_close`**: Conditional for daily bars only
-10. **GUI stop uses `taskkill`**: Replaces unreliable `os.kill(CTRL_BREAK_EVENT)` on Windows
-11. **Deployment order**: Stock Buddy deploy first → then TTE alert recreation
-12. **`tte/` package structure**: All Python modules organized under `tte/` with `browser/` and `data/` sub-packages
-13. **Root `combo_main.py` shim**: 3-line backward-compat wrapper so CLI, GUI subprocess, .vscode/launch.json all still work
-14. **`tte/log.py` not `tte/logging.py`**: Avoids shadowing Python's stdlib `logging` module
-15. **`combo_settings.yaml` stays at root**: Both `tte/config.py` and `tte_gui.py` expect it there; exe build expects it there
+1. **Snapshot architecture**: Async polling (not webhook-triggered). TTE polls Stock Buddy every 60s.
+2. **Single browser for snapshots**: Reuses existing browser. TradingView allows max 2 sessions.
+3. **Dual-timer maintenance loop**: Snapshots every 60s, alert maintenance every 300s (configurable).
+4. **Trade Drawer v2 (6 inputs)**: entry_time, entry_price, sl, tp1, tp2, tp3. Only 4 filled by TTE.
+5. **Alt+S for snapshots**: More reliable than camera icon + new tab approach. Reads clipboard via browser JS.
+6. **Legend hide/show per snapshot**: Hide before screenshot (clean chart), show before Trade Drawer settings (needs double-click on indicator).
+7. **Orange/Blue colors for Trade Drawer**: Distinct from NWE's red/green. Orange `#FF6D00` for SL, Blue `#2962FF` for TP.
+8. **Draw once pattern**: Trade Drawer uses `var` state tracking + change detection. Deletes old drawings before redrawing.
+9. **Stable selectors**: `data-qa-id` attributes preferred over CSS class names (TradingView rehashes classes).
 
 ---
 
@@ -150,60 +109,54 @@ Root cause: `buildDivEntry()` compared HTF bar timestamp vs 1-min chart timestam
 ### TTE Project
 | File | Purpose |
 |------|---------|
-| `CLAUDE.md` | Project instructions |
-| `combo_main.py` | Backward-compatible entry point (shim → `tte.main`) |
-| `tte/main.py` | Actual entry point (orchestrator) |
-| `tte/config.py` | Config dataclass + PROFILE constant |
-| `combo_settings.yaml` | All combo settings (headless: true) |
-| `tte_gui.py` | Tkinter GUI (frozen exe path handling) |
-| `dist/TTE.exe` | Built GUI executable |
+| `tte/snapshot_worker.py` | Snapshot polling + browser orchestration |
+| `tte/main.py` | Entry point with dual-timer maintenance loop |
+| `tte/config.py` | Config dataclass (includes snapshot settings) |
+| `combo_settings.yaml` | All settings (chart, screener, alerts, snapshot) |
 | `tte/browser/tradingview.py` | Browser automation (Selenium) |
-| `tte/browser/chart.py` | Chart symbol/timeframe changes |
-| `tte/browser/helpers.py` | Selenium utility functions |
-| `tte/data/symbols.py` | MongoDB symbol loading |
-| `tte/log.py` | Logger setup |
-| `Pine Script Code/TTE Screener.txt` | Production screener (v2 payload) |
+| `tte/browser/chart.py` | Chart symbol/timeframe/indicator/snapshot |
+| `.claude/agent-comms.md` | Inter-agent communication file |
+| `Pine Script Code/Trade Drawer.txt` | Trade Drawer v2 Pine Script |
+| `Pine Script Code/TTE Screener.txt` | Production screener |
 
 ### Stock Buddy App
 | File | Purpose |
 |------|---------|
-| `src/components/tte/ComboSignalGrid.tsx` | Main paginated signal grid |
-| `src/lib/tte/schemas.ts` | All Zod schemas |
-| `src/lib/tte/collections.ts` | All DB functions |
-| `src/lib/tte/entry-setup.ts` | Entry setup detection |
-| `src/app/api/tte/combo/route.ts` | Webhook handler (dual writes) |
+| `src/lib/tte/schemas.ts` | SetupMessage with snapshot fields |
+| `src/lib/tte/collections.ts` | getPendingSnapshots, updateSetupSnapshot |
+| `src/app/api/tte/snapshots/pending/route.ts` | GET pending snapshots |
+| `src/app/api/tte/snapshots/update/route.ts` | POST snapshot result |
+| `src/components/chat/SetupMessageBubble.tsx` | Renders snapshot image |
 
 ---
 
 ## Verified Patterns
 
-### Stock Buddy API Endpoints
+### Snapshot API Contract
 ```
-POST /api/tte/combo          — Webhook v2: {timestamp, signals: [{symbol, close, nwe, ob_fvg, divergence}]}
-GET  /api/tte/combo/signals  — Query with pagination, sorting, filtering
-GET  /api/tte/stats           — Returns combo stats
+GET  /api/tte/snapshots/pending?limit=5
+  → { snapshots: [{ setupMessageId, symbol, direction, label, entryPrice, stopLoss, takeProfit, nweTf, alertTimestamp }] }
+
+POST /api/tte/snapshots/update
+  Success: { setupMessageId, snapshotUrl, snapshotTvUrl }
+  Failure: { setupMessageId, error }
+  → { success: true }
 ```
 
-### Combo Settings (production)
-```yaml
-batch_size: 3
-chart_timeframe: "1 minute"
-bar_style: "line"
-recalc_wait: 1.5
-creation_delay: 1.5
-maintenance_interval: 300
-headless: true
+### Working TradingView Selectors
+```
+Legend items:     div[data-qa-id="legend-source-item"]
+Legend toggler:   button[data-qa-id="legend-toggler"] (use aria-label to distinguish state)
+Indicator inputs: input[data-qa-id="ui-lib-Input-input"]
+Settings dialog:  div[data-name="indicator-properties-dialog"]
+Inputs tab:       button[id="inputs"]
+Submit button:    button[name="submit"]
+Chart area:       div.chart-markup-table
 ```
 
-### Package Import Patterns
+### Timeframe Mapping (nweTf → TradingView dropdown)
 ```python
-from tte.config import ComboConfig, PROFILE
-from tte.browser.tradingview import Browser
-from tte.browser.chart import OpenChart
-from tte.browser.helpers import Utils
-from tte.data.symbols import get_symbols
-from tte import log
-logger = log.setup_logger(__name__, log.INFO)
+TF_MAP = {"LTF": "1 hour", "HTF": "4 hours", "1H": "1 hour", "4H": "4 hours", "H1": "1 hour", "H4": "4 hours"}
 ```
 
 ---
@@ -212,17 +165,15 @@ logger = log.setup_logger(__name__, log.INFO)
 
 ```bash
 # TTE
-cd "C:/Users/dassa/Work/For Poolsifi/tradingview to everywhere"
-python combo_main.py                # Run via shim (setup + maintenance)
-python -m tte.main                  # Run directly as module
-python combo_main.py --fresh        # Delete alerts & recreate
-python combo_main.py --setup-only   # Create alerts, no maintenance
-python combo_main.py --validate     # Validate config only
-python tte_gui.py                   # Run GUI directly
-dist/TTE.exe                        # Run GUI exe
+python combo_main.py --maintain-only    # Run maintenance + snapshots
+python combo_main.py --validate         # Validate config
+python combo_main.py --fresh            # Delete alerts & recreate
+
+# Test API connectivity
+python -c "from tte.config import ComboConfig; from tte.snapshot_worker import StockBuddyClient; c = ComboConfig(); cl = StockBuddyClient(c); print(cl.get_pending_snapshots(5))"
 
 # Stock Buddy
 cd "C:/Users/dassa/Work/Stock-Buddy-App"
-npm run dev                                  # Dev server
-npx tsc --project tsconfig.json --noEmit     # Type check
+npm run dev
+npx tsc --project tsconfig.json --noEmit
 ```

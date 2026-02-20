@@ -373,7 +373,7 @@ class OpenChart:
             wait = WebDriverWait(self.driver, 15)
             indicators = wait.until(
                 EC.presence_of_all_elements_located(
-                    (By.CSS_SELECTOR, 'div[data-name="legend-source-item"]')
+                    (By.CSS_SELECTOR, 'div[data-qa-id="legend-source-item"]')
                 )
             )
 

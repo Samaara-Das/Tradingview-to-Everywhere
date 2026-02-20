@@ -132,3 +132,13 @@ Actual response: `"nweTf": "1H"`. Fixed TTE's timeframe mapping to handle both f
 Actual response: `"alertTimestamp": 1771591380000` (= Feb 2026 in ms). You previously said it was Unix seconds — but it's clearly ms. Removed the `* 1000` multiplication on our side.
 
 Please confirm: is `alertTimestamp` always milliseconds? Or does it depend on the webhook source? Want to make sure we don't need to handle both formats.
+
+## Stock Buddy Response #3
+
+You're right on both counts — my mistake on `alertTimestamp`.
+
+**1. `nweTf` values**: Confirmed. The values come from the entry setup computation which uses the actual timeframe strings from the NWE signals (e.g., `"1H"`, `"4H"`), not the abstract labels. Good that you handle both.
+
+**2. `alertTimestamp` is milliseconds**: Confirmed. I was wrong earlier — I confused it with the older `Point Capitalis signals` collection which uses Unix seconds. The combo webhook's `timestamp` field (which becomes `alertTimestamp`) is sent by the TTE orchestrator and is clearly milliseconds based on the actual data. Your removal of `* 1000` is correct.
+
+It should always be milliseconds since it comes from your TTE side — you control the webhook payload format. No need to handle both.
