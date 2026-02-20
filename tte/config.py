@@ -60,11 +60,21 @@ class ComboConfig:
     # Progress tracking
     progress_file: str = _yaml.get("progress", {}).get("file", "combo_progress.json")
 
-    # Stock Buddy API (future fallback)
+    # Stock Buddy API
     api_base_url: str = os.getenv(
         "STOCK_BUDDY_API_URL", "https://stock-buddy-app.vercel.app/api/tte"
     )
     api_timeout: int = int(os.getenv("API_TIMEOUT", "30"))
+
+    # Snapshot worker
+    snapshot_enabled: bool = _yaml.get("snapshot", {}).get("enabled", True)
+    snapshot_layout_name: str = _yaml.get("snapshot", {}).get("layout_name", "Snapshot")
+    snapshot_drawer_shorttitle: str = _yaml.get("snapshot", {}).get(
+        "drawer_shorttitle", "Trade Drawer"
+    )
+    snapshot_bar_style: str = _yaml.get("snapshot", {}).get("bar_style", "bar")
+    snapshot_batch_size: int = _yaml.get("snapshot", {}).get("batch_size", 5)
+    snapshot_poll_interval: int = _yaml.get("snapshot", {}).get("poll_interval", 60)
 
     def validate(self) -> list[str]:
         """Validate required configuration. Returns list of error strings."""
@@ -106,6 +116,14 @@ class ComboConfig:
         ]
         if self.bar_style not in valid_bar_styles:
             errors.append(f"bar_style must be one of: {', '.join(valid_bar_styles)}")
+
+        if self.snapshot_bar_style not in valid_bar_styles:
+            errors.append(
+                f"snapshot.bar_style must be one of: {', '.join(valid_bar_styles)}"
+            )
+
+        if self.snapshot_poll_interval < 30:
+            errors.append("snapshot.poll_interval must be at least 30 seconds")
 
         return errors
 
