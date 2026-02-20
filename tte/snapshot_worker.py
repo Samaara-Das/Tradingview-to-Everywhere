@@ -16,10 +16,14 @@ from tte.config import ComboConfig
 
 logger = log.setup_logger(__name__, log.INFO)
 
-# Timeframe mapping: setup label → TradingView dropdown label
+# Timeframe mapping: nweTf value → TradingView dropdown label
 TF_MAP = {
     "LTF": "1 hour",
     "HTF": "4 hours",
+    "1H": "1 hour",
+    "4H": "4 hours",
+    "1h": "1 hour",
+    "4h": "4 hours",
 }
 
 
@@ -259,11 +263,10 @@ class SnapshotWorker:
                 return False
 
             # Map setup data to the 6 inputs
-            # alertTimestamp from Stock Buddy is Unix seconds; Pine Script uses milliseconds
+            # alertTimestamp from Stock Buddy is already Unix milliseconds
             alert_ts = setup.get("alertTimestamp", "")
-            entry_time_ms = str(int(alert_ts) * 1000) if alert_ts else ""
             values = [
-                entry_time_ms,                                  # entry_time (Unix ms)
+                str(alert_ts),                                  # entry_time (Unix ms)
                 str(setup.get("entryPrice", "")),      # entry_price
                 str(setup.get("stopLoss", "")),        # sl
                 str(setup.get("takeProfit", "")),       # tp1
