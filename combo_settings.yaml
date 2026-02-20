@@ -17,3 +17,10 @@ maintenance:
   interval: 300
 progress:
   file: combo_progress.json
+snapshot:
+  enabled: true
+  layout_name: Snapshot
+  drawer_shorttitle: Trade Drawer
+  bar_style: bar
+  batch_size: 5
+  poll_interval: 60

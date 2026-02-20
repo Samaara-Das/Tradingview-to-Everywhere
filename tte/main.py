@@ -462,40 +462,75 @@ def clear_alert_log(driver) -> bool:
         return False
 
 
-def run_maintenance(browser: Browser, interval: int):
-    """Loop: restart inactive alerts + clear log every `interval` seconds.
+def run_maintenance(browser: Browser, config: ComboConfig):
+    """Loop: restart inactive alerts + clear log, and poll for snapshots.
+
+    Uses dual timers:
+    - Maintenance timer (config.maintenance_interval): restart alerts, clear log, refresh page
+    - Snapshot timer (config.snapshot_poll_interval): poll Stock Buddy for pending snapshots
 
     Handles graceful shutdown by checking _shutdown_requested flag and cleaning up browser.
     """
     global _shutdown_requested
 
-    logger.info(f"Maintenance loop started (every {interval}s)")
+    interval = config.maintenance_interval
+    snapshot_interval = config.snapshot_poll_interval
+    tick = min(snapshot_interval, interval)  # Sleep in increments of the shorter timer
+
+    logger.info(
+        f"Maintenance loop started (maintenance every {interval}s, "
+        f"snapshots every {snapshot_interval}s, tick={tick}s)"
+    )
+
+    # Initialize snapshot worker if enabled
+    snapshot_worker = None
+    if config.snapshot_enabled:
+        from tte.snapshot_worker import StockBuddyClient, SnapshotWorker
+
+        client = StockBuddyClient(config)
+        snapshot_worker = SnapshotWorker(browser, config, client)
+        logger.info("Snapshot worker initialized")
+    else:
+        logger.info("Snapshot worker disabled")
+
+    last_maintenance = 0.0  # Force immediate first maintenance run
+    last_snapshot = 0.0  # Force immediate first snapshot check
 
     try:
         while not _shutdown_requested:
-            # Sleep in small increments to be more responsive to shutdown signals
-            sleep_remaining = interval
+            now = time()
+
+            # --- Snapshot check ---
+            if snapshot_worker and (now - last_snapshot >= snapshot_interval):
+                last_snapshot = now
+                try:
+                    snapshot_worker.process_pending_snapshots()
+                except Exception:
+                    logger.exception("Snapshot cycle failed, will retry next cycle:")
+
+            # --- Maintenance check ---
+            if now - last_maintenance >= interval:
+                last_maintenance = now
+                logger.info("Running maintenance cycle...")
+                try:
+                    # Refresh page to keep session alive
+                    browser.driver.refresh()
+                    sleep(5)
+
+                    # Restart inactive alerts
+                    restart_inactive_alerts(browser.driver)
+
+                    # Clear alert log
+                    clear_alert_log(browser.driver)
+
+                except Exception:
+                    logger.exception("Maintenance cycle failed, will retry next cycle:")
+
+            # Sleep in small increments to be responsive to shutdown signals
+            sleep_remaining = tick
             while sleep_remaining > 0 and not _shutdown_requested:
-                sleep(min(1, sleep_remaining))  # Check every 1 second
+                sleep(min(1, sleep_remaining))
                 sleep_remaining -= 1
-
-            if _shutdown_requested:
-                break
-
-            logger.info("Running maintenance cycle...")
-            try:
-                # Refresh page to keep session alive
-                browser.driver.refresh()
-                sleep(5)
-
-                # Restart inactive alerts
-                restart_inactive_alerts(browser.driver)
-
-                # Clear alert log
-                clear_alert_log(browser.driver)
-
-            except Exception:
-                logger.exception("Maintenance cycle failed, will retry next cycle:")
 
         logger.info("Maintenance loop stopped — cleaning up browser")
     finally:
@@ -569,7 +604,7 @@ def main():
     if args.maintain_only:
         logger.info("Running maintenance only (--maintain-only)")
         browser = create_browser(config, args)
-        run_maintenance(browser, config.maintenance_interval)
+        run_maintenance(browser, config)
         # Browser cleanup is handled in run_maintenance's finally block
         return
 
@@ -608,7 +643,7 @@ def main():
 
     # --- Maintenance loop (reuse the same browser) ---
     logger.info("Starting maintenance mode...")
-    run_maintenance(browser, config.maintenance_interval)
+    run_maintenance(browser, config)
     # Browser cleanup is handled in run_maintenance's finally block
 
 
