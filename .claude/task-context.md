@@ -1,7 +1,7 @@
 # Task Context Tracker
 
 **Last Updated**: 2026-02-20
-**Current Task**: Chart Snapshots feature — TTE code complete, debugging Pine Script Trade Drawer
+**Current Task**: Chart Snapshots feature — TTE working end-to-end, user verifying remaining cases
 **Active Branch**: `feature/chart-snapshots`
 **PR**: https://github.com/Samaara-Das/Tradingview-to-Everywhere/pull/6
 
@@ -66,13 +66,20 @@
 
 8. **Trade Drawer fills only 4 inputs**: Skips TP2/TP3 (redundant). Only fills entry_time, entry_price, sl, tp1.
 
-9. **Trade Drawer Pine Script rewrite**: Original drew lines/fills on every tick (hundreds of overlapping objects). Brownish color from green+red overlap. Rewritten to draw once (change detection with `var` state), delete old drawings before redrawing, use orange (SL) + blue (TP) colors distinct from NWE's red/green.
+9. **Trade Drawer Pine Script rewrite**: Original drew lines/fills on every tick (hundreds of overlapping objects). Brownish color from green+red overlap. Rewritten to draw on `barstate.islast` only, delete old drawings before redrawing, use orange (SL) + blue (TP) colors distinct from NWE's red/green.
 
-**Working snapshot flow** (verified in logs):
+10. **Trade Drawer bar 0 bug**: Drawing on bar 0 (when inputs change and script reloads) caused `time[1] = na`, making `dt = na` and `endTime = na` — lines stretched to chart origin with broken coordinates. Fixed by drawing only on `barstate.islast`.
+
+11. **Maintenance/snapshot collision**: Both timers could fire simultaneously (e.g., at 300s). Fixed: maintenance has priority; snapshots skip that tick to avoid browser contention.
+
+12. **Legend ensure visible at batch start**: Added `_show_legend()` after switching to Snapshot layout, before processing any setups — ensures first setup's Trade Drawer double-click works.
+
+**Working snapshot flow** (verified in logs, 50+ pending processed successfully):
 ```
 Fetched 5 pending snapshots → Switch to Snapshot layout → Change candles to candle →
-For each: change_symbol → force_change_tframe → show_legend → set Trade Drawer (4 inputs) →
-hide_legend → Alt+S snapshot → show_legend → report URL → Switch back to Screener layout
+Show legend → For each: change_symbol → force_change_tframe → show_legend →
+set Trade Drawer (4 inputs) → hide_legend → Alt+S snapshot → show_legend →
+report URL → Switch back to Screener layout
 ```
 
 **Inter-agent communication**: `.claude/agent-comms.md` used for TTE ↔ Stock Buddy agent coordination. Documented API contract, field format clarifications, deployment status.
@@ -99,8 +106,9 @@ Codebase cleanup, Pine Script screener v2, entry setups, divergence detection fi
 5. **Alt+S for snapshots**: More reliable than camera icon + new tab approach. Reads clipboard via browser JS.
 6. **Legend hide/show per snapshot**: Hide before screenshot (clean chart), show before Trade Drawer settings (needs double-click on indicator).
 7. **Orange/Blue colors for Trade Drawer**: Distinct from NWE's red/green. Orange `#FF6D00` for SL, Blue `#2962FF` for TP.
-8. **Draw once pattern**: Trade Drawer uses `var` state tracking + change detection. Deletes old drawings before redrawing.
+8. **Draw on barstate.islast**: Trade Drawer draws only on last bar (valid `time[1]`). Deletes old drawings before redrawing.
 9. **Stable selectors**: `data-qa-id` attributes preferred over CSS class names (TradingView rehashes classes).
+10. **Maintenance priority over snapshots**: When both timers fire, maintenance runs first, snapshots skip that tick.
 
 ---
 
