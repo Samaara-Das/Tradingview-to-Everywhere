@@ -139,13 +139,8 @@ class SnapshotWorker:
                     setup["setupMessageId"], error="Unexpected error"
                 )
 
-        # Switch back to Screener layout
-        if not self.browser.change_layout(self.config.layout_name):
-            logger.error(
-                f"Failed to switch back to '{self.config.layout_name}' layout — "
-                "next maintenance cycle will refresh the page"
-            )
-
+        # No need to switch back to Screener — maintenance can run on any layout
+        # (alert restart + log clear work regardless of current layout)
         logger.info(f"Snapshot phase complete: {completed}/{len(pending)} succeeded")
         return completed
 
@@ -378,6 +373,15 @@ class SnapshotWorker:
         driver = self.browser.driver
 
         try:
+            # Grant clipboard-read permission (required for headless Chrome)
+            try:
+                driver.execute_cdp_cmd("Browser.grantPermissions", {
+                    "permissions": ["clipboardReadWrite", "clipboardSanitizedWrite"],
+                    "origin": driver.current_url.split("?")[0],
+                })
+            except Exception:
+                pass  # Non-critical — works without this in non-headless mode
+
             # Click on the chart to make it active/focused
             chart = driver.find_element(
                 By.CSS_SELECTOR, 'div.chart-markup-table'
@@ -413,10 +417,11 @@ class SnapshotWorker:
                     # Extract the TV page URL and construct the PNG URL
                     tv_url = clip_text.strip()
                     # TradingView snapshot URLs: https://www.tradingview.com/x/XXXXXXXX/
-                    # PNG URLs: https://s3.tradingview.com/snapshots/XXXXXXXX.png
-                    # Extract the snapshot ID from the URL
+                    # PNG URLs: https://s3.tradingview.com/snapshots/{prefix}/{id}.png
+                    # S3 CDN uses first char (lowercase) as prefix directory
                     snapshot_id = tv_url.rstrip("/").split("/")[-1]
-                    png_url = f"https://s3.tradingview.com/snapshots/{snapshot_id}.png"
+                    prefix = snapshot_id[0].lower()
+                    png_url = f"https://s3.tradingview.com/snapshots/{prefix}/{snapshot_id}.png"
 
                     logger.info(f"Snapshot captured: {tv_url}")
                     return {"png": png_url, "tv": tv_url}

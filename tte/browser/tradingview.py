@@ -1211,10 +1211,11 @@ class Browser:
             )
 
             for ind in indicators:
-                indicator_name = ind.find_element(
-                    By.CSS_SELECTOR, 'div[class="title-l31H9iuA"]'
-                ).text
-                if indicator_name == ind_shorttitle:  # finding the indicator
+                indicator_name = self.driver.execute_script(
+                    'var d = arguments[0].querySelectorAll(\'div[class*="title-"]\'); return d.length > 0 ? d[0].textContent : "";',
+                    ind,
+                )
+                if indicator_name == ind_shorttitle:
                     open_tv_logger.info(f"Found indicator {ind_shorttitle}!")
                     indicator = ind
                     break

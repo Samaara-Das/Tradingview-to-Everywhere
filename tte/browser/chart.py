@@ -394,10 +394,15 @@ class OpenChart:
             )
 
             for ind in indicators:
-                indicator_name = ind.find_element(
-                    By.CSS_SELECTOR, 'div[class="title-l31H9iuA"]'
-                ).text
-                if indicator_name == ind_shorttitle:  # finding the indicator
+                # Use JS to get the title text — avoids hashed CSS class selectors
+                indicator_name = self.driver.execute_script(
+                    """
+                    var divs = arguments[0].querySelectorAll('div[class*="title-"]');
+                    return divs.length > 0 ? divs[0].textContent : "";
+                    """,
+                    ind,
+                )
+                if indicator_name == ind_shorttitle:
                     entry_chart_logger.info(f"Found indicator {ind_shorttitle}!")
                     indicator = ind
                     break

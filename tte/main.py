@@ -231,9 +231,10 @@ def run_alert_creation(
                 )
                 indicator = None
                 for ind in indicators:
-                    name = ind.find_element(
-                        By.CSS_SELECTOR, 'div[class="title-l31H9iuA"]'
-                    ).text
+                    name = browser.driver.execute_script(
+                        'var d = arguments[0].querySelectorAll(\'div[class*="title-"]\'); return d.length > 0 ? d[0].textContent : "";',
+                        ind,
+                    )
                     if name == config.screener_shorttitle:
                         indicator = ind
                         break
