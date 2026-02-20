@@ -1,17 +1,17 @@
 # Task Context Tracker
 
-**Last Updated**: 2026-02-13
-**Current Task**: Codebase reorganization into `tte/` package complete. PR #4 open. Pending: alert recreation via exe/fresh after Stock Buddy deploy.
-**Last Session**: Codebase reorganization — move all Python files into `tte/` package structure
-**Active Branch**: `codebase-reorg` (PR #4)
+**Last Updated**: 2026-02-20
+**Current Task**: All tasks complete. Ready for new work.
+**Last Session**: Context review — marked pending task #116 as done
+**Active Branch**: `combo-architecture`
 
 ---
 
 ## Task Progress Summary
 
-**Completed Count**: 104+ tasks | **In Progress**: 0 | **Pending**: 1 (alert recreation via exe/fresh)
+**Completed Count**: 105+ tasks | **In Progress**: 0 | **Pending**: 0
 
-Codebase reorganization complete (8 files moved, imports updated, docs updated). Entry setup feature complete. Stock Buddy needs commit + Vercel deploy, then run `dist/TTE.exe` (Fresh mode) to recreate alerts with v2 payload.
+All major work complete: codebase reorg, cleanup, Pine Script v2 screener, entry setups, GUI fixes, security fixes, indicator docs, exe rebuild. The `combo-architecture` branch has ~20 commits ahead of main (not yet merged).
 
 ---
 
