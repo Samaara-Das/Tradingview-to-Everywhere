@@ -1,9 +1,9 @@
 # Task Context Tracker
 
 **Last Updated**: 2026-02-21
-**Current Task**: Running TTE to backfill snapshots for last-30-days setup messages
+**Current Task**: TTE running in background processing 1,335 pending snapshots
 **Active Branch**: `main`
-**Latest Commit (TTE)**: `0c61633` — Wait for indicator to load before filling Trade Drawer settings
+**Latest Commit (TTE)**: `293f971` — Rebuild TTE.exe with indicator loading wait fix
 **Latest Commit (Stock Buddy)**: `bc0b810` — Add snapshot backfill endpoint
 
 ---
@@ -68,7 +68,7 @@ Manually marked one setup (`EHC HTF H4`) as `snapshotStatus: "pending"` in Mongo
 
 **Mini PRD**: `docs/prds/backfill-snapshots.md` (TTE repo)
 
-**Stock Buddy commit**: `bc0b810`, pushed to main
+**Stock Buddy commit**: `bc0b810`, pushed to main. **TTE.exe rebuilt** `293f971` — includes all snapshot fixes.
 
 **To trigger backfill**:
 ```bash
