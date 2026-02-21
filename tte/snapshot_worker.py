@@ -245,6 +245,37 @@ class SnapshotWorker:
         except Exception:
             logger.debug("Legend toggler not found")
 
+    def _wait_for_indicator_ready(self, shorttitle: str, element, timeout: float = 3.5):
+        """Wait up to `timeout` seconds for a legend-source-item to finish loading.
+
+        Polls every 200ms, checking data-status != "loading" on the element.
+        Re-fetches the element on StaleElementReferenceException.
+
+        Returns the (possibly re-fetched) element when ready, or the last known
+        element if the timeout is exceeded (caller proceeds with a warning).
+        """
+        from selenium.common.exceptions import StaleElementReferenceException
+
+        deadline = time() + timeout
+        current = element
+        while time() < deadline:
+            try:
+                status = current.get_attribute("data-status")
+                if status != "loading":
+                    logger.debug(f"Indicator '{shorttitle}' ready (data-status={status!r})")
+                    return current
+            except StaleElementReferenceException:
+                current = self.browser.open_chart.get_indicator(shorttitle)
+                if current is None:
+                    sleep(0.2)
+                    continue
+            sleep(0.2)
+
+        logger.warning(
+            f"Indicator '{shorttitle}' still loading after {timeout}s — proceeding anyway"
+        )
+        return current
+
     def _set_trade_drawer(self, setup: dict) -> bool:
         """Set Trade Drawer v2 indicator settings (6 inputs).
 
@@ -264,6 +295,12 @@ class SnapshotWorker:
             drawer = self.browser.open_chart.get_indicator(drawer_shorttitle)
             if not drawer:
                 logger.error(f"Trade Drawer '{drawer_shorttitle}' not found on chart")
+                return False
+
+            # Wait for indicator to finish loading before interacting
+            drawer = self._wait_for_indicator_ready(drawer_shorttitle, drawer, timeout=3.5)
+            if not drawer:
+                logger.error(f"Trade Drawer '{drawer_shorttitle}' not found after loading wait")
                 return False
 
             attempts = 0
