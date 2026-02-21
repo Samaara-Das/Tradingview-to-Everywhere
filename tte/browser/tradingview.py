@@ -328,15 +328,14 @@ class Browser:
                     return False
             open_tv_logger.info("All existing alerts deleted successfully")
 
-        # Verify screener is on the chart
+        # Verify screener is on the chart (warning only — maintenance + snapshots work without it)
         screener_check = self.get_indicator(self.screener_ob_short)
         if screener_check is None:
             screener_check = self.get_indicator(self.screener_ob_short)
         if screener_check is None:
-            open_tv_logger.error(
-                f"Screener '{self.screener_ob_short}' not found on chart. Exiting function"
+            open_tv_logger.warning(
+                f"Screener '{self.screener_ob_short}' not found on chart — continuing anyway"
             )
-            return False
 
         # Make the screener visible
         if not self.indicator_visibility(True, self.screener_ob_short):
