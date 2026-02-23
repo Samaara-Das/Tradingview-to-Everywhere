@@ -80,13 +80,15 @@ def chunk_symbols(symbols: list[str], size: int = 3) -> list[list[str]]:
 # ---------------------------------------------------------------------------
 
 
-def create_browser(config: ComboConfig, args) -> Browser:
+def create_browser(config: ComboConfig, args, layout_override: str = "") -> Browser:
     """Create and initialize a single Browser instance."""
     logger.info("Initializing browser...")
 
     start_fresh = getattr(args, "fresh", False)
     if start_fresh:
         logger.info("Will delete all existing alerts before setup (--fresh)")
+
+    layout = layout_override or config.layout_name
 
     browser = Browser(
         keep_open=True,
@@ -103,7 +105,7 @@ def create_browser(config: ComboConfig, args) -> Browser:
         screener_sb_short=config.screener_shorttitle,
         screener_sb_name=config.screener_name,
         mode="combo",
-        layout_name=config.layout_name,
+        layout_name=layout,
         chart_timeframe=config.chart_timeframe,
         bar_style=config.bar_style,
         headless=config.headless,
@@ -614,7 +616,7 @@ def main():
     # --- Maintain only mode ---
     if args.maintain_only:
         logger.info("Running maintenance only (--maintain-only)")
-        browser = create_browser(config, args)
+        browser = create_browser(config, args, layout_override=config.snapshot_layout_name)
         run_maintenance(browser, config)
         # Browser cleanup is handled in run_maintenance's finally block
         return
