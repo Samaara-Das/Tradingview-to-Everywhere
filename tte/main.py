@@ -483,6 +483,15 @@ def run_maintenance(browser: Browser, config: ComboConfig):
         f"snapshots every {snapshot_interval}s, tick={tick}s)"
     )
 
+    # Switch to Snapshot layout for maintenance (covers --maintain-only mode)
+    if not browser.change_layout(config.snapshot_layout_name):
+        logger.warning(
+            f"Failed to switch to '{config.snapshot_layout_name}' layout — "
+            "maintenance will run on current layout"
+        )
+    else:
+        logger.info(f"Switched to '{config.snapshot_layout_name}' layout for maintenance")
+
     # Initialize snapshot worker if enabled
     snapshot_worker = None
     if config.snapshot_enabled:
@@ -642,6 +651,15 @@ def main():
         except Exception:
             pass
         return
+
+    # --- Switch to Snapshot layout before maintenance ---
+    logger.info("Saving Screener layout and switching to Snapshot layout...")
+    browser.save_layout()
+    if not browser.change_layout(config.snapshot_layout_name):
+        logger.warning(
+            f"Failed to switch to '{config.snapshot_layout_name}' layout — "
+            "maintenance will run on current layout"
+        )
 
     # --- Maintenance loop (reuse the same browser) ---
     logger.info("Starting maintenance mode...")

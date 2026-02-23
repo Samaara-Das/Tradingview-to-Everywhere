@@ -111,14 +111,7 @@ class SnapshotWorker:
 
         logger.info(f"Processing {len(pending)} pending snapshots")
 
-        # Switch to Snapshot layout
-        if not self.browser.change_layout(self.config.snapshot_layout_name):
-            logger.error(
-                f"Failed to switch to '{self.config.snapshot_layout_name}' layout — aborting snapshot phase"
-            )
-            return 0
-
-        sleep(2)  # Wait for layout to load
+        # Already on Snapshot layout (set by run_maintenance at startup)
 
         # Set "bars to right" margin (once at startup, then every 24h)
         if time() - self._bars_right_last_set > 86400:
