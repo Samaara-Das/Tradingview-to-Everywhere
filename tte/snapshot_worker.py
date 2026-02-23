@@ -98,6 +98,7 @@ class SnapshotWorker:
         self.browser = browser
         self.config = config
         self.client = client
+        self._bars_right_last_set: float = 0
 
     def process_pending_snapshots(self) -> int:
         """Poll for pending snapshots, take them, report results.
@@ -109,6 +110,10 @@ class SnapshotWorker:
             return 0
 
         logger.info(f"Processing {len(pending)} pending snapshots")
+
+        # Set "bars to right" margin (once at startup, then every 24h)
+        if time() - self._bars_right_last_set > 86400:
+            self._set_bars_to_right()
 
         # Switch to Snapshot layout
         if not self.browser.change_layout(self.config.snapshot_layout_name):
@@ -189,10 +194,13 @@ class SnapshotWorker:
         # 5. Hide indicator legend so it doesn't appear in the snapshot
         self._hide_legend()
 
-        # 6. Take snapshot via Alt+S
+        # 6. Click chart and press Alt+R to auto-fit/reset scale
+        self._auto_fit_chart()
+
+        # 7. Take snapshot via Alt+S
         links = self._take_chart_snapshot()
 
-        # 7. Show legend again (ready for next setup)
+        # 8. Show legend again (ready for next setup)
         self._show_legend()
 
         if not links:
@@ -244,6 +252,94 @@ class SnapshotWorker:
                 logger.debug("Legend already visible")
         except Exception:
             logger.debug("Legend toggler not found")
+
+    def _auto_fit_chart(self):
+        """Click chart to focus it, then press Alt+R to reset/auto-fit the scale."""
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.common.keys import Keys
+        from selenium.webdriver.common.action_chains import ActionChains
+
+        driver = self.browser.driver
+        try:
+            chart = driver.find_element(By.CSS_SELECTOR, "div.chart-markup-table")
+            ActionChains(driver).click(chart).perform()
+            sleep(0.3)
+            ActionChains(driver).key_down(Keys.ALT).send_keys("r").key_up(Keys.ALT).perform()
+            sleep(1)  # Wait for chart to re-render
+            logger.debug("Chart auto-fit (Alt+R) applied")
+        except Exception:
+            logger.warning("Failed to auto-fit chart via Alt+R — continuing anyway")
+
+    def _set_bars_to_right(self):
+        """Set 'Bars to the right' via chart settings dialog (right margin for drawings)."""
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.common.keys import Keys
+        from selenium.webdriver.common.action_chains import ActionChains
+        from selenium.webdriver.support.wait import WebDriverWait
+        from selenium.webdriver.support import expected_conditions as EC
+
+        driver = self.browser.driver
+        bars_value = str(self.config.snapshot_bars_to_right)
+
+        try:
+            # 1. Right-click chart area to open context menu
+            chart = driver.find_element(By.CSS_SELECTOR, "div.chart-markup-table")
+            ActionChains(driver).context_click(chart).perform()
+            sleep(0.5)
+
+            # 2. Wait for context menu
+            WebDriverWait(driver, 5).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-qa-id="menu-inner"]'))
+            )
+
+            # 3. Click "Settings..." row
+            menu_items = driver.find_elements(By.CSS_SELECTOR, 'span[data-label="true"]')
+            settings_clicked = False
+            for item in menu_items:
+                if "Settings" in item.text:
+                    item.click()
+                    settings_clicked = True
+                    break
+            if not settings_clicked:
+                logger.warning("Could not find 'Settings...' in context menu")
+                ActionChains(driver).send_keys(Keys.ESCAPE).perform()
+                return
+
+            # 4. Wait for chart settings dialog
+            dialog = WebDriverWait(driver, 5).until(
+                EC.presence_of_element_located(
+                    (By.CSS_SELECTOR, 'div[data-name="series-properties-dialog"]')
+                )
+            )
+            sleep(0.5)
+
+            # 5. Click "Canvas" tab
+            canvas_tab = dialog.find_element(By.CSS_SELECTOR, 'button[data-name="canvas"]')
+            canvas_tab.click()
+            sleep(0.5)
+
+            # 6. Find and fill "paneRightMargin" input
+            margin_input = dialog.find_element(
+                By.CSS_SELECTOR, 'input[data-name="paneRightMargin"]'
+            )
+            margin_input.click()
+            ActionChains(driver).key_down(Keys.CONTROL).send_keys("a").key_up(Keys.CONTROL).perform()
+            margin_input.send_keys(Keys.BACKSPACE)
+            margin_input.send_keys(bars_value)
+
+            # 7. Click submit to save
+            dialog.find_element(By.CSS_SELECTOR, 'button[name="submit"]').click()
+            sleep(0.5)
+
+            self._bars_right_last_set = time()
+            logger.info(f"Set bars to right: {bars_value}")
+
+        except Exception:
+            logger.warning("Failed to set bars to right — continuing anyway", exc_info=True)
+            try:
+                ActionChains(driver).send_keys(Keys.ESCAPE).perform()
+            except Exception:
+                pass
 
     def _wait_for_indicator_ready(self, shorttitle: str, element, timeout: float = 3.5):
         """Wait up to `timeout` seconds for a legend-source-item to finish loading.

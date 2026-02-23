@@ -37,7 +37,7 @@ class ComboConfig:
     # Chart settings
     layout_name: str = _yaml.get("chart", {}).get("layout_name", "Screener")
     chart_timeframe: str = _yaml.get("chart", {}).get("chart_timeframe", "1 minute")
-    bar_style: str = _yaml.get("chart", {}).get("bar_style", "line")
+    bar_style: str = _yaml.get("chart", {}).get("bar_style", "candle")
     headless: bool = _yaml.get("chart", {}).get("headless", True)
 
     # Screener indicator
@@ -75,6 +75,7 @@ class ComboConfig:
     snapshot_bar_style: str = _yaml.get("snapshot", {}).get("bar_style", "bar")
     snapshot_batch_size: int = _yaml.get("snapshot", {}).get("batch_size", 5)
     snapshot_poll_interval: int = _yaml.get("snapshot", {}).get("poll_interval", 60)
+    snapshot_bars_to_right: int = _yaml.get("snapshot", {}).get("bars_to_right", 60)
 
     def validate(self) -> list[str]:
         """Validate required configuration. Returns list of error strings."""

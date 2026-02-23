@@ -16,7 +16,10 @@ from pathlib import Path
 
 import yaml
 import pystray
+from dotenv import load_dotenv
 from PIL import Image, ImageDraw
+
+load_dotenv()
 
 
 def _get_project_dir() -> Path:
@@ -576,7 +579,7 @@ class TTEGui:
 
         self.vars["layout_name"].set(chart.get("layout_name", "Screener"))
         self.vars["chart_timeframe"].set(chart.get("chart_timeframe", "1 minute"))
-        self.vars["bar_style"].set(chart.get("bar_style", "line"))
+        self.vars["bar_style"].set(chart.get("bar_style", "candle"))
         self.vars["headless"].set(chart.get("headless", True))
 
         self.vars["screener_shorttitle"].set(screener.get("shorttitle", "Screener"))
@@ -588,9 +591,9 @@ class TTEGui:
 
         self.vars["maintenance_interval"].set(maintenance.get("interval", 300))
 
-        self.vars["webhook_url"].set(
-            webhook.get("url", "https://stock-buddy-app.vercel.app/api/tte/combo")
-        )
+        default_url = "https://stock-buddy-app.vercel.app/api/tte/combo"
+        env_url = os.environ.get("COMBO_WEBHOOK_URL", "")
+        self.vars["webhook_url"].set(webhook.get("url", "") or env_url or default_url)
 
         # CLI flags — maintain-only enabled by default for background operation
         self.vars["setup_only"].set(False)
