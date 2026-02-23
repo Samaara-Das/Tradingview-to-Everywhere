@@ -16,7 +16,7 @@ kernel_regression(_src, _size, _h, r, x_0) =>
     float _currentWeight = 0.
     float _cumulativeWeight = 0.
     for i = 0 to _size + x_0
-        y = _src[i] 
+        y = _src[i]
         w = math.pow(1 + (math.pow(i, 2) / ((math.pow(_h, 2) * 2 * r))), -r)
         _currentWeight += y*w
         _cumulativeWeight += w
@@ -25,7 +25,7 @@ kernel_regression(_src, _size, _h, r, x_0) =>
 
 
 
-// FOR DRAWING THE SWING HIGH/LOW LINES 
+// FOR DRAWING THE SWING HIGH/LOW LINES
 // @function draws swing high/low based on the oscillator given
 // @returns (in this order) current high, current low
 export drawSwings(float osc, bool isRsi = false, float rsiOb = 70, float rsiOs = 20) =>
@@ -58,7 +58,7 @@ export drawSwings(float osc, bool isRsi = false, float rsiOb = 70, float rsiOs =
     var int previousHighLow = 0
     var int currentHigh = 0
 
-    
+
     // to make sure it gets the bar index of when the range starts when the crossover condition cant find it
     if (osc < 0 and na(osc[1]) and not isRsi) or (isRsi and not isBullRange and osc >= rsiOb and not na(osc))
         if isRsi
@@ -133,16 +133,16 @@ export drawSwings(float osc, bool isRsi = false, float rsiOb = 70, float rsiOs =
 
     // to get the latest 2 lows
     currentLow := lowestBar
-    if lowestBar >= highestBar and previousLow != lowestBar[1] and previousLowHigh != highestBar 
+    if lowestBar >= highestBar and previousLow != lowestBar[1] and previousLowHigh != highestBar
         previousLow := lowestBar[1]
         previousLowHigh := highestBar
     //
 
     // to get the latest 2 highs
     currentHigh := highestBar
-    if highestBar >= lowestBar and previousHigh != highestBar[1] and previousHighLow != lowestBar 
+    if highestBar >= lowestBar and previousHigh != highestBar[1] and previousHighLow != lowestBar
         previousHigh := highestBar[1]
-        previousHighLow := lowestBar 
+        previousHighLow := lowestBar
     //
 
 
@@ -173,7 +173,7 @@ type FeatureSeries
 type Filter
     bool volatility
     bool regime
-    bool adx 
+    bool adx
 //
 
 series_from(feature_string, _close, _high, _low, _hlc3, simple int f_paramA, simple int f_paramB) =>
@@ -185,10 +185,10 @@ series_from(feature_string, _close, _high, _low, _hlc3, simple int f_paramA, sim
 
 get_lorentzian_distance(int i, int featureCount, FeatureSeries featureSeries, FeatureArrays featureArrays) =>
     switch featureCount
-        5 => math.log(1+math.abs(featureSeries.f1 - array.get(featureArrays.f1, i))) + 
+        5 => math.log(1+math.abs(featureSeries.f1 - array.get(featureArrays.f1, i))) +
              math.log(1+math.abs(featureSeries.f2 - array.get(featureArrays.f2, i))) +
              math.log(1+math.abs(featureSeries.f3 - array.get(featureArrays.f3, i))) +
-             math.log(1+math.abs(featureSeries.f4 - array.get(featureArrays.f4, i))) + 
+             math.log(1+math.abs(featureSeries.f4 - array.get(featureArrays.f4, i))) +
              math.log(1+math.abs(featureSeries.f5 - array.get(featureArrays.f5, i)))
         4 => math.log(1+math.abs(featureSeries.f1 - array.get(featureArrays.f1, i))) +
              math.log(1+math.abs(featureSeries.f2 - array.get(featureArrays.f2, i))) +
@@ -199,7 +199,7 @@ get_lorentzian_distance(int i, int featureCount, FeatureSeries featureSeries, Fe
              math.log(1+math.abs(featureSeries.f3 - array.get(featureArrays.f3, i)))
         2 => math.log(1+math.abs(featureSeries.f1 - array.get(featureArrays.f1, i))) +
              math.log(1+math.abs(featureSeries.f2 - array.get(featureArrays.f2, i)))
- 
+
 
 
 
@@ -317,15 +317,15 @@ export zigzagCalc(int Depth, int Deviation, int Backstep, bool repaint, bool Sho
                 point1 := label.new(bar_index-nx, down1 ? high[nx] : low[nx], down1 ? (high[nx] > high[last_h1[1]]?"HH":"LH") : (low[nx] < low[last_l1[1]] ? "LL" : "HL"), style=down1?label.style_label_down:label.style_label_up, size=size.tiny, color=down1?color.red:color.lime, textcolor=color.new(text_color, 0), tooltip = down1 ? (high[nx] > high[last_h1[1]]?"Higher High":"Lower High") : (low[nx] < low[last_l1[1]] ? "Lower Low" : "Higher Low"))
 
         down1
-        
+
     if repaint
         track := bar_index-x11
         swingHigh := down1 ? false: true
         if Show_zz == true
             zz1 := line.new(bar_index-(down1?last_h1:last_l1), down1 ? high[last_h1] : low[last_l1], bar_index-x11, y11, width=line_thick, color=down1?color.red:color.lime)
             point1 := label.new(bar_index-x11, y11, down1 ? (low[x11] < low[last_l1] ? "LL" : "HL") : (high[x11] > high[last_h1]?"HH":"LH"), style=down1?label.style_label_up:label.style_label_down, size=size.tiny, color=down1?color.lime:color.red, textcolor=color.new(text_color, 0), tooltip = down1 ? (low[x11] < low[last_l1] ? "Lower Low" : "Higher Low") : (high[x11] > high[last_h1]?"Higher High":"Lower High"))
-            
-    // 
+
+    //
 
     swingHigh
 //
@@ -342,7 +342,7 @@ export lc(bool useVolatilityFilter, float regimeThreshold, bool useRegimeFilter,
     // FeatureSeries Object: Calculated Feature Series based on Feature Variables
     featureSeries = FeatureSeries.new(
          series_from(f1_string, close, high, low, hlc3, f1_paramA, f1_paramB), // f1
-         series_from(f2_string, close, high, low, hlc3, f2_paramA, f2_paramB), // f2 
+         series_from(f2_string, close, high, low, hlc3, f2_paramA, f2_paramB), // f2
          series_from(f3_string, close, high, low, hlc3, f3_paramA, f3_paramB), // f3
          series_from(f4_string, close, high, low, hlc3, f4_paramA, f4_paramB), // f4
          series_from(f5_string, close, high, low, hlc3, f5_paramA, f5_paramB)  // f5
@@ -370,8 +370,8 @@ export lc(bool useVolatilityFilter, float regimeThreshold, bool useRegimeFilter,
 
 
     Label direction = Label.new(
-         long=1, 
-         short=-1, 
+         long=1,
+         short=-1,
          neutral=0
          )
 
@@ -401,9 +401,9 @@ export lc(bool useVolatilityFilter, float regimeThreshold, bool useRegimeFilter,
 
     if bar_index >= maxBarsBackIndex //{
         for i = 0 to sizeLoop //{
-            d = get_lorentzian_distance(i, featureCount, featureSeries, featureArrays) 
+            d = get_lorentzian_distance(i, featureCount, featureSeries, featureArrays)
             if d >= lastDistance and i%4 //{
-                lastDistance := d            
+                lastDistance := d
                 array.push(distances, d)
                 array.push(predictions, math.round(array.get(y_train_array, i)))
                 if array.size(predictions) > neighborsCount //{
@@ -461,4 +461,3 @@ export lc(bool useVolatilityFilter, float regimeThreshold, bool useRegimeFilter,
     startShortTrade = isNewSellSignal and isBearish and isEmaDowntrend and isSmaDowntrend
     [startLongTrade[shift], startShortTrade[shift]]
     //
-

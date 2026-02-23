@@ -12,20 +12,20 @@ Usage:
     python combo_main.py --validate       # Validate config and exit
 """
 
-import os
 import argparse
+import contextlib
 import signal
 import sys
 from time import sleep, time
 
-from tte import log
-from tte.config import ComboConfig
-from tte.browser.tradingview import Browser
-from tte.browser.helpers import Utils
-
-from selenium.webdriver.support.wait import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.wait import WebDriverWait
+
+from tte import log
+from tte.browser.helpers import Utils
+from tte.browser.tradingview import Browser
+from tte.config import ComboConfig
 
 # Logger
 logger = log.setup_logger(__name__, log.INFO)
@@ -80,13 +80,15 @@ def chunk_symbols(symbols: list[str], size: int = 3) -> list[list[str]]:
 # ---------------------------------------------------------------------------
 
 
-def create_browser(config: ComboConfig, args) -> Browser:
+def create_browser(config: ComboConfig, args, layout_override: str = "") -> Browser:
     """Create and initialize a single Browser instance."""
     logger.info("Initializing browser...")
 
     start_fresh = getattr(args, "fresh", False)
     if start_fresh:
         logger.info("Will delete all existing alerts before setup (--fresh)")
+
+    layout = layout_override or config.layout_name
 
     browser = Browser(
         keep_open=True,
@@ -103,7 +105,7 @@ def create_browser(config: ComboConfig, args) -> Browser:
         screener_sb_short=config.screener_shorttitle,
         screener_sb_name=config.screener_name,
         mode="combo",
-        layout_name=config.layout_name,
+        layout_name=layout,
         chart_timeframe=config.chart_timeframe,
         bar_style=config.bar_style,
         headless=config.headless,
@@ -142,7 +144,7 @@ def run_alert_creation(
                 break
 
             batch_start = time()
-            logger.info(f"Batch {i+1}/{len(batches)}: {batch}")
+            logger.info(f"Batch {i + 1}/{len(batches)}: {batch}")
 
             # Change chart symbol to match batch
             t0 = time()
@@ -164,9 +166,7 @@ def run_alert_creation(
             t0 = time()
             if not browser.change_settings(batch, config.screener_shorttitle):
                 logger.error("Failed to change settings")
-                failed.append(
-                    {"batch": i, "symbols": batch, "error": "change_settings_failed"}
-                )
+                failed.append({"batch": i, "symbols": batch, "error": "change_settings_failed"})
                 continue
             t_settings = time() - t0
 
@@ -180,18 +180,14 @@ def run_alert_creation(
                 logger.warning("Screener has errors, attempting recovery")
 
                 # Recovery attempt
-                indicator_for_reupload = browser._safe_indicator_access(
-                    config.screener_shorttitle
-                )
+                indicator_for_reupload = browser._safe_indicator_access(config.screener_shorttitle)
                 if not indicator_for_reupload or not browser.reupload_indicator(
                     indicator_for_reupload,
                     config.screener_name,
                     config.screener_shorttitle,
                 ):
                     logger.error("Failed to re-upload screener")
-                    failed.append(
-                        {"batch": i, "symbols": batch, "error": "reupload_failed"}
-                    )
+                    failed.append({"batch": i, "symbols": batch, "error": "reupload_failed"})
                     continue
 
                 sleep(config.recalc_wait)  # Wait for indicator to fully load
@@ -243,9 +239,7 @@ def run_alert_creation(
 
             if not indicator:
                 logger.error("Indicator access failed")
-                failed.append(
-                    {"batch": i, "symbols": batch, "error": "indicator_access_failed"}
-                )
+                failed.append({"batch": i, "symbols": batch, "error": "indicator_access_failed"})
                 continue
 
             indicator.click()
@@ -270,9 +264,7 @@ def run_alert_creation(
                 # Retry with recovery
                 logger.warning("First attempt failed, retrying with recovery...")
 
-                retry_indicator = browser._safe_indicator_access(
-                    config.screener_shorttitle
-                )
+                retry_indicator = browser._safe_indicator_access(config.screener_shorttitle)
                 if retry_indicator and browser.reupload_indicator(
                     retry_indicator, config.screener_name, config.screener_shorttitle
                 ):
@@ -281,9 +273,7 @@ def run_alert_creation(
                     if browser.change_settings(batch, config.screener_shorttitle):
                         sleep(config.recalc_wait)
 
-                        indicator = browser._safe_indicator_access(
-                            config.screener_shorttitle
-                        )
+                        indicator = browser._safe_indicator_access(config.screener_shorttitle)
                         if indicator:
                             indicator.click()
 
@@ -322,9 +312,7 @@ def run_alert_creation(
                         )
                         logger.error("Retry failed - settings reapplication failed")
                 else:
-                    failed.append(
-                        {"batch": i, "symbols": batch, "error": "retry_reupload_failed"}
-                    )
+                    failed.append({"batch": i, "symbols": batch, "error": "retry_reupload_failed"})
                     logger.error("Retry failed - re-upload failed")
 
             sleep(config.alert_creation_delay)
@@ -373,16 +361,12 @@ def restart_inactive_alerts(driver) -> bool:
 
         # Click the 3-dot settings button
         WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable(
-                (By.CSS_SELECTOR, 'div[data-name="alerts-settings-button"]')
-            )
+            EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-name="alerts-settings-button"]'))
         ).click()
 
         # Wait for the dropdown to show up
         dropdown = WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located(
-                (By.CSS_SELECTOR, 'div[data-qa-id="menu-inner"]')
-            )
+            EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-qa-id="menu-inner"]'))
         )
 
         # Check if the "Show Alerts" section is minimised. If so, expand it
@@ -405,9 +389,7 @@ def restart_inactive_alerts(driver) -> bool:
         # Find "Restart all inactive" button (may be disabled when no inactive alerts)
         restart_buttons = [
             el
-            for el in dropdown.find_elements(
-                By.CSS_SELECTOR, "div.item-jFqVJoPk.withIcon-jFqVJoPk"
-            )
+            for el in dropdown.find_elements(By.CSS_SELECTOR, "div.item-jFqVJoPk.withIcon-jFqVJoPk")
             if "Restart all inactive" in el.text
         ]
         if not restart_buttons:
@@ -420,9 +402,7 @@ def restart_inactive_alerts(driver) -> bool:
 
             # Click Yes on the confirmation popup
             popup = WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located(
-                    (By.CSS_SELECTOR, 'div[data-name="confirm-dialog"]')
-                )
+                EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="confirm-dialog"]'))
             )
             popup.find_element(By.CSS_SELECTOR, 'button[name="yes"]').click()
             logger.info("Restarting all inactive alerts!")
@@ -430,7 +410,7 @@ def restart_inactive_alerts(driver) -> bool:
         sleep(1)
         return True
 
-    except Exception as e:
+    except Exception:
         logger.exception("Error restarting inactive alerts:")
         return False
 
@@ -443,16 +423,12 @@ def clear_alert_log(driver) -> bool:
 
         # Click clear log button
         WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable(
-                (By.CSS_SELECTOR, 'div[data-name="clear-log-button"]')
-            )
+            EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-name="clear-log-button"]'))
         ).click()
 
         # Confirm in dialog
         popup = WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located(
-                (By.CSS_SELECTOR, 'div[data-name="confirm-dialog"]')
-            )
+            EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="confirm-dialog"]'))
         )
         popup.find_element(By.CSS_SELECTOR, 'button[name="yes"]').click()
         logger.info("Alert log cleared!")
@@ -483,10 +459,19 @@ def run_maintenance(browser: Browser, config: ComboConfig):
         f"snapshots every {snapshot_interval}s, tick={tick}s)"
     )
 
+    # Switch to Snapshot layout for maintenance (covers --maintain-only mode)
+    if not browser.change_layout(config.snapshot_layout_name):
+        logger.warning(
+            f"Failed to switch to '{config.snapshot_layout_name}' layout — "
+            "maintenance will run on current layout"
+        )
+    else:
+        logger.info(f"Switched to '{config.snapshot_layout_name}' layout for maintenance")
+
     # Initialize snapshot worker if enabled
     snapshot_worker = None
     if config.snapshot_enabled:
-        from tte.snapshot_worker import StockBuddyClient, SnapshotWorker
+        from tte.snapshot_worker import SnapshotWorker, StockBuddyClient
 
         client = StockBuddyClient(config)
         snapshot_worker = SnapshotWorker(browser, config, client)
@@ -521,7 +506,11 @@ def run_maintenance(browser: Browser, config: ComboConfig):
                     logger.exception("Maintenance cycle failed, will retry next cycle:")
 
             # --- Snapshot check (skipped if maintenance just ran this tick) ---
-            if snapshot_worker and (now - last_snapshot >= snapshot_interval) and not maintenance_due:
+            if (
+                snapshot_worker
+                and (now - last_snapshot >= snapshot_interval)
+                and not maintenance_due
+            ):
                 last_snapshot = now
                 try:
                     snapshot_worker.process_pending_snapshots()
@@ -605,7 +594,7 @@ def main():
     # --- Maintain only mode ---
     if args.maintain_only:
         logger.info("Running maintenance only (--maintain-only)")
-        browser = create_browser(config, args)
+        browser = create_browser(config, args, layout_override=config.snapshot_layout_name)
         run_maintenance(browser, config)
         # Browser cleanup is handled in run_maintenance's finally block
         return
@@ -637,11 +626,18 @@ def main():
     # --- Setup only mode ---
     if args.setup_only:
         logger.info("Setup complete (--setup-only). Exiting.")
-        try:
+        with contextlib.suppress(Exception):
             browser.driver.quit()
-        except Exception:
-            pass
         return
+
+    # --- Switch to Snapshot layout before maintenance ---
+    logger.info("Saving Screener layout and switching to Snapshot layout...")
+    browser.save_layout()
+    if not browser.change_layout(config.snapshot_layout_name):
+        logger.warning(
+            f"Failed to switch to '{config.snapshot_layout_name}' layout — "
+            "maintenance will run on current layout"
+        )
 
     # --- Maintenance loop (reuse the same browser) ---
     logger.info("Starting maintenance mode...")

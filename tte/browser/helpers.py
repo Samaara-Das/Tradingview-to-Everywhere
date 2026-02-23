@@ -3,12 +3,12 @@ A class that contains commonly used methods.
 """
 
 from time import sleep
-from tte import log
-from selenium.webdriver.support.wait import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
+
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.action_chains import ActionChains
-from selenium.common.exceptions import TimeoutException, StaleElementReferenceException
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.wait import WebDriverWait
+
+from tte import log
 
 # Set up a logger for this file
 utils_logger = log.setup_logger(__name__, log.INFO)
@@ -25,11 +25,7 @@ class Utils:
 
             if (
                 WebDriverWait(driver, 5)
-                .until(
-                    EC.presence_of_element_located(
-                        (By.CSS_SELECTOR, alert_tab_selector)
-                    )
-                )
+                .until(EC.presence_of_element_located((By.CSS_SELECTOR, alert_tab_selector)))
                 .get_attribute("aria-selected")
                 == "true"
             ):  # if the Alerts tab is already open
@@ -39,8 +35,8 @@ class Utils:
                 utils_logger.info("Logs tab is closed.")
                 return False
 
-        except Exception as e:
-            utils_logger.exception(f"Error ocurred when opening the Alert tab. Error: ")
+        except Exception:
+            utils_logger.exception("Error ocurred when opening the Alert tab. Error: ")
             return False
 
     def is_alert_tab_open(self, driver):
@@ -53,11 +49,7 @@ class Utils:
 
             if (
                 WebDriverWait(driver, 5)
-                .until(
-                    EC.presence_of_element_located(
-                        (By.CSS_SELECTOR, alert_tab_selector)
-                    )
-                )
+                .until(EC.presence_of_element_located((By.CSS_SELECTOR, alert_tab_selector)))
                 .get_attribute("aria-selected")
                 == "true"
             ):  # if the Alerts tab is already open
@@ -67,8 +59,8 @@ class Utils:
                 utils_logger.info("Alerts tab is closed.")
                 return False
 
-        except Exception as e:
-            utils_logger.exception(f"Error ocurred when opening the Alert tab. Error: ")
+        except Exception:
+            utils_logger.exception("Error ocurred when opening the Alert tab. Error: ")
             return False
 
     def open_alert_tab(self, driver):
@@ -84,11 +76,7 @@ class Utils:
 
             if (
                 WebDriverWait(driver, 5)
-                .until(
-                    EC.presence_of_element_located(
-                        (By.CSS_SELECTOR, alert_tab_selector)
-                    )
-                )
+                .until(EC.presence_of_element_located((By.CSS_SELECTOR, alert_tab_selector)))
                 .get_attribute("aria-selected")
                 == "true"
             ):  # if the Alerts tab is already open
@@ -104,13 +92,13 @@ class Utils:
                 try:
                     el = d.find_element(By.CSS_SELECTOR, alert_tab_selector)
                     return el.get_attribute("aria-selected") == "true"
-                except:
+                except Exception:
                     return False
 
             WebDriverWait(driver, 5).until(alerts_tab_is_selected)
             return True
-        except Exception as e:
-            utils_logger.exception(f"Error ocurred when opening the Alert tab. Error: ")
+        except Exception:
+            utils_logger.exception("Error ocurred when opening the Alert tab. Error: ")
             return False
 
     def open_log_tab(self, driver):
@@ -137,30 +125,28 @@ class Utils:
                 try:
                     el = d.find_element(By.CSS_SELECTOR, alert_tab_selector)
                     return el.get_attribute("aria-selected") == "true"
-                except:
+                except Exception:
                     return False
 
             WebDriverWait(driver, 5).until(log_tab_is_selected)
             return True
-        except Exception as e:
-            utils_logger.exception(f"Error occurred when opening the Log tab. Error: ")
+        except Exception:
+            utils_logger.exception("Error occurred when opening the Log tab. Error: ")
             return False
 
     def click_yes_in_confirm_popup(self, driver):
         """This clicks the Yes button in the confirmation popup that appears on TradingView."""
         try:
             dialog = WebDriverWait(driver, 5).until(
-                EC.presence_of_element_located(
-                    (By.CSS_SELECTOR, 'div[data-name="confirm-dialog"]')
-                )
+                EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-name="confirm-dialog"]'))
             )
             WebDriverWait(dialog, 5).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[name="yes"]'))
             ).click()
             sleep(2)
             return True
-        except Exception as e:
+        except Exception:
             utils_logger.exception(
-                f"Error occurred when clicking the Yes button in the confirmation popup. Error: "
+                "Error occurred when clicking the Yes button in the confirmation popup. Error: "
             )
             return False

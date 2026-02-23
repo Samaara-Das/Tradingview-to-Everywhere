@@ -16,6 +16,8 @@ Pillow = "*"
 [dev-packages]
 pytest = "*"
 pytest-cov = "*"
+ruff = "*"
+pre-commit = "*"
 
 [requires]
 python_version = "3.11"

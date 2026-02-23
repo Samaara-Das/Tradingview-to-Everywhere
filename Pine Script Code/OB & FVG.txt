@@ -100,15 +100,15 @@ getBearishTestPrice(obHigh, obLow) =>
 getDebugText(obHigh, obLow, curHigh, curLow, hasGap, hasSweep, isTest, testPrice) => str.tostring(obHigh, '#.##') + '\n' + str.tostring(obLow, '#.##') + '\n' + 'Gap: ' + (hasGap ? '✓' : '×') + '\n' + 'Sweep: ' + (hasSweep ? '✓' : '×') + '\n' + 'Test Price: ' + str.tostring(testPrice, '#.##') + '\n' + 'Test: ' + (isTest ? '✓' : '×')
 
 // Function to check bearish OB conditions for a specific bar
-isBearishOB(idx) => 
+isBearishOB(idx) =>
     // First check gap validation using bar[2] only
     // - low[2] > high[0] (gap with current bar)
     // - low[2] > low[0] (maintains bearish structure)
     hasGap = low[idx] > high[0] and low[idx] > low[0]
-    
+
     isValid = false
     isBar3 = false
-    
+
     if hasGap
         if idx == 2  // Only check bar[2] when idx is 2
             // Check if bar[2] has valid price sweep
@@ -119,20 +119,20 @@ isBearishOB(idx) =>
             if high[3] > high[2] and high[3] > high[4]
                 isValid := true
                 isBar3 := true
-    
+
     // Return validity and which bar is the OB (via isBar3)
     [isValid, isBar3]
 
 // Function to check bullish OB conditions for a specific bar
-isBullishOB(idx) => 
+isBullishOB(idx) =>
     // First check gap validation using bar[2] only
     // - high[2] < low[0] (gap with current bar)
     // - high[2] < high[0] (maintains bullish structure)
     hasGap = high[idx] < low[0] and high[idx] < high[0]
-    
+
     isValid = false
     isBar3 = false
-    
+
     if hasGap
         if idx == 2  // Only check bar[2] when idx is 2
             // Check if bar[2] has valid price sweep
@@ -143,7 +143,7 @@ isBullishOB(idx) =>
             if low[3] < low[2] and low[3] < low[4]
                 isValid := true
                 isBar3 := true
-    
+
     // Return validity and which bar is the OB (via isBar3)
     [isValid, isBar3]
 
@@ -186,7 +186,7 @@ cleanupOldOBs() =>
                 array.remove(allOBs, i)
                 continue
             i += 1
-        
+
         // If still too many, remove oldest OBs regardless of state
         while array.size(allOBs) > maxOBs
             array.shift(allOBs)  // Remove oldest OB
@@ -196,7 +196,7 @@ addOB(barIdx, gapBar, obTime, obHigh, obLow, isLong, isSet2) =>
     // Clean up if needed before adding
     if array.size(allOBs) >= maxOBs
         cleanupOldOBs()
-    
+
     newOB = OBState.new()
     newOB.barIndex := barIdx
     newOB.gapValidationBar := gapBar
@@ -222,21 +222,21 @@ updateOBStates() =>
     if arraySize > 0
         // Process only recent OBs to improve performance
         startIdx = math.max(0, arraySize - math.min(arraySize, 200))  // Process max 200 most recent OBs
-        
+
         for i = startIdx to arraySize - 1
             ob = array.get(allOBs, i)
-            
+
             // Skip if already in final state
             if ob.state == "reversed"
                 continue
-            
-            // Calculate how many bars back the gap validation was  
+
+            // Calculate how many bars back the gap validation was
             barsBackToGap = bar_index - ob.gapValidationBar
-            
+
             // Only check OBs where enough time has passed after gap validation
             if barsBackToGap < 1
                 continue
-            
+
             // Efficient current bar checking only (avoid nested loops)
             // Check for breaker condition on current bar
             if ob.state == "active" or ob.state == "tested"
@@ -252,7 +252,7 @@ updateOBStates() =>
                         ob.breakerBar := bar_index
                         if showBreakerInfo
                             label.new(bar_index, high + (ta.tr * 2), "BEARISH OB\nBREAKER\nclose=" + str.tostring(close, "#.#####"), color=color.blue, style=label.style_label_up, textcolor=color.white, size=size.small)
-            
+
             // Check for reversal condition on current bar
             else if ob.state == "breaker"
                 if ob.isLong  // Breaker resistance becomes reversed when close > high
@@ -261,41 +261,41 @@ updateOBStates() =>
                         ob.reversalBar := bar_index
                         if showBreakerInfo
                             label.new(bar_index, high + (ta.tr * 2), "BULLISH OB\nREVERSED", color=color.black, style=label.style_label_up, textcolor=color.white, size=size.small)
-                else  // Breaker support becomes reversed when close < low  
+                else  // Breaker support becomes reversed when close < low
                     if close < ob.low
                         ob.state := "reversed"
                         ob.reversalBar := bar_index
                         if showBreakerInfo
                             label.new(bar_index, low - (ta.tr * 2), "BEARISH OB\nREVERSED", color=color.black, style=label.style_label_up, textcolor=color.white, size=size.small)
-            
+
             // Check if OB has been tested on current bar (MQL5-style two-step process)
             if not ob.isTested and (ob.state == "active")
                 testPrice = ob.isLong ? ob.high - ((ob.high - ob.low) * testPercent / 100) : ob.low + ((ob.high - ob.low) * testPercent / 100)
-                
+
                 if ob.isLong  // Bullish OB testing
                     // Step 1: Check if price has reached the test level (dipped below threshold)
                     if not ob.hasReachedTestLevel and low <= testPrice
                         ob.hasReachedTestLevel := true
-                    
+
                     // Step 2: After reaching test level, check if price returns toward OB level
                     if ob.hasReachedTestLevel and (low >= ob.low or (low < ob.low and high >= ob.low))
                         ob.isTested := true
                         ob.testBar := bar_index
                         if showBreakerInfo
                             label.new(bar_index, testPrice, "BULLISH OB\nTESTED", color=color.yellow, style=label.style_label_up, textcolor=color.black, size=size.small)
-                            
+
                 else  // Bearish OB testing
-                    // Step 1: Check if price has reached the test level (soared above threshold) 
+                    // Step 1: Check if price has reached the test level (soared above threshold)
                     if not ob.hasReachedTestLevel and high >= testPrice
                         ob.hasReachedTestLevel := true
-                    
+
                     // Step 2: After reaching test level, check if price returns toward OB level
                     if ob.hasReachedTestLevel and (high <= ob.high or (high > ob.high and low <= ob.high))
                         ob.isTested := true
                         ob.testBar := bar_index
                         if showBreakerInfo
                             label.new(bar_index, testPrice, "BEARISH OB\nTESTED", color=color.yellow, style=label.style_label_up, textcolor=color.black, size=size.small)
-            
+
             // Check if FVG is filled
             if not ob.isFVGfilled
                 float height = math.abs(ob.gapLevel - (ob.isLong ? ob.high : ob.low))
@@ -309,7 +309,7 @@ getOBColorFromState(ob) =>
         "breaker" => ob.isLong ? breakerResistanceColor : breakerSupportColor
         "reversed" => reversedOBColor
         "tested" => ob.isLong ? testedBullishOBColor : testedBearishOBColor
-        => 
+        =>
             // If OB is active but has been tested, show tested color
             if ob.isTested
                 ob.isLong ? testedBullishOBColor : testedBearishOBColor
@@ -324,29 +324,29 @@ drawAllOBs() =>
         // Limit drawing to most recent OBs for performance
         maxToDraw = math.min(arraySize, 100)  // Draw maximum 100 most recent OBs
         startIdx = arraySize - maxToDraw
-        
+
         for i = startIdx to arraySize - 1
             ob = array.get(allOBs, i)
-            
+
             // Skip reversed OBs if hideReversedOBs is enabled
             if hideReversedOBs and ob.state == "reversed"
                 continue
-            
+
             // Base shouldShow from display mode
             bool baseShow = switch obDisplayMode
                 "Only Tested" => ob.isTested
                 "Only Untested" => not ob.isTested
                 => true
-            
+
             // Apply direction toggle
             bool directionShow = ob.isLong ? showBullishOBs : showBearishOBs
-            
+
             // Final shouldShow for OB
             bool shouldShowOB = baseShow and directionShow
-            
+
             if shouldShowOB
                 obColor = getOBColorFromState(ob)
-                
+
                 // Determine right edge based on active OBs extended option
                 var int rightTime = 0
                 if showActiveOBsExtended
@@ -356,13 +356,13 @@ drawAllOBs() =>
                     // Use the regular logic for right edge
                     timeIncrement = timeframe.in_seconds() * 1000 * 10  // 10 bars worth of milliseconds
                     rightTime := extendToPresent ? time : ob.obTime + timeIncrement
-                
+
                 box.new(left=ob.obTime, top=ob.high, right=rightTime, bottom=ob.low, border_color=obColor, border_width=0, border_style=line.style_solid, extend=showActiveOBsExtended ? extend.right : (extendToPresent ? extend.right : extend.none), bgcolor=obColor, xloc=xloc.bar_time)
-                
+
                 // Add state label using time coordinates
                 if showDebugLabels
                     label.new(ob.obTime, ob.high + (ta.tr * 1), ob.state + (ob.isTested ? "\nTESTED" : ""), color=color.gray, style=label.style_label_down, textcolor=color.white, size=size.tiny, xloc=xloc.bar_time)
-                
+
                 // Draw FVG if enabled and direction allows
                 bool showFVG = (ob.isLong ? showBullishFVGs : showBearishFVGs) and (ob.isFVGfilled ? showFilledFVGs : true)
                 if showFVG
@@ -371,7 +371,7 @@ drawAllOBs() =>
                     color fvgCol = ob.isFVGfilled ? filledFVGColor : (ob.isLong ? bullFVGColor : bearFVGColor)
                     int fvgRight = ob.validationTime + timeframe.in_seconds() * 1000
                     box.new(left=ob.obTime, top=fvgTop, right=fvgRight, bottom=fvgBottom, border_color=fvgCol, border_width=0, border_style=line.style_solid, extend=extend.none, bgcolor=fvgCol, xloc=xloc.bar_time)
-                    
+
                     // Add label in the middle of the rectangle only if not filled
                     if not ob.isFVGfilled
                         int middleTime = int(math.avg(ob.obTime, ob.validationTime))
@@ -379,7 +379,7 @@ drawAllOBs() =>
                         color textCol = ob.isLong ? color.green : color.orange
                         string labelText = "FVG"
                         label.new(middleTime, middlePrice, labelText, xloc=xloc.bar_time, yloc=yloc.price, color=color(na), textcolor=textCol, style=label.style_none, size=size.small)
-                    
+
                     // Draw dashed fill level line if enabled and FVG not filled
                     if showFVGFillLevel and not ob.isFVGfilled
                         float height = math.abs(fvgTop - fvgBottom)
@@ -475,19 +475,19 @@ if showDebugLabels and (bullishOB_bar2_valid or bearishOB_bar2_valid)
 // This will always be visible regardless of settings
 if barstate.islast
     statusColor = foundAnyBreaker ? color.lime : color.red
-    
+
     // Create the status text based on whether a breaker was found
     var string statusText = ""
     if foundAnyBreaker
         statusText := "✓ BREAKER " + breakerType + " FOUND AT BAR " + str.tostring(lastBreakerBar)
-    else  
+    else
         statusText := "✗ NO BREAKERS DETECTED"
-    
+
     // Add count information to status text including array size for monitoring
     statusText := statusText + "\nBullish OBs: " + str.tostring(bullOBCount) + " | Bearish OBs: " + str.tostring(bearOBCount)
     statusText := statusText + "\nBull Breakers: " + str.tostring(bullBreakerCount) + " | Bear Breakers: " + str.tostring(bearBreakerCount)
     statusText := statusText + "\nTracked OBs: " + str.tostring(array.size(allOBs))
-        
+
     // Removed status label - label.new(bar_index, low - (ta.tr * 5), statusText, color=statusColor, style=label.style_label_up, textcolor=color.white, size=size.large)
 
     // Also print debugging info to the log

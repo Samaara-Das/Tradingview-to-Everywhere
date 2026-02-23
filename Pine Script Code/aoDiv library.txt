@@ -20,12 +20,12 @@ findBuyStartPoint(float osc) =>
     int shift = 0
 
     int i = 0
-    while osc[i] < 0 
+    while osc[i] < 0
         shift := i
         i := i + 1
     //
 
-    shift 
+    shift
 //
 
 // @function to find the lowest ao in the given range (starting from _end upto end)
@@ -51,8 +51,8 @@ export findLowestPrice(int start, int end) =>
     int startShift = bar_index - start
     float lowest = low[startShift]
     int barTime = 0
-    
-    for i = startShift to endShift 
+
+    for i = startShift to endShift
         if low[i] < lowest
             lowest := low[i]
             barTime := i
@@ -60,7 +60,7 @@ export findLowestPrice(int start, int end) =>
     //
 
     [lowest, barTime]
-// 
+//
 
 //to find lowest low (in price) in a given price range for updating the trendline
 findLowest(int start, int end) =>
@@ -68,8 +68,8 @@ findLowest(int start, int end) =>
     int startShift = start
     float lowest = low[startShift]
     int barTime = 0
-    
-    for i = startShift to endShift 
+
+    for i = startShift to endShift
         if low[i] < lowest
             lowest := low[i]
             barTime := i
@@ -77,7 +77,7 @@ findLowest(int start, int end) =>
     //
 
     [lowest, barTime]
-// 
+//
 
 //------------------------------------------------------------------------------------------------------------------------------------
 
@@ -87,12 +87,12 @@ findSellStartPoint(float osc) =>
     int shift = 0
 
     int i = 0
-    while osc[i] > 0 
+    while osc[i] > 0
         shift := i
         i := i + 1
     //
 
-    shift 
+    shift
 //
 
 // @function to find the highes ao in the given range (starting from _end upto end)
@@ -118,8 +118,8 @@ export findHighestPrice(int start, int end) =>
     int startShift = bar_index - start
     float highest = high[startShift]
     int barTime = 0
-    
-    for i = startShift to endShift 
+
+    for i = startShift to endShift
         if high[i] > highest
             highest := high[i]
             barTime := i
@@ -127,7 +127,7 @@ export findHighestPrice(int start, int end) =>
     //
 
     [highest, barTime]
-// 
+//
 
 //to find lowest low (in price) in a given price range for updating the trendline
 findHighest(int start, int end) =>
@@ -135,8 +135,8 @@ findHighest(int start, int end) =>
     int startShift = start
     float highest = high[startShift]
     int barTime = 0
-    
-    for i = startShift to endShift 
+
+    for i = startShift to endShift
         if high[i] > highest
             highest := high[i]
             barTime := i
@@ -144,7 +144,7 @@ findHighest(int start, int end) =>
     //
 
     [highest, barTime]
-// 
+//
 
 
 
@@ -208,17 +208,17 @@ export regBullDivergence(bool swingLow, float osc, color colour) =>
 
 
 	if swingLow
-		if osc < 0 
+		if osc < 0
 			lookingForBull := true
 	//
-				
+
 
 
 	//storing the lowest value, start shift & end shift of the current range & updating it as values change
-	if lookingForBull == true  
+	if lookingForBull == true
 		int lastIndex = array.size(minRangesStart) - 1
 
-		if array.size(minRangesStart) >= 1 
+		if array.size(minRangesStart) >= 1
 			if array.get(minRangesStart, lastIndex) != bullStart
 				array.push(minRangesStart, 0)
 				array.push(minRangesEnd, 0)
@@ -240,7 +240,7 @@ export regBullDivergence(bool swingLow, float osc, color colour) =>
 
 
 	//checking if there is more than 1 range to compare with the lowest ao val up untill the current bar
-	if array.size(minRangesStart) >= 1 
+	if array.size(minRangesStart) >= 1
 		int lastIndex = array.size(minRangesStart) - 1
 
 		if array.get(minRangesLowest, lastIndex) < lowestVal
@@ -251,7 +251,7 @@ export regBullDivergence(bool swingLow, float osc, color colour) =>
 
 
 	//checking if there are more than 2 ranges to compare/ delete lines
-	if array.size(minRangesStart) >= 2 
+	if array.size(minRangesStart) >= 2
 		int lastIndex = array.size(minRangesStart) - 1
 
 		//get the start and end shifts of the 2 ranges
@@ -267,7 +267,7 @@ export regBullDivergence(bool swingLow, float osc, color colour) =>
 			[lowest2, index2] = findLowestPrice(start2, end2)
 
 			//check if lowest price in range 1 > lowest price in range 2
-			if lowest1 > lowest2 
+			if lowest1 > lowest2
 
 				if lowestStart != start1
 					latestBullLine := line.new(time[index2], lowest2, time[index1], lowest1, xloc = xloc.bar_time, extend = extend.none, color = colour, style = line.style_solid, width = 1)
@@ -279,7 +279,7 @@ export regBullDivergence(bool swingLow, float osc, color colour) =>
 
 					//to find the lowest low from the start of trendline to current bar
 					[currLowest, currLowestIndex] = findLowest(index1, 0)
-					
+
 					line.set_x1(latestBullLine, time[currLowestIndex])
 					line.set_y1(latestBullLine, currLowest)
 				//
@@ -344,17 +344,17 @@ export regBearDivergence(bool swingHigh, float osc, color colour) =>
 
 
 	if not swingHigh
-		if osc > 0 
+		if osc > 0
 			lookingForBear := true
 	//
-				
+
 
 
 	//storing the highest value, start shift & end shift of the current range & updating it as values change
-	if lookingForBear == true 
+	if lookingForBear == true
 		int lastIndex = array.size(maxRangesStart) - 1
 
-		if array.size(maxRangesStart) >= 1 
+		if array.size(maxRangesStart) >= 1
 			if array.get(maxRangesStart, lastIndex) != bearStart
 				array.push(maxRangesStart, 0)
 				array.push(maxRangesEnd, 0)
@@ -376,7 +376,7 @@ export regBearDivergence(bool swingHigh, float osc, color colour) =>
 
 
 	//checking if there is more than 1 range to compare with the highest ao val up untill the current bar
-	if array.size(maxRangesStart) >= 1 
+	if array.size(maxRangesStart) >= 1
 		int lastIndex = array.size(maxRangesStart) - 1
 
 		if array.get(maxRangesHighest, lastIndex) > highestVal
@@ -387,10 +387,10 @@ export regBearDivergence(bool swingHigh, float osc, color colour) =>
 
 
 	//checking if there are more than 2 ranges to compare/ delete lines
-	if array.size(maxRangesStart) >= 2  
+	if array.size(maxRangesStart) >= 2
 
 		int lastIndex = array.size(maxRangesStart) - 1
-		
+
 		//get the start and end shifts of the 2 ranges
 		int start2 = array.get(maxRangesStart, lastIndex)
 		int end2 = array.get(maxRangesEnd, lastIndex)
@@ -404,7 +404,7 @@ export regBearDivergence(bool swingHigh, float osc, color colour) =>
 			[highest2, index2] = findHighestPrice(start2, end2)
 
 			//check if highest price in range 1 < highest price in range 2
-			if highest1 < highest2 
+			if highest1 < highest2
 
 				if highestStart != start1
 					latestBearLine := line.new(time[index2], highest2, time[index1], highest1, xloc = xloc.bar_time, extend = extend.none, color = colour, style = line.style_solid, width = 1)
@@ -413,7 +413,7 @@ export regBearDivergence(bool swingHigh, float osc, color colour) =>
 				//
 
 				if highestStart == start1
-					
+
 					//to find the highest high from the start of trendline to current bar
 					[currHighest, currHighestIndex] = findHighest(index1, 0)
 
@@ -547,10 +547,10 @@ export hidBullDivergence(bool swingHigh, float osc, color colour) =>
 
 
 	//storing the lowest value, start shift & end shift of the current range & updating it as values change
-	if lookingForBull2 == true  
+	if lookingForBull2 == true
 		int lastIndex = array.size(minRangesStart2) - 1
 
-		if array.size(minRangesStart2) >= 1  //if there are elements in the arrays already, 
+		if array.size(minRangesStart2) >= 1  //if there are elements in the arrays already,
 			if array.get(minRangesStart2, lastIndex) != bullStart2 //and a new range has started, push new elements in the arrays which are made for that range specifically
 				array.push(minRangesStart2, 0)
 				array.push(minRangesEnd2, 0)
@@ -591,7 +591,7 @@ export hidBullDivergence(bool swingHigh, float osc, color colour) =>
 	if array.size(minRangesLowest2) >= 2 and highestLowestIndex2 >= 0
 
 		int lastIndex = array.size(minRangesLowest2) - 1
-		
+
 		//get the start and end shifts of the 2 ranges
 		int start2 = array.get(minRangesStart2, lastIndex)
 		int end2 = array.get(minRangesEnd2, lastIndex)
@@ -605,9 +605,9 @@ export hidBullDivergence(bool swingHigh, float osc, color colour) =>
 			_endShift1 := bar_index - end1
 			_startShift1 := bar_index - start1
 			_lowest1 := low[_startShift1]
-			
+
 			//DO NOT CHANGE THE WAY THE 2ND IF CONDITION IS WRITTEN, BECAUSE IT ONLY WORKS THIS WAY... I DONT KNOW WHY THOUGH
-			for i = _startShift1 to _endShift1 
+			for i = _startShift1 to _endShift1
 				if low[i] < _lowest1
 					_lowest1 := low[i]
 				//
@@ -620,9 +620,9 @@ export hidBullDivergence(bool swingHigh, float osc, color colour) =>
 			_endShift2 := bar_index - end2
 			_startShift2 := bar_index - start2
 			_lowest2 := low[_startShift2]
-			
+
 			//DO NOT CHANGE THE WAY THE 2ND IF CONDITION IS WRITTEN, BECAUSE IT ONLY WORKS THIS WAY... I DONT KNOW WHY THOUGH
-			for i = _endShift2 to _startShift2 
+			for i = _endShift2 to _startShift2
 
 				if low[i] < _lowest2
 					_lowest2 := low[i]
@@ -636,7 +636,7 @@ export hidBullDivergence(bool swingHigh, float osc, color colour) =>
 
 
 			//check if lowest price in range 1 < lowest price in range 2
-			if _lowest1 < _lowest2 
+			if _lowest1 < _lowest2
 				bullHidDiv := true
 
 				//x1, y1 is the left most part
@@ -724,10 +724,10 @@ export hidBearDivergence(bool swingHigh, float osc, color colour) =>
 
 
 	//storing the highest value, start shift & end shift of the current range & updating it as values change
-	if lookingForBear2 == true  
+	if lookingForBear2 == true
 		int lastIndex = array.size(maxRangesStart2) - 1
 
-		if array.size(maxRangesStart2) >= 1  //if there are elements in the arrays already, 
+		if array.size(maxRangesStart2) >= 1  //if there are elements in the arrays already,
 			if array.get(maxRangesStart2, lastIndex) != bearStart2 //and a new range has started, push new elements in the arrays which are made for that range specifically
 				array.push(maxRangesStart2, 0)
 				array.push(maxRangesEnd2, 0)
@@ -768,7 +768,7 @@ export hidBearDivergence(bool swingHigh, float osc, color colour) =>
 	if array.size(maxRangesHighest2) >= 2 and lowestHighestIndex2 >= 0
 
 		int lastIndex = array.size(maxRangesHighest2) - 1
-		
+
 		//get the start and end shifts of the 2 ranges
 		int start2 = array.get(maxRangesStart2, lastIndex)
 		int end2 = array.get(maxRangesEnd2, lastIndex)
@@ -783,7 +783,7 @@ export hidBearDivergence(bool swingHigh, float osc, color colour) =>
 			_endShift1 := bar_index - end1
 			_highest1 := high[_startShift1]
 
-			for i = _startShift1 to _endShift1 
+			for i = _startShift1 to _endShift1
 				if high[i] > _highest1
 					_highest1 := high[i]
 				//
@@ -797,7 +797,7 @@ export hidBearDivergence(bool swingHigh, float osc, color colour) =>
 			_endShift2 := bar_index - end2
 			_highest2 := high[_startShift2]
 
-			for i = _startShift2 to _endShift2 
+			for i = _startShift2 to _endShift2
 				if high[i] > _highest2
 					_highest2 := high[i]
 				//
@@ -810,7 +810,7 @@ export hidBearDivergence(bool swingHigh, float osc, color colour) =>
 
 
 			//check if highest price in range 1 < highest price in range 2
-			if _highest1 > _highest2 
+			if _highest1 > _highest2
 				bearHidDiv := true
 
 				//x1, y1 is the left most part

@@ -6,17 +6,19 @@ Build with: pyinstaller --name TTE --onefile --windowed tte_gui.py
 """
 
 import os
-import sys
-import signal
 import subprocess
+import sys
 import threading
 import tkinter as tk
-from tkinter import ttk, messagebox
 from pathlib import Path
+from tkinter import messagebox, ttk
 
-import yaml
 import pystray
+import yaml
+from dotenv import load_dotenv
 from PIL import Image, ImageDraw
+
+load_dotenv()
 
 
 def _get_project_dir() -> Path:
@@ -86,7 +88,7 @@ def load_settings() -> dict:
     """Load combo_settings.yaml into nested dict."""
     if not SETTINGS_FILE.exists():
         return {}
-    with open(SETTINGS_FILE, "r") as f:
+    with open(SETTINGS_FILE) as f:
         return yaml.safe_load(f) or {}
 
 
@@ -253,12 +255,8 @@ class TTEGui:
         self._section_heading(card, "Chart")
         row = self._card_row(card)
         self._labeled_entry(row, "layout_name", "Layout", width=14)
-        self._labeled_dropdown(
-            row, "chart_timeframe", "Timeframe", TIMEFRAME_CHOICES, width=12
-        )
-        self._labeled_dropdown(
-            row, "bar_style", "Bar Style", BAR_STYLE_CHOICES, width=14
-        )
+        self._labeled_dropdown(row, "chart_timeframe", "Timeframe", TIMEFRAME_CHOICES, width=12)
+        self._labeled_dropdown(row, "bar_style", "Bar Style", BAR_STYLE_CHOICES, width=14)
         self._modern_checkbox(row, "headless", "Headless")
 
         self._separator(card)
@@ -280,6 +278,19 @@ class TTEGui:
 
         self._separator(card)
 
+        # --- Snapshot row ---
+        self._section_heading(card, "Snapshot")
+        row = self._card_row(card)
+        self._modern_checkbox(row, "snapshot_enabled", "Enabled")
+        self._labeled_entry(row, "snapshot_layout_name", "Layout", width=12)
+        self._labeled_dropdown(row, "snapshot_bar_style", "Bar Style", BAR_STYLE_CHOICES, width=14)
+        row = self._card_row(card)
+        self._labeled_spinbox(row, "snapshot_batch_size", "Batch Size", 1, 20, width=5)
+        self._labeled_spinbox(row, "snapshot_poll_interval", "Poll (s)", 30, 600, width=7)
+        self._labeled_spinbox(row, "snapshot_bars_to_right", "Bars Right", 10, 200, width=7)
+
+        self._separator(card)
+
         # --- Maintenance + Webhook on same visual block ---
         cols = tk.Frame(card, bg=Theme.BG_CARD)
         cols.pack(fill="x", pady=(0, 4))
@@ -288,9 +299,7 @@ class TTEGui:
         left_col.pack(side="left", fill="x", expand=True)
         self._section_heading(left_col, "Maintenance")
         row = self._card_row(left_col)
-        self._labeled_spinbox(
-            row, "maintenance_interval", "Interval (s)", 60, 3600, width=7
-        )
+        self._labeled_spinbox(row, "maintenance_interval", "Interval (s)", 60, 3600, width=7)
 
         right_col = tk.Frame(cols, bg=Theme.BG_CARD)
         right_col.pack(side="left", fill="x", expand=True)
@@ -353,9 +362,7 @@ class TTEGui:
         self.clear_log_btn.bind(
             "<Enter>", lambda e: self.clear_log_btn.configure(fg=Theme.ACCENT_HOVER)
         )
-        self.clear_log_btn.bind(
-            "<Leave>", lambda e: self.clear_log_btn.configure(fg=Theme.ACCENT)
-        )
+        self.clear_log_btn.bind("<Leave>", lambda e: self.clear_log_btn.configure(fg=Theme.ACCENT))
 
         log_container = tk.Frame(
             outer,
@@ -556,9 +563,7 @@ class TTEGui:
         btn.bind("<Enter>", lambda e, b=btn, c=hover_color: b.configure(bg=c))
         btn.bind(
             "<Leave>",
-            lambda e, b=btn, c=bg_color: (
-                b.configure(bg=c) if b["state"] != "disabled" else None
-            ),
+            lambda e, b=btn, c=bg_color: (b.configure(bg=c) if b["state"] != "disabled" else None),
         )
         return btn
 
@@ -576,7 +581,7 @@ class TTEGui:
 
         self.vars["layout_name"].set(chart.get("layout_name", "Screener"))
         self.vars["chart_timeframe"].set(chart.get("chart_timeframe", "1 minute"))
-        self.vars["bar_style"].set(chart.get("bar_style", "line"))
+        self.vars["bar_style"].set(chart.get("bar_style", "candle"))
         self.vars["headless"].set(chart.get("headless", True))
 
         self.vars["screener_shorttitle"].set(screener.get("shorttitle", "Screener"))
@@ -588,9 +593,17 @@ class TTEGui:
 
         self.vars["maintenance_interval"].set(maintenance.get("interval", 300))
 
-        self.vars["webhook_url"].set(
-            webhook.get("url", "https://stock-buddy-app.vercel.app/api/tte/combo")
-        )
+        snapshot = data.get("snapshot", {})
+        self.vars["snapshot_enabled"].set(snapshot.get("enabled", True))
+        self.vars["snapshot_layout_name"].set(snapshot.get("layout_name", "Snapshot"))
+        self.vars["snapshot_bar_style"].set(snapshot.get("bar_style", "candle"))
+        self.vars["snapshot_batch_size"].set(snapshot.get("batch_size", 5))
+        self.vars["snapshot_poll_interval"].set(snapshot.get("poll_interval", 60))
+        self.vars["snapshot_bars_to_right"].set(snapshot.get("bars_to_right", 60))
+
+        default_url = "https://stock-buddy-app.vercel.app/api/tte/combo"
+        env_url = os.environ.get("COMBO_WEBHOOK_URL", "")
+        self.vars["webhook_url"].set(webhook.get("url", "") or env_url or default_url)
 
         # CLI flags — maintain-only enabled by default for background operation
         self.vars["setup_only"].set(False)
@@ -618,6 +631,14 @@ class TTEGui:
             },
             "webhook": {
                 "url": self.vars["webhook_url"].get(),
+            },
+            "snapshot": {
+                "enabled": self.vars["snapshot_enabled"].get(),
+                "layout_name": self.vars["snapshot_layout_name"].get(),
+                "bar_style": self.vars["snapshot_bar_style"].get(),
+                "batch_size": self.vars["snapshot_batch_size"].get(),
+                "poll_interval": self.vars["snapshot_poll_interval"].get(),
+                "bars_to_right": self.vars["snapshot_bars_to_right"].get(),
             },
             "maintenance": {
                 "interval": self.vars["maintenance_interval"].get(),
@@ -731,9 +752,7 @@ class TTEGui:
         try:
             creation_flags = 0
             if sys.platform == "win32":
-                creation_flags = (
-                    subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW
-                )
+                creation_flags = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW
 
             self.process = subprocess.Popen(
                 cmd,
@@ -810,9 +829,7 @@ class TTEGui:
             self.process.wait(timeout=15)
             self.root.after(0, self._log, "Process stopped gracefully", "success")
         except subprocess.TimeoutExpired:
-            self.root.after(
-                0, self._log, "Graceful shutdown timed out, force-killing...", "error"
-            )
+            self.root.after(0, self._log, "Graceful shutdown timed out, force-killing...", "error")
             self.root.after(0, self._force_terminate)
 
     def _force_terminate(self):
@@ -829,9 +846,7 @@ class TTEGui:
                     capture_output=True,
                     timeout=10,
                 )
-                self._log(
-                    f"Force-killed process tree (PID {self.process.pid})", "warning"
-                )
+                self._log(f"Force-killed process tree (PID {self.process.pid})", "warning")
 
                 # Also kill any orphaned Chrome processes that might be from TTE
                 # (in case they detached from the process tree)
@@ -848,9 +863,7 @@ class TTEGui:
                         timeout=10,
                     )
                     pids = [
-                        p.strip()
-                        for p in result.stdout.strip().split("\n")
-                        if p.strip().isdigit()
+                        p.strip() for p in result.stdout.strip().split("\n") if p.strip().isdigit()
                     ]
                     if pids:
                         for pid in pids:
@@ -859,13 +872,9 @@ class TTEGui:
                                 capture_output=True,
                                 timeout=5,
                             )
-                        self._log(
-                            f"Cleaned up {len(pids)} orphaned Chrome processes", "info"
-                        )
+                        self._log(f"Cleaned up {len(pids)} orphaned Chrome processes", "info")
                 except Exception as e:
-                    self._log(
-                        f"Could not clean up orphaned Chrome processes: {e}", "warning"
-                    )
+                    self._log(f"Could not clean up orphaned Chrome processes: {e}", "warning")
             else:
                 # Unix: send SIGKILL
                 self.process.kill()

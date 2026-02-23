@@ -3,28 +3,30 @@ Browser automation for TradingView. Handles sign-in, layout/timeframe management
 screener indicator configuration, webhook alert creation, and indicator re-uploading.
 """
 
-from tte.browser.helpers import Utils
-from tte import log
-from tte.config import PROFILE
 from os import getenv
 from time import sleep, time
-from tte.browser.chart import OpenChart
+
 from selenium import webdriver
-from webdriver_manager.chrome import ChromeDriverManager
-from webdriver_manager.core.utils import read_version_from_cmd
-from webdriver_manager.core.os_manager import PATTERN
-from selenium.webdriver.chrome.service import Service as ChromeService
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.common.action_chains import ActionChains
-from selenium.webdriver.support.wait import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.by import By
 from selenium.common.exceptions import (
-    WebDriverException,
-    TimeoutException,
     StaleElementReferenceException,
+    TimeoutException,
+    WebDriverException,
 )
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service as ChromeService
+from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.wait import WebDriverWait
+from webdriver_manager.chrome import ChromeDriverManager
+from webdriver_manager.core.os_manager import PATTERN
+from webdriver_manager.core.utils import read_version_from_cmd
+
+from tte import log
+from tte.browser.chart import OpenChart
+from tte.browser.helpers import Utils
+from tte.config import PROFILE
 
 # Set up logger for this file
 open_tv_logger = log.setup_logger(__name__, log.INFO)
@@ -41,7 +43,6 @@ CHROME_PROFILES_PATH = getenv("CHROME_PROFILES_PATH")
 
 # class
 class Browser:
-
     def __init__(
         self,
         keep_open: bool,
@@ -58,10 +59,10 @@ class Browser:
         screener_sb_short: str,
         screener_sb_name: str,
         mode: str = "legacy",
-        layout_name: str = None,
-        chart_timeframe: str = None,
-        bar_style: str = None,
-        chrome_profile: str = None,
+        layout_name: str | None = None,
+        chart_timeframe: str | None = None,
+        bar_style: str | None = None,
+        chrome_profile: str | None = None,
         user_data_suffix: str = "",
         browser_id: int = 0,
         headless: bool = False,
@@ -91,11 +92,7 @@ class Browser:
                     text=True,
                     timeout=15,
                 )
-                pids = [
-                    p.strip()
-                    for p in result.stdout.strip().split("\n")
-                    if p.strip().isdigit()
-                ]
+                pids = [p.strip() for p in result.stdout.strip().split("\n") if p.strip().isdigit()]
                 if pids:
                     for pid in pids:
                         subprocess.run(
@@ -103,9 +100,7 @@ class Browser:
                             capture_output=True,
                             timeout=5,
                         )
-                    open_tv_logger.debug(
-                        f"Killed {len(pids)} Chrome processes using TTE profiles"
-                    )
+                    open_tv_logger.debug(f"Killed {len(pids)} Chrome processes using TTE profiles")
                     sleep(2)
                 else:
                     open_tv_logger.debug("No existing TTE Chrome processes found")
@@ -124,9 +119,7 @@ class Browser:
         chrome_options.add_argument("--no-sandbox")
         chrome_options.add_argument("--disable-dev-shm-usage")
         chrome_options.add_argument("--disable-gpu")  # Helps with crashes
-        chrome_options.add_argument(
-            "--disable-software-rasterizer"
-        )  # Helps with crashes
+        chrome_options.add_argument("--disable-software-rasterizer")  # Helps with crashes
 
         # Prevent Chrome from throttling backgrounded/occluded windows (critical for parallel browsers)
         chrome_options.add_argument("--disable-background-timer-throttling")
@@ -143,9 +136,7 @@ class Browser:
         if chrome_profile is not None:
             debug_port = 9222 + browser_id
             chrome_options.add_argument(f"--remote-debugging-port={debug_port}")
-            open_tv_logger.debug(
-                f"Remote debugging port: {debug_port} (browser_id={browser_id})"
-            )
+            open_tv_logger.debug(f"Remote debugging port: {debug_port} (browser_id={browser_id})")
 
         open_tv_logger.debug("Getting Chrome version...")
         cmd = "powershell -command \"&{(Get-Item 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe').VersionInfo.ProductVersion}\""
@@ -216,9 +207,7 @@ class Browser:
                 )
             )
             return True
-        except (
-            TimeoutException
-        ):  # If the products menu is not found, the user is not signed in
+        except TimeoutException:  # If the products menu is not found, the user is not signed in
             open_tv_logger.warning(
                 "Products menu not found within 5 seconds. User might not be signed in."
             )
@@ -263,9 +252,7 @@ class Browser:
 
             # Always wait up to 60s for sign-in to complete (handles 2FA, manual login, etc.)
             try:
-                open_tv_logger.info(
-                    "Waiting up to 60s for sign-in (enter 2FA code if prompted)..."
-                )
+                open_tv_logger.info("Waiting up to 60s for sign-in (enter 2FA code if prompted)...")
                 WebDriverWait(self.driver, 60).until(
                     EC.presence_of_element_located(
                         (By.CSS_SELECTOR, 'a[data-main-menu-root-track-id="products"]')
@@ -274,9 +261,7 @@ class Browser:
                 open_tv_logger.info("Successfully signed in to TradingView")
                 return True
             except TimeoutException:
-                open_tv_logger.error(
-                    "Failed to sign in to TradingView (timed out after 60s)"
-                )
+                open_tv_logger.error("Failed to sign in to TradingView (timed out after 60s)")
                 return False
 
     def setup_tv(self):
@@ -306,7 +291,7 @@ class Browser:
         # set the timeframe to the correct timeframe
         if not self.open_chart.change_tframe(self.chart_timeframe):
             self.open_chart.change_tframe(self.chart_timeframe)  # try once more
-            if not self.current_chart_tframe() == self.chart_timeframe:
+            if self.current_chart_tframe() != self.chart_timeframe:
                 open_tv_logger.error(
                     f"Cannot change the chart timeframe to {self.chart_timeframe}. Exiting function"
                 )
@@ -340,7 +325,7 @@ class Browser:
         # Make the screener visible
         if not self.indicator_visibility(True, self.screener_ob_short):
             self.indicator_visibility(True, self.screener_ob_short)
-            if self.is_visible(self.screener_ob_short) == False:
+            if not self.is_visible(self.screener_ob_short):
                 open_tv_logger.warning(
                     f"Failed to make screener '{self.screener_ob_short}' visible. Continuing anyway."
                 )
@@ -376,14 +361,9 @@ class Browser:
         try:
             # switch the layout if we are on some other layout. if we are on the screener layout, we don't need to do anything
             curr_layout = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located(
-                    (By.XPATH, '//*[@id="header-toolbar-save-load"]')
-                )
+                EC.presence_of_element_located((By.XPATH, '//*[@id="header-toolbar-save-load"]'))
             )
-            if (
-                curr_layout.find_element(By.CSS_SELECTOR, ".text-yyMUOAN9").text
-                == layout_name
-            ):
+            if curr_layout.find_element(By.CSS_SELECTOR, ".text-yyMUOAN9").text == layout_name:
                 return True
 
             # click on the dropdown arrow
@@ -413,25 +393,19 @@ class Browser:
                 ):
                     layout.click()
                     return True
-        except Exception as e:
-            open_tv_logger.exception(
-                f"An error happened when changing the layout. Error: "
-            )
+        except Exception:
+            open_tv_logger.exception("An error happened when changing the layout. Error: ")
             return False
 
     def current_layout(self):
         """This returns the current layout of the chart."""
         try:
             curr_layout = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located(
-                    (By.XPATH, '//*[@id="header-toolbar-save-load"]')
-                )
+                EC.presence_of_element_located((By.XPATH, '//*[@id="header-toolbar-save-load"]'))
             )
             return curr_layout.find_element(By.CSS_SELECTOR, ".text-yyMUOAN9").text
-        except Exception as e:
-            open_tv_logger.exception(
-                f"An error happened when getting the current layout. Error: "
-            )
+        except Exception:
+            open_tv_logger.exception("An error happened when getting the current layout. Error: ")
             return ""
 
     def save_layout(self):
@@ -439,22 +413,18 @@ class Browser:
         try:
             # check if the layout has been saved. If it hasn't, save it.
             curr_layout = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located(
-                    (By.XPATH, '//*[@id="header-toolbar-save-load"]')
-                )
+                EC.presence_of_element_located((By.XPATH, '//*[@id="header-toolbar-save-load"]'))
             )
             if "hidden" not in curr_layout.find_element(
                 By.CSS_SELECTOR, ".saveString-XVd1Kfjg"
             ).get_attribute("class"):
                 curr_layout.click()
-                open_tv_logger.exception(f"Saved the current layout!")
+                open_tv_logger.exception("Saved the current layout!")
 
             return True
 
-        except Exception as e:
-            open_tv_logger.exception(
-                f"An error happened when saving the layout. Error: "
-            )
+        except Exception:
+            open_tv_logger.exception("An error happened when saving the layout. Error: ")
             return False
 
     def _close_dropdown_by_clicking_settings(self):
@@ -464,7 +434,7 @@ class Browser:
             settings = self.driver.find_element(By.CSS_SELECTOR, ".content-tBgV1m0B")
             settings.click()
             sleep(0.5)
-        except:
+        except Exception:
             pass
 
     def change_settings(self, symbols_list, screener_shorttitle=None):
@@ -500,9 +470,7 @@ class Browser:
                     indicator = self._safe_indicator_access(self.screener_sb_short)
                     screeners_to_configure = [(self.screener_sb_short, indicator)]
                 else:
-                    open_tv_logger.error(
-                        f"Unknown screener shorttitle: {screener_shorttitle}"
-                    )
+                    open_tv_logger.error(f"Unknown screener shorttitle: {screener_shorttitle}")
                     return False
             else:
                 # Configure all 3 screeners - get fresh indicator references
@@ -566,26 +534,20 @@ class Browser:
                         search_input.send_keys(Keys.ENTER)
 
                     # click on submit
-                    self.driver.find_element(
-                        By.CSS_SELECTOR, 'button[name="submit"]'
-                    ).click()
+                    self.driver.find_element(By.CSS_SELECTOR, 'button[name="submit"]').click()
                     open_tv_logger.info(
                         f"Successfully changed the inputs of screener {shorttitle}: {symbols_list}"
                     )
-                    sleep(
-                        0.5
-                    )  # Brief pause for dialog close; callers add their own recalc wait
-                except Exception as e:
+                    sleep(0.5)  # Brief pause for dialog close; callers add their own recalc wait
+                except Exception:
                     open_tv_logger.exception(
                         f"Error occurred when filling in the inputs of screener {shorttitle}. Error:"
                     )
                     all_success = False
 
             return all_success
-        except Exception as e:
-            open_tv_logger.exception(
-                "Error occurred when configuring screeners. Error:"
-            )
+        except Exception:
+            open_tv_logger.exception("Error occurred when configuring screeners. Error:")
             return False
 
     def open_alerts_sidebar(self):
@@ -606,10 +568,8 @@ class Browser:
             else:  # if the alerts sidebar is already open
                 open_tv_logger.info("The alerts sidebar is already open!")
                 return True
-        except Exception as e:
-            open_tv_logger.exception(
-                f"An error happened when opening the alerts sidebar. Error: "
-            )
+        except Exception:
+            open_tv_logger.exception("An error happened when opening the alerts sidebar. Error: ")
             return False
 
     def change_candles_type(self, candle_type: str):
@@ -641,15 +601,11 @@ class Browser:
             for btn in radio_buttons:
                 if btn.get_attribute("data-value") == candle_type.lower():
                     btn.click()
-                    open_tv_logger.info(
-                        f"Changed candle type to {candle_type} via toolbar button"
-                    )
+                    open_tv_logger.info(f"Changed candle type to {candle_type} via toolbar button")
                     return True
 
             # If not in toolbar, open the "Bar's style" dropdown menu
-            open_tv_logger.info(
-                f"Changing the style of candles to {candle_type} via dropdown"
-            )
+            open_tv_logger.info(f"Changing the style of candles to {candle_type} via dropdown")
             dropdown_button = WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable(
                     (
@@ -662,15 +618,11 @@ class Browser:
 
             # Wait for the dropdown menu to appear
             menu = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located(
-                    (By.CSS_SELECTOR, 'div[data-qa-id="menu-inner"]')
-                )
+                EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-qa-id="menu-inner"]'))
             )
 
             # Find the desired type by data-value and click on it
-            candle_types = menu.find_elements(
-                By.CSS_SELECTOR, 'div[data-role="menuitem"]'
-            )
+            candle_types = menu.find_elements(By.CSS_SELECTOR, 'div[data-role="menuitem"]')
             for c in candle_types:
                 if c.get_attribute("data-value") == candle_type.lower():
                     c.click()
@@ -714,9 +666,7 @@ class Browser:
 
             # Click the + button to open alert creation dialog
             plus_button = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable(
-                    (By.CSS_SELECTOR, 'div[data-name="set-alert-button"]')
-                )
+                EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-name="set-alert-button"]'))
             )
             plus_button.click()
             open_tv_logger.info("Clicked on the + button to create webhook alert")
@@ -730,9 +680,7 @@ class Browser:
                 )
                 open_tv_logger.info("Alert creation dialog appeared")
             except TimeoutException:
-                open_tv_logger.warning(
-                    "Alert dialog timeout, refreshing page and retrying..."
-                )
+                open_tv_logger.warning("Alert dialog timeout, refreshing page and retrying...")
                 self.driver.get(self.driver.current_url)  # Refresh page
                 sleep(3)  # Wait for page to reload
 
@@ -771,18 +719,14 @@ class Browser:
 
             # Step 2: Wait for the webhook checkbox to appear (indicates tab is loaded)
             webhook_checkbox = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located(
-                    (By.CSS_SELECTOR, 'input[data-qa-id="webhook"]')
-                )
+                EC.presence_of_element_located((By.CSS_SELECTOR, 'input[data-qa-id="webhook"]'))
             )
             open_tv_logger.info("Notifications tab loaded - webhook checkbox visible")
 
             # Step 3: Ensure the webhook checkbox is checked
             if not webhook_checkbox.is_selected():
                 # Click the parent label element since the input might not be directly clickable
-                webhook_label = webhook_checkbox.find_element(
-                    By.XPATH, "./ancestor::label"
-                )
+                webhook_label = webhook_checkbox.find_element(By.XPATH, "./ancestor::label")
                 webhook_label.click()
                 open_tv_logger.info("Enabled webhook checkbox")
             else:
@@ -802,9 +746,7 @@ class Browser:
 
             # Step 5: Click the Create button
             submit_button = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable(
-                    (By.CSS_SELECTOR, 'button[data-qa-id="submit"]')
-                )
+                EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[data-qa-id="submit"]'))
             )
             submit_button.click()
             open_tv_logger.info('Clicked "Create" to submit the alert')
@@ -825,9 +767,7 @@ class Browser:
                 open_tv_logger.error(f"Error in alert dialog: {error_text}")
 
                 if "data subscription" in error_text:
-                    open_tv_logger.warning(
-                        "Data subscription error - symbol not available in plan"
-                    )
+                    open_tv_logger.warning("Data subscription error - symbol not available in plan")
                     self._close_alert_dialog()
                     return (False, "data_subscription")
 
@@ -841,7 +781,7 @@ class Browser:
                 )
                 return (True, None)
 
-        except Exception as e:
+        except Exception:
             open_tv_logger.exception(
                 f"Error occurred when creating webhook alert for {indicator_shorttitle}. Error:"
             )
@@ -865,17 +805,13 @@ class Browser:
                     return
 
                 # Fall back to close (X) button
-                close_buttons = popup.find_elements(
-                    By.CSS_SELECTOR, 'button[data-name="close"]'
-                )
+                close_buttons = popup.find_elements(By.CSS_SELECTOR, 'button[data-name="close"]')
                 if close_buttons:
                     close_buttons[0].click()
                     open_tv_logger.info("Closed alert dialog via close button")
                     return
 
-                open_tv_logger.warning(
-                    "Could not find Cancel or close button in alert dialog"
-                )
+                open_tv_logger.warning("Could not find Cancel or close button in alert dialog")
         except Exception as e:
             open_tv_logger.warning(f"Error closing alert dialog: {e}")
 
@@ -905,27 +841,19 @@ class Browser:
                     condition_dropdown = WebDriverWait(popup, 2).until(
                         EC.presence_of_element_located((By.CSS_SELECTOR, selector))
                     )
-                    open_tv_logger.info(
-                        f"Found condition dropdown with selector: {selector}"
-                    )
+                    open_tv_logger.info(f"Found condition dropdown with selector: {selector}")
                     break
                 except TimeoutException:
                     continue
 
             if not condition_dropdown:
-                open_tv_logger.error(
-                    "Could not find condition dropdown with any known selector"
-                )
+                open_tv_logger.error("Could not find condition dropdown with any known selector")
                 return False
 
             # Get current label text from inside the dropdown
-            label_element = condition_dropdown.find_element(
-                By.CSS_SELECTOR, ".label-LM2kIa9B"
-            )
+            label_element = condition_dropdown.find_element(By.CSS_SELECTOR, ".label-LM2kIa9B")
             current_label = label_element.text.strip()
-            open_tv_logger.info(
-                f"Condition dropdown currently shows: '{current_label}'"
-            )
+            open_tv_logger.info(f"Condition dropdown currently shows: '{current_label}'")
 
             # Check if already showing the correct screener
             if indicator_shorttitle in current_label:
@@ -972,9 +900,7 @@ class Browser:
             return False
 
         except TimeoutException:
-            open_tv_logger.error(
-                "Timeout waiting for condition dropdown or options menu"
-            )
+            open_tv_logger.error("Timeout waiting for condition dropdown or options menu")
             return False
         except Exception as e:
             open_tv_logger.exception(f"Error validating alert condition: {e}")
@@ -989,7 +915,7 @@ class Browser:
         indicator = self._safe_indicator_access(shorttitle)
 
         try:
-            if indicator != None:  # that means that we've found our indicator
+            if indicator is not None:  # that means that we've found our indicator
                 eye = indicator.find_element(
                     By.CSS_SELECTOR, 'button[data-qa-id="legend-show-hide-action"]'
                 )
@@ -997,7 +923,7 @@ class Browser:
                     VISIBLE if "Hide" in eye.get_attribute("aria-label") else HIDDEN
                 )
 
-                if make_visible == True:  # make the indicator visible
+                if make_visible:  # make the indicator visible
                     if current_visibility == HIDDEN:
                         indicator.click()
                         eye.click()
@@ -1011,7 +937,7 @@ class Browser:
                         )
                         return True
 
-                if make_visible == False:  # make the indicator hidden
+                if not make_visible:  # make the indicator hidden
                     if current_visibility == VISIBLE:
                         indicator.click()
                         eye.click()
@@ -1024,9 +950,9 @@ class Browser:
                             f"{shorttitle} indicator is already hidden. No need to change its visibility!"
                         )
                         return True
-        except Exception as e:
+        except Exception:
             open_tv_logger.exception(
-                f'Error occurred when changing the visibility of {shorttitle} to make it {"visible" if make_visible else "hidden"}. Error: '
+                f"Error occurred when changing the visibility of {shorttitle} to make it {'visible' if make_visible else 'hidden'}. Error: "
             )
             return False
 
@@ -1039,15 +965,11 @@ class Browser:
 
         # check its visibility
         try:
-            if indicator != None:  # that means that we've found our indicator
-                status = (
-                    "Hidden"
-                    if "disabled" in indicator.get_attribute("class")
-                    else "Shown"
-                )
+            if indicator is not None:  # that means that we've found our indicator
+                status = "Hidden" if "disabled" in indicator.get_attribute("class") else "Shown"
                 open_tv_logger.info(f"{shorttitle} indicator is {status}.")
                 return status == "Shown"
-        except Exception as e:
+        except Exception:
             open_tv_logger.exception(
                 f"Error ocurred when checking the visibility of {shorttitle} indicator. Error:"
             )
@@ -1065,9 +987,7 @@ class Browser:
 
             # ensure the indicator is visible before checking for errors
             if indicator and not self.is_visible(shorttitle):
-                open_tv_logger.info(
-                    f"Making {shorttitle} visible before checking for errors"
-                )
+                open_tv_logger.info(f"Making {shorttitle} visible before checking for errors")
                 self.indicator_visibility(True, shorttitle)
 
             # if there is no error
@@ -1109,12 +1029,12 @@ class Browser:
                     return True
                 open_tv_logger.error(f"There is an error in {shorttitle}.")
                 return False
-            except Exception as e:
+            except Exception:
                 open_tv_logger.exception(
                     f"Error occurred even after retry for {shorttitle}. Error:"
                 )
                 return False
-        except Exception as e:
+        except Exception:
             open_tv_logger.exception(
                 f"Error ocurred when checking if {shorttitle} had an error. Error:"
             )
@@ -1127,18 +1047,14 @@ class Browser:
         def open_dropdown():
             """If the drpodown isn't already open, clicks the 3 dots and returns the dropdown that opens"""
             # if the dropdown menu isn't already open
-            if not self.driver.find_elements(
-                By.CSS_SELECTOR, 'div[data-qa-id="menu-inner"]'
-            ):
+            if not self.driver.find_elements(By.CSS_SELECTOR, 'div[data-qa-id="menu-inner"]'):
                 WebDriverWait(self.driver, 5).until(
                     EC.element_to_be_clickable(
                         (By.CSS_SELECTOR, 'div[data-name="alerts-settings-button"]')
                     )
                 ).click()
             return WebDriverWait(self.driver, 5).until(
-                EC.presence_of_element_located(
-                    (By.CSS_SELECTOR, 'div[data-qa-id="menu-inner"]')
-                )
+                EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-qa-id="menu-inner"]'))
             )
 
         try:
@@ -1150,23 +1066,17 @@ class Browser:
                 By.CSS_SELECTOR, "div.list-G90Hl2iS div.itemBody-ucBqatk5"
             )
             if alert_items == []:
-                open_tv_logger.info(
-                    "There are no alerts. No need to delete any alerts!"
-                )
+                open_tv_logger.info("There are no alerts. No need to delete any alerts!")
                 return True
 
             dropdown = open_dropdown()
 
             # Check if "Stop All" is disabled
             stop_all_button = WebDriverWait(dropdown, 10).until(
-                EC.presence_of_all_elements_located(
-                    (By.CSS_SELECTOR, dropdown_option_selector)
-                )
+                EC.presence_of_all_elements_located((By.CSS_SELECTOR, dropdown_option_selector))
             )[1]
             if "isDisabled" in stop_all_button.get_attribute("class"):
-                open_tv_logger.info(
-                    'The "Stop All" option is disabled. No need to click it.'
-                )
+                open_tv_logger.info('The "Stop All" option is disabled. No need to click it.')
             else:
                 stop_all_button.click()
                 self.utils.click_yes_in_confirm_popup(self.driver)
@@ -1175,9 +1085,7 @@ class Browser:
 
             # Check if "Delete All Inactive" is disabled
             delete_inactive_button = WebDriverWait(dropdown, 10).until(
-                EC.presence_of_all_elements_located(
-                    (By.CSS_SELECTOR, dropdown_option_selector)
-                )
+                EC.presence_of_all_elements_located((By.CSS_SELECTOR, dropdown_option_selector))
             )[2]
             if "isDisabled" in delete_inactive_button.get_attribute("class"):
                 open_tv_logger.info(
@@ -1189,9 +1097,9 @@ class Browser:
 
             open_tv_logger.info("All alerts deleted successfully")
             return True
-        except Exception as e:
+        except Exception:
             open_tv_logger.exception(
-                f"Error happened somewhere when deleting all alerts. Failed to delete all alerts. Error:"
+                "Error happened somewhere when deleting all alerts. Failed to delete all alerts. Error:"
             )
             return False
 
@@ -1199,9 +1107,7 @@ class Browser:
         """Returns the indicator which has the same shorttitle as `ind_shorttitle`. If an indicator with the same shorttitle can't be found or an error occurs, `None` will be returned"""
         try:
             indicator = None
-            sleep(
-                0.5
-            )  # brief DOM stability buffer (WebDriverWait below handles actual waiting)
+            sleep(0.5)  # brief DOM stability buffer (WebDriverWait below handles actual waiting)
             wait = WebDriverWait(self.driver, 15)
             indicators = wait.until(
                 EC.presence_of_all_elements_located(
@@ -1218,10 +1124,8 @@ class Browser:
                     open_tv_logger.info(f"Found indicator {ind_shorttitle}!")
                     indicator = ind
                     break
-        except Exception as e:
-            open_tv_logger.exception(
-                f"Failed to find indicator {ind_shorttitle}. Error:"
-            )
+        except Exception:
+            open_tv_logger.exception(f"Failed to find indicator {ind_shorttitle}. Error:")
             return None
 
         return indicator
@@ -1289,9 +1193,7 @@ class Browser:
             # Get fresh indicator reference to avoid stale element
             fresh_indicator = self._safe_indicator_access(indicator_shorttitle)
             if not fresh_indicator:
-                open_tv_logger.error(
-                    f"Could not get fresh reference to {indicator_shorttitle}"
-                )
+                open_tv_logger.error(f"Could not get fresh reference to {indicator_shorttitle}")
                 return False
 
             # click on the indicator
@@ -1319,17 +1221,13 @@ class Browser:
 
             # Wait for the dropdown menu to appear
             menu = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located(
-                    (By.CSS_SELECTOR, 'div[data-qa-id="menu-inner"]')
-                )
+                EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-qa-id="menu-inner"]'))
             )
             open_tv_logger.debug("Dropdown menu appeared")
 
             # find the indicator in the dropdown menu and click on it
             dropdown_indicators = WebDriverWait(menu, 10).until(
-                EC.presence_of_all_elements_located(
-                    (By.CSS_SELECTOR, 'div[data-role="menuitem"]')
-                )
+                EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[data-role="menuitem"]'))
             )
             for el in dropdown_indicators:
                 open_tv_logger.debug(f"Current indicator: {el}")
@@ -1379,10 +1277,8 @@ class Browser:
                 )
             )
             return tf_button.get_attribute("aria-label")
-        except Exception as e:
-            open_tv_logger.exception(
-                f"Failed to get the current chart timeframe. Error:"
-            )
+        except Exception:
+            open_tv_logger.exception("Failed to get the current chart timeframe. Error:")
             return ""
 
     def is_alerts_sidebar_open(self):
@@ -1404,18 +1300,14 @@ class Browser:
             else:
                 open_tv_logger.info("The Alerts sidebar is closed.")
                 return False
-        except Exception as e:
-            open_tv_logger.exception(
-                f"Failed to check if the Alerts sidebar is open. Error: "
-            )
+        except Exception:
+            open_tv_logger.exception("Failed to check if the Alerts sidebar is open. Error: ")
             return False
 
     def no_alerts(self):
         """This checks if there no alerts. If there are no alerts, returns `True` and returns `False` if there are alerts"""
         try:
-            self.utils.open_alert_tab(
-                self.driver
-            )  # Make sure that the Alerts tab is open
+            self.utils.open_alert_tab(self.driver)  # Make sure that the Alerts tab is open
             alerts = WebDriverWait(self.driver, 3).until(
                 EC.presence_of_element_located(
                     (
@@ -1430,6 +1322,6 @@ class Browser:
             else:
                 open_tv_logger.info("There are alerts!")
                 return False
-        except Exception as e:
-            open_tv_logger.exception(f"Failed to check if there are no alerts. Error: ")
+        except Exception:
+            open_tv_logger.exception("Failed to check if there are no alerts. Error: ")
             return False

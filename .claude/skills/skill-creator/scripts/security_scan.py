@@ -16,18 +16,17 @@ USAGE:
 
 from __future__ import annotations
 
-import json
-import re
-import subprocess
-import sys
-import shutil
-import tempfile
 import argparse
 import hashlib
-from pathlib import Path
-from typing import List, Dict, Optional
-from datetime import datetime
+import json
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
 from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
 
 # ANSI color codes
 RED = "\033[91m"
@@ -56,7 +55,7 @@ class SecurityIssue:
 # ============================================================================
 
 
-def get_pattern_rules() -> List[Dict]:
+def get_pattern_rules() -> list[dict]:
     """
     Define regex-based security patterns
     Used when --verbose flag is set for educational review
@@ -127,30 +126,28 @@ def check_gitleaks_installed() -> bool:
 def print_gitleaks_installation() -> None:
     """Print gitleaks installation instructions"""
     print(f"\n{YELLOW}⚠️  gitleaks not installed{RESET}")
-    print(f"\ngitleaks is the industry-standard tool for detecting secrets.")
-    print(f"It's used by GitHub, GitLab, and thousands of companies.\n")
+    print("\ngitleaks is the industry-standard tool for detecting secrets.")
+    print("It's used by GitHub, GitLab, and thousands of companies.\n")
     print(f"{BLUE}Installation:{RESET}")
-    print(f"  macOS:     brew install gitleaks")
+    print("  macOS:     brew install gitleaks")
     print(
-        f"  Linux:     wget https://github.com/gitleaks/gitleaks/releases/download/v8.18.2/gitleaks_8.18.2_linux_x64.tar.gz"
+        "  Linux:     wget https://github.com/gitleaks/gitleaks/releases/download/v8.18.2/gitleaks_8.18.2_linux_x64.tar.gz"
     )
     print(
-        f"             tar -xzf gitleaks_8.18.2_linux_x64.tar.gz && sudo mv gitleaks /usr/local/bin/"
+        "             tar -xzf gitleaks_8.18.2_linux_x64.tar.gz && sudo mv gitleaks /usr/local/bin/"
     )
-    print(f"  Windows:   scoop install gitleaks")
-    print(f"\nAfter installation, run this script again.\n")
+    print("  Windows:   scoop install gitleaks")
+    print("\nAfter installation, run this script again.\n")
 
 
-def run_gitleaks(skill_path: Path) -> Optional[List[Dict]]:
+def run_gitleaks(skill_path: Path) -> list[dict] | None:
     """
     Run gitleaks scan on skill directory
     Returns: List of findings, empty list if clean, None on error
     """
     try:
         # Use temporary file for cross-platform compatibility (Windows doesn't have /dev/stdout)
-        with tempfile.NamedTemporaryFile(
-            mode="w+", suffix=".json", delete=False
-        ) as tmp_file:
+        with tempfile.NamedTemporaryFile(mode="w+", suffix=".json", delete=False) as tmp_file:
             tmp_path = tmp_file.name
 
         try:
@@ -176,7 +173,7 @@ def run_gitleaks(skill_path: Path) -> Optional[List[Dict]]:
                 return []
 
             # Parse findings from temp file
-            with open(tmp_path, "r", encoding="utf-8") as f:
+            with open(tmp_path, encoding="utf-8") as f:
                 return json.load(f)
 
         finally:
@@ -193,7 +190,7 @@ def run_gitleaks(skill_path: Path) -> Optional[List[Dict]]:
         return None
 
 
-def scan_file_patterns(file_path: Path, patterns: List[Dict]) -> List[SecurityIssue]:
+def scan_file_patterns(file_path: Path, patterns: list[dict]) -> list[SecurityIssue]:
     """
     Scan a single file using regex patterns
     Used for verbose mode educational review
@@ -213,18 +210,14 @@ def scan_file_patterns(file_path: Path, patterns: List[Dict]) -> List[SecurityIs
 
                         # Check exceptions
                         if "exceptions" in pattern_def:
-                            if any(
-                                exc in matched_text for exc in pattern_def["exceptions"]
-                            ):
+                            if any(exc in matched_text for exc in pattern_def["exceptions"]):
                                 continue
 
                         issues.append(
                             SecurityIssue(
                                 severity=pattern_def["severity"],
                                 category=pattern_def["category"],
-                                file_path=str(
-                                    file_path.relative_to(file_path.parent.parent)
-                                ),
+                                file_path=str(file_path.relative_to(file_path.parent.parent)),
                                 line_number=line_num,
                                 pattern_name=pattern_def["name"],
                                 message=pattern_def["message"],
@@ -233,13 +226,13 @@ def scan_file_patterns(file_path: Path, patterns: List[Dict]) -> List[SecurityIs
                             )
                         )
 
-    except (UnicodeDecodeError, IOError):
+    except (OSError, UnicodeDecodeError):
         pass
 
     return issues
 
 
-def scan_skill_patterns(skill_path: Path) -> tuple[List[SecurityIssue], Dict[str, int]]:
+def scan_skill_patterns(skill_path: Path) -> tuple[list[SecurityIssue], dict[str, int]]:
     """
     Scan all files in skill directory using regex patterns
     Returns: (issues list, severity stats dict)
@@ -292,7 +285,7 @@ def categorize_gitleaks_severity(rule_id: str) -> str:
 # ============================================================================
 
 
-def print_simple_report(gitleaks_findings: List[Dict], skill_name: str) -> int:
+def print_simple_report(gitleaks_findings: list[dict], skill_name: str) -> int:
     """
     Simple report for packaging workflow (exit code matters)
     Returns: Exit code (0=clean, 2=critical, 1=high)
@@ -307,9 +300,7 @@ def print_simple_report(gitleaks_findings: List[Dict], skill_name: str) -> int:
         if categorize_gitleaks_severity(f.get("RuleID", "")) == "CRITICAL"
     )
 
-    print(
-        f"\n{RED}❌ Security scan FAILED: {len(gitleaks_findings)} issue(s) found{RESET}"
-    )
+    print(f"\n{RED}❌ Security scan FAILED: {len(gitleaks_findings)} issue(s) found{RESET}")
     print(f"   {RED}Critical: {critical_count}{RESET}")
     print(f"   {YELLOW}High: {len(gitleaks_findings) - critical_count}{RESET}\n")
 
@@ -324,17 +315,17 @@ def print_simple_report(gitleaks_findings: List[Dict], skill_name: str) -> int:
         print(f"  ... and {len(gitleaks_findings) - 5} more\n")
 
     print(f"{RED}REQUIRED ACTIONS:{RESET}")
-    print(f"  1. Remove all hardcoded secrets from code")
-    print(f"  2. Use environment variables: os.environ.get('KEY_NAME')")
-    print(f"  3. Re-run scan after fixes\n")
+    print("  1. Remove all hardcoded secrets from code")
+    print("  2. Use environment variables: os.environ.get('KEY_NAME')")
+    print("  3. Re-run scan after fixes\n")
 
     return 2 if critical_count > 0 else 1
 
 
 def print_verbose_report(
-    gitleaks_findings: List[Dict],
-    pattern_issues: List[SecurityIssue],
-    pattern_stats: Dict[str, int],
+    gitleaks_findings: list[dict],
+    pattern_issues: list[SecurityIssue],
+    pattern_stats: dict[str, int],
     skill_name: str,
 ) -> int:
     """
@@ -353,10 +344,8 @@ def print_verbose_report(
             if categorize_gitleaks_severity(f.get("RuleID", "")) == "CRITICAL"
         )
 
-        print(f"📊 Secret Detection (via gitleaks):")
-        print(
-            f"  {RED}🔴 CRITICAL: {critical_count}{RESET} (API keys, passwords, tokens)"
-        )
+        print("📊 Secret Detection (via gitleaks):")
+        print(f"  {RED}🔴 CRITICAL: {critical_count}{RESET} (API keys, passwords, tokens)")
         print(
             f"  {YELLOW}🟠 HIGH: {len(gitleaks_findings) - critical_count}{RESET} (Other secrets)"
         )
@@ -378,7 +367,7 @@ def print_verbose_report(
 
     # Section 2: Pattern-based findings
     if pattern_issues:
-        print(f"📊 Code Quality & Security Patterns:")
+        print("📊 Code Quality & Security Patterns:")
         print(f"  {YELLOW}🟠 HIGH: {pattern_stats['HIGH']}{RESET}")
         print(f"  🟡 MEDIUM: {pattern_stats['MEDIUM']}")
         print(f"  Total: {sum(pattern_stats.values())}\n")
@@ -398,9 +387,7 @@ def print_verbose_report(
                     print(f"  Matched: {issue.matched_text}")
                     print(f"  Fix: {issue.recommendation}")
                 if len(severity_issues) > 10:
-                    print(
-                        f"\n  ... and {len(severity_issues) - 10} more {severity} issues"
-                    )
+                    print(f"\n  ... and {len(severity_issues) - 10} more {severity} issues")
                 print()
     else:
         print(f"{GREEN}✅ Code Patterns: Clean{RESET}\n")
@@ -408,8 +395,7 @@ def print_verbose_report(
     # Summary
     print(f"{'=' * 80}")
     has_critical = any(
-        categorize_gitleaks_severity(f.get("RuleID", "")) == "CRITICAL"
-        for f in gitleaks_findings
+        categorize_gitleaks_severity(f.get("RuleID", "")) == "CRITICAL" for f in gitleaks_findings
     )
     has_high = len(gitleaks_findings) > 0 or pattern_stats["HIGH"] > 0
 
@@ -488,7 +474,7 @@ def calculate_skill_hash(skill_path: Path) -> str:
             content = file_path.read_bytes()
             hasher.update(content)
             hasher.update(b"\0")  # Null separator
-        except (IOError, UnicodeDecodeError):
+        except (OSError, UnicodeDecodeError):
             # Skip files that can't be read
             pass
 
@@ -560,10 +546,8 @@ Exit codes:
 
     # Run gitleaks scan (always)
     print(f"🔍 Scanning: {skill_path.name}")
-    print(f"   Tool: gitleaks (industry standard)")
-    print(
-        f"   Mode: {'verbose (educational)' if args.verbose else 'simple (packaging gate)'}"
-    )
+    print("   Tool: gitleaks (industry standard)")
+    print(f"   Mode: {'verbose (educational)' if args.verbose else 'simple (packaging gate)'}")
     gitleaks_findings = run_gitleaks(skill_path)
 
     if gitleaks_findings is None:
@@ -573,7 +557,7 @@ Exit codes:
     pattern_issues = []
     pattern_stats = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0}
     if args.verbose:
-        print(f"   Running pattern-based checks...")
+        print("   Running pattern-based checks...")
         pattern_issues, pattern_stats = scan_skill_patterns(skill_path)
 
     # Generate report

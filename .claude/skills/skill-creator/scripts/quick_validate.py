@@ -3,9 +3,8 @@
 Quick validation script for skills - minimal version
 """
 
-import sys
-import os
 import re
+import sys
 from pathlib import Path
 
 
@@ -57,9 +56,7 @@ def find_path_references(content: str) -> list[str]:
         matches = re.findall(pattern, line)
         for path in matches:
             # Skip obvious placeholders
-            if any(
-                x in path.lower() for x in ["example", "xxx", "<", ">", "my-", "my_"]
-            ):
+            if any(x in path.lower() for x in ["example", "xxx", "<", ">", "my-", "my_"]):
                 continue
             unique_paths.add(path)
 
