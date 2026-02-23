@@ -259,7 +259,7 @@ class SnapshotWorker:
             sleep(0.3)
             ActionChains(driver).key_down(Keys.ALT).send_keys("r").key_up(Keys.ALT).perform()
             sleep(1)  # Wait for chart to re-render
-            logger.debug("Chart auto-fit (Alt+R) applied")
+            logger.info("Chart auto-fit (Alt+R) applied")
         except Exception:
             logger.warning("Failed to auto-fit chart via Alt+R — continuing anyway")
 
