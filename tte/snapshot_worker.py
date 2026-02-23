@@ -111,10 +111,6 @@ class SnapshotWorker:
 
         logger.info(f"Processing {len(pending)} pending snapshots")
 
-        # Set "bars to right" margin (once at startup, then every 24h)
-        if time() - self._bars_right_last_set > 86400:
-            self._set_bars_to_right()
-
         # Switch to Snapshot layout
         if not self.browser.change_layout(self.config.snapshot_layout_name):
             logger.error(
@@ -123,6 +119,10 @@ class SnapshotWorker:
             return 0
 
         sleep(2)  # Wait for layout to load
+
+        # Set "bars to right" margin (once at startup, then every 24h)
+        if time() - self._bars_right_last_set > 86400:
+            self._set_bars_to_right()
 
         # Set bar style for snapshots
         self.browser.change_candles_type(self.config.snapshot_bar_style)
