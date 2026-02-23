@@ -5,20 +5,20 @@
 indicator(title="NWE", overlay=true, timeframe='')
 
 // In technical analysis, an "envelope" typically refers to a pair of upper and lower bounds that surrounds price action to help characterize extreme overbought and oversold conditions. Envelopes are often derived from a simple moving average (SMA) and are placed at a predefined distance above and below the SMA from which they were generated.
-// However, envelopes do not necessarily need to be derived from a moving average. In fact, they can be derived from any estimator, including a kernel density estimator (KDE) such as Nadaraya-Watson (NW). Nadaraya-Watson Estimation is a non-parametric regression technique that uses a kernel function to estimate the value of a function at a given point. 
+// However, envelopes do not necessarily need to be derived from a moving average. In fact, they can be derived from any estimator, including a kernel density estimator (KDE) such as Nadaraya-Watson (NW). Nadaraya-Watson Estimation is a non-parametric regression technique that uses a kernel function to estimate the value of a function at a given point.
 // In this indicator, the Rational Quadratic (RQ) Kernel is used to estimate the value of the price at each bar. From this estimation, the upper and lower bounds of the envelope are calculated based on ATR and a user-defined multiplier.
 
 // Libraries
-import jdehorty/KernelFunctions/2 as kernels 
+import jdehorty/KernelFunctions/2 as kernels
 
 // Helper Functions
-getBounds(_atr, _nearFactor, _farFactor, _yhat) => 
+getBounds(_atr, _nearFactor, _farFactor, _yhat) =>
     _upper_far = _yhat + _farFactor*_atr
     _upper_near = _yhat + _nearFactor*_atr
     _lower_near = _yhat - _nearFactor*_atr
     _lower_far = _yhat - _farFactor*_atr
     _upper_avg = (_upper_far + _upper_near) / 2
-    _lower_avg = (_lower_far + _lower_near) / 2 
+    _lower_avg = (_lower_far + _lower_near) / 2
     [_upper_near, _upper_far, _upper_avg, _lower_near, _lower_far, _lower_avg]
 
 kernel_atr(length, _high, _low, _close) =>
@@ -52,10 +52,10 @@ green_far = input.color(color.new(color.green, 60), title='Lower Boundary Color:
 // Plots
 p_upper_far = plot(upper_far, color=red_far, title='Upper Boundary: Far')
 p_upper_avg = plot(upper_avg, color=red_near,title='Upper Boundary: Average')
-p_upper_near = plot(upper_near, color=red_near, title='Upper Boundary: Near') 
+p_upper_near = plot(upper_near, color=red_near, title='Upper Boundary: Near')
 p_yhat = plot(yhat_close, color=yhat > yhat[1] ? yhat_green : yhat_red, linewidth=2, title='Nadaraya-Watson Estimation')
 p_lower_near = plot(lower_near, color=green_near, title='Lower Boundary: Near')
-p_lower_avg = plot(lower_avg, color=green_near, title='Lower Boundary: Average') 
+p_lower_avg = plot(lower_avg, color=green_near, title='Lower Boundary: Average')
 p_lower_far = plot(lower_far, color=green_far, title='Lower Boundary: Far')
 
 // Fills

@@ -8,9 +8,11 @@ Crypto - 19
 Indices - 18
 """
 
-from tte import log
 import os
+
 from pymongo import MongoClient
+
+from tte import log
 
 # Set up logger for this file
 symbol_logger = log.setup_logger(__name__, log.DEBUG)

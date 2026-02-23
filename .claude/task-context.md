@@ -1,27 +1,62 @@
 # Task Context Tracker
 
-**Last Updated**: 2026-02-21
-**Current Task**: TTE running in background processing 1,335 pending snapshots
-**Active Branch**: `main`
-**Latest Commit (TTE)**: `293f971` — Rebuild TTE.exe with indicator loading wait fix
+**Last Updated**: 2026-02-23
+**Current Task**: Snapshot quality improvements + GUI defaults exposure
+**Active Branch**: `feat/snapshot-quality-gui-defaults`
+**Latest Commit (TTE)**: `0c9690b` — Add Snapshot config to GUI, pre-commit hooks, and codebase formatting
 **Latest Commit (Stock Buddy)**: `bc0b810` — Add snapshot backfill endpoint
 
 ---
 
 ## Task Progress Summary
 
-**All tasks complete** (task list cleared)
-
 | # | Task | Status |
 |---|------|--------|
-| 131–136 | Chart snapshots feature (full implementation) | completed |
-| 137–138 | End-to-end snapshot testing + UI verification | completed |
-| 139–143 | Post-launch Stock Buddy tasks | deleted (out of scope) |
-| 144 | Backfill snapshots for pre-existing setup messages | completed |
+| 131–144 | Chart snapshots feature + backfill | completed |
+| 145 | Understand snapshot processing timing and batch size | completed |
+| 146 | Get remaining 20 symbols into alerts on TradingView | pending |
+| 147 | Decide on testing strategy (TDD / test coverage) | pending |
+| 148 | Set up pre-commit hooks for linting, type checking, and formatting | completed |
+| 149 | Rebuild and redeploy TTE.exe | pending |
 
 ---
 
 ## Session History
+
+### Session: 2026-02-23 (Snapshot Quality + GUI Defaults)
+
+**Goal**: Improve snapshot quality and expose snapshot settings in the GUI.
+
+**Branch**: `feat/snapshot-quality-gui-defaults`
+
+#### Snapshot Quality Improvements (already committed)
+Recent commits on branch improved snapshot quality:
+- `7190735` — Improve snapshot quality and GUI defaults
+- `526d88e` — Fix: move `_set_bars_to_right()` after layout switch
+- `7d750df` — Use Snapshot layout for entire maintenance loop
+- `471685a` — Fix: initialize browser on Snapshot layout for `--maintain-only`
+- `516db09` — Fix: change Alt+R auto-fit log from debug to info
+
+#### Add Snapshot Config Section to GUI
+Added Snapshot settings section to `tte_gui.py` between Alerts and Maintenance:
+- **Row 1**: Enabled checkbox, Layout entry, Bar Style dropdown
+- **Row 2**: Batch Size (1-20), Poll Interval (30-600s), Bars Right (10-200)
+- Load/save from `combo_settings.yaml` `snapshot:` section
+- Defaults: enabled=True, layout="Snapshot", bar_style="candle", batch_size=5, poll_interval=60, bars_to_right=60
+
+**TTE.exe rebuilt** after GUI changes (20 MB, all validations passed).
+
+#### Pre-commit Hooks & Codebase Formatting (Task #148)
+Set up pre-commit hooks with ruff + pyright:
+- Added `.pre-commit-config.yaml` — trim whitespace, EOF fix, YAML check, merge conflicts, large files, debug statements, ruff, ruff-format, pyright
+- Added `pyproject.toml` with ruff/pyright config
+- Applied ruff formatting across entire codebase (whitespace, imports, quotes)
+- Added `ruff` and `pre-commit` to Pipfile dev dependencies
+- Added PRD-generator and update-docs skills
+
+**Commit**: `0c9690b` — all 9 pre-commit hooks passed, pushed to `feat/snapshot-quality-gui-defaults`
+
+---
 
 ### Session: 2026-02-21 (Snapshot Reliability + Backfill)
 
@@ -139,6 +174,8 @@ curl -X POST https://stock-buddy-app.vercel.app/api/tte/snapshots/backfill
 11. **Indicator load wait**: 3.5s polling wait on `data-status != "loading"` before settings dialog.
 12. **Backfill scope**: Last 30 days only. Older setups assumed stale/irrelevant.
 13. **MongoDB DB name**: `setup_messages` collection is in `tte` database (not `stock-buddy`).
+14. **Pre-commit hooks**: ruff (lint + format) + pyright (type check). Config in `.pre-commit-config.yaml` + `pyproject.toml`.
+15. **GUI snapshot settings**: Exposed 6 snapshot config fields (enabled, layout_name, bar_style, batch_size, poll_interval, bars_to_right) in GUI between Alerts and Maintenance sections.
 
 ---
 
@@ -157,6 +194,9 @@ curl -X POST https://stock-buddy-app.vercel.app/api/tte/snapshots/backfill
 | `Pine Script Code/TTE Screener.txt` | Production screener |
 | `docs/combo/ARCHITECTURE.md` | Full system architecture (incl. snapshots) |
 | `docs/prds/backfill-snapshots.md` | Mini PRD for backfill feature |
+| `tte_gui.py` | GUI with snapshot config section |
+| `.pre-commit-config.yaml` | Pre-commit hooks (ruff, pyright, etc.) |
+| `pyproject.toml` | Ruff + pyright config |
 
 ### Stock Buddy App (`C:/Users/dassa/Work/Stock-Buddy-App`)
 | File | Purpose |

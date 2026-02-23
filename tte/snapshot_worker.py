@@ -8,8 +8,10 @@ Uses TradingView browser automation to:
 4. Report result back to Stock Buddy API
 """
 
-import requests
+import contextlib
 from time import sleep, time
+
+import requests
 
 from tte import log
 from tte.config import ComboConfig
@@ -85,9 +87,7 @@ class StockBuddyClient:
             resp.raise_for_status()
             return True
         except requests.RequestException as e:
-            logger.error(
-                f"Failed to update snapshot for {setup_message_id}: {e}"
-            )
+            logger.error(f"Failed to update snapshot for {setup_message_id}: {e}")
             return False
 
 
@@ -98,6 +98,7 @@ class SnapshotWorker:
         self.browser = browser
         self.config = config
         self.client = client
+        self._bars_right_last_set: float = 0
 
     def process_pending_snapshots(self) -> int:
         """Poll for pending snapshots, take them, report results.
@@ -110,14 +111,11 @@ class SnapshotWorker:
 
         logger.info(f"Processing {len(pending)} pending snapshots")
 
-        # Switch to Snapshot layout
-        if not self.browser.change_layout(self.config.snapshot_layout_name):
-            logger.error(
-                f"Failed to switch to '{self.config.snapshot_layout_name}' layout — aborting snapshot phase"
-            )
-            return 0
+        # Already on Snapshot layout (set by run_maintenance at startup)
 
-        sleep(2)  # Wait for layout to load
+        # Set "bars to right" margin (once at startup, then every 24h)
+        if time() - self._bars_right_last_set > 86400:
+            self._set_bars_to_right()
 
         # Set bar style for snapshots
         self.browser.change_candles_type(self.config.snapshot_bar_style)
@@ -135,9 +133,7 @@ class SnapshotWorker:
                 logger.exception(
                     f"Unexpected error processing snapshot for {setup.get('symbol', '?')}"
                 )
-                self.client.update_snapshot(
-                    setup["setupMessageId"], error="Unexpected error"
-                )
+                self.client.update_snapshot(setup["setupMessageId"], error="Unexpected error")
 
         # No need to switch back to Screener — maintenance can run on any layout
         # (alert restart + log clear work regardless of current layout)
@@ -179,9 +175,7 @@ class SnapshotWorker:
         # 4. Change Trade Drawer indicator settings (v2 — 4 inputs)
         if not self._set_trade_drawer(setup):
             logger.error("Failed to set Trade Drawer settings")
-            self.client.update_snapshot(
-                setup_id, error="Failed to set Trade Drawer settings"
-            )
+            self.client.update_snapshot(setup_id, error="Failed to set Trade Drawer settings")
             return False
 
         sleep(1)  # Wait for indicator to render
@@ -189,17 +183,18 @@ class SnapshotWorker:
         # 5. Hide indicator legend so it doesn't appear in the snapshot
         self._hide_legend()
 
-        # 6. Take snapshot via Alt+S
+        # 6. Click chart and press Alt+R to auto-fit/reset scale
+        self._auto_fit_chart()
+
+        # 7. Take snapshot via Alt+S
         links = self._take_chart_snapshot()
 
-        # 7. Show legend again (ready for next setup)
+        # 8. Show legend again (ready for next setup)
         self._show_legend()
 
         if not links:
             logger.error("Failed to take chart snapshot")
-            self.client.update_snapshot(
-                setup_id, error="Failed to take chart snapshot"
-            )
+            self.client.update_snapshot(setup_id, error="Failed to take chart snapshot")
             return False
 
         # 7. Report success
@@ -245,6 +240,95 @@ class SnapshotWorker:
         except Exception:
             logger.debug("Legend toggler not found")
 
+    def _auto_fit_chart(self):
+        """Click chart to focus it, then press Alt+R to reset/auto-fit the scale."""
+        from selenium.webdriver.common.action_chains import ActionChains
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.common.keys import Keys
+
+        driver = self.browser.driver
+        try:
+            chart = driver.find_element(By.CSS_SELECTOR, "div.chart-markup-table")
+            ActionChains(driver).click(chart).perform()
+            sleep(0.3)
+            ActionChains(driver).key_down(Keys.ALT).send_keys("r").key_up(Keys.ALT).perform()
+            sleep(1)  # Wait for chart to re-render
+            logger.info("Chart auto-fit (Alt+R) applied")
+        except Exception:
+            logger.warning("Failed to auto-fit chart via Alt+R — continuing anyway")
+
+    def _set_bars_to_right(self):
+        """Set 'Bars to the right' via chart settings dialog (right margin for drawings)."""
+        from selenium.webdriver.common.action_chains import ActionChains
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.common.keys import Keys
+        from selenium.webdriver.support import expected_conditions as EC
+        from selenium.webdriver.support.wait import WebDriverWait
+
+        driver = self.browser.driver
+        bars_value = str(self.config.snapshot_bars_to_right)
+
+        try:
+            # 1. Right-click chart area to open context menu
+            chart = driver.find_element(By.CSS_SELECTOR, "div.chart-markup-table")
+            ActionChains(driver).context_click(chart).perform()
+            sleep(0.5)
+
+            # 2. Wait for context menu
+            WebDriverWait(driver, 5).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-qa-id="menu-inner"]'))
+            )
+
+            # 3. Click "Settings..." row
+            menu_items = driver.find_elements(By.CSS_SELECTOR, 'span[data-label="true"]')
+            settings_clicked = False
+            for item in menu_items:
+                if "Settings" in item.text:
+                    item.click()
+                    settings_clicked = True
+                    break
+            if not settings_clicked:
+                logger.warning("Could not find 'Settings...' in context menu")
+                ActionChains(driver).send_keys(Keys.ESCAPE).perform()
+                return
+
+            # 4. Wait for chart settings dialog
+            dialog = WebDriverWait(driver, 5).until(
+                EC.presence_of_element_located(
+                    (By.CSS_SELECTOR, 'div[data-name="series-properties-dialog"]')
+                )
+            )
+            sleep(0.5)
+
+            # 5. Click "Canvas" tab
+            canvas_tab = dialog.find_element(By.CSS_SELECTOR, 'button[data-name="canvas"]')
+            canvas_tab.click()
+            sleep(0.5)
+
+            # 6. Find and fill "paneRightMargin" input
+            margin_input = dialog.find_element(
+                By.CSS_SELECTOR, 'input[data-name="paneRightMargin"]'
+            )
+            margin_input.click()
+            sleep(0.1)
+            ActionChains(driver).key_down(Keys.CONTROL, margin_input).send_keys("a").key_up(
+                Keys.CONTROL
+            ).perform()
+            margin_input.send_keys(Keys.BACKSPACE)
+            margin_input.send_keys(bars_value)
+
+            # 7. Click submit to save
+            dialog.find_element(By.CSS_SELECTOR, 'button[name="submit"]').click()
+            sleep(0.5)
+
+            self._bars_right_last_set = time()
+            logger.info(f"Set bars to right: {bars_value}")
+
+        except Exception:
+            logger.warning("Failed to set bars to right — continuing anyway", exc_info=True)
+            with contextlib.suppress(Exception):
+                ActionChains(driver).send_keys(Keys.ESCAPE).perform()
+
     def _wait_for_indicator_ready(self, shorttitle: str, element, timeout: float = 3.5):
         """Wait up to `timeout` seconds for a legend-source-item to finish loading.
 
@@ -281,11 +365,11 @@ class SnapshotWorker:
 
         Inputs: entry_time, entry_price, sl, tp1, tp2, tp3
         """
+        from selenium.webdriver.common.action_chains import ActionChains
         from selenium.webdriver.common.by import By
         from selenium.webdriver.common.keys import Keys
-        from selenium.webdriver.common.action_chains import ActionChains
-        from selenium.webdriver.support.wait import WebDriverWait
         from selenium.webdriver.support import expected_conditions as EC
+        from selenium.webdriver.support.wait import WebDriverWait
 
         drawer_shorttitle = self.config.snapshot_drawer_shorttitle
         driver = self.browser.driver
@@ -340,9 +424,7 @@ class SnapshotWorker:
             logger.info(f"Found {len(inputs)} Trade Drawer inputs")
 
             if len(inputs) < 4:
-                logger.error(
-                    f"Expected at least 4 Trade Drawer inputs, found {len(inputs)}"
-                )
+                logger.error(f"Expected at least 4 Trade Drawer inputs, found {len(inputs)}")
                 # Close dialog
                 try:
                     settings.find_element(By.CSS_SELECTOR, 'button[name="cancel"]').click()
@@ -355,19 +437,19 @@ class SnapshotWorker:
             # alertTimestamp from Stock Buddy is already Unix milliseconds
             alert_ts = setup.get("alertTimestamp", "")
             values = [
-                str(alert_ts),                             # entry_time (Unix ms)
-                str(setup.get("entryPrice", "")),          # entry_price
-                str(setup.get("stopLoss", "")),            # sl
-                str(setup.get("takeProfit", "")),          # tp1
+                str(alert_ts),  # entry_time (Unix ms)
+                str(setup.get("entryPrice", "")),  # entry_price
+                str(setup.get("stopLoss", "")),  # sl
+                str(setup.get("takeProfit", "")),  # tp1
             ]
 
             for i, inp in enumerate(inputs[:4]):
                 # Click the input to focus it, then Ctrl+A to select all, then type new value
                 inp.click()
                 sleep(0.1)
-                ActionChains(driver).key_down(Keys.CONTROL, inp).send_keys(
-                    "a"
-                ).key_up(Keys.CONTROL).perform()
+                ActionChains(driver).key_down(Keys.CONTROL, inp).send_keys("a").key_up(
+                    Keys.CONTROL
+                ).perform()
                 inp.send_keys(Keys.BACKSPACE)
                 inp.send_keys(values[i])
 
@@ -388,10 +470,8 @@ class SnapshotWorker:
         except Exception:
             logger.exception("Failed to set Trade Drawer settings")
             # Try to close any open dialog
-            try:
+            with contextlib.suppress(Exception):
                 ActionChains(driver).send_keys(Keys.ESCAPE).perform()
-            except Exception:
-                pass
             return False
 
     def _take_chart_snapshot(self) -> dict:
@@ -403,33 +483,32 @@ class SnapshotWorker:
         Reads clipboard via JavaScript to avoid interference with user's
         desktop clipboard operations.
         """
+        from selenium.webdriver.common.action_chains import ActionChains
         from selenium.webdriver.common.by import By
         from selenium.webdriver.common.keys import Keys
-        from selenium.webdriver.common.action_chains import ActionChains
 
         driver = self.browser.driver
 
         try:
             # Grant clipboard-read permission (required for headless Chrome)
             try:
-                driver.execute_cdp_cmd("Browser.grantPermissions", {
-                    "permissions": ["clipboardReadWrite", "clipboardSanitizedWrite"],
-                    "origin": driver.current_url.split("?")[0],
-                })
+                driver.execute_cdp_cmd(
+                    "Browser.grantPermissions",
+                    {
+                        "permissions": ["clipboardReadWrite", "clipboardSanitizedWrite"],
+                        "origin": driver.current_url.split("?")[0],
+                    },
+                )
             except Exception:
                 pass  # Non-critical — works without this in non-headless mode
 
             # Click on the chart to make it active/focused
-            chart = driver.find_element(
-                By.CSS_SELECTOR, 'div.chart-markup-table'
-            )
+            chart = driver.find_element(By.CSS_SELECTOR, "div.chart-markup-table")
             ActionChains(driver).click(chart).perform()
             sleep(0.5)
 
             # Send Alt+S to take snapshot (copies link to clipboard)
-            ActionChains(driver).key_down(Keys.ALT).send_keys("s").key_up(
-                Keys.ALT
-            ).perform()
+            ActionChains(driver).key_down(Keys.ALT).send_keys("s").key_up(Keys.ALT).perform()
 
             logger.info("Sent Alt+S to take snapshot, waiting for clipboard...")
             sleep(2)  # Wait for TradingView to upload and copy link

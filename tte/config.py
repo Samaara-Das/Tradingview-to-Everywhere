@@ -23,7 +23,7 @@ def _load_yaml() -> dict:
     if not SETTINGS_FILE.exists():
         print(f"[WARNING] {SETTINGS_FILE} not found, using defaults", flush=True)
         return {}
-    with open(SETTINGS_FILE, "r") as f:
+    with open(SETTINGS_FILE) as f:
         return yaml.safe_load(f) or {}
 
 
@@ -37,7 +37,7 @@ class ComboConfig:
     # Chart settings
     layout_name: str = _yaml.get("chart", {}).get("layout_name", "Screener")
     chart_timeframe: str = _yaml.get("chart", {}).get("chart_timeframe", "1 minute")
-    bar_style: str = _yaml.get("chart", {}).get("bar_style", "line")
+    bar_style: str = _yaml.get("chart", {}).get("bar_style", "candle")
     headless: bool = _yaml.get("chart", {}).get("headless", True)
 
     # Screener indicator
@@ -50,9 +50,7 @@ class ComboConfig:
     recalc_wait: float = _yaml.get("alerts", {}).get("recalc_wait", 2.0)
 
     # Webhook — env var takes precedence over yaml
-    webhook_url: str = os.getenv(
-        "COMBO_WEBHOOK_URL", _yaml.get("webhook", {}).get("url", "")
-    )
+    webhook_url: str = os.getenv("COMBO_WEBHOOK_URL", _yaml.get("webhook", {}).get("url", ""))
 
     # Maintenance
     maintenance_interval: int = _yaml.get("maintenance", {}).get("interval", 300)
@@ -72,18 +70,17 @@ class ComboConfig:
     snapshot_drawer_shorttitle: str = _yaml.get("snapshot", {}).get(
         "drawer_shorttitle", "Trade Drawer"
     )
-    snapshot_bar_style: str = _yaml.get("snapshot", {}).get("bar_style", "bar")
+    snapshot_bar_style: str = _yaml.get("snapshot", {}).get("bar_style", "candle")
     snapshot_batch_size: int = _yaml.get("snapshot", {}).get("batch_size", 5)
     snapshot_poll_interval: int = _yaml.get("snapshot", {}).get("poll_interval", 60)
+    snapshot_bars_to_right: int = _yaml.get("snapshot", {}).get("bars_to_right", 60)
 
     def validate(self) -> list[str]:
         """Validate required configuration. Returns list of error strings."""
         errors = []
 
         if not self.webhook_url:
-            errors.append(
-                "COMBO_WEBHOOK_URL is required (set in .env or combo_settings.yaml)"
-            )
+            errors.append("COMBO_WEBHOOK_URL is required (set in .env or combo_settings.yaml)")
 
         if self.batch_size < 1 or self.batch_size > 4:
             errors.append("batch_size must be between 1 and 4 (TradingView hard limit)")
@@ -118,9 +115,7 @@ class ComboConfig:
             errors.append(f"bar_style must be one of: {', '.join(valid_bar_styles)}")
 
         if self.snapshot_bar_style not in valid_bar_styles:
-            errors.append(
-                f"snapshot.bar_style must be one of: {', '.join(valid_bar_styles)}"
-            )
+            errors.append(f"snapshot.bar_style must be one of: {', '.join(valid_bar_styles)}")
 
         if self.snapshot_poll_interval < 30:
             errors.append("snapshot.poll_interval must be at least 30 seconds")

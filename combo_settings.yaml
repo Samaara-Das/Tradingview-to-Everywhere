@@ -1,7 +1,7 @@
 chart:
   layout_name: Screener
   chart_timeframe: 1 minute
-  bar_style: line
+  bar_style: candle
   headless: true
 screener:
   shorttitle: Screener
@@ -12,15 +12,15 @@ alerts:
   recalc_wait: 1.5
   start_fresh: false
 webhook:
-  url: ""  # Set COMBO_WEBHOOK_URL in .env
+  url: https://stock-buddy-app.vercel.app/api/tte/combo
+snapshot:
+  enabled: true
+  layout_name: Snapshot
+  bar_style: candle
+  batch_size: 5
+  poll_interval: 60
+  bars_to_right: 60
 maintenance:
   interval: 300
 progress:
   file: combo_progress.json
-snapshot:
-  enabled: true
-  layout_name: Snapshot
-  drawer_shorttitle: Trade Drawer
-  bar_style: candle
-  batch_size: 5
-  poll_interval: 60

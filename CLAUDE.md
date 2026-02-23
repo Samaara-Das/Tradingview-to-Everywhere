@@ -18,7 +18,7 @@ TradingView to Everywhere (TTE) is an automated trading signals distribution sys
 - **Alert lifecycle**: Create once → run forever (+ maintenance every 5 mins)
 - **4-symbol hard limit**: More causes TradingView memory/runtime errors (using 3 in production)
 - **Single browser**: Alerts created sequentially with one Chrome instance (headless by default)
-- **Chart**: 1-minute timeframe, line bar style (for minimal resource usage)
+- **Chart**: 1-minute timeframe, candle bar style
 - **Key files**: `tte/main.py`, `tte/config.py`, `combo_settings.yaml`
 - **Docs**: `docs/combo/ARCHITECTURE.md`, `docs/combo/PRD.md`
 
@@ -60,11 +60,17 @@ All combo mode options are configured in `combo_settings.yaml`. Secrets (webhook
 |---------|-----------|---------|-------------|
 | Layout | `chart.layout_name` | "Screener" | TradingView layout name |
 | Timeframe | `chart.chart_timeframe` | "1 minute" | Chart timeframe (must match dropdown label) |
-| Bar style | `chart.bar_style` | "line" | Chart bar style data-value (candle, line, ha, etc.) |
+| Bar style | `chart.bar_style` | "candle" | Chart bar style data-value (candle, line, ha, etc.) |
 | Screener | `screener.shorttitle` | "Screener" | Indicator short title on chart |
 | Batch size | `alerts.batch_size` | 3 | Symbols per alert (hard limit) |
 | Creation delay | `alerts.creation_delay` | 1.5 | Seconds between batches |
 | Maintenance | `maintenance.interval` | 300 | Seconds between restart cycles |
+| Snapshot enabled | `snapshot.enabled` | true | Enable chart snapshot worker |
+| Snapshot layout | `snapshot.layout_name` | "Snapshot" | TradingView layout for snapshots |
+| Snapshot bar style | `snapshot.bar_style` | "candle" | Bar style for snapshot charts |
+| Snapshot batch size | `snapshot.batch_size` | 5 | Pending snapshots per poll |
+| Snapshot poll interval | `snapshot.poll_interval` | 60 | Seconds between snapshot polls |
+| Snapshot bars right | `snapshot.bars_to_right` | 60 | Right margin bars for chart framing |
 
 ### Environment Variables
 See `tte/config.py` and `.env` file. Key variables: `CHROME_PROFILES_PATH`, `TRADINGVIEW_EMAIL`, `TRADINGVIEW_PASSWORD`, `MONGODB_PWD`, `COMBO_WEBHOOK_URL`

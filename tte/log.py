@@ -4,9 +4,9 @@ This was done to avoid repetition of code.
 """
 
 import logging
+import os
 import threading
 import time
-import os
 
 
 def setup_logger(name, level=logging.INFO):
@@ -25,9 +25,7 @@ def setup_logger(name, level=logging.INFO):
         console_handler.setLevel(level)
 
         # Create formatters and add it to handlers
-        log_format = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        )
+        log_format = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
         file_handler.setFormatter(log_format)
         console_handler.setFormatter(log_format)
 
@@ -59,7 +57,7 @@ def trim_file(file_path, max_lines=1000):
             return
 
         # Read existing lines
-        with open(file_path, "r", encoding="utf-8") as file:
+        with open(file_path, encoding="utf-8") as file:
             lines = file.readlines()
 
         if len(lines) > max_lines:
@@ -78,8 +76,6 @@ def continuous_trim(file_path, interval=300):
 
 def start_continuous_trim(file_path, interval=300):
     """Starts the continuous trimming in a separate thread."""
-    trim_thread = threading.Thread(
-        target=continuous_trim, args=(file_path, interval), daemon=True
-    )
+    trim_thread = threading.Thread(target=continuous_trim, args=(file_path, interval), daemon=True)
     trim_thread.start()
     return trim_thread

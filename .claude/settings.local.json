@@ -21,7 +21,8 @@
       "Skill(pinescript)",
       "Skill(pine-script-expert)",
       "Bash(git ls-tree:*)",
-      "Skill(get-context)"
+      "Skill(get-context)",
+      "Bash(cd:*)"
     ],
     "deny": [
       "Bash(git push --force*)",

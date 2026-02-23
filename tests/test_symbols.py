@@ -1,13 +1,14 @@
 """Tests for tte/data/symbols.py — MongoDB symbol loading."""
 
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
+
 import pytest
 
 from tte.data.symbols import (
-    get_symbols,
-    get_symbol_categories,
-    _load_symbols_from_mongodb,
     _load_symbol_categories_from_mongodb,
+    _load_symbols_from_mongodb,
+    get_symbol_categories,
+    get_symbols,
 )
 
 
@@ -89,9 +90,7 @@ class TestLoadSymbolCategoriesFromMongoDB:
     """Test _load_symbol_categories_from_mongodb() function."""
 
     @patch("tte.data.symbols._get_mongodb_connection")
-    def test_load_categories_creates_symbol_to_category_mapping(
-        self, mock_get_connection
-    ):
+    def test_load_categories_creates_symbol_to_category_mapping(self, mock_get_connection):
         """Should create correct symbol→category mapping."""
         mock_db = Mock()
         mock_collection = Mock()
