@@ -3,7 +3,7 @@
 **Last Updated**: 2026-02-23
 **Current Task**: Snapshot quality improvements + GUI defaults exposure
 **Active Branch**: `feat/snapshot-quality-gui-defaults`
-**Latest Commit (TTE)**: `516db09` — Fix: change Alt+R auto-fit log from debug to info
+**Latest Commit (TTE)**: `0c9690b` — Add Snapshot config to GUI, pre-commit hooks, and codebase formatting
 **Latest Commit (Stock Buddy)**: `bc0b810` — Add snapshot backfill endpoint
 
 ---
@@ -13,10 +13,10 @@
 | # | Task | Status |
 |---|------|--------|
 | 131–144 | Chart snapshots feature + backfill | completed |
-| 145 | Understand snapshot processing timing and batch size | pending |
+| 145 | Understand snapshot processing timing and batch size | completed |
 | 146 | Get remaining 20 symbols into alerts on TradingView | pending |
 | 147 | Decide on testing strategy (TDD / test coverage) | pending |
-| 148 | Set up pre-commit hooks for linting, type checking, and formatting | in_progress |
+| 148 | Set up pre-commit hooks for linting, type checking, and formatting | completed |
 | 149 | Rebuild and redeploy TTE.exe | pending |
 
 ---
@@ -45,6 +45,16 @@ Added Snapshot settings section to `tte_gui.py` between Alerts and Maintenance:
 - Defaults: enabled=True, layout="Snapshot", bar_style="candle", batch_size=5, poll_interval=60, bars_to_right=60
 
 **TTE.exe rebuilt** after GUI changes (20 MB, all validations passed).
+
+#### Pre-commit Hooks & Codebase Formatting (Task #148)
+Set up pre-commit hooks with ruff + pyright:
+- Added `.pre-commit-config.yaml` — trim whitespace, EOF fix, YAML check, merge conflicts, large files, debug statements, ruff, ruff-format, pyright
+- Added `pyproject.toml` with ruff/pyright config
+- Applied ruff formatting across entire codebase (whitespace, imports, quotes)
+- Added `ruff` and `pre-commit` to Pipfile dev dependencies
+- Added PRD-generator and update-docs skills
+
+**Commit**: `0c9690b` — all 9 pre-commit hooks passed, pushed to `feat/snapshot-quality-gui-defaults`
 
 ---
 
@@ -164,6 +174,8 @@ curl -X POST https://stock-buddy-app.vercel.app/api/tte/snapshots/backfill
 11. **Indicator load wait**: 3.5s polling wait on `data-status != "loading"` before settings dialog.
 12. **Backfill scope**: Last 30 days only. Older setups assumed stale/irrelevant.
 13. **MongoDB DB name**: `setup_messages` collection is in `tte` database (not `stock-buddy`).
+14. **Pre-commit hooks**: ruff (lint + format) + pyright (type check). Config in `.pre-commit-config.yaml` + `pyproject.toml`.
+15. **GUI snapshot settings**: Exposed 6 snapshot config fields (enabled, layout_name, bar_style, batch_size, poll_interval, bars_to_right) in GUI between Alerts and Maintenance sections.
 
 ---
 
@@ -182,6 +194,9 @@ curl -X POST https://stock-buddy-app.vercel.app/api/tte/snapshots/backfill
 | `Pine Script Code/TTE Screener.txt` | Production screener |
 | `docs/combo/ARCHITECTURE.md` | Full system architecture (incl. snapshots) |
 | `docs/prds/backfill-snapshots.md` | Mini PRD for backfill feature |
+| `tte_gui.py` | GUI with snapshot config section |
+| `.pre-commit-config.yaml` | Pre-commit hooks (ruff, pyright, etc.) |
+| `pyproject.toml` | Ruff + pyright config |
 
 ### Stock Buddy App (`C:/Users/dassa/Work/Stock-Buddy-App`)
 | File | Purpose |
