@@ -12,17 +12,17 @@
 
 // 🖌️ WHAT IT DRAWS
 
-// - draws lines like zigzag to show swing highs/lows based on the oscillator you choose 
-//   (ao, macd 4c, rsi, kernel ao oscillator) 
+// - draws lines like zigzag to show swing highs/lows based on the oscillator you choose
+//   (ao, macd 4c, rsi, kernel ao oscillator)
 
 // - draws divergences ONLY for the kernel ao oscillator
-//   It draws divergences with ao logic (regular & hidden) 
+//   It draws divergences with ao logic (regular & hidden)
 //   It draws divergences with logic 2 (regular & hidden)
 //   It draws divergences with internal/same side logic (regular & hidden)
 
-// - draws range shift 
+// - draws range shift
 
-// - kernel crossover indicator 
+// - kernel crossover indicator
 
 // - nadaraya watson kernel indicator (which is known as the signal line)
 
@@ -40,7 +40,7 @@
 
 
 //@version=5
-indicator("Multi Oscillator_swing high low", overlay = true, format = format.price, max_lines_count = 500, precision = 5, max_bars_back = 300)                                            
+indicator("Multi Oscillator_swing high low", overlay = true, format = format.price, max_lines_count = 500, precision = 5, max_bars_back = 300)
 
 //importing Justin Dehortys libraries
 import jdehorty/MLExtensions/2 as ml
@@ -208,7 +208,7 @@ if useRsi or useRangeShift
 //
 
 
-//ao indicator 
+//ao indicator
 ao = float(na)
 if useAo
     ao := indicator.ao()
@@ -216,7 +216,7 @@ if useAo
 
 
 // kernel ao oscillator indicator
-// this calculation could not be put in a library because there was something unknown going wrong with isPurple's calculation. 
+// this calculation could not be put in a library because there was something unknown going wrong with isPurple's calculation.
 // Likely because it was in an if statement
 float kernelFast = 0
 float kernelSlow = 0
@@ -270,7 +270,7 @@ type Settings
     bool showExits
     bool useDynamicExits
 
-Settings settings = 
+Settings settings =
  Settings.new(
    input.source(title='Source', defval=close, group="General Settings", tooltip="Source of the input data"),
    input.int(title='Neighbors Count', defval=8, group="General Settings", minval=1, maxval=100, step=1, tooltip="Number of neighbors to consider"),
@@ -281,7 +281,7 @@ Settings settings =
    input.bool(title="Use Dynamic Exits", defval=false, group="General Settings", tooltip="Dynamic exits attempt to let profits ride by dynamically adjusting the exit threshold based on kernel regression logic.", inline="exits")
  )
 
-type FilterSettings 
+type FilterSettings
     bool useVolatilityFilter
     bool useRegimeFilter
     bool useAdxFilter
@@ -302,7 +302,7 @@ FilterSettings filterSettings =
 showTradeStats = input.bool(true, 'Show Trade Stats', tooltip='Displays the trade stats for a given configuration. Useful for optimizing the settings in the Feature Engineering section. This should NOT replace backtesting and should be used for calibration purposes only. Early Signal Flips represent instances where the model changes signals before 4 bars elapses; high values can indicate choppy (ranging) market conditions.', group="General Settings")
 useWorstCase = input.bool(false, "Use Worst Case Estimates", tooltip="Whether to use the worst case scenario for backtesting. This option can be useful for creating a conservative estimate that is based on close prices only, thus avoiding the effects of intrabar repainting. This option assumes that the user does not enter when the signal first appears and instead waits for the bar to close as confirmation. On larger timeframes, this can mean entering after a large move has already occurred. Leaving this option disabled is generally better for those that use this indicator as a source of confluence and prefer estimates that demonstrate discretionary mid-bar entries. Leaving this option enabled may be more consistent with traditional backtesting results.", group="General Settings")
 
-// Feature Variables: User-Defined Inputs for calculating Feature Series. 
+// Feature Variables: User-Defined Inputs for calculating Feature Series.
 f1_string = input.string(title="Feature 1", options=["RSI", "WT", "CCI", "ADX"], defval="RSI", inline = "01", tooltip="The first feature to use for ML predictions.", group="Feature Engineering")
 f1_paramA = input.int(title="Parameter A", tooltip="The primary parameter of feature 1.", defval=14, inline = "02", group="Feature Engineering")
 f1_paramB = input.int(title="Parameter B", tooltip="The secondary parameter of feature 2 (if applicable).", defval=1, inline = "02", group="Feature Engineering")
@@ -319,7 +319,7 @@ f5_string = input.string(title="Feature 5", options=["RSI", "WT", "CCI", "ADX"],
 f5_paramA = input.int(title="Parameter A", tooltip="The primary parameter of feature 5.", defval=9, inline = "10", group="Feature Engineering")
 f5_paramB = input.int(title="Parameter B", tooltip="The secondary parameter of feature 5 (if applicable).", defval=1, inline = "10", group="Feature Engineering")
 
-// EMA Settings 
+// EMA Settings
 useEmaFilter = input.bool(title="Use EMA Filter", defval=false, group="Filters", inline="ema")
 emaPeriod = input.int(title="Period", defval=200, minval=1, step=1, group="Filters", inline="ema", tooltip="The period of the EMA used for the EMA Filter.")
 useSmaFilter = input.bool(title="Use SMA Filter", defval=false, group="Filters", inline="sma")
@@ -373,7 +373,7 @@ type MLModel
 type Filter
     bool volatility
     bool regime
-    bool adx 
+    bool adx
 //
 
 series_from(feature_string, _close, _high, _low, _hlc3, f_paramA, f_paramB) =>
@@ -385,10 +385,10 @@ series_from(feature_string, _close, _high, _low, _hlc3, f_paramA, f_paramB) =>
 
 get_lorentzian_distance(int i, int featureCount, FeatureSeries featureSeries, FeatureArrays featureArrays) =>
     switch featureCount
-        5 => math.log(1+math.abs(featureSeries.f1 - array.get(featureArrays.f1, i))) + 
+        5 => math.log(1+math.abs(featureSeries.f1 - array.get(featureArrays.f1, i))) +
              math.log(1+math.abs(featureSeries.f2 - array.get(featureArrays.f2, i))) +
              math.log(1+math.abs(featureSeries.f3 - array.get(featureArrays.f3, i))) +
-             math.log(1+math.abs(featureSeries.f4 - array.get(featureArrays.f4, i))) + 
+             math.log(1+math.abs(featureSeries.f4 - array.get(featureArrays.f4, i))) +
              math.log(1+math.abs(featureSeries.f5 - array.get(featureArrays.f5, i)))
         4 => math.log(1+math.abs(featureSeries.f1 - array.get(featureArrays.f1, i))) +
              math.log(1+math.abs(featureSeries.f2 - array.get(featureArrays.f2, i))) +
@@ -399,7 +399,7 @@ get_lorentzian_distance(int i, int featureCount, FeatureSeries featureSeries, Fe
              math.log(1+math.abs(featureSeries.f3 - array.get(featureArrays.f3, i)))
         2 => math.log(1+math.abs(featureSeries.f1 - array.get(featureArrays.f1, i))) +
              math.log(1+math.abs(featureSeries.f2 - array.get(featureArrays.f2, i)))
- 
+
 float kernelEstimate = 0
 bool startLongTrade = false
 bool startShortTrade = false
@@ -409,7 +409,7 @@ var prediction = 0.
 if useLC
 
     Filter filter = Filter.new(
-     ml.filter_volatility(1, 10, filterSettings.useVolatilityFilter), 
+     ml.filter_volatility(1, 10, filterSettings.useVolatilityFilter),
      ml.regime_filter(ohlc4, filterSettings.regimeThreshold, filterSettings.useRegimeFilter),
      ml.filter_adx(settings.source, 14, filterSettings.adxThreshold, filterSettings.useAdxFilter)
      )
@@ -418,7 +418,7 @@ if useLC
     // FeatureSeries Object: Calculated Feature Series based on Feature Variables
     featureSeries = FeatureSeries.new(
      series_from(f1_string, close, high, low, hlc3, f1_paramA, f1_paramB), // f1
-     series_from(f2_string, close, high, low, hlc3, f2_paramA, f2_paramB), // f2 
+     series_from(f2_string, close, high, low, hlc3, f2_paramA, f2_paramB), // f2
      series_from(f3_string, close, high, low, hlc3, f3_paramA, f3_paramB), // f3
      series_from(f4_string, close, high, low, hlc3, f4_paramA, f4_paramB), // f4
      series_from(f5_string, close, high, low, hlc3, f5_paramA, f5_paramB)  // f5
@@ -446,8 +446,8 @@ if useLC
 
 
     Label direction = Label.new(
-     long=1, 
-     short=-1, 
+     long=1,
+     short=-1,
      neutral=0
      )
 
@@ -475,9 +475,9 @@ if useLC
 
     if bar_index >= maxBarsBackIndex //{
         for i = 0 to sizeLoop //{
-            d = get_lorentzian_distance(i, settings.featureCount, featureSeries, featureArrays) 
+            d = get_lorentzian_distance(i, settings.featureCount, featureSeries, featureArrays)
             if d >= lastDistance and i%4 //{
-                lastDistance := d            
+                lastDistance := d
                 array.push(distances, d)
                 array.push(predictions, math.round(array.get(y_train_array, i)))
                 if array.size(predictions) > settings.neighborsCount //{
@@ -591,7 +591,7 @@ plotshape(startShortTrade and useLC ? high : na, 'Sell', shape.labeldown, locati
 
 
 
-// FOR DRAWING THE SWING HIGH/LOW LINES 
+// FOR DRAWING THE SWING HIGH/LOW LINES
 drawSwings(float osc, color lineColor, int lineWidth, bool isRsi = false) =>
 
     // for the bar index of the oscillator range (The start of the oscillator range)
@@ -622,7 +622,7 @@ drawSwings(float osc, color lineColor, int lineWidth, bool isRsi = false) =>
     var int previousHighLow = 0
     var int currentHigh = 0
 
-    
+
     // to make sure it gets the bar index of when the range starts when the crossover condition cant find it
     if (osc < 0 and na(osc[1]) and not isRsi) or (isRsi and not isBullRange and osc >= rsiOb and not na(osc))
         if isRsi
@@ -697,16 +697,16 @@ drawSwings(float osc, color lineColor, int lineWidth, bool isRsi = false) =>
 
     // to get the latest 2 lows
     currentLow := lowestBar
-    if lowestBar >= highestBar and previousLow != lowestBar[1] and previousLowHigh != highestBar 
+    if lowestBar >= highestBar and previousLow != lowestBar[1] and previousLowHigh != highestBar
         previousLow := lowestBar[1]
         previousLowHigh := highestBar
     //
 
     // to get the latest 2 highs
     currentHigh := highestBar
-    if highestBar >= lowestBar and previousHigh != highestBar[1] and previousHighLow != lowestBar 
+    if highestBar >= lowestBar and previousHigh != highestBar[1] and previousHighLow != lowestBar
         previousHigh := highestBar[1]
-        previousHighLow := lowestBar 
+        previousHighLow := lowestBar
     //
 
 
@@ -745,7 +745,7 @@ isKernelBullDiv(int currHighBar, int prevHighBar, int currLowBar, int prevLowBar
 
     // check if there are lower lows and we have a downleg (for reg divergence)
     if low[currLow] < low[prevLow] and currLowBar >= currHighBar and not isHidden
-        
+
         // check if there are higher lows in the ao ranges
         if lowest1 < lowest2
             isDivergence := true
@@ -754,11 +754,11 @@ isKernelBullDiv(int currHighBar, int prevHighBar, int currLowBar, int prevLowBar
             //
             regLine := line.new(time[prevLow], low[prevLow], time[currLow], low[currLow], color = KernelRDColor2, xloc = xloc.bar_time, width = 1)
             regLineStart := prevLowBar
-    // 
+    //
 
     // check if there are higher lows and we have a downleg (for hid divergence)
     if low[currLow] > low[prevLow] and currLowBar >= currHighBar and isHidden
-        
+
         // check if there are lower lows in the ao ranges
         if lowest1 > lowest2
             isDivergence := true
@@ -801,7 +801,7 @@ isKernelBearDiv(int currHighBar, int prevHighBar, int currLowBar, int prevLowBar
 
     // check if there are higher highs and we have a downleg (for a reg divergence)
     if high[currHigh] > high[prevHigh] and currLowBar < currHighBar and not isHidden
-        
+
         // check if there are lower highs in the ao ranges
         if highest1 > highest2
             isDivergence := true
@@ -810,11 +810,11 @@ isKernelBearDiv(int currHighBar, int prevHighBar, int currLowBar, int prevLowBar
             //
             regLine := line.new(time[prevHigh], high[prevHigh], time[currHigh], high[currHigh], color = KernelRDColor2, xloc = xloc.bar_time, width = 1)
             regLineStart := prevHighBar
-    // 
+    //
 
     // check if there are lower highs and we have a downleg (for a hid divergence)
     if high[currHigh] < high[prevHigh] and currLowBar < currHighBar and isHidden
-        
+
         // check if there are higher highs in the ao ranges
         if highest1 < highest2
             isDivergence := true
@@ -823,14 +823,14 @@ isKernelBearDiv(int currHighBar, int prevHighBar, int currLowBar, int prevLowBar
             //
             hidLine := line.new(time[prevHigh], high[prevHigh], time[currHigh], high[currHigh], color = KernelHDColor2, xloc = xloc.bar_time, width = 1)
             hidLineStart := prevHighBar
-    // 
+    //
 
     isDivergence
 //
 
 
 
-// FOR FINDING INTERNAL DIVERGENCE 
+// FOR FINDING INTERNAL DIVERGENCE
 
 // @function to find the lowest price in the given range (starting from start upto end)
 // @param start is for the right side. the parameter value is supposed to be a shift
@@ -838,8 +838,8 @@ isKernelBearDiv(int currHighBar, int prevHighBar, int currLowBar, int prevLowBar
 findLowestPrice(int start, int end) =>
     float lowest = low[end]
     int barTime = end
-    
-    for i = end to start 
+
+    for i = end to start
         if low[i] < lowest
             lowest := low[i]
             barTime := i
@@ -847,7 +847,7 @@ findLowestPrice(int start, int end) =>
     //
 
     [lowest, barTime]
-// 
+//
 
 // @function to find the highest price in the given range (starting from start upto end)
 // @param start is for the right side. the parameter value is supposed to be a shift
@@ -855,8 +855,8 @@ findLowestPrice(int start, int end) =>
 findHighestPrice(int start, int end) =>
     float highest = high[end]
     int barTime = end
-    
-    for i = end to start 
+
+    for i = end to start
         if high[i] > highest
             highest := high[i]
             barTime := i
@@ -864,7 +864,7 @@ findHighestPrice(int start, int end) =>
     //
 
     [highest, barTime]
-// 
+//
 
 isKernelIntBearDiv(isHidden=false) =>
 
@@ -942,13 +942,13 @@ isKernelIntBearDiv(isHidden=false) =>
             //
 
             // check for a hidden divergence
-            if currRangeOscHighestBar > prevPurpleRangeEnd and prevPurpleRangeEnd > 0 and isHidden 
+            if currRangeOscHighestBar > prevPurpleRangeEnd and prevPurpleRangeEnd > 0 and isHidden
                 if prevPurpleRangePriceHighest > currRangePriceHighest
                     isDivergence := true
                     line.new(time[bar_index - currRangePriceHighestBar], currRangePriceHighest, time[bar_index - prevPurpleRangePriceHighestBar], prevPurpleRangePriceHighest, color = KernelIntHidColor, xloc = xloc.bar_time, width = 1)
             //
-    // 
-    
+    //
+
 
     isDivergence
 //
@@ -1029,13 +1029,13 @@ isKernelIntBullDiv(isHidden=false) =>
             //
 
             // check for a hidden divergence
-            if currRangeOscLowestBar > prevPinkRangeEnd and prevPinkRangeEnd > 0 and isHidden 
+            if currRangeOscLowestBar > prevPinkRangeEnd and prevPinkRangeEnd > 0 and isHidden
                 if prevPinkRangePriceLowest < currRangePriceLowest
                     isDivergence := true
                     line.new(time[bar_index - currRangePriceLowestBar], currRangePriceLowest, time[bar_index - prevPinkRangePriceLowestBar], prevPinkRangePriceLowest, color = KernelIntHidColor, xloc = xloc.bar_time, width = 1)
             //
-    
-        // 
+
+        //
     //
 
     isDivergence
@@ -1132,6 +1132,3 @@ if useKernelHidInt
     isKernelIntBearDiv(true)
     isKernelIntBullDiv(true)
 //
-
-
-

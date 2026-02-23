@@ -1,0 +1,38 @@
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "SIM",  # flake8-simplify
+    "RUF",  # ruff-specific rules
+]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "SIM102", # nested if — used for retry-once patterns throughout
+    "SIM105", # contextlib.suppress — try/except/pass is clearer for Selenium cleanup
+    "SIM108", # ternary operator (readability preference)
+    "RUF003", # ambiguous unicode — curly quotes in comments are fine
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["tte"]
+
+[tool.pyright]
+pythonVersion = "3.11"
+typeCheckingMode = "basic"
+exclude = ["dist", "build", ".venv", "**/__pycache__"]
+reportMissingImports = "warning"
+reportMissingTypeStubs = false
+# Selenium's get_attribute() returns str|None but is safely used with `in`/`not in`
+# throughout the browser automation code. Suppress these false positives.
+reportOperatorIssue = false
+reportOptionalMemberAccess = "warning"
+reportArgumentType = "warning"
+reportOptionalIterable = "warning"

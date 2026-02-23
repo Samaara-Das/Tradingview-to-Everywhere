@@ -1,7 +1,5 @@
 """Tests for tte/main.py — chunk_symbols() function."""
 
-import pytest
-
 from tte.main import chunk_symbols
 
 

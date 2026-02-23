@@ -1,4 +1,4 @@
 """TTE - TradingView to Everywhere."""
 
-from tte.config import ComboConfig
-from tte.browser.tradingview import Browser
+from tte.browser.tradingview import Browser as Browser
+from tte.config import ComboConfig as ComboConfig

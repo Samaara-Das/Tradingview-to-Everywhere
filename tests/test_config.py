@@ -1,8 +1,5 @@
 """Tests for tte/config.py — ComboConfig validation and YAML loading."""
 
-import os
-from pathlib import Path
-import pytest
 import yaml
 
 from tte.config import ComboConfig, _load_yaml
@@ -57,9 +54,7 @@ class TestComboConfigValidation:
         config = ComboConfig()
         config.maintenance_interval = 30
         errors = config.validate()
-        assert any(
-            "maintenance_interval must be at least 60 seconds" in e for e in errors
-        )
+        assert any("maintenance_interval must be at least 60 seconds" in e for e in errors)
 
     def test_validate_fails_with_invalid_bar_style(self, monkeypatch):
         """Invalid bar_style should fail validation."""
@@ -96,9 +91,7 @@ class TestComboConfigValidation:
             config = ComboConfig()
             config.bar_style = style
             errors = config.validate()
-            assert not any(
-                "bar_style" in e for e in errors
-            ), f"Style '{style}' should be valid"
+            assert not any("bar_style" in e for e in errors), f"Style '{style}' should be valid"
 
     def test_validate_accumulates_multiple_errors(self, monkeypatch):
         """Multiple validation errors should all be returned."""

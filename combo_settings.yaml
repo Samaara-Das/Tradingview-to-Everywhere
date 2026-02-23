@@ -2,7 +2,7 @@ chart:
   layout_name: Screener
   chart_timeframe: 1 minute
   bar_style: candle
-  headless: true
+  headless: false
 screener:
   shorttitle: Screener
   name: TTE Screener
@@ -13,15 +13,14 @@ alerts:
   start_fresh: false
 webhook:
   url: https://stock-buddy-app.vercel.app/api/tte/combo
-maintenance:
-  interval: 300
-progress:
-  file: combo_progress.json
 snapshot:
   enabled: true
   layout_name: Snapshot
-  drawer_shorttitle: Trade Drawer
   bar_style: candle
   batch_size: 5
   poll_interval: 60
   bars_to_right: 60
+maintenance:
+  interval: 300
+progress:
+  file: combo_progress.json

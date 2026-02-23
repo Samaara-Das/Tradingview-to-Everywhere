@@ -2,13 +2,15 @@
 this can change the Trade Drawer's settings, change the chart's symbol and timeframe and take a snapshot of the chart.
 """
 
-from tte import log
 from time import sleep, time
-from selenium.webdriver.support.wait import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
+
+from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.wait import WebDriverWait
+
+from tte import log
 
 # Set up logger for this file
 entry_chart_logger = log.setup_logger(__name__, log.DEBUG)
@@ -16,7 +18,6 @@ entry_chart_logger = log.setup_logger(__name__, log.DEBUG)
 
 # class
 class OpenChart:
-
     def __init__(self, driver) -> None:
         self.driver = driver
 
@@ -27,9 +28,7 @@ class OpenChart:
             while i <= 3:
                 try:
                     drawer_indicator = self.get_indicator(drawer_shorttitle)
-                    ActionChains(self.driver).move_to_element(
-                        drawer_indicator
-                    ).perform()
+                    ActionChains(self.driver).move_to_element(drawer_indicator).perform()
                     ActionChains(self.driver).double_click(drawer_indicator).perform()
                     settings = WebDriverWait(self.driver, 5).until(
                         EC.presence_of_element_located(
@@ -40,7 +39,7 @@ class OpenChart:
                         )
                     )
                     break
-                except Exception as e:
+                except Exception:
                     entry_chart_logger.exception(
                         "Failed to open the Trade Drawer's settings. Error:"
                     )
@@ -51,7 +50,7 @@ class OpenChart:
                         )
                         return False
 
-            # when the settings come up, click on the Inputs tab (just in case we’re on some other tab)
+            # when the settings come up, click on the Inputs tab (just in case we're on some other tab)
             settings.find_element(
                 By.CSS_SELECTOR, 'div[class="tabs-vwgPOHG8"] button[id="inputs"]'
             ).click()
@@ -59,15 +58,13 @@ class OpenChart:
             # fill up the settings
             inputs = settings.find_elements(By.CSS_SELECTOR, ".cell-tBgV1m0B input")[:2]
             for i in range(len(inputs)):
-                val = 0
+                val = ""
                 if i == 0:
                     val = screener_type
                 elif i == 1:
                     val = str(entry_object)
 
-                ActionChains(self.driver).key_down(Keys.CONTROL, inputs[i]).send_keys(
-                    "a"
-                ).perform()
+                ActionChains(self.driver).key_down(Keys.CONTROL, inputs[i]).send_keys("a").perform()
                 inputs[i].send_keys(Keys.DELETE)
                 inputs[i].send_keys(val)
 
@@ -91,13 +88,11 @@ class OpenChart:
                     return True
                 else:
                     continue
-            if check == False:
+            if not check:
                 entry_chart_logger.error("Trade indicator did not fully load.")
                 return False
-        except Exception as e:
-            entry_chart_logger.exception(
-                "Failed to change the Trade Drawer's settings. Error:"
-            )
+        except Exception:
+            entry_chart_logger.exception("Failed to change the Trade Drawer's settings. Error:")
             return False
 
     def change_symbol(self, symbol):
@@ -117,13 +112,11 @@ class OpenChart:
                 )
             )
 
-            current_symbol = symbol_search.find_element(
-                By.CSS_SELECTOR, "span.value-JQZ0HKD4"
-            ).text
+            current_symbol = symbol_search.find_element(By.CSS_SELECTOR, "span.value-JQZ0HKD4").text
             entry_chart_logger.debug(f"Current chart symbol: {current_symbol}")
 
             if (
-                not current_symbol == no_exchange_symbol
+                current_symbol != no_exchange_symbol
             ):  # only search for a specific symbol if the current symbol is different from that symbol
                 entry_chart_logger.debug(
                     f"Symbol different, changing from {current_symbol} to {no_exchange_symbol}"
@@ -131,7 +124,7 @@ class OpenChart:
 
                 # Click on Symbol Search button to open popup
                 symbol_search.click()
-                entry_chart_logger.debug(f"Clicked symbol search button")
+                entry_chart_logger.debug("Clicked symbol search button")
 
                 # Wait for Symbol Search popup to appear
                 symbol_search_dialog = WebDriverWait(self.driver, 10).until(
@@ -139,23 +132,23 @@ class OpenChart:
                         (By.CSS_SELECTOR, 'div[data-name="symbol-search-items-dialog"]')
                     )
                 )
-                entry_chart_logger.debug(f"Symbol search popup appeared")
+                entry_chart_logger.debug("Symbol search popup appeared")
 
                 # Find the search input inside the popup
                 search_input = symbol_search_dialog.find_element(
                     By.CSS_SELECTOR, 'input[data-qa-id="symbol-search-input"]'
                 )
-                entry_chart_logger.debug(f"Found search input field in popup")
+                entry_chart_logger.debug("Found search input field in popup")
 
                 # Select the input (just in case) and clear it
                 search_input.click()
-                entry_chart_logger.debug(f"Clicked search input to focus")
+                entry_chart_logger.debug("Clicked search input to focus")
 
                 # Select all and delete (Ctrl+A)
-                ActionChains(self.driver).key_down(
-                    Keys.CONTROL, search_input
-                ).send_keys("a").key_up(Keys.CONTROL).perform()
-                entry_chart_logger.debug(f"Selected all text (Ctrl+A)")
+                ActionChains(self.driver).key_down(Keys.CONTROL, search_input).send_keys(
+                    "a"
+                ).key_up(Keys.CONTROL).perform()
+                entry_chart_logger.debug("Selected all text (Ctrl+A)")
 
                 # Type the symbol (this will replace selected text)
                 search_input.send_keys(symbol)
@@ -163,7 +156,7 @@ class OpenChart:
 
                 # Press ENTER to confirm
                 search_input.send_keys(Keys.ENTER)
-                entry_chart_logger.debug(f"Pressed ENTER to confirm symbol")
+                entry_chart_logger.debug("Pressed ENTER to confirm symbol")
 
                 entry_chart_logger.info(f"Entered symbol {symbol}")
 
@@ -177,15 +170,11 @@ class OpenChart:
                         no_exchange_symbol,
                     )
                 )
-                entry_chart_logger.debug(
-                    f"Symbol change confirmed in UI: {no_exchange_symbol}"
-                )
+                entry_chart_logger.debug(f"Symbol change confirmed in UI: {no_exchange_symbol}")
 
                 # Wait for chart to load
-                sleep(
-                    1
-                )  # Symbol already confirmed by WebDriverWait; 1s for chart rendering
-                entry_chart_logger.debug(f"Waited 1s for chart to load")
+                sleep(1)  # Symbol already confirmed by WebDriverWait; 1s for chart rendering
+                entry_chart_logger.debug("Waited 1s for chart to load")
 
                 return True
             else:
@@ -194,9 +183,7 @@ class OpenChart:
                 )
                 return True
         except Exception as e:
-            entry_chart_logger.exception(
-                f"Failed to change the symbol of the chart. Error: {e}"
-            )
+            entry_chart_logger.exception(f"Failed to change the symbol of the chart. Error: {e}")
             return False
 
     def change_tframe(self, timeframe):
@@ -204,9 +191,7 @@ class OpenChart:
         try:
             # click on the timeframe dropdown and choose from the dropdown options and click on the one which matches the timeframe
             tf_button = WebDriverWait(self.driver, 15).until(
-                EC.element_to_be_clickable(
-                    (By.XPATH, '//*[@id="header-toolbar-intervals"]/button')
-                )
+                EC.element_to_be_clickable((By.XPATH, '//*[@id="header-toolbar-intervals"]/button'))
             )
 
             if (
@@ -224,9 +209,7 @@ class OpenChart:
                 )
 
                 for option in options:
-                    label_el = option.find_elements(
-                        By.CSS_SELECTOR, "span.label-jFqVJoPk"
-                    )
+                    label_el = option.find_elements(By.CSS_SELECTOR, "span.label-jFqVJoPk")
                     if label_el and label_el[0].text == timeframe:
                         option.click()
                         entry_chart_logger.info(
@@ -242,7 +225,7 @@ class OpenChart:
                 return True
 
             return False
-        except Exception as e:
+        except Exception:
             entry_chart_logger.exception(
                 f"Failed to change the timeframe of the chart to {timeframe}. Error:"
             )
@@ -295,9 +278,7 @@ class OpenChart:
                 )
 
                 if clicked:
-                    entry_chart_logger.info(
-                        f"Force changed the timeframe to {timeframe}!"
-                    )
+                    entry_chart_logger.info(f"Force changed the timeframe to {timeframe}!")
                     return True
 
                 # If we didn't find the timeframe, close the dropdown
@@ -307,9 +288,7 @@ class OpenChart:
 
             except Exception as e:
                 if attempt == 0 and "stale" in str(e).lower():
-                    entry_chart_logger.warning(
-                        f"Stale element in force_change_tframe, retrying..."
-                    )
+                    entry_chart_logger.warning("Stale element in force_change_tframe, retrying...")
                     sleep(1)
                     continue
                 entry_chart_logger.exception(
@@ -343,20 +322,18 @@ class OpenChart:
                 '//*[@id="overlap-manager-root"]/div/span/div[1]/div/div/div[5]',
             )
             open_in_new_tab.click()
-            entry_chart_logger.info(f"Took a snapshot and opened it in new tab.")
+            entry_chart_logger.info("Took a snapshot and opened it in new tab.")
 
             # get the url of the newly opened tab after it has fully loaded
             self.driver.switch_to.window(self.driver.window_handles[-1])
             img_element = WebDriverWait(self.driver, 12).until(
-                EC.presence_of_element_located(
-                    (By.CSS_SELECTOR, "img.tv-snapshot-image")
-                )
+                EC.presence_of_element_located((By.CSS_SELECTOR, "img.tv-snapshot-image"))
             )
 
             # Get the link of the tab and src attribute value of the image
             tv_link = self.driver.current_url
             png_link = img_element.get_attribute("src")
-            entry_chart_logger.info(f"Got link of image and tab!")
+            entry_chart_logger.info("Got link of image and tab!")
 
             # close the new tab
             self.driver.close()
@@ -364,7 +341,7 @@ class OpenChart:
             # switch back to the original tab
             self.driver.switch_to.window(self.driver.window_handles[0])
 
-        except Exception as e:
+        except Exception:
             entry_chart_logger.exception(
                 "Failed to save the chart image. Attempting to close new tab if open. Error:"
             )
@@ -373,7 +350,7 @@ class OpenChart:
                 for handle in self.driver.window_handles:
                     self.driver.switch_to.window(handle)
                     if "Image" in self.driver.title:
-                        entry_chart_logger.info(f"Closing the snapshot tab")
+                        entry_chart_logger.info("Closing the snapshot tab")
                         self.driver.close()
                         break
 
@@ -406,10 +383,8 @@ class OpenChart:
                     entry_chart_logger.info(f"Found indicator {ind_shorttitle}!")
                     indicator = ind
                     break
-        except Exception as e:
-            entry_chart_logger.exception(
-                f"Failed to find indicator {ind_shorttitle}. Error:"
-            )
+        except Exception:
+            entry_chart_logger.exception(f"Failed to find indicator {ind_shorttitle}. Error:")
             return None
 
         return indicator

@@ -1,8 +1,5 @@
 """Tests for tte/log.py — trim_file() function."""
 
-import os
-import pytest
-
 from tte.log import trim_file
 
 
@@ -20,7 +17,7 @@ class TestTrimFile:
         trim_file(temp_log_file, max_lines=10)
 
         # Read result
-        with open(temp_log_file, "r", encoding="utf-8") as f:
+        with open(temp_log_file, encoding="utf-8") as f:
             lines = f.readlines()
 
         assert len(lines) == 10
@@ -39,7 +36,7 @@ class TestTrimFile:
         trim_file(temp_log_file, max_lines=5)
 
         # Read result
-        with open(temp_log_file, "r", encoding="utf-8") as f:
+        with open(temp_log_file, encoding="utf-8") as f:
             lines = f.readlines()
 
         assert len(lines) == 5
@@ -58,7 +55,7 @@ class TestTrimFile:
         trim_file(temp_log_file, max_lines=10)
 
         # Read result
-        with open(temp_log_file, "r", encoding="utf-8") as f:
+        with open(temp_log_file, encoding="utf-8") as f:
             lines = f.readlines()
 
         assert len(lines) == 5
@@ -73,7 +70,7 @@ class TestTrimFile:
         trim_file(str(nonexistent_file), max_lines=100)
 
         assert nonexistent_file.exists()
-        with open(nonexistent_file, "r", encoding="utf-8") as f:
+        with open(nonexistent_file, encoding="utf-8") as f:
             content = f.read()
         assert content == ""
 
@@ -85,7 +82,7 @@ class TestTrimFile:
 
         trim_file(temp_log_file, max_lines=100)
 
-        with open(temp_log_file, "r", encoding="utf-8") as f:
+        with open(temp_log_file, encoding="utf-8") as f:
             lines = f.readlines()
 
         assert len(lines) == 0
@@ -105,7 +102,7 @@ class TestTrimFile:
         # Trim (should not modify since below limit)
         trim_file(temp_log_file, max_lines=10)
 
-        with open(temp_log_file, "r", encoding="utf-8") as f:
+        with open(temp_log_file, encoding="utf-8") as f:
             result_lines = f.readlines()
 
         assert result_lines == test_lines
