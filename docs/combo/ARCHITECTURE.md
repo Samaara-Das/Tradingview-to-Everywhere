@@ -189,12 +189,15 @@ The 4-symbol hard limit (more causes memory/runtime errors in TradingView) elimi
 - **Components**:
   - `StockBuddyClient`: HTTP client for `GET /api/tte/snapshots/pending` and `POST /api/tte/snapshots/update`
   - `SnapshotWorker`: Orchestrates chart screenshots using existing browser automation
-- **TradingView layout**: "Snapshot" (separate from "Screener") with NWE + Trade Drawer v2 indicators
+- **TradingView layout**: "Snapshot" (separate from "Screener") with NWE + Trade Drawer v2 indicators. The maintenance loop switches to this layout at startup and stays on it for the entire session.
 - **Trade Drawer v2**: Pine Script indicator (`Pine Script Code/Trade Drawer.txt`, v6) that draws entry/SL/TP levels on the chart. Controlled via 4 input fields: entry_time, entry_price, sl, tp1.
+- **Chart defaults**: Bar style `candle`, with "Bars to right" margin set to 60 via chart settings (applied once at startup, then refreshed every 24h).
 - **Dual-timer integration**: Runs every 60s in the maintenance loop. Maintenance (every 5 min) has priority — if both timers fire simultaneously, snapshots skip that tick.
-- **Snapshot method**: Alt+S keyboard shortcut → reads clipboard URL via `navigator.clipboard.readText()` (CDP clipboard permission granted for headless Chrome)
-- **Workflow per setup**: change_symbol → force_change_tframe → show legend → set Trade Drawer inputs → hide legend → Alt+S snapshot → show legend → report URL
+- **Snapshot method**: Alt+R (auto-fit/reset scale) → Alt+S (snapshot) → reads clipboard URL via `navigator.clipboard.readText()` (CDP clipboard permission granted for headless Chrome)
+- **Workflow per setup**: change_symbol → force_change_tframe → show legend → set Trade Drawer inputs → hide legend → Alt+R auto-fit → Alt+S snapshot → show legend → report URL
+- **Initialization**: `_set_bars_to_right()` sets the right margin (60 bars) via the chart settings dialog (Canvas tab → `paneRightMargin` input). Runs once at startup, then every 24 hours.
 - **Error handling**: Each setup processed independently; failures reported to Stock Buddy (max 3 retries). "Processing" snapshots older than 10 min auto-reset to "pending" by Stock Buddy.
+- **GUI config**: Snapshot settings (enabled, layout name, bar style, batch size, poll interval, bars to right) are exposed in the GUI settings card.
 
 ### 3.8 Trade Drawer Indicator (Pine Script)
 
@@ -280,11 +283,12 @@ Step 2: If pending setups exist (up to 5 per batch):
 Step 3: For each pending setup:
         a. Changes chart symbol (e.g., GBPCAD)
         b. Changes timeframe (1H or 4H based on nweTf)
-        c. Opens Trade Drawer settings, fills entry_time/entry_price/sl/tp1
+        c. Shows legend, opens Trade Drawer settings, fills entry_time/entry_price/sl/tp1
         d. Hides indicator legend (clean screenshot)
-        e. Alt+S → captures snapshot URL from clipboard
-        f. Shows legend again
-        g. Reports PNG/TV URLs back: POST /api/tte/snapshots/update
+        e. Alt+R → auto-fit/reset chart scale
+        f. Alt+S → captures snapshot URL from clipboard
+        g. Shows legend again
+        h. Reports PNG/TV URLs back: POST /api/tte/snapshots/update
 Step 4: Setup message in Stock Buddy now displays the chart image
         (pending → completed, with clickable snapshot)
 ```
