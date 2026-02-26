@@ -35,6 +35,22 @@ string TF_D1 = 'D'   // Daily
 usedSymbols = input.int(2, title = 'Used Symbols', group = 'Symbols', tooltip = 'The total number of symbols which will be checked for entries')
 s01 = input.symbol('GBPAUD', group = 'Symbols', inline = 's01')
 s02 = input.symbol('AUDJPY', group = 'Symbols', inline = 's02')
+// Dummy symbol inputs (unused) — extend the indicator settings panel for Selenium scrolling
+string d01 = input.symbol('DUMMY1', group = 'Symbols', inline = 'd01')
+string d02 = input.symbol('DUMMY2', group = 'Symbols', inline = 'd02')
+string d03 = input.symbol('DUMMY3', group = 'Symbols', inline = 'd03')
+string d04 = input.symbol('DUMMY4', group = 'Symbols', inline = 'd04')
+string d05 = input.symbol('DUMMY5', group = 'Symbols', inline = 'd05')
+string d06 = input.symbol('DUMMY6', group = 'Symbols', inline = 'd06')
+string d07 = input.symbol('DUMMY7', group = 'Symbols', inline = 'd07')
+string d08 = input.symbol('DUMMY8', group = 'Symbols', inline = 'd08')
+string d09 = input.symbol('DUMMY9', group = 'Symbols', inline = 'd09')
+string d10 = input.symbol('DUMMY10', group = 'Symbols', inline = 'd10')
+string d11 = input.symbol('DUMMY11', group = 'Symbols', inline = 'd11')
+string d12 = input.symbol('DUMMY12', group = 'Symbols', inline = 'd12')
+string d13 = input.symbol('DUMMY13', group = 'Symbols', inline = 'd13')
+string d14 = input.symbol('DUMMY14', group = 'Symbols', inline = 'd14')
+string d15 = input.symbol('DUMMY15', group = 'Symbols', inline = 'd15')
 
 // NWE (Nadaraya-Watson Envelope) Settings
 nwe_h = input.int(8, 'NWE Lookback Window', minval = 3, maxval = 50, group = 'NWE Settings', tooltip = 'The number of bars used for the kernel estimation. Recommended: 3-50')
