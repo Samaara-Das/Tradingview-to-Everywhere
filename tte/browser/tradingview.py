@@ -198,7 +198,10 @@ class Browser:
         """This signs in to TradingView if logged out"""
         self.driver.get("https://www.tradingview.com/accounts/signin/")
         if not getattr(self, "headless", False):
-            self.driver.maximize_window()
+            try:
+                self.driver.maximize_window()
+            except Exception:
+                pass  # Already maximized or state transition failed
         try:
             # If the products menu is found, the user is signed in
             WebDriverWait(self.driver, 5).until(
@@ -1042,7 +1045,7 @@ class Browser:
 
     def delete_all_alerts(self):
         """Waits for the alert sidebar to show up and checks if there are any alerts. If there are, they are deleted by making all the alerts inactive and then deleting the inactive alerts. Then it waits a second."""
-        dropdown_option_selector = "div.item-jFqVJoPk"
+        dropdown_option_selector = 'div[data-qa-id="menu-inner"] > div'
 
         def open_dropdown():
             """If the drpodown isn't already open, clicks the 3 dots and returns the dropdown that opens"""
@@ -1061,11 +1064,17 @@ class Browser:
             # Make sure that the Alerts tab is open
             self.utils.open_alert_tab(self.driver)
 
-            # Check if there already are no alerts
-            alert_items = self.driver.find_elements(
-                By.CSS_SELECTOR, "div.list-G90Hl2iS div.itemBody-ucBqatk5"
-            )
-            if alert_items == []:
+            # Wait briefly for alert list to load (DOM may still be rendering)
+            alert_selector = 'div[data-name="alert-item-name"]'
+            try:
+                WebDriverWait(self.driver, 3).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, alert_selector))
+                )
+            except Exception:
+                found = self.driver.find_elements(By.CSS_SELECTOR, '[data-name^="alert-"]')
+                open_tv_logger.debug(
+                    f"Alert panel elements found: {[e.get_attribute('data-name') for e in found[:10]]}"
+                )
                 open_tv_logger.info("There are no alerts. No need to delete any alerts!")
                 return True
 
@@ -1308,20 +1317,16 @@ class Browser:
         """This checks if there no alerts. If there are no alerts, returns `True` and returns `False` if there are alerts"""
         try:
             self.utils.open_alert_tab(self.driver)  # Make sure that the Alerts tab is open
-            alerts = WebDriverWait(self.driver, 3).until(
+            WebDriverWait(self.driver, 3).until(
                 EC.presence_of_element_located(
-                    (
-                        By.CSS_SELECTOR,
-                        'div[class="widget-X9EuSe_t widgetbar-widget widgetbar-widget-alerts"] div[class="itemBody-ucBqatk5 active-Bj96_lIl"]',
-                    )
+                    (By.CSS_SELECTOR, 'div[data-name="alert-item-name"]')
                 )
             )
-            if not alerts:  # if there are no alerts
-                open_tv_logger.info("There are no alerts!")
-                return True
-            else:
-                open_tv_logger.info("There are alerts!")
-                return False
+            open_tv_logger.info("There are alerts!")
+            return False
+        except TimeoutException:
+            open_tv_logger.info("There are no alerts!")
+            return True
         except Exception:
             open_tv_logger.exception("Failed to check if there are no alerts. Error: ")
             return False

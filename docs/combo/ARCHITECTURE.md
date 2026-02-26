@@ -1,8 +1,93 @@
-> **Status**: Production (Feb 2026). Originally a design document, now reflects the implemented production system.
+> **Status**: V2 in development (Feb 2026). V1 sections below are being superseded by V2.
 
 ---
 
 # Architecture 1: Combo Screener — Complete Design Document
+
+## V2 Architecture Changes (Feb 2026)
+
+V2 moves setup detection, position tracking, and exit detection **into Pine Script**. Stock Buddy receives pre-computed trade positions instead of raw signals.
+
+### What Changed
+
+| Aspect | V1 | V2 |
+|--------|----|----|
+| Symbols per alert | 3 | **2** |
+| Chart timeframe | 1 minute | **30 seconds** |
+| Alert frequency | `alert.freq_all` (every tick) | **`alert.freq_once_per_bar_close`** (every 30s) |
+| Divergence | Included | **Removed** |
+| Setup detection | Stock Buddy (from raw signals) | **Pine Script** (NWE + OB/FVG alignment) |
+| Exit detection | Stock Buddy cron (price API) | **Pine Script** (candle high/low vs TP/SL) |
+| Payload format | Verbose keys | **Compact keys** (for 2KB limit) |
+| Payload content | Raw signals only | **Signals + positions + exits** |
+| `request.security()` calls | 12 (4 symbols × 3 TFs) | **8** (2 symbols × 4 call types) |
+| Maintenance interval | 300s (5 min) | **150s** (2.5 min) |
+| Total symbols | ~1,028 | **626** (expandable to 800) |
+| Total alerts | ~338 | **~314** (expandable to 400) |
+
+### V2 Pine Script Indicator
+
+- **File**: `Pine Script Code/TTE Screener V2.txt`
+- **Indicator**: "TTE Screener V2" (short title: "Screener V2")
+- **`max_bars_back`**: 5000 (for 30s chart `var` history)
+- **Position tracking**: `var` state variables (12 per position × 8 positions = 96 vars)
+- **Setup types**: LTF (1H NWE + H4/D1 OB) and HTF (H4 NWE + D1 OB), tracked independently
+- **Max positions**: 1 LTF buy + 1 HTF buy + 1 LTF sell + 1 HTF sell per symbol (up to 4 concurrent)
+- **SL**: MIN(confirming OB zoneLow) for buys, MAX(zoneHigh) for sells
+- **TP**: 1:2 risk-reward from entry
+- **Exit detection**: Candle high/low vs TP/SL, TP checked before SL
+- **Staleness**: `timenow - symTime > 120000` excludes stale symbols from payload
+
+### V2 Category-Aware Symbol Pairing
+
+Symbols are paired within the same asset class (forex with forex, crypto with crypto, etc.) for matching market hours. This is handled by `fetch_symbols_by_category()` in `tte/main.py`.
+
+| Category | Symbols | Alerts |
+|----------|---------|--------|
+| Currencies | 29 | 15 |
+| Crypto | 20 | 10 |
+| US Stocks | 376 | 188 |
+| Indian Stocks | 201 | 101 |
+| **Total** | **626** | **~314** |
+
+### V2 Compact Payload Format
+
+```json
+{
+  "ts": 1707264000000,
+  "s": [{
+    "sym": "GBPAUD", "c": 1.985,
+    "nwe": [{"z": "la", "t": "bull", "tf": "1H", "ots": 1707264000}],
+    "ob": [{"zt": "OB", "st": "un", "t": "bull", "zh": 1.99, "zl": 1.97, "tf": "H4", "zts": 1707260400, "ots": 1707264000}],
+    "b": [{"e": 1.98, "sl": 1.975, "tp": 1.99, "et": 1707260000, "l": "LTF", "ntf": "1H", "otf": "H4", "n": true}, null],
+    "se": [null, null]
+  }]
+}
+```
+
+Key legend: `ts`=timestamp, `s`=symbols, `sym`=symbol, `c`=close, `nwe`=NWE signals, `ob`=OB/FVG signals, `b`=buy positions [LTF, HTF], `se`=sell positions [LTF, HTF], `e`=entry, `sl`=stopLoss, `tp`=takeProfit, `et`=entryTime, `l`=label(LTF/HTF), `ntf`=nweTf, `otf`=obTf, `n`=isNew, `xt`=exitType(tp/sl), `xp`=exitPrice, `xts`=exitTime
+
+### V2 Position Lifecycle
+
+Tracked per array slot (index 0 = LTF, index 1 = HTF). LTF and HTF are independent:
+
+1. No position: `"b": [null, null]`
+2. New LTF setup: `"b": [{"e":1.98, ..., "n": true}, null]` (one bar only)
+3. Both running: `"b": [{"e":1.98, ..., "n": false}, {"e":1.97, ..., "n": false}]`
+4. LTF exit: `"b": [{"e":1.98, ..., "xt": "tp", "xp": 1.99, "xts": 123}, {"e":1.97, ..., "n": false}]`
+5. LTF cleared: `"b": [null, {"e":1.97, ..., "n": false}]` (next bar after exit)
+
+### V2 Files
+
+| File | Change |
+|------|--------|
+| `Pine Script Code/TTE Screener V2.txt` | **New** — forked from V1 with setup/exit tracking |
+| `combo_settings.yaml` | Updated: 30s timeframe, batch_size=2, 150s maintenance |
+| `tte/main.py` | Updated: `fetch_symbols_by_category()` for category-aware pairing |
+
+---
+
+> **V1 documentation follows below** for reference. V1 is no longer in active use.
 
 ## Table of Contents
 

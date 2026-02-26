@@ -1,13 +1,13 @@
 chart:
   layout_name: Screener
-  chart_timeframe: 1 minute
+  chart_timeframe: 45 seconds
   bar_style: candle
-  headless: true
+  headless: false
 screener:
-  shorttitle: Screener
-  name: TTE Screener
+  shorttitle: Screener V2
+  name: TTE Screener V2
 alerts:
-  batch_size: 3
+  batch_size: 2
   creation_delay: 1.5
   recalc_wait: 1.5
   start_fresh: false
@@ -21,6 +21,6 @@ snapshot:
   poll_interval: 60
   bars_to_right: 60
 maintenance:
-  interval: 300
+  interval: 150
 progress:
   file: combo_progress.json
