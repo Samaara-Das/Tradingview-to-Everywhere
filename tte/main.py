@@ -51,23 +51,27 @@ if hasattr(signal, "SIGBREAK"):
 # ---------------------------------------------------------------------------
 
 
-def fetch_all_symbols() -> list[str]:
-    """Fetch all symbols from MongoDB and return as a flat list.
+def fetch_symbols_by_category(batch_size: int) -> tuple[list[list[str]], int]:
+    """Fetch symbols from MongoDB and pair within same category.
 
-    Uses symbol_settings.get_symbols() which returns {category: [symbols...]}.
+    Returns (batches, total_count) where each batch contains symbols
+    from the same asset class for matching market hours.
     """
     from tte.data.symbols import get_symbols
 
     logger.info("Fetching symbols from MongoDB...")
     symbols_by_category = get_symbols()
 
-    all_symbols = []
+    batches = []
+    total = 0
     for category, symbols in symbols_by_category.items():
         logger.info(f"  {category}: {len(symbols)} symbols")
-        all_symbols.extend(symbols)
+        total += len(symbols)
+        for i in range(0, len(symbols), batch_size):
+            batches.append(symbols[i : i + batch_size])
 
-    logger.info(f"Total symbols fetched: {len(all_symbols)}")
-    return all_symbols
+    logger.info(f"Total: {total} symbols in {len(batches)} batches of {batch_size}")
+    return batches, total
 
 
 def chunk_symbols(symbols: list[str], size: int = 3) -> list[list[str]]:
@@ -600,15 +604,10 @@ def main():
         return
 
     # --- Fetch symbols and create batches ---
-    all_symbols = fetch_all_symbols()
-    if not all_symbols:
+    batches, total = fetch_symbols_by_category(config.batch_size)
+    if not batches:
         logger.error("No symbols fetched — cannot continue")
         sys.exit(1)
-
-    logger.info(f"Total symbols for alert creation: {len(all_symbols)}")
-
-    batches = chunk_symbols(all_symbols, config.batch_size)
-    logger.info(f"Created {len(batches)} batches of {config.batch_size} symbols")
 
     # --- Initialize browser ---
     browser = create_browser(config, args)

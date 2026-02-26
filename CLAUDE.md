@@ -13,13 +13,13 @@ TradingView to Everywhere (TTE) is an automated trading signals distribution sys
 
 ## Combo Mode (`tte/main.py`) — Production
 
-- **Method**: Single combo screener (NWE + OB/FVG + Divergence) with persistent webhook alerts
-- **Workflow**: ~352 persistent alerts (3 symbols each) → webhook continuously to Stock Buddy API
-- **Alert lifecycle**: Create once → run forever (+ maintenance every 5 mins)
-- **4-symbol hard limit**: More causes TradingView memory/runtime errors (using 3 in production)
+- **Method**: Single combo screener (NWE + OB/FVG + setup/exit tracking) with persistent webhook alerts
+- **Workflow**: ~314 persistent alerts (2 symbols each, category-aware pairing) → webhook every 30s to Stock Buddy API
+- **Alert lifecycle**: Create once → run forever (+ maintenance every 2.5 mins)
+- **Screener V2**: Setup detection (NWE + OB/FVG alignment), position tracking, exit detection (TP/SL via candle high/low) — all in Pine Script
 - **Single browser**: Alerts created sequentially with one Chrome instance (headless by default)
-- **Chart**: 1-minute timeframe, candle bar style
-- **Key files**: `tte/main.py`, `tte/config.py`, `combo_settings.yaml`
+- **Chart**: 30-second timeframe, candle bar style, `alert.freq_once_per_bar_close`
+- **Key files**: `tte/main.py`, `tte/config.py`, `combo_settings.yaml`, `Pine Script Code/TTE Screener V2.txt`
 - **Docs**: `docs/combo/ARCHITECTURE.md`, `docs/combo/PRD.md`
 
 ## Running Commands
@@ -59,12 +59,12 @@ All combo mode options are configured in `combo_settings.yaml`. Secrets (webhook
 | Setting | YAML Path | Default | Description |
 |---------|-----------|---------|-------------|
 | Layout | `chart.layout_name` | "Screener" | TradingView layout name |
-| Timeframe | `chart.chart_timeframe` | "1 minute" | Chart timeframe (must match dropdown label) |
+| Timeframe | `chart.chart_timeframe` | "30 seconds" | Chart timeframe (must match dropdown label) |
 | Bar style | `chart.bar_style` | "candle" | Chart bar style data-value (candle, line, ha, etc.) |
-| Screener | `screener.shorttitle` | "Screener" | Indicator short title on chart |
-| Batch size | `alerts.batch_size` | 3 | Symbols per alert (hard limit) |
+| Screener | `screener.shorttitle` | "Screener V2" | Indicator short title on chart |
+| Batch size | `alerts.batch_size` | 2 | Symbols per alert (category-aware pairing) |
 | Creation delay | `alerts.creation_delay` | 1.5 | Seconds between batches |
-| Maintenance | `maintenance.interval` | 300 | Seconds between restart cycles |
+| Maintenance | `maintenance.interval` | 150 | Seconds between restart cycles |
 | Snapshot enabled | `snapshot.enabled` | true | Enable chart snapshot worker |
 | Snapshot layout | `snapshot.layout_name` | "Snapshot" | TradingView layout for snapshots |
 | Snapshot bar style | `snapshot.bar_style` | "candle" | Bar style for snapshot charts |
