@@ -1,9 +1,9 @@
 # Task Context Tracker
 
-**Last Updated**: 2026-02-23
-**Current Task**: Snapshot quality improvements + GUI defaults exposure
-**Active Branch**: `feat/snapshot-quality-gui-defaults`
-**Latest Commit (TTE)**: `0c9690b` — Add Snapshot config to GUI, pre-commit hooks, and codebase formatting
+**Last Updated**: 2026-02-26
+**Current Task**: V2 pipeline fully operational. All TTE tasks complete. User testing Stock Buddy V2 adaptation + running TTE EXE for alert creation/maintenance.
+**Active Branch**: `feat/screener-v2` → **PR #8** (https://github.com/Samaara-Das/Tradingview-to-Everywhere/pull/8)
+**Latest Commit (TTE)**: `77d081c` — Fix stale CSS selectors in delete_all_alerts() and no_alerts()
 **Latest Commit (Stock Buddy)**: `bc0b810` — Add snapshot backfill endpoint
 
 ---
@@ -14,168 +14,206 @@
 |---|------|--------|
 | 131–144 | Chart snapshots feature + backfill | completed |
 | 145 | Understand snapshot processing timing and batch size | completed |
-| 146 | Get remaining 20 symbols into alerts on TradingView | pending |
 | 147 | Decide on testing strategy (TDD / test coverage) | pending |
 | 148 | Set up pre-commit hooks for linting, type checking, and formatting | completed |
-| 149 | Rebuild and redeploy TTE.exe | pending |
+| 149 | Rebuild and redeploy TTE.exe | completed |
+
+### V2 Architecture Shift — Implementation (All Complete)
+
+| # | Task | Status |
+|---|------|--------|
+| 151 | Fork V2 + strip divergence + reduce to 2 symbols | completed |
+| 152 | Rewrite request.security() calls (15→8) | completed |
+| 153 | Add position state var declarations + clearing logic | completed |
+| 154 | Add staleness + setup detection + exit detection logic | completed |
+| 155 | Rewrite compact JSON builders + alert generation | completed |
+| 156 | Update combo_settings.yaml for V2 | completed |
+| 157 | Add category-aware symbol pairing in tte/main.py | completed |
+| 158 | Create branch, update docs, and open PR | completed |
+
+### V2 Testing & Deployment
+
+| # | Task | Status | Blocked By |
+|---|------|--------|------------|
+| 159 | Validate config with new V2 settings (`--validate`) | completed | — |
+| 160 | Upload V2 indicator to TradingView + verify compilation | completed (needs re-upload after LTF/HTF refactor) | — |
+| 161 | Test setup conditions, signals, and exits in indicator | completed (verified via code comparison) | — |
+| 162 | Rebuild TTE.exe with V2 changes | completed (11.3MB) | — |
+| 163 | Create alerts with `--fresh` using V2 indicator | completed | — |
+| 164 | Test webhook delivery with V2 compact payload | completed | #163 |
 
 ---
 
 ## Session History
 
-### Session: 2026-02-23 (Snapshot Quality + GUI Defaults)
+### Session: 2026-02-26 (Stale CSS Selectors Fix + V2 Webhook Confirmed)
 
-**Goal**: Improve snapshot quality and expose snapshot settings in the GUI.
+**Goal**: Fix `--fresh` failing to detect/delete existing alerts, and confirm V2 webhook delivery end-to-end.
 
-**Branch**: `feat/snapshot-quality-gui-defaults`
+**Root cause**: TradingView changed dynamically generated CSS class names (e.g., `itemBody-ucBqatk5` → new hash). Three hardcoded selectors in `tte/browser/tradingview.py` matched nothing, so `delete_all_alerts()` and `no_alerts()` always thought there were no alerts. Old V1 alerts kept firing, Stock Buddy rejected them with 400 Bad Request (V2-only now).
 
-#### Snapshot Quality Improvements (already committed)
-Recent commits on branch improved snapshot quality:
-- `7190735` — Improve snapshot quality and GUI defaults
-- `526d88e` — Fix: move `_set_bars_to_right()` after layout switch
-- `7d750df` — Use Snapshot layout for entire maintenance loop
-- `471685a` — Fix: initialize browser on Snapshot layout for `--maintain-only`
-- `516db09` — Fix: change Alt+R auto-fit log from debug to info
+**Changes made** (`tte/browser/tradingview.py`):
 
-#### Add Snapshot Config Section to GUI
-Added Snapshot settings section to `tte_gui.py` between Alerts and Maintenance:
-- **Row 1**: Enabled checkbox, Layout entry, Bar Style dropdown
-- **Row 2**: Batch Size (1-20), Poll Interval (30-600s), Bars Right (10-200)
-- Load/save from `combo_settings.yaml` `snapshot:` section
-- Defaults: enabled=True, layout="Snapshot", bar_style="candle", batch_size=5, poll_interval=60, bars_to_right=60
+1. **Alert existence check** (line 1068): `"div.list-G90Hl2iS div.itemBody-ucBqatk5"` → `'div[data-name="alert-item-name"]'` — stable `data-name` attribute
+2. **Debug logging** (lines 1073-1077): Added `find_elements('[data-name^="alert-"]')` debug log before "no alerts" message
+3. **Dropdown option selector** (line 1048): `"div.item-jFqVJoPk"` → `'div[data-qa-id="menu-inner"] > div'` — stable `data-qa-id` container
+4. **`no_alerts()` rewrite** (lines 1312-1332): Replaced stale class selector + fixed logic bug where `TimeoutException` (= no alerts found) fell into generic `except` returning `False` instead of `True`. Now has separate `except TimeoutException: return True` branch.
 
-**TTE.exe rebuilt** after GUI changes (20 MB, all validations passed).
+**EXE rebuilt**: 12MB, all validation passed. Committed as `77d081c`.
 
-#### Pre-commit Hooks & Codebase Formatting (Task #148)
-Set up pre-commit hooks with ruff + pyright:
-- Added `.pre-commit-config.yaml` — trim whitespace, EOF fix, YAML check, merge conflicts, large files, debug statements, ruff, ruff-format, pyright
-- Added `pyproject.toml` with ruff/pyright config
-- Applied ruff formatting across entire codebase (whitespace, imports, quotes)
-- Added `ruff` and `pre-commit` to Pipfile dev dependencies
-- Added PRD-generator and update-docs skills
+**Webhook delivery confirmed**: User tested and confirmed V2 webhooks are being sent and received by Stock Buddy.
 
-**Commit**: `0c9690b` — all 9 pre-commit hooks passed, pushed to `feat/snapshot-quality-gui-defaults`
+**Symbols investigation**: Both TTE and Stock Buddy read from the **same** MongoDB `symbols` collection (database `tte`, cluster `cluster1.565lfln.mongodb.net`). 626 symbols currently (Currencies: 29, Crypto: 20, US Stocks: 376, Indian Stocks: 201). No seed script exists — collection was populated externally. Header comment in `symbols.py` is stale (says 1054).
+
+**Next steps**: User will test Stock Buddy V2 adaptation and run TTE EXE for alert creation + maintenance.
 
 ---
 
-### Session: 2026-02-21 (Snapshot Reliability + Backfill)
+### Session: 2026-02-26 (Graceful Shutdown for TTE)
 
-**Goal**: Fix indicator loading race condition in snapshot worker, then backfill snapshots for all pre-feature setup messages.
+**Goal**: Make Ctrl+C shutdown complete in ~2-3 seconds with clean log output instead of ~30 seconds with noisy connection-refused errors.
 
-#### Bug Fix: Wait for Indicator to Load Before Filling Settings
+**Root cause of slow shutdown**:
+1. On Windows, Ctrl+C propagates to entire process group — Chrome/ChromeDriver die immediately, making WebDriver socket dead
+2. Operations continue after `_shutdown_requested` is set — `change_layout()`, snapshot worker init, etc. still run and hit 10s WebDriverWait timeouts against dead browser
+3. `driver.quit()` on dead browser takes ~16s — urllib3 retries dead connection multiple times
 
-**Problem**: TTE was double-clicking the Trade Drawer indicator to open settings before it had finished loading after a symbol/timeframe change. The legend-source-item shows `data-status="loading"` while loading.
+**Changes made** (`tte/main.py`):
 
-**Fix**: Added `_wait_for_indicator_ready()` to `SnapshotWorker` in `tte/snapshot_worker.py`:
-- Polls `data-status` on the `div[data-qa-id="legend-source-item"]` every 200ms
-- Waits up to 3.5 seconds for `data-status != "loading"`
-- Re-fetches element on `StaleElementReferenceException`
-- Proceeds with a warning if timeout exceeded (non-blocking)
-- Called in `_set_trade_drawer()` after `get_indicator()`, before double-click
+1. **`threading.Event` replaces boolean flag**: `_shutdown_requested = False` → `_shutdown_event = threading.Event()`. Enables interruptible waits via `.wait(timeout)`.
+2. **All `sleep()` → `_shutdown_event.wait()`**: Returns instantly when shutdown signaled. Applies to: recalc waits, alert creation delay, maintenance tick loop, post-refresh wait, post-restart/clear-log waits.
+3. **`_force_close_browser()` helper**: Tries `driver.quit()` first; if it hangs (dead browser), force-kills ChromeDriver process tree via `taskkill /F /T` (Windows) or `os.kill(SIGKILL)` (Unix).
+4. **Shutdown checks before every browser operation**: Before `change_layout()`, snapshot worker init, each maintenance cycle, after refresh wait, before `save_layout()`, before entering maintenance.
+5. **Early return in `restart_inactive_alerts()` / `clear_alert_log()`**: Check `_shutdown_event.is_set()` at entry.
+6. **Suppressed noisy errors during shutdown**: Exception handlers log at `DEBUG` instead of `ERROR`/`EXCEPTION` when shutdown is active.
+7. **Removed unused imports**: `sleep`, `contextlib` removed; added `os`, `platform`, `subprocess`, `threading`.
 
-**Also fixed**: `setup_tv()` in `tradingview.py` — Screener-not-found was a hard failure preventing `--maintain-only` from starting if indicator had a transient load issue. Changed to a warning (maintenance + snapshots don't need the Screener to be on chart).
-
-**Commit**: `0c61633`
-
-#### Testing the Fix
-
-Manually marked one setup (`EHC HTF H4`) as `snapshotStatus: "pending"` in MongoDB, ran `python combo_main.py --maintain-only`. Confirmed:
-- Trade Drawer found and loaded before settings filled
-- JLL, GEHC, TLN snapshots all succeeded in the same run
-- Logs: `"Snapshot completed for {SYMBOL}: https://www.tradingview.com/x/..."`
-- Browser runs headless (no visible window) — expected
-
-**Key finding from DB check**: `setup_messages` collection is in `tte` database (not `stock-buddy`). Already had 1,385 pending + 288 completed snapshots before backfill endpoint was built.
-
-#### Backfill Endpoint (Task #144)
-
-**Problem**: Setup messages created before the snapshot feature was deployed have no `snapshotStatus` field — the worker only picks up `pending`/`failed` docs, so old setups are invisible to it.
-
-**Solution**: `POST /api/tte/snapshots/backfill` on Stock Buddy
-- Finds all setup messages from last 30 days where `snapshotStatus` doesn't exist
-- Bulk-sets them to `snapshotStatus: "pending"`, `snapshotAttempts: 0`
-- Returns `{ queued: N, setupMessageIds: [...] }`
-- Idempotent — second call returns `queued: 0`
-
-**Files added/modified (Stock Buddy)**:
-- `src/lib/tte/collections.ts` — `backfillPendingSnapshots(days=30)` function
-- `src/app/api/tte/snapshots/backfill/route.ts` — NEW endpoint
-
-**Mini PRD**: `docs/prds/backfill-snapshots.md` (TTE repo)
-
-**Stock Buddy commit**: `bc0b810`, pushed to main. **TTE.exe rebuilt** `293f971` — includes all snapshot fixes.
-
-**To trigger backfill**:
-```bash
-curl -X POST https://stock-buddy-app.vercel.app/api/tte/snapshots/backfill
-```
+**EXE rebuild**: Triggered after code changes.
 
 ---
 
-### Session: 2026-02-20 (Chart Snapshots Feature — Full Implementation)
+### Session: 2026-02-26 (Bug Fix: delete_all_alerts race condition)
 
-**Goal**: Add TradingView chart snapshots to Stock Buddy setup messages.
+**Goal**: Fix `delete_all_alerts()` failing to detect existing alerts when running `--fresh`.
 
-**Architecture**: Async polling — Stock Buddy stores `snapshotStatus: "pending"` on setup messages. TTE polls every 60s, takes screenshots (Alt+S → clipboard), reports URLs back. Stale recovery resets "processing" >10min back to "pending".
+**Root cause**: `find_elements()` at `tradingview.py:1065` was instant (no wait). If the alert list DOM hadn't finished rendering after opening the sidebar, it returned `[]` and the method exited thinking there were no alerts.
 
-**TTE files created/modified**:
-- `tte/snapshot_worker.py` — NEW: `StockBuddyClient` + `SnapshotWorker`
-- `tte/config.py` — 6 `snapshot_*` fields
-- `combo_settings.yaml` — `snapshot:` section
-- `tte/main.py` — Dual-timer maintenance loop
-- `tte/browser/chart.py` — Fixed selectors, JS-based timeframe change + indicator title
-- `tte/browser/tradingview.py` — JS-based indicator title lookup
-- `Pine Script Code/Trade Drawer.txt` — NEW: Trade Drawer v6
-- `docs/combo/ARCHITECTURE.md` — Sections 3.7, 3.8, Phase 4
+**Fix applied** (`tte/browser/tradingview.py:1064-1071`):
+- Replaced instant `find_elements()` with `WebDriverWait(driver, 3).until(EC.presence_of_element_located(...))`
+- Polls up to 3 seconds for alert elements. Only reports "no alerts" if nothing renders within that window.
+- Config validation passed (`--validate`). EXE rebuild triggered.
 
-**Stock Buddy files**:
-- Schema: `snapshotStatus`, `snapshotUrl`, `snapshotTvUrl`, `snapshotAttempts`, `snapshotUpdatedAt`
-- APIs: `GET /api/tte/snapshots/pending`, `POST /api/tte/snapshots/update`
-- UI: `SetupMessageBubble.tsx` renders chart images
+---
 
-**Key bugs fixed during implementation**:
-1. `legend-source-item` selector: `data-name` → `data-qa-id`
-2. `nweTf` values: Added "1H"/"4H"/"H1"/"H4" to TF_MAP
-3. `alertTimestamp`: Already ms, removed `* 1000`
-4. Trade Drawer input selector: `.cell-tBgV1m0B` → `data-qa-id="ui-lib-Input-input"`
-5. Snapshot method: Camera icon → Alt+S clipboard
-6. Legend toggle: Use `aria-label` to distinguish state
-7. Bar style: `"bar"` → `"candle"`
-8. Trade Drawer: Fill only 4 inputs (skip TP2/TP3)
-9. Hashed CSS `title-l31H9iuA` → JS `querySelectorAll('div[class*="title-"]')`
-10. Headless clipboard: CDP `Browser.grantPermissions` for `clipboardReadWrite`
-11. PNG URL: `snapshots/{first_char_lowercase}/{id}.png`
-12. `pystray` missing from exe: Added `--hidden-import pystray` to PyInstaller
+### Session: 2026-02-26 (LTF/HTF Independent Positions Refactor)
 
-**PR #6**: Squash-merged → `a9680f0`. Post-merge: `b4960c0`, `27a12ff`
+**Goal**: Continue from previous session — complete the LTF/HTF refactor so both setup types coexist independently.
+
+**Context**: User requested "if an HTF and LTF setup exist, both should be sent in the payload and not just the LTF/HTF one". Previous session had completed var declarations, clearing, isNew reset, setup detection, and exit detection. JSON builders/payload/exitSent still needed updating.
+
+**What was done (this session)**:
+
+1. **Updated `buildPosV2()`**: Replaced `label` param with `ltfOrHtf` string ("LTF"/"HTF") — label field now encoded in slot name
+2. **Updated `buildSymV2()`**: Changed signature to accept 4 position strings (buyLtf, buyHtf, sellLtf, sellHtf). Payload format changed from `"b":{single}` to `"b":[ltfPos,htfPos]`
+3. **Updated position JSON build calls**: 8 `buildPosV2()` calls instead of 4 (buy01_ltf, buy01_htf, sell01_ltf, sell01_htf, etc.)
+4. **Updated `buildSymV2()` calls**: Now pass 4 position strings per symbol
+5. **Updated exitSent flags**: 8 blocks instead of 4
+6. **Updated debug table**: 12 columns (added BuyLTF, BuyHTF, SellLTF, SellHTF), all using new `pos_s1bl_*` etc. var names. Commented out for production.
+7. **Verified no old var name references remain** (`pos_s1b_`, `pos_s1s_`, `pos_s2b_`, `pos_s2s_` — all gone)
+8. **Updated docs**:
+   - `agent-comms.md`: Payload examples with arrays, dedup key changed to `{symbol}-{direction}-{label}`, lifecycle examples updated
+   - `ARCHITECTURE.md`: Position tracking (96 vars, 8 positions), payload format, lifecycle
+   - `task-context.md`: Payload format
+9. **Pine Script expert review**: All checks passed (v6 syntax, barstate.isconfirmed, var usage, JSON validity, no repainting, 8 request.security calls). Payload size ~2KB worst case.
+10. **Committed**: `9824be9` — Independent LTF/HTF positions: 8 slots, array payload format
+11. **Added 15 dummy symbol inputs** (`d01`–`d15`): Extend settings panel for Selenium scrolling
+12. **Committed**: `211e72c` — Add 15 dummy symbol inputs to extend settings panel for Selenium
+13. **User confirmed**: Screener V2 is favorited in TradingView. No EXE rebuild needed (only Pine Script changed).
+
+**Bugs Fixed**: None this session (clean refactor).
+
+**Key clarifications**:
+- **4 setups per symbol max**: 1 LTF buy + 1 HTF buy + 1 LTF sell + 1 HTF sell
+- **No cross-restrictions**: LTF buy doesn't block HTF buy or any sell. Each slot independent.
+- **EXE rebuild not needed**: Python code unchanged since last build.
+
+---
+
+### Session: 2026-02-26 (V2 Testing, Compilation Fix, Code Verification)
+
+**Goal**: Execute testing tasks #159–#162, verify V2 indicator correctness.
+
+**What was done**:
+- **Task #159**: `--validate` passed
+- **Task #162**: TTE.exe rebuilt (11.3MB)
+- **Task #160**: User uploaded indicator. Hit compilation error: `Could not find method 'rationalQuadratic' for 'kernels'`. Fixed by restoring `import jdehorty/KernelFunctions/2 as kernels` (was incorrectly removed — NWE's `calcNWE()` uses it, not just divergence).
+- **Task #161**: Instead of manual testing, ran `diff` comparing V1 vs V2 for all core functions (calcNWE, scanOBRange, getNweZoneName, checkSignalWithOB). Result: ALL V1 calculations preserved exactly, only divergence removed. V2 new code (setups/exits) logically correct.
+- **Debug table**: Uncommented with NWE/OB data cells + color coding, then re-commented for production.
+- **User feedback**: "if an HTF and LTF setup exist, both should be sent" → triggered the LTF/HTF refactor (completed in next session above).
+
+---
+
+### Session: 2026-02-26 (V2 Implementation — Pine Script + Python + PR)
+
+**Goal**: Execute the V2 implementation plan — build Pine Script V2, update Python, open PR.
+
+**What was built**:
+- Pine Script V2 forked from V1 (1267 lines), divergence removed, reduced to 2 symbols
+- 8 `request.security()` calls, position state tracking, compact JSON builders
+- Python: `fetch_symbols_by_category(batch_size)` in `tte/main.py`, `combo_settings.yaml` updated
+- Docs updated, branch `feat/screener-v2` created, PR #8 opened
+- Commit: `4f7d0ab`
+
+**Bugs fixed**: Divergence deletion incomplete, `config.batch_size` scoping bug, OB subtype abbreviation mismatch.
+
+---
+
+### Session: 2026-02-26 (V2 Architecture Shift — Planning + MongoDB)
+
+**Goal**: Plan major architecture shift. Scale: ~1028→626 symbols, 1min→30s chart, setup/exit tracking moved to Pine Script, divergence removed.
+- Plan file: `.claude/plans/reflective-petting-flame.md`
+- Agent comms rewritten: `.claude/agent-comms.md`
+- MongoDB symbols updated: 1028 → 626
 
 ---
 
 ### Previous Sessions (Summary)
-- **2026-02-20**: Branch cleanup — reset main to combo-architecture
+- **2026-02-23**: Snapshot quality + GUI defaults (PR #7 → `d8cd061`)
+- **2026-02-21**: Snapshot reliability — `_wait_for_indicator_ready()`, backfill endpoint
+- **2026-02-20**: Chart snapshots feature (PR #6), Trade Drawer v6, dual-timer maintenance
 - **2026-02-13**: Codebase reorganization into `tte/` package (PR #4)
-- **2026-02-12**: Codebase cleanup, Pine Script screener v2, entry setups, divergence fix, GUI stop button
-- **2026-02-10–11**: Single browser optimization, maintenance loop, docs, Stock Buddy combo API
+- **2026-02-12**: Pine Script screener, entry setups, divergence fix, GUI stop button
+- **2026-02-10–11**: Single browser optimization, maintenance loop, Stock Buddy combo API
 
 ---
 
 ## Important Decisions Made
 
-1. **Snapshot architecture**: Async polling (not webhook-triggered). TTE polls Stock Buddy every 60s.
-2. **Single browser**: Reuses existing browser. TradingView allows max 2 sessions.
-3. **Dual-timer maintenance**: Snapshots 60s, maintenance 300s. Maintenance has priority.
-4. **Alt+S for snapshots**: Clipboard via `navigator.clipboard.readText()` + CDP permission for headless.
-5. **Trade Drawer v6**: Draws on `barstate.islast` only. Orange SL / Blue TP (distinct from NWE red/green).
-6. **Legend hide/show**: Hide before screenshot, show before Trade Drawer settings.
-7. **JS-based selectors**: Replace hashed CSS classes with `querySelectorAll('div[class*="title-"]')`.
-8. **No layout switch-back**: Maintenance can run on any layout.
-9. **PNG URL prefix**: TradingView S3 CDN uses `snapshots/{first_char_lowercase}/{id}.png`.
-10. **Screener check non-fatal**: `setup_tv()` Screener-not-found → warning only (not exit).
-11. **Indicator load wait**: 3.5s polling wait on `data-status != "loading"` before settings dialog.
-12. **Backfill scope**: Last 30 days only. Older setups assumed stale/irrelevant.
-13. **MongoDB DB name**: `setup_messages` collection is in `tte` database (not `stock-buddy`).
-14. **Pre-commit hooks**: ruff (lint + format) + pyright (type check). Config in `.pre-commit-config.yaml` + `pyproject.toml`.
-15. **GUI snapshot settings**: Exposed 6 snapshot config fields (enabled, layout_name, bar_style, batch_size, poll_interval, bars_to_right) in GUI between Alerts and Maintenance sections.
+### V2 Architecture Decisions (2026-02-26)
+1. **Indicator over Strategy**: `strategy.entry/exit` only works for chart symbol, not `request.security()` symbols.
+2. **30-second chart**: `alert.freq_once_per_bar_close` — fires every 30s when data exists.
+3. **Setup/exit in Pine Script**: All tracking in Pine `var` state. No Stock Buddy cron needed.
+4. **Remove divergence**: Deleted ~220 lines in Pine Script, removed from payload.
+5. **Compact JSON keys**: Abbreviated keys for TradingView's ~2KB alert message limit.
+6. **Category-aware pairing**: Symbols paired within same asset class for matching market hours.
+7. **Staleness detection**: `timenow - symTime > 120000` — stale symbols excluded.
+8. **Position lifecycle**: `null → [ltf,htf] → exit → null` per slot.
+9. **Independent LTF/HTF**: 4 positions per symbol max (LTF buy, HTF buy, LTF sell, HTF sell). No cross-restrictions.
+10. **SL**: MIN(confirming OB zoneLow) for buys, MAX(zoneHigh) for sells.
+11. **TP**: 1:2 risk-reward → `entry ± 2 × |entry - sl|`.
+12. **Stock Buddy hard swap**: Same `/api/tte/combo` endpoint, wipe old collections, `{symbol}-{direction}-{label}` dedup.
+13. **Array payload**: `"b":[ltfPos, htfPos]`, `"se":[ltfPos, htfPos]` — both slots always present.
+
+### Graceful Shutdown (2026-02-26)
+18. **`threading.Event` over boolean**: Enables `_shutdown_event.wait(N)` which returns instantly on signal vs `sleep(N)` + polling.
+19. **Force-kill over graceful quit**: On Ctrl+C, Chrome is already dead; `driver.quit()` hangs 16s on urllib3 retries. `taskkill /F /T /PID` is instant.
+20. **DEBUG logging during shutdown**: Prevents noisy `ConnectionRefusedError` / `MaxRetryError` tracebacks that alarm users.
+
+### Previous Decisions (2026-02-20–23)
+14. **Snapshot architecture**: Async polling (TTE polls Stock Buddy every 60s).
+15. **Alt+S for snapshots**: Clipboard via `navigator.clipboard.readText()` + CDP headless permission.
+16. **Pre-commit hooks**: ruff (lint + format) + pyright (type check).
+17. **Webhook URL in YAML**: Production URL kept in `combo_settings.yaml`.
 
 ---
 
@@ -184,86 +222,76 @@ curl -X POST https://stock-buddy-app.vercel.app/api/tte/snapshots/backfill
 ### TTE Project
 | File | Purpose |
 |------|---------|
-| `tte/snapshot_worker.py` | Snapshot polling + browser orchestration (incl. `_wait_for_indicator_ready`) |
-| `tte/main.py` | Entry point with dual-timer maintenance loop |
-| `tte/config.py` | Config dataclass (includes snapshot settings) |
-| `combo_settings.yaml` | All settings (chart, screener, alerts, snapshot) |
-| `tte/browser/tradingview.py` | Browser automation (Screener check now warning-only) |
-| `tte/browser/chart.py` | Chart symbol/timeframe/indicator/snapshot |
-| `Pine Script Code/Trade Drawer.txt` | Trade Drawer v6 Pine Script |
-| `Pine Script Code/TTE Screener.txt` | Production screener |
-| `docs/combo/ARCHITECTURE.md` | Full system architecture (incl. snapshots) |
-| `docs/prds/backfill-snapshots.md` | Mini PRD for backfill feature |
-| `tte_gui.py` | GUI with snapshot config section |
-| `.pre-commit-config.yaml` | Pre-commit hooks (ruff, pyright, etc.) |
-| `pyproject.toml` | Ruff + pyright config |
+| `Pine Script Code/TTE Screener V2.txt` | **V2 screener** with independent LTF/HTF setup/exit tracking |
+| `Pine Script Code/TTE Screener.txt` | V1 screener (archived, no longer in use) |
+| `.claude/plans/reflective-petting-flame.md` | Full V2 architecture plan/PRD |
+| `.claude/agent-comms.md` | Stock Buddy agent coordination (V2 array payload spec) |
+| `tte/main.py` | Entry point — `fetch_symbols_by_category()` for category pairing |
+| `tte/config.py` | Config dataclass |
+| `combo_settings.yaml` | Settings (30s, batch_size=2, 150s maintenance) |
+| `tte/data/symbols.py` | MongoDB symbol fetching |
+| `tte/browser/tradingview.py` | Browser automation |
+| `tte/snapshot_worker.py` | Snapshot polling (unchanged) |
+| `tte_gui.py` | GUI (reads YAML dynamically) |
 
-### Stock Buddy App (`C:/Users/dassa/Work/Stock-Buddy-App`)
+### Stock Buddy App
 | File | Purpose |
 |------|---------|
-| `src/lib/tte/schemas.ts` | SetupMessage with snapshot fields |
-| `src/lib/tte/collections.ts` | getPendingSnapshots, updateSetupSnapshot, backfillPendingSnapshots |
-| `src/app/api/tte/snapshots/pending/route.ts` | GET pending snapshots |
-| `src/app/api/tte/snapshots/update/route.ts` | POST snapshot result |
-| `src/app/api/tte/snapshots/backfill/route.ts` | POST backfill old snapshots |
-| `src/components/chat/SetupMessageBubble.tsx` | Renders snapshot image |
+| `src/app/api/tte/combo/route.ts` | Combo webhook handler (needs V2 update — Stock Buddy scope) |
+| `src/app/api/tte/snapshots/*/route.ts` | Snapshot API endpoints (unchanged) |
+
+---
+
+## V2 Compact Payload Format
+
+```json
+{
+  "ts": 1707264000000,
+  "s": [{
+    "sym": "GBPAUD", "c": 1.985,
+    "nwe": [{"z": "la", "t": "bull", "tf": "1H", "ots": 1707264000}],
+    "ob": [{"zt": "OB", "st": "un", "t": "bull", "zh": 1.99, "zl": 1.97, "tf": "H4", "zts": 1707260400, "ots": 1707264000}],
+    "b": [{"e": 1.98, "sl": 1.975, "tp": 1.99, "et": 1707260000, "l": "LTF", "ntf": "1H", "otf": "H4", "n": true}, null],
+    "se": [null, null]
+  }]
+}
+```
+
+**Key legend**: `ts`=timestamp, `s`=symbols, `sym`=symbol, `c`=close, `nwe`=NWE signals, `ob`=OB/FVG signals, `b`=buy positions [LTF, HTF], `se`=sell positions [LTF, HTF], `e`=entry, `sl`=stopLoss, `tp`=takeProfit, `et`=entryTime, `l`=label(LTF/HTF), `ntf`=nweTf, `otf`=obTf, `n`=isNew, `xt`=exitType(tp/sl), `xp`=exitPrice, `xts`=exitTime
 
 ---
 
 ## Verified Patterns
 
-### Snapshot API Contract
+### Snapshot API Contract (unchanged)
 ```
 GET  /api/tte/snapshots/pending?limit=5
-  → { snapshots: [{ setupMessageId, symbol, direction, label, entryPrice, stopLoss, takeProfit, nweTf, alertTimestamp }] }
-
-POST /api/tte/snapshots/update
-  Success: { setupMessageId, snapshotUrl, snapshotTvUrl }
-  Failure: { setupMessageId, error }
-  → { success: true }
-
+POST /api/tte/snapshots/update  (success: {setupMessageId, snapshotUrl, snapshotTvUrl})
 POST /api/tte/snapshots/backfill
-  → { success: true, queued: N, setupMessageIds: [...] }
 ```
 
 ### Working TradingView Selectors
 ```
 Legend items:      div[data-qa-id="legend-source-item"]  (data-status="loading" while loading)
-Legend toggler:    button[data-qa-id="legend-toggler"] (use aria-label to distinguish)
+Legend toggler:    button[data-qa-id="legend-toggler"]
 Indicator inputs:  input[data-qa-id="ui-lib-Input-input"]
 Indicator title:   JS: querySelectorAll('div[class*="title-"]')[0].textContent
 Settings dialog:   div[data-name="indicator-properties-dialog"]
 Inputs tab:        button[id="inputs"]
 Submit button:     button[name="submit"]
-Chart area:        div.chart-markup-table
-Timeframe dropdown: div[data-qa-id="menu-inner"] (use JS click for stale-element safety)
+Alert items:       div[data-name="alert-item-name"]              (stable — use instead of class-based selectors!)
+Alert settings:    div[data-name="alerts-settings-button"]
+Dropdown menu:     div[data-qa-id="menu-inner"] > div            (children = Stop All, Delete All Inactive, etc.)
 ```
 
-### Timeframe Mapping
-```python
-TF_MAP = {"LTF": "1 hour", "HTF": "4 hours", "1H": "1 hour", "4H": "4 hours", "H1": "1 hour", "H4": "4 hours"}
-```
+**WARNING**: Never use TradingView's dynamically generated class names (e.g., `itemBody-ucBqatk5`, `item-jFqVJoPk`, `list-G90Hl2iS`). These change between UI builds. Always prefer `data-name` and `data-qa-id` attribute selectors.
 
-### PNG URL Construction
-```python
-snapshot_id = tv_url.rstrip("/").split("/")[-1]
-prefix = snapshot_id[0].lower()
-png_url = f"https://s3.tradingview.com/snapshots/{prefix}/{snapshot_id}.png"
+### MongoDB Symbols Schema
+```json
+{ "symbol": "NVDA", "full_symbol": "NVDA", "category": "US Stocks" }
 ```
-
-### MongoDB — Mark One Setup Pending (for testing)
-```bash
-python /tmp/mark_pending.py   # see script below
-# or from pipenv:
-pipenv run python - << 'EOF'
-import sys; sys.path.insert(0, '.')
-from dotenv import load_dotenv; load_dotenv(dotenv_path='.env')
-import pymongo, os
-col = pymongo.MongoClient(os.getenv('MONGODB_URI'))['tte']['setup_messages']
-r = col.find_one_and_update({'snapshotStatus': 'completed'}, {'$set': {'snapshotStatus': 'pending', 'snapshotAttempts': 0}, '$unset': {'snapshotUrl': '', 'snapshotTvUrl': ''}}, sort=[('timestamp', -1)], return_document=pymongo.ReturnDocument.AFTER)
-print(r['_id'], r['symbol'])
-EOF
-```
+Categories: `Currencies`, `Crypto`, `US Stocks`, `Indian Stocks`
+Unique index on `symbol` field.
 
 ---
 
@@ -271,26 +299,18 @@ EOF
 
 ```bash
 # TTE
-python combo_main.py --maintain-only    # Run maintenance + snapshots (headless)
-python combo_main.py --validate         # Validate config
-python combo_main.py --fresh            # Delete alerts & recreate
-dist/TTE.exe                            # GUI (requires pystray)
+pipenv run python combo_main.py --maintain-only    # Run maintenance + snapshots (headless)
+pipenv run python combo_main.py --validate         # Validate config
+pipenv run python combo_main.py --fresh            # Delete alerts & recreate
+dist/TTE.exe                                       # GUI (requires pystray)
 
-# Trigger backfill (after Stock Buddy deployed)
-curl -X POST https://stock-buddy-app.vercel.app/api/tte/snapshots/backfill
-
-# Stock Buddy
-cd "C:/Users/dassa/Work/Stock-Buddy-App"
-npm run dev
-npx tsc --project tsconfig.json --noEmit
-
-# MongoDB snapshot status check
+# MongoDB symbol counts
 pipenv run python -c "
 import pymongo, os; from dotenv import load_dotenv; load_dotenv('.env')
-col = pymongo.MongoClient(os.getenv('MONGODB_URI'))['tte']['setup_messages']
-print('completed:', col.count_documents({'snapshotStatus': 'completed'}))
-print('pending:', col.count_documents({'snapshotStatus': 'pending'}))
-print('failed:', col.count_documents({'snapshotStatus': 'failed'}))
-print('no status:', col.count_documents({'snapshotStatus': {'\$exists': False}}))
+from collections import Counter
+col = pymongo.MongoClient(os.getenv('MONGODB_URI'))['tte']['symbols']
+cats = Counter(doc['category'] for doc in col.find({}, {'category': 1}))
+for cat, count in sorted(cats.items()): print(f'{cat}: {count}')
+print(f'Total: {sum(cats.values())}')
 "
 ```
