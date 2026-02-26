@@ -30,9 +30,9 @@ V2 moves setup detection, position tracking, and exit detection **into Pine Scri
 - **File**: `Pine Script Code/TTE Screener V2.txt`
 - **Indicator**: "TTE Screener V2" (short title: "Screener V2")
 - **`max_bars_back`**: 5000 (for 30s chart `var` history)
-- **Position tracking**: `var` state variables (13 per position × 4 positions = 52 vars)
-- **Setup types**: LTF (1H NWE + H4/D1 OB) and HTF (H4 NWE + D1 OB), LTF checked first
-- **Max positions**: 1 buy + 1 sell per symbol (first-to-trigger wins)
+- **Position tracking**: `var` state variables (12 per position × 8 positions = 96 vars)
+- **Setup types**: LTF (1H NWE + H4/D1 OB) and HTF (H4 NWE + D1 OB), tracked independently
+- **Max positions**: 1 LTF buy + 1 HTF buy + 1 LTF sell + 1 HTF sell per symbol (up to 4 concurrent)
 - **SL**: MIN(confirming OB zoneLow) for buys, MAX(zoneHigh) for sells
 - **TP**: 1:2 risk-reward from entry
 - **Exit detection**: Candle high/low vs TP/SL, TP checked before SL
@@ -59,21 +59,23 @@ Symbols are paired within the same asset class (forex with forex, crypto with cr
     "sym": "GBPAUD", "c": 1.985,
     "nwe": [{"z": "la", "t": "bull", "tf": "1H", "ots": 1707264000}],
     "ob": [{"zt": "OB", "st": "un", "t": "bull", "zh": 1.99, "zl": 1.97, "tf": "H4", "zts": 1707260400, "ots": 1707264000}],
-    "b": {"e": 1.98, "sl": 1.975, "tp": 1.99, "et": 1707260000, "l": "LTF", "ntf": "1H", "otf": "H4", "n": true},
-    "se": null
+    "b": [{"e": 1.98, "sl": 1.975, "tp": 1.99, "et": 1707260000, "l": "LTF", "ntf": "1H", "otf": "H4", "n": true}, null],
+    "se": [null, null]
   }]
 }
 ```
 
-Key legend: `ts`=timestamp, `s`=symbols, `sym`=symbol, `c`=close, `nwe`=NWE signals, `ob`=OB/FVG signals, `b`=buy position, `se`=sell position, `e`=entry, `sl`=stopLoss, `tp`=takeProfit, `et`=entryTime, `l`=label(LTF/HTF), `ntf`=nweTf, `otf`=obTf, `n`=isNew, `xt`=exitType(tp/sl), `xp`=exitPrice, `xts`=exitTime
+Key legend: `ts`=timestamp, `s`=symbols, `sym`=symbol, `c`=close, `nwe`=NWE signals, `ob`=OB/FVG signals, `b`=buy positions [LTF, HTF], `se`=sell positions [LTF, HTF], `e`=entry, `sl`=stopLoss, `tp`=takeProfit, `et`=entryTime, `l`=label(LTF/HTF), `ntf`=nweTf, `otf`=obTf, `n`=isNew, `xt`=exitType(tp/sl), `xp`=exitPrice, `xts`=exitTime
 
 ### V2 Position Lifecycle
 
-1. No position: `"b": null`
-2. New setup: `"b": {"e":1.98, ..., "n": true}` (one bar only)
-3. Running: `"b": {"e":1.98, ..., "n": false}` (every 30s)
-4. Exit: `"b": {"e":1.98, ..., "xt": "tp", "xp": 1.99, "xts": 123}` (one bar)
-5. Cleared: `"b": null` (next bar after exit)
+Tracked per array slot (index 0 = LTF, index 1 = HTF). LTF and HTF are independent:
+
+1. No position: `"b": [null, null]`
+2. New LTF setup: `"b": [{"e":1.98, ..., "n": true}, null]` (one bar only)
+3. Both running: `"b": [{"e":1.98, ..., "n": false}, {"e":1.97, ..., "n": false}]`
+4. LTF exit: `"b": [{"e":1.98, ..., "xt": "tp", "xp": 1.99, "xts": 123}, {"e":1.97, ..., "n": false}]`
+5. LTF cleared: `"b": [null, {"e":1.97, ..., "n": false}]` (next bar after exit)
 
 ### V2 Files
 
