@@ -1,9 +1,9 @@
 # Task Context Tracker
 
 **Last Updated**: 2026-02-26
-**Current Task**: Graceful shutdown implemented in `tte/main.py`. EXE rebuild in progress. Testing V2 webhook delivery (#164) ongoing.
+**Current Task**: V2 pipeline fully operational. All TTE tasks complete. User testing Stock Buddy V2 adaptation + running TTE EXE for alert creation/maintenance.
 **Active Branch**: `feat/screener-v2` → **PR #8** (https://github.com/Samaara-Das/Tradingview-to-Everywhere/pull/8)
-**Latest Commit (TTE)**: `211e72c` — Add 15 dummy symbol inputs to extend settings panel for Selenium (next commit: graceful shutdown)
+**Latest Commit (TTE)**: `77d081c` — Fix stale CSS selectors in delete_all_alerts() and no_alerts()
 **Latest Commit (Stock Buddy)**: `bc0b810` — Add snapshot backfill endpoint
 
 ---
@@ -40,11 +40,34 @@
 | 161 | Test setup conditions, signals, and exits in indicator | completed (verified via code comparison) | — |
 | 162 | Rebuild TTE.exe with V2 changes | completed (11.3MB) | — |
 | 163 | Create alerts with `--fresh` using V2 indicator | completed | — |
-| 164 | Test webhook delivery with V2 compact payload | in_progress | #163 |
+| 164 | Test webhook delivery with V2 compact payload | completed | #163 |
 
 ---
 
 ## Session History
+
+### Session: 2026-02-26 (Stale CSS Selectors Fix + V2 Webhook Confirmed)
+
+**Goal**: Fix `--fresh` failing to detect/delete existing alerts, and confirm V2 webhook delivery end-to-end.
+
+**Root cause**: TradingView changed dynamically generated CSS class names (e.g., `itemBody-ucBqatk5` → new hash). Three hardcoded selectors in `tte/browser/tradingview.py` matched nothing, so `delete_all_alerts()` and `no_alerts()` always thought there were no alerts. Old V1 alerts kept firing, Stock Buddy rejected them with 400 Bad Request (V2-only now).
+
+**Changes made** (`tte/browser/tradingview.py`):
+
+1. **Alert existence check** (line 1068): `"div.list-G90Hl2iS div.itemBody-ucBqatk5"` → `'div[data-name="alert-item-name"]'` — stable `data-name` attribute
+2. **Debug logging** (lines 1073-1077): Added `find_elements('[data-name^="alert-"]')` debug log before "no alerts" message
+3. **Dropdown option selector** (line 1048): `"div.item-jFqVJoPk"` → `'div[data-qa-id="menu-inner"] > div'` — stable `data-qa-id` container
+4. **`no_alerts()` rewrite** (lines 1312-1332): Replaced stale class selector + fixed logic bug where `TimeoutException` (= no alerts found) fell into generic `except` returning `False` instead of `True`. Now has separate `except TimeoutException: return True` branch.
+
+**EXE rebuilt**: 12MB, all validation passed. Committed as `77d081c`.
+
+**Webhook delivery confirmed**: User tested and confirmed V2 webhooks are being sent and received by Stock Buddy.
+
+**Symbols investigation**: Both TTE and Stock Buddy read from the **same** MongoDB `symbols` collection (database `tte`, cluster `cluster1.565lfln.mongodb.net`). 626 symbols currently (Currencies: 29, Crypto: 20, US Stocks: 376, Indian Stocks: 201). No seed script exists — collection was populated externally. Header comment in `symbols.py` is stale (says 1054).
+
+**Next steps**: User will test Stock Buddy V2 adaptation and run TTE EXE for alert creation + maintenance.
+
+---
 
 ### Session: 2026-02-26 (Graceful Shutdown for TTE)
 
@@ -256,7 +279,12 @@ Indicator title:   JS: querySelectorAll('div[class*="title-"]')[0].textContent
 Settings dialog:   div[data-name="indicator-properties-dialog"]
 Inputs tab:        button[id="inputs"]
 Submit button:     button[name="submit"]
+Alert items:       div[data-name="alert-item-name"]              (stable — use instead of class-based selectors!)
+Alert settings:    div[data-name="alerts-settings-button"]
+Dropdown menu:     div[data-qa-id="menu-inner"] > div            (children = Stop All, Delete All Inactive, etc.)
 ```
+
+**WARNING**: Never use TradingView's dynamically generated class names (e.g., `itemBody-ucBqatk5`, `item-jFqVJoPk`, `list-G90Hl2iS`). These change between UI builds. Always prefer `data-name` and `data-qa-id` attribute selectors.
 
 ### MongoDB Symbols Schema
 ```json
