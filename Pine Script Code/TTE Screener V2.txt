@@ -13,7 +13,7 @@
 indicator('TTE Screener V2', 'Screener V2', overlay = true, precision = 5, max_bars_back = 5000)
 
 // Libraries
-// (KernelFunctions library removed — was only used for divergence detection)
+import jdehorty/KernelFunctions/2 as kernels
 
 ////////////
 // INPUTS //
