@@ -13,10 +13,13 @@ Usage:
 """
 
 import argparse
-import contextlib
+import os
+import platform
 import signal
+import subprocess
 import sys
-from time import sleep, time
+import threading
+from time import time
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
@@ -30,13 +33,12 @@ from tte.config import ComboConfig
 # Logger
 logger = log.setup_logger(__name__, log.INFO)
 
-# Graceful shutdown flag
-_shutdown_requested = False
+# Graceful shutdown event — allows interruptible waits via .wait(timeout)
+_shutdown_event = threading.Event()
 
 
 def _signal_handler(signum, frame):
-    global _shutdown_requested
-    _shutdown_requested = True
+    _shutdown_event.set()
     logger.info("Shutdown requested — will exit after current operations complete")
 
 
@@ -44,6 +46,32 @@ signal.signal(signal.SIGINT, _signal_handler)
 signal.signal(signal.SIGTERM, _signal_handler)
 if hasattr(signal, "SIGBREAK"):
     signal.signal(signal.SIGBREAK, _signal_handler)
+
+
+def _force_close_browser(browser):
+    """Quit browser quickly — kill process if quit() hangs on a dead driver."""
+    pid = None
+    try:
+        pid = browser.driver.service.process.pid
+    except Exception:
+        pass
+
+    try:
+        browser.driver.quit()
+    except Exception:
+        # Browser/ChromeDriver already dead — force-kill the process tree
+        if pid:
+            try:
+                if platform.system() == "Windows":
+                    subprocess.run(
+                        ["taskkill", "/F", "/T", "/PID", str(pid)],
+                        capture_output=True,
+                        timeout=5,
+                    )
+                else:
+                    os.kill(pid, 9)  # SIGKILL
+            except Exception:
+                pass
 
 
 # ---------------------------------------------------------------------------
@@ -143,7 +171,7 @@ def run_alert_creation(
 
     try:
         for i, batch in enumerate(batches):
-            if _shutdown_requested:
+            if _shutdown_event.is_set():
                 logger.info("Shutdown requested — stopping")
                 break
 
@@ -175,7 +203,9 @@ def run_alert_creation(
             t_settings = time() - t0
 
             t0 = time()
-            sleep(config.recalc_wait)  # Wait for screener recalculation
+            _shutdown_event.wait(config.recalc_wait)  # Wait for screener recalculation
+            if _shutdown_event.is_set():
+                break
             t_recalc = time() - t0
 
             # Check for screener errors
@@ -194,7 +224,9 @@ def run_alert_creation(
                     failed.append({"batch": i, "symbols": batch, "error": "reupload_failed"})
                     continue
 
-                sleep(config.recalc_wait)  # Wait for indicator to fully load
+                _shutdown_event.wait(config.recalc_wait)  # Wait for indicator to fully load
+                if _shutdown_event.is_set():
+                    break
 
                 # Reapply settings
                 if not browser.change_settings(batch, config.screener_shorttitle):
@@ -208,7 +240,9 @@ def run_alert_creation(
                     )
                     continue
 
-                sleep(config.recalc_wait)  # Wait for recalculation
+                _shutdown_event.wait(config.recalc_wait)  # Wait for recalculation
+                if _shutdown_event.is_set():
+                    break
 
                 # Recheck errors
                 if not browser.is_no_error(config.screener_shorttitle):
@@ -272,10 +306,10 @@ def run_alert_creation(
                 if retry_indicator and browser.reupload_indicator(
                     retry_indicator, config.screener_name, config.screener_shorttitle
                 ):
-                    sleep(config.recalc_wait)
+                    _shutdown_event.wait(config.recalc_wait)
 
                     if browser.change_settings(batch, config.screener_shorttitle):
-                        sleep(config.recalc_wait)
+                        _shutdown_event.wait(config.recalc_wait)
 
                         indicator = browser._safe_indicator_access(config.screener_shorttitle)
                         if indicator:
@@ -319,13 +353,16 @@ def run_alert_creation(
                     failed.append({"batch": i, "symbols": batch, "error": "retry_reupload_failed"})
                     logger.error("Retry failed - re-upload failed")
 
-            sleep(config.alert_creation_delay)
+            _shutdown_event.wait(config.alert_creation_delay)
 
     except Exception as e:
-        logger.exception("Fatal error during alert creation")
+        if _shutdown_event.is_set():
+            logger.debug(f"Alert creation interrupted by shutdown: {e}")
+        else:
+            logger.exception("Fatal error during alert creation")
         return {
-            "completed": 0,
-            "failed": [],
+            "completed": completed,
+            "failed": failed,
             "total": len(batches),
             "error": str(e),
         }
@@ -358,6 +395,9 @@ def restart_inactive_alerts(driver) -> bool:
     Standalone function (no Alerts class dependency). Replicates the Selenium
     steps from handle_alerts.py:240-303.
     """
+    if _shutdown_event.is_set():
+        return False
+
     utils = Utils()
     try:
         # Make sure that the Alerts tab is open
@@ -411,16 +451,22 @@ def restart_inactive_alerts(driver) -> bool:
             popup.find_element(By.CSS_SELECTOR, 'button[name="yes"]').click()
             logger.info("Restarting all inactive alerts!")
 
-        sleep(1)
+        _shutdown_event.wait(1)
         return True
 
     except Exception:
-        logger.exception("Error restarting inactive alerts:")
+        if _shutdown_event.is_set():
+            logger.debug("restart_inactive_alerts interrupted by shutdown")
+        else:
+            logger.exception("Error restarting inactive alerts:")
         return False
 
 
 def clear_alert_log(driver) -> bool:
     """Clear the TradingView alert log to prevent it from growing indefinitely."""
+    if _shutdown_event.is_set():
+        return False
+
     utils = Utils()
     try:
         utils.open_log_tab(driver)
@@ -436,10 +482,13 @@ def clear_alert_log(driver) -> bool:
         )
         popup.find_element(By.CSS_SELECTOR, 'button[name="yes"]').click()
         logger.info("Alert log cleared!")
-        sleep(1)
+        _shutdown_event.wait(1)
         return True
     except Exception:
-        logger.exception("Error clearing alert log:")
+        if _shutdown_event.is_set():
+            logger.debug("clear_alert_log interrupted by shutdown")
+        else:
+            logger.exception("Error clearing alert log:")
         return False
 
 
@@ -450,10 +499,8 @@ def run_maintenance(browser: Browser, config: ComboConfig):
     - Maintenance timer (config.maintenance_interval): restart alerts, clear log, refresh page
     - Snapshot timer (config.snapshot_poll_interval): poll Stock Buddy for pending snapshots
 
-    Handles graceful shutdown by checking _shutdown_requested flag and cleaning up browser.
+    Handles graceful shutdown via _shutdown_event for interruptible waits.
     """
-    global _shutdown_requested
-
     interval = config.maintenance_interval
     snapshot_interval = config.snapshot_poll_interval
     tick = min(snapshot_interval, interval)  # Sleep in increments of the shorter timer
@@ -463,6 +510,11 @@ def run_maintenance(browser: Browser, config: ComboConfig):
         f"snapshots every {snapshot_interval}s, tick={tick}s)"
     )
 
+    if _shutdown_event.is_set():
+        logger.info("Shutdown already requested — skipping maintenance")
+        _force_close_browser(browser)
+        return
+
     # Switch to Snapshot layout for maintenance (covers --maintain-only mode)
     if not browser.change_layout(config.snapshot_layout_name):
         logger.warning(
@@ -471,6 +523,11 @@ def run_maintenance(browser: Browser, config: ComboConfig):
         )
     else:
         logger.info(f"Switched to '{config.snapshot_layout_name}' layout for maintenance")
+
+    if _shutdown_event.is_set():
+        logger.info("Shutdown requested — skipping maintenance")
+        _force_close_browser(browser)
+        return
 
     # Initialize snapshot worker if enabled
     snapshot_worker = None
@@ -487,54 +544,59 @@ def run_maintenance(browser: Browser, config: ComboConfig):
     last_snapshot = 0.0  # Force immediate first snapshot check
 
     try:
-        while not _shutdown_requested:
+        while not _shutdown_event.is_set():
             now = time()
             maintenance_due = now - last_maintenance >= interval
 
             # --- Maintenance check (runs first — has priority over snapshots) ---
             if maintenance_due:
+                if _shutdown_event.is_set():
+                    break
                 last_maintenance = now
                 logger.info("Running maintenance cycle...")
                 try:
                     # Refresh page to keep session alive
                     browser.driver.refresh()
-                    sleep(5)
+                    if _shutdown_event.wait(5):
+                        break  # Shutdown during post-refresh wait
 
                     # Restart inactive alerts
                     restart_inactive_alerts(browser.driver)
+                    if _shutdown_event.is_set():
+                        break
 
                     # Clear alert log
                     clear_alert_log(browser.driver)
 
                 except Exception:
-                    logger.exception("Maintenance cycle failed, will retry next cycle:")
+                    if _shutdown_event.is_set():
+                        logger.debug("Maintenance interrupted by shutdown")
+                    else:
+                        logger.exception("Maintenance cycle failed, will retry next cycle:")
 
             # --- Snapshot check (skipped if maintenance just ran this tick) ---
             if (
                 snapshot_worker
                 and (now - last_snapshot >= snapshot_interval)
                 and not maintenance_due
+                and not _shutdown_event.is_set()
             ):
                 last_snapshot = now
                 try:
                     snapshot_worker.process_pending_snapshots()
                 except Exception:
-                    logger.exception("Snapshot cycle failed, will retry next cycle:")
+                    if _shutdown_event.is_set():
+                        logger.debug("Snapshot cycle interrupted by shutdown")
+                    else:
+                        logger.exception("Snapshot cycle failed, will retry next cycle:")
 
-            # Sleep in small increments to be responsive to shutdown signals
-            sleep_remaining = tick
-            while sleep_remaining > 0 and not _shutdown_requested:
-                sleep(min(1, sleep_remaining))
-                sleep_remaining -= 1
+            # Interruptible sleep — returns immediately when shutdown is signaled
+            _shutdown_event.wait(tick)
 
         logger.info("Maintenance loop stopped — cleaning up browser")
     finally:
-        # Always clean up browser when exiting maintenance loop
-        try:
-            browser.driver.quit()
-            logger.info("Browser closed successfully")
-        except Exception as e:
-            logger.error(f"Error closing browser: {e}")
+        _force_close_browser(browser)
+        logger.info("Browser closed")
 
 
 # ---------------------------------------------------------------------------
@@ -625,13 +687,24 @@ def main():
     # --- Setup only mode ---
     if args.setup_only:
         logger.info("Setup complete (--setup-only). Exiting.")
-        with contextlib.suppress(Exception):
-            browser.driver.quit()
+        _force_close_browser(browser)
+        return
+
+    # --- Check shutdown before transitioning to maintenance ---
+    if _shutdown_event.is_set():
+        logger.info("Shutdown requested — skipping maintenance")
+        _force_close_browser(browser)
         return
 
     # --- Switch to Snapshot layout before maintenance ---
     logger.info("Saving Screener layout and switching to Snapshot layout...")
     browser.save_layout()
+
+    if _shutdown_event.is_set():
+        logger.info("Shutdown requested — skipping maintenance")
+        _force_close_browser(browser)
+        return
+
     if not browser.change_layout(config.snapshot_layout_name):
         logger.warning(
             f"Failed to switch to '{config.snapshot_layout_name}' layout — "

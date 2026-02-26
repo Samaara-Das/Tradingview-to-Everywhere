@@ -1,9 +1,9 @@
 # Task Context Tracker
 
 **Last Updated**: 2026-02-26
-**Current Task**: V2 implementation complete, PR open. Next: testing & deployment.
+**Current Task**: Graceful shutdown implemented in `tte/main.py`. EXE rebuild in progress. Testing V2 webhook delivery (#164) ongoing.
 **Active Branch**: `feat/screener-v2` → **PR #8** (https://github.com/Samaara-Das/Tradingview-to-Everywhere/pull/8)
-**Latest Commit (TTE)**: `4f7d0ab` — TTE Screener V2: setup/exit tracking in Pine Script
+**Latest Commit (TTE)**: `211e72c` — Add 15 dummy symbol inputs to extend settings panel for Selenium (next commit: graceful shutdown)
 **Latest Commit (Stock Buddy)**: `bc0b810` — Add snapshot backfill endpoint
 
 ---
@@ -24,83 +24,133 @@
 |---|------|--------|
 | 151 | Fork V2 + strip divergence + reduce to 2 symbols | completed |
 | 152 | Rewrite request.security() calls (15→8) | completed |
-| 153 | Add 52 position state var declarations + clearing logic | completed |
+| 153 | Add position state var declarations + clearing logic | completed |
 | 154 | Add staleness + setup detection + exit detection logic | completed |
 | 155 | Rewrite compact JSON builders + alert generation | completed |
 | 156 | Update combo_settings.yaml for V2 | completed |
 | 157 | Add category-aware symbol pairing in tte/main.py | completed |
 | 158 | Create branch, update docs, and open PR | completed |
 
-### V2 Testing & Deployment (Pending)
+### V2 Testing & Deployment
 
 | # | Task | Status | Blocked By |
 |---|------|--------|------------|
-| 159 | Validate config with new V2 settings (`--validate`) | pending | — |
-| 160 | Upload V2 indicator to TradingView + verify compilation | pending | — |
-| 161 | Test setup conditions, signals, and exits in indicator | pending | #160 |
-| 162 | Rebuild TTE.exe with V2 changes | pending | — |
-| 163 | Create alerts with `--fresh` using V2 indicator | pending | #159, #160, #162 |
-| 164 | Test webhook delivery with V2 compact payload | pending | #163 |
+| 159 | Validate config with new V2 settings (`--validate`) | completed | — |
+| 160 | Upload V2 indicator to TradingView + verify compilation | completed (needs re-upload after LTF/HTF refactor) | — |
+| 161 | Test setup conditions, signals, and exits in indicator | completed (verified via code comparison) | — |
+| 162 | Rebuild TTE.exe with V2 changes | completed (11.3MB) | — |
+| 163 | Create alerts with `--fresh` using V2 indicator | completed | — |
+| 164 | Test webhook delivery with V2 compact payload | in_progress | #163 |
 
 ---
 
 ## Session History
+
+### Session: 2026-02-26 (Graceful Shutdown for TTE)
+
+**Goal**: Make Ctrl+C shutdown complete in ~2-3 seconds with clean log output instead of ~30 seconds with noisy connection-refused errors.
+
+**Root cause of slow shutdown**:
+1. On Windows, Ctrl+C propagates to entire process group — Chrome/ChromeDriver die immediately, making WebDriver socket dead
+2. Operations continue after `_shutdown_requested` is set — `change_layout()`, snapshot worker init, etc. still run and hit 10s WebDriverWait timeouts against dead browser
+3. `driver.quit()` on dead browser takes ~16s — urllib3 retries dead connection multiple times
+
+**Changes made** (`tte/main.py`):
+
+1. **`threading.Event` replaces boolean flag**: `_shutdown_requested = False` → `_shutdown_event = threading.Event()`. Enables interruptible waits via `.wait(timeout)`.
+2. **All `sleep()` → `_shutdown_event.wait()`**: Returns instantly when shutdown signaled. Applies to: recalc waits, alert creation delay, maintenance tick loop, post-refresh wait, post-restart/clear-log waits.
+3. **`_force_close_browser()` helper**: Tries `driver.quit()` first; if it hangs (dead browser), force-kills ChromeDriver process tree via `taskkill /F /T` (Windows) or `os.kill(SIGKILL)` (Unix).
+4. **Shutdown checks before every browser operation**: Before `change_layout()`, snapshot worker init, each maintenance cycle, after refresh wait, before `save_layout()`, before entering maintenance.
+5. **Early return in `restart_inactive_alerts()` / `clear_alert_log()`**: Check `_shutdown_event.is_set()` at entry.
+6. **Suppressed noisy errors during shutdown**: Exception handlers log at `DEBUG` instead of `ERROR`/`EXCEPTION` when shutdown is active.
+7. **Removed unused imports**: `sleep`, `contextlib` removed; added `os`, `platform`, `subprocess`, `threading`.
+
+**EXE rebuild**: Triggered after code changes.
+
+---
+
+### Session: 2026-02-26 (Bug Fix: delete_all_alerts race condition)
+
+**Goal**: Fix `delete_all_alerts()` failing to detect existing alerts when running `--fresh`.
+
+**Root cause**: `find_elements()` at `tradingview.py:1065` was instant (no wait). If the alert list DOM hadn't finished rendering after opening the sidebar, it returned `[]` and the method exited thinking there were no alerts.
+
+**Fix applied** (`tte/browser/tradingview.py:1064-1071`):
+- Replaced instant `find_elements()` with `WebDriverWait(driver, 3).until(EC.presence_of_element_located(...))`
+- Polls up to 3 seconds for alert elements. Only reports "no alerts" if nothing renders within that window.
+- Config validation passed (`--validate`). EXE rebuild triggered.
+
+---
+
+### Session: 2026-02-26 (LTF/HTF Independent Positions Refactor)
+
+**Goal**: Continue from previous session — complete the LTF/HTF refactor so both setup types coexist independently.
+
+**Context**: User requested "if an HTF and LTF setup exist, both should be sent in the payload and not just the LTF/HTF one". Previous session had completed var declarations, clearing, isNew reset, setup detection, and exit detection. JSON builders/payload/exitSent still needed updating.
+
+**What was done (this session)**:
+
+1. **Updated `buildPosV2()`**: Replaced `label` param with `ltfOrHtf` string ("LTF"/"HTF") — label field now encoded in slot name
+2. **Updated `buildSymV2()`**: Changed signature to accept 4 position strings (buyLtf, buyHtf, sellLtf, sellHtf). Payload format changed from `"b":{single}` to `"b":[ltfPos,htfPos]`
+3. **Updated position JSON build calls**: 8 `buildPosV2()` calls instead of 4 (buy01_ltf, buy01_htf, sell01_ltf, sell01_htf, etc.)
+4. **Updated `buildSymV2()` calls**: Now pass 4 position strings per symbol
+5. **Updated exitSent flags**: 8 blocks instead of 4
+6. **Updated debug table**: 12 columns (added BuyLTF, BuyHTF, SellLTF, SellHTF), all using new `pos_s1bl_*` etc. var names. Commented out for production.
+7. **Verified no old var name references remain** (`pos_s1b_`, `pos_s1s_`, `pos_s2b_`, `pos_s2s_` — all gone)
+8. **Updated docs**:
+   - `agent-comms.md`: Payload examples with arrays, dedup key changed to `{symbol}-{direction}-{label}`, lifecycle examples updated
+   - `ARCHITECTURE.md`: Position tracking (96 vars, 8 positions), payload format, lifecycle
+   - `task-context.md`: Payload format
+9. **Pine Script expert review**: All checks passed (v6 syntax, barstate.isconfirmed, var usage, JSON validity, no repainting, 8 request.security calls). Payload size ~2KB worst case.
+10. **Committed**: `9824be9` — Independent LTF/HTF positions: 8 slots, array payload format
+11. **Added 15 dummy symbol inputs** (`d01`–`d15`): Extend settings panel for Selenium scrolling
+12. **Committed**: `211e72c` — Add 15 dummy symbol inputs to extend settings panel for Selenium
+13. **User confirmed**: Screener V2 is favorited in TradingView. No EXE rebuild needed (only Pine Script changed).
+
+**Bugs Fixed**: None this session (clean refactor).
+
+**Key clarifications**:
+- **4 setups per symbol max**: 1 LTF buy + 1 HTF buy + 1 LTF sell + 1 HTF sell
+- **No cross-restrictions**: LTF buy doesn't block HTF buy or any sell. Each slot independent.
+- **EXE rebuild not needed**: Python code unchanged since last build.
+
+---
+
+### Session: 2026-02-26 (V2 Testing, Compilation Fix, Code Verification)
+
+**Goal**: Execute testing tasks #159–#162, verify V2 indicator correctness.
+
+**What was done**:
+- **Task #159**: `--validate` passed
+- **Task #162**: TTE.exe rebuilt (11.3MB)
+- **Task #160**: User uploaded indicator. Hit compilation error: `Could not find method 'rationalQuadratic' for 'kernels'`. Fixed by restoring `import jdehorty/KernelFunctions/2 as kernels` (was incorrectly removed — NWE's `calcNWE()` uses it, not just divergence).
+- **Task #161**: Instead of manual testing, ran `diff` comparing V1 vs V2 for all core functions (calcNWE, scanOBRange, getNweZoneName, checkSignalWithOB). Result: ALL V1 calculations preserved exactly, only divergence removed. V2 new code (setups/exits) logically correct.
+- **Debug table**: Uncommented with NWE/OB data cells + color coding, then re-commented for production.
+- **User feedback**: "if an HTF and LTF setup exist, both should be sent" → triggered the LTF/HTF refactor (completed in next session above).
+
+---
 
 ### Session: 2026-02-26 (V2 Implementation — Pine Script + Python + PR)
 
 **Goal**: Execute the V2 implementation plan — build Pine Script V2, update Python, open PR.
 
 **What was built**:
+- Pine Script V2 forked from V1 (1267 lines), divergence removed, reduced to 2 symbols
+- 8 `request.security()` calls, position state tracking, compact JSON builders
+- Python: `fetch_symbols_by_category(batch_size)` in `tte/main.py`, `combo_settings.yaml` updated
+- Docs updated, branch `feat/screener-v2` created, PR #8 opened
+- Commit: `4f7d0ab`
 
-#### Pine Script V2 (`Pine Script Code/TTE Screener V2.txt`)
-Forked from V1 screener (1267 lines). Major changes:
-- **Indicator declaration**: `TTE Screener V2`, `max_bars_back=5000` for 30s chart history
-- **Reduced to 2 symbols**: Deleted s03-s20 inputs, `usedSymbols` default = 2
-- **Removed divergence**: Deleted ~220 lines (calcKernelOsc, swing point detection, bullish/bearish div functions), removed KernelFunctions library import
-- **checkSignalWithOB()**: Returns 20 values (was 24 — removed 4 divergence return values)
-- **8 request.security() calls** (was 15): 2×1H, 2×H4 (NWE+OB), 2×D1 (OB only), 2×chartTF (close+high+low+time via tuple return)
-- **52 `var` position state variables**: 13 per position × 4 positions (s1 buy/sell, s2 buy/sell). Fields: entry, sl, tp, entryTime, label, nweTf, obTf, isNew, exited, exitType, exitPrice, exitTime, exitSent
-- **Clearing logic**: exitSent positions cleared at bar start, isNew reset after first bar
-- **Staleness**: `timenow - symTime > 120000` excludes closed-market symbols
-- **Setup detection**: LTF (1H NWE + H4/D1 OB) checked before HTF (H4 NWE + D1 OB). SL = MIN/MAX of confirming OB zones. TP = 1:2 RR. Validates SL on correct side of entry.
-- **Exit detection**: Candle high/low vs TP/SL. TP checked before SL.
-- **Compact JSON builders**: `abbreviateZone()`, `abbreviateSubtype()`, `buildNweV2()`, `buildObV2()`, `buildPosV2()`, `buildSymV2()` — all using abbreviated keys
-- **Alert**: `alert.freq_once_per_bar_close`, payload = `{"ts":...,"s":[...]}`
-- **exitSent flag**: Set AFTER alert fires so exit data is sent once before position clears
-- **V2 debug table**: 2 symbols, no DIV columns, added Buy/Sell/Stale columns
-
-#### Python Changes
-- **`tte/main.py`**: Replaced `fetch_all_symbols()` with `fetch_symbols_by_category(batch_size: int)` — batches symbols within same category. Call site updated to `batches, total = fetch_symbols_by_category(config.batch_size)`. `chunk_symbols()` kept for backward compat.
-- **`combo_settings.yaml`**: 5 values changed: `chart_timeframe: "30 seconds"`, `screener.shorttitle: "Screener V2"`, `screener.name: "TTE Screener V2"`, `alerts.batch_size: 2`, `maintenance.interval: 150`
-
-#### Docs & PR
-- **`docs/combo/ARCHITECTURE.md`**: Added V2 section at top (what changed table, V2 indicator details, category pairing, compact payload format, position lifecycle, V2 files)
-- **`CLAUDE.md`**: Updated Combo Mode description and settings table for V2 defaults
-- **Branch**: `feat/screener-v2`, **PR #8**: https://github.com/Samaara-Das/Tradingview-to-Everywhere/pull/8
-- **Commit**: `4f7d0ab` — all pre-commit hooks passed (ruff, pyright)
-
-#### Bugs Fixed During Implementation
-1. **Divergence deletion incomplete**: First edit only replaced the header, leaving ~220 lines of function bodies. Required second large edit.
-2. **`config.batch_size` scoping bug**: Background agent created `fetch_symbols_by_category()` referencing `config.batch_size`, but `config` is local to `main()`. Fixed by adding `batch_size: int` parameter.
-3. **OB subtype abbreviation**: Plan used `"ef"` for bearish FVG but agent-comms spec used `"brf"`. Standardized to `"brf"`.
+**Bugs fixed**: Divergence deletion incomplete, `config.batch_size` scoping bug, OB subtype abbreviation mismatch.
 
 ---
 
 ### Session: 2026-02-26 (V2 Architecture Shift — Planning + MongoDB)
 
-**Goal**: Plan and begin implementing a major architecture shift for TTE.
-
-**What changed**:
-- **Scale**: ~1028 symbols / ~343 alerts → 626 symbols / ~314 alerts (2 per alert)
-- **Chart**: 1-minute → 30-second with `alert.freq_once_per_bar_close`
-- **Setup tracking**: Moved from Stock Buddy into Pine Script
-- **Exit tracking**: Moved from planned Stock Buddy cron into Pine Script
-- **Divergence**: Removed entirely
-- **Payload format**: Raw signals → signals + setups + exits (compact JSON)
-
-- Plan file created at `.claude/plans/reflective-petting-flame.md`
-- Agent comms rewritten for Stock Buddy (`.claude/agent-comms.md`)
-- MongoDB symbols updated: 1028 → 626 (376 US, 201 Indian, 29 Forex, 20 Crypto)
+**Goal**: Plan major architecture shift. Scale: ~1028→626 symbols, 1min→30s chart, setup/exit tracking moved to Pine Script, divergence removed.
+- Plan file: `.claude/plans/reflective-petting-flame.md`
+- Agent comms rewritten: `.claude/agent-comms.md`
+- MongoDB symbols updated: 1028 → 626
 
 ---
 
@@ -124,12 +174,17 @@ Forked from V1 screener (1267 lines). Major changes:
 5. **Compact JSON keys**: Abbreviated keys for TradingView's ~2KB alert message limit.
 6. **Category-aware pairing**: Symbols paired within same asset class for matching market hours.
 7. **Staleness detection**: `timenow - symTime > 120000` — stale symbols excluded.
-8. **Position lifecycle**: `null → {n:true} → {n:false} → {xt:"tp"} → null`.
-9. **HAL collision**: NSE:HAL for Indian, HAL for US.
-10. **Max 1 buy + 1 sell per symbol**: First-to-trigger wins, LTF before HTF.
-11. **SL**: MIN(confirming OB zoneLow) for buys, MAX(zoneHigh) for sells.
-12. **TP**: 1:2 risk-reward → `entry ± 2 × |entry - sl|`.
-13. **Stock Buddy hard swap**: Same `/api/tte/combo` endpoint, wipe old collections, `{symbol}-{direction}` dedup.
+8. **Position lifecycle**: `null → [ltf,htf] → exit → null` per slot.
+9. **Independent LTF/HTF**: 4 positions per symbol max (LTF buy, HTF buy, LTF sell, HTF sell). No cross-restrictions.
+10. **SL**: MIN(confirming OB zoneLow) for buys, MAX(zoneHigh) for sells.
+11. **TP**: 1:2 risk-reward → `entry ± 2 × |entry - sl|`.
+12. **Stock Buddy hard swap**: Same `/api/tte/combo` endpoint, wipe old collections, `{symbol}-{direction}-{label}` dedup.
+13. **Array payload**: `"b":[ltfPos, htfPos]`, `"se":[ltfPos, htfPos]` — both slots always present.
+
+### Graceful Shutdown (2026-02-26)
+18. **`threading.Event` over boolean**: Enables `_shutdown_event.wait(N)` which returns instantly on signal vs `sleep(N)` + polling.
+19. **Force-kill over graceful quit**: On Ctrl+C, Chrome is already dead; `driver.quit()` hangs 16s on urllib3 retries. `taskkill /F /T /PID` is instant.
+20. **DEBUG logging during shutdown**: Prevents noisy `ConnectionRefusedError` / `MaxRetryError` tracebacks that alarm users.
 
 ### Previous Decisions (2026-02-20–23)
 14. **Snapshot architecture**: Async polling (TTE polls Stock Buddy every 60s).
@@ -144,10 +199,10 @@ Forked from V1 screener (1267 lines). Major changes:
 ### TTE Project
 | File | Purpose |
 |------|---------|
-| `Pine Script Code/TTE Screener V2.txt` | **V2 screener** with setup/exit tracking |
+| `Pine Script Code/TTE Screener V2.txt` | **V2 screener** with independent LTF/HTF setup/exit tracking |
 | `Pine Script Code/TTE Screener.txt` | V1 screener (archived, no longer in use) |
 | `.claude/plans/reflective-petting-flame.md` | Full V2 architecture plan/PRD |
-| `.claude/agent-comms.md` | Stock Buddy agent coordination (V2 payload spec) |
+| `.claude/agent-comms.md` | Stock Buddy agent coordination (V2 array payload spec) |
 | `tte/main.py` | Entry point — `fetch_symbols_by_category()` for category pairing |
 | `tte/config.py` | Config dataclass |
 | `combo_settings.yaml` | Settings (30s, batch_size=2, 150s maintenance) |
@@ -216,10 +271,10 @@ Unique index on `symbol` field.
 
 ```bash
 # TTE
-python combo_main.py --maintain-only    # Run maintenance + snapshots (headless)
-python combo_main.py --validate         # Validate config
-python combo_main.py --fresh            # Delete alerts & recreate
-dist/TTE.exe                            # GUI (requires pystray)
+pipenv run python combo_main.py --maintain-only    # Run maintenance + snapshots (headless)
+pipenv run python combo_main.py --validate         # Validate config
+pipenv run python combo_main.py --fresh            # Delete alerts & recreate
+dist/TTE.exe                                       # GUI (requires pystray)
 
 # MongoDB symbol counts
 pipenv run python -c "

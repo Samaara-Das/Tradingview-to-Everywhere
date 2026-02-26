@@ -197,7 +197,11 @@ class OpenChart:
             if (
                 tf_button.get_attribute("aria-label") != timeframe
             ):  # if the chart's timeframe is different, change it to the desired timeframe
-                tf_button.click()
+                try:
+                    tf_button.click()
+                except Exception:
+                    # Fallback: JS click bypasses overlay elements intercepting the click
+                    self.driver.execute_script("arguments[0].click();", tf_button)
                 dropdown = WebDriverWait(self.driver, 15).until(
                     EC.presence_of_element_located(
                         (By.CSS_SELECTOR, 'div[data-qa-id="menu-inner"]')

@@ -105,6 +105,7 @@ def save_settings(data: dict):
 LOG_MAX_LINES = 5000
 
 TIMEFRAME_CHOICES = [
+    "45 seconds",
     "1 minute",
     "3 minutes",
     "5 minutes",

@@ -1061,11 +1061,13 @@ class Browser:
             # Make sure that the Alerts tab is open
             self.utils.open_alert_tab(self.driver)
 
-            # Check if there already are no alerts
-            alert_items = self.driver.find_elements(
-                By.CSS_SELECTOR, "div.list-G90Hl2iS div.itemBody-ucBqatk5"
-            )
-            if alert_items == []:
+            # Wait briefly for alert list to load (DOM may still be rendering)
+            alert_selector = "div.list-G90Hl2iS div.itemBody-ucBqatk5"
+            try:
+                WebDriverWait(self.driver, 3).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, alert_selector))
+                )
+            except Exception:
                 open_tv_logger.info("There are no alerts. No need to delete any alerts!")
                 return True
 
