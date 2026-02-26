@@ -883,55 +883,49 @@ if pos_s2b_exited and not pos_s2b_exitSent
 if pos_s2s_exited and not pos_s2s_exitSent
     pos_s2s_exitSent := true
 
-// V2 Debug Table — Columns: Symbol | NWE-1H | NWE-H4 | OB-1H | OB-H4 | OB-D1 | Buy Pos | Sell Pos | Stale | Close
-// NOTE: Comment out this entire block for production (from "var table" to the last table.cell)
-var table sigTable = table.new(position.top_right, 10, 3, bgcolor = color.new(color.black, 80), border_width = 1)
-if barstate.islast
-    // Header row
-    table.cell(sigTable, 0, 0, 'Symbol', text_color = color.white, text_size = size.small)
-    table.cell(sigTable, 1, 0, 'NWE-1H', text_color = color.white, text_size = size.small)
-    table.cell(sigTable, 2, 0, 'NWE-H4', text_color = color.white, text_size = size.small)
-    table.cell(sigTable, 3, 0, 'OB-1H', text_color = color.white, text_size = size.small)
-    table.cell(sigTable, 4, 0, 'OB-H4', text_color = color.white, text_size = size.small)
-    table.cell(sigTable, 5, 0, 'OB-D1', text_color = color.white, text_size = size.small)
-    table.cell(sigTable, 6, 0, 'Buy', text_color = color.white, text_size = size.small)
-    table.cell(sigTable, 7, 0, 'Sell', text_color = color.white, text_size = size.small)
-    table.cell(sigTable, 8, 0, 'Stale', text_color = color.white, text_size = size.small)
-    table.cell(sigTable, 9, 0, 'Close', text_color = color.white, text_size = size.small)
-    // Symbol 01 — NWE signals
-    string nwe01_1h_txt = nweBull01_1h ? 'B:' + bullZone01_1h : nweBear01_1h ? 'S:' + bearZone01_1h : '-'
-    string nwe01_h4_txt = nweBull01_h4 ? 'B:' + bullZone01_h4 : nweBear01_h4 ? 'S:' + bearZone01_h4 : '-'
-    // Symbol 01 — OB signals (show zoneType + subtype + direction)
-    string ob01_1h_txt = bullF01_1h == 1 ? 'B:' + getObZoneType(bullZT01_1h) : bearF01_1h == 1 ? 'S:' + getObZoneType(bearZT01_1h) : '-'
-    string ob01_h4_txt = bullF01_h4 == 1 ? 'B:' + getObZoneType(bullZT01_h4) : bearF01_h4 == 1 ? 'S:' + getObZoneType(bearZT01_h4) : '-'
-    string ob01_d1_txt = bullF01_d1 == 1 ? 'B:' + getObZoneType(bullZT01_d1) : bearF01_d1 == 1 ? 'S:' + getObZoneType(bearZT01_d1) : '-'
-    table.cell(sigTable, 0, 1, getSymbolName(s01), text_color = color.white, text_size = size.small)
-    table.cell(sigTable, 1, 1, nwe01_1h_txt, text_color = nweBull01_1h ? color.lime : nweBear01_1h ? color.red : color.gray, text_size = size.small)
-    table.cell(sigTable, 2, 1, nwe01_h4_txt, text_color = nweBull01_h4 ? color.lime : nweBear01_h4 ? color.red : color.gray, text_size = size.small)
-    table.cell(sigTable, 3, 1, ob01_1h_txt, text_color = bullF01_1h == 1 ? color.lime : bearF01_1h == 1 ? color.red : color.gray, text_size = size.small)
-    table.cell(sigTable, 4, 1, ob01_h4_txt, text_color = bullF01_h4 == 1 ? color.lime : bearF01_h4 == 1 ? color.red : color.gray, text_size = size.small)
-    table.cell(sigTable, 5, 1, ob01_d1_txt, text_color = bullF01_d1 == 1 ? color.lime : bearF01_d1 == 1 ? color.red : color.gray, text_size = size.small)
-    table.cell(sigTable, 6, 1, not na(pos_s1b_entry) ? str.tostring(pos_s1b_entry) + '/' + str.tostring(pos_s1b_sl) + '/' + str.tostring(pos_s1b_tp) + (pos_s1b_exited ? ' X:' + pos_s1b_exitType : '') : '-', text_color = not na(pos_s1b_entry) ? (pos_s1b_exited ? color.orange : pos_s1b_isNew ? color.aqua : color.lime) : color.gray, text_size = size.small)
-    table.cell(sigTable, 7, 1, not na(pos_s1s_entry) ? str.tostring(pos_s1s_entry) + '/' + str.tostring(pos_s1s_sl) + '/' + str.tostring(pos_s1s_tp) + (pos_s1s_exited ? ' X:' + pos_s1s_exitType : '') : '-', text_color = not na(pos_s1s_entry) ? (pos_s1s_exited ? color.orange : pos_s1s_isNew ? color.aqua : color.red) : color.gray, text_size = size.small)
-    table.cell(sigTable, 8, 1, stale01 ? 'Y' : 'N', text_color = stale01 ? color.red : color.lime, text_size = size.small)
-    table.cell(sigTable, 9, 1, str.tostring(close01, format.mintick), text_color = color.white, text_size = size.small)
-    // Symbol 02 — NWE signals
-    string nwe02_1h_txt = nweBull02_1h ? 'B:' + bullZone02_1h : nweBear02_1h ? 'S:' + bearZone02_1h : '-'
-    string nwe02_h4_txt = nweBull02_h4 ? 'B:' + bullZone02_h4 : nweBear02_h4 ? 'S:' + bearZone02_h4 : '-'
-    // Symbol 02 — OB signals
-    string ob02_1h_txt = bullF02_1h == 1 ? 'B:' + getObZoneType(bullZT02_1h) : bearF02_1h == 1 ? 'S:' + getObZoneType(bearZT02_1h) : '-'
-    string ob02_h4_txt = bullF02_h4 == 1 ? 'B:' + getObZoneType(bullZT02_h4) : bearF02_h4 == 1 ? 'S:' + getObZoneType(bearZT02_h4) : '-'
-    string ob02_d1_txt = bullF02_d1 == 1 ? 'B:' + getObZoneType(bullZT02_d1) : bearF02_d1 == 1 ? 'S:' + getObZoneType(bearZT02_d1) : '-'
-    table.cell(sigTable, 0, 2, getSymbolName(s02), text_color = color.white, text_size = size.small)
-    table.cell(sigTable, 1, 2, nwe02_1h_txt, text_color = nweBull02_1h ? color.lime : nweBear02_1h ? color.red : color.gray, text_size = size.small)
-    table.cell(sigTable, 2, 2, nwe02_h4_txt, text_color = nweBull02_h4 ? color.lime : nweBear02_h4 ? color.red : color.gray, text_size = size.small)
-    table.cell(sigTable, 3, 2, ob02_1h_txt, text_color = bullF02_1h == 1 ? color.lime : bearF02_1h == 1 ? color.red : color.gray, text_size = size.small)
-    table.cell(sigTable, 4, 2, ob02_h4_txt, text_color = bullF02_h4 == 1 ? color.lime : bearF02_h4 == 1 ? color.red : color.gray, text_size = size.small)
-    table.cell(sigTable, 5, 2, ob02_d1_txt, text_color = bullF02_d1 == 1 ? color.lime : bearF02_d1 == 1 ? color.red : color.gray, text_size = size.small)
-    table.cell(sigTable, 6, 2, not na(pos_s2b_entry) ? str.tostring(pos_s2b_entry) + '/' + str.tostring(pos_s2b_sl) + '/' + str.tostring(pos_s2b_tp) + (pos_s2b_exited ? ' X:' + pos_s2b_exitType : '') : '-', text_color = not na(pos_s2b_entry) ? (pos_s2b_exited ? color.orange : pos_s2b_isNew ? color.aqua : color.lime) : color.gray, text_size = size.small)
-    table.cell(sigTable, 7, 2, not na(pos_s2s_entry) ? str.tostring(pos_s2s_entry) + '/' + str.tostring(pos_s2s_sl) + '/' + str.tostring(pos_s2s_tp) + (pos_s2s_exited ? ' X:' + pos_s2s_exitType : '') : '-', text_color = not na(pos_s2s_entry) ? (pos_s2s_exited ? color.orange : pos_s2s_isNew ? color.aqua : color.red) : color.gray, text_size = size.small)
-    table.cell(sigTable, 8, 2, stale02 ? 'Y' : 'N', text_color = stale02 ? color.red : color.lime, text_size = size.small)
-    table.cell(sigTable, 9, 2, str.tostring(close02, format.mintick), text_color = color.white, text_size = size.small)
+// V2 Debug Table — Uncomment for testing, comment out for production
+// var table sigTable = table.new(position.top_right, 10, 3, bgcolor = color.new(color.black, 80), border_width = 1)
+// if barstate.islast
+//     table.cell(sigTable, 0, 0, 'Symbol', text_color = color.white, text_size = size.small)
+//     table.cell(sigTable, 1, 0, 'NWE-1H', text_color = color.white, text_size = size.small)
+//     table.cell(sigTable, 2, 0, 'NWE-H4', text_color = color.white, text_size = size.small)
+//     table.cell(sigTable, 3, 0, 'OB-1H', text_color = color.white, text_size = size.small)
+//     table.cell(sigTable, 4, 0, 'OB-H4', text_color = color.white, text_size = size.small)
+//     table.cell(sigTable, 5, 0, 'OB-D1', text_color = color.white, text_size = size.small)
+//     table.cell(sigTable, 6, 0, 'Buy', text_color = color.white, text_size = size.small)
+//     table.cell(sigTable, 7, 0, 'Sell', text_color = color.white, text_size = size.small)
+//     table.cell(sigTable, 8, 0, 'Stale', text_color = color.white, text_size = size.small)
+//     table.cell(sigTable, 9, 0, 'Close', text_color = color.white, text_size = size.small)
+//     string nwe01_1h_txt = nweBull01_1h ? 'B:' + bullZone01_1h : nweBear01_1h ? 'S:' + bearZone01_1h : '-'
+//     string nwe01_h4_txt = nweBull01_h4 ? 'B:' + bullZone01_h4 : nweBear01_h4 ? 'S:' + bearZone01_h4 : '-'
+//     string ob01_1h_txt = bullF01_1h == 1 ? 'B:' + getObZoneType(bullZT01_1h) : bearF01_1h == 1 ? 'S:' + getObZoneType(bearZT01_1h) : '-'
+//     string ob01_h4_txt = bullF01_h4 == 1 ? 'B:' + getObZoneType(bullZT01_h4) : bearF01_h4 == 1 ? 'S:' + getObZoneType(bearZT01_h4) : '-'
+//     string ob01_d1_txt = bullF01_d1 == 1 ? 'B:' + getObZoneType(bullZT01_d1) : bearF01_d1 == 1 ? 'S:' + getObZoneType(bearZT01_d1) : '-'
+//     table.cell(sigTable, 0, 1, getSymbolName(s01), text_color = color.white, text_size = size.small)
+//     table.cell(sigTable, 1, 1, nwe01_1h_txt, text_color = nweBull01_1h ? color.lime : nweBear01_1h ? color.red : color.gray, text_size = size.small)
+//     table.cell(sigTable, 2, 1, nwe01_h4_txt, text_color = nweBull01_h4 ? color.lime : nweBear01_h4 ? color.red : color.gray, text_size = size.small)
+//     table.cell(sigTable, 3, 1, ob01_1h_txt, text_color = bullF01_1h == 1 ? color.lime : bearF01_1h == 1 ? color.red : color.gray, text_size = size.small)
+//     table.cell(sigTable, 4, 1, ob01_h4_txt, text_color = bullF01_h4 == 1 ? color.lime : bearF01_h4 == 1 ? color.red : color.gray, text_size = size.small)
+//     table.cell(sigTable, 5, 1, ob01_d1_txt, text_color = bullF01_d1 == 1 ? color.lime : bearF01_d1 == 1 ? color.red : color.gray, text_size = size.small)
+//     table.cell(sigTable, 6, 1, not na(pos_s1b_entry) ? str.tostring(pos_s1b_entry) + '/' + str.tostring(pos_s1b_sl) + '/' + str.tostring(pos_s1b_tp) + (pos_s1b_exited ? ' X:' + pos_s1b_exitType : '') : '-', text_color = not na(pos_s1b_entry) ? (pos_s1b_exited ? color.orange : pos_s1b_isNew ? color.aqua : color.lime) : color.gray, text_size = size.small)
+//     table.cell(sigTable, 7, 1, not na(pos_s1s_entry) ? str.tostring(pos_s1s_entry) + '/' + str.tostring(pos_s1s_sl) + '/' + str.tostring(pos_s1s_tp) + (pos_s1s_exited ? ' X:' + pos_s1s_exitType : '') : '-', text_color = not na(pos_s1s_entry) ? (pos_s1s_exited ? color.orange : pos_s1s_isNew ? color.aqua : color.red) : color.gray, text_size = size.small)
+//     table.cell(sigTable, 8, 1, stale01 ? 'Y' : 'N', text_color = stale01 ? color.red : color.lime, text_size = size.small)
+//     table.cell(sigTable, 9, 1, str.tostring(close01, format.mintick), text_color = color.white, text_size = size.small)
+//     string nwe02_1h_txt = nweBull02_1h ? 'B:' + bullZone02_1h : nweBear02_1h ? 'S:' + bearZone02_1h : '-'
+//     string nwe02_h4_txt = nweBull02_h4 ? 'B:' + bullZone02_h4 : nweBear02_h4 ? 'S:' + bearZone02_h4 : '-'
+//     string ob02_1h_txt = bullF02_1h == 1 ? 'B:' + getObZoneType(bullZT02_1h) : bearF02_1h == 1 ? 'S:' + getObZoneType(bearZT02_1h) : '-'
+//     string ob02_h4_txt = bullF02_h4 == 1 ? 'B:' + getObZoneType(bullZT02_h4) : bearF02_h4 == 1 ? 'S:' + getObZoneType(bearZT02_h4) : '-'
+//     string ob02_d1_txt = bullF02_d1 == 1 ? 'B:' + getObZoneType(bullZT02_d1) : bearF02_d1 == 1 ? 'S:' + getObZoneType(bearZT02_d1) : '-'
+//     table.cell(sigTable, 0, 2, getSymbolName(s02), text_color = color.white, text_size = size.small)
+//     table.cell(sigTable, 1, 2, nwe02_1h_txt, text_color = nweBull02_1h ? color.lime : nweBear02_1h ? color.red : color.gray, text_size = size.small)
+//     table.cell(sigTable, 2, 2, nwe02_h4_txt, text_color = nweBull02_h4 ? color.lime : nweBear02_h4 ? color.red : color.gray, text_size = size.small)
+//     table.cell(sigTable, 3, 2, ob02_1h_txt, text_color = bullF02_1h == 1 ? color.lime : bearF02_1h == 1 ? color.red : color.gray, text_size = size.small)
+//     table.cell(sigTable, 4, 2, ob02_h4_txt, text_color = bullF02_h4 == 1 ? color.lime : bearF02_h4 == 1 ? color.red : color.gray, text_size = size.small)
+//     table.cell(sigTable, 5, 2, ob02_d1_txt, text_color = bullF02_d1 == 1 ? color.lime : bearF02_d1 == 1 ? color.red : color.gray, text_size = size.small)
+//     table.cell(sigTable, 6, 2, not na(pos_s2b_entry) ? str.tostring(pos_s2b_entry) + '/' + str.tostring(pos_s2b_sl) + '/' + str.tostring(pos_s2b_tp) + (pos_s2b_exited ? ' X:' + pos_s2b_exitType : '') : '-', text_color = not na(pos_s2b_entry) ? (pos_s2b_exited ? color.orange : pos_s2b_isNew ? color.aqua : color.lime) : color.gray, text_size = size.small)
+//     table.cell(sigTable, 7, 2, not na(pos_s2s_entry) ? str.tostring(pos_s2s_entry) + '/' + str.tostring(pos_s2s_sl) + '/' + str.tostring(pos_s2s_tp) + (pos_s2s_exited ? ' X:' + pos_s2s_exitType : '') : '-', text_color = not na(pos_s2s_entry) ? (pos_s2s_exited ? color.orange : pos_s2s_isNew ? color.aqua : color.red) : color.gray, text_size = size.small)
+//     table.cell(sigTable, 8, 2, stale02 ? 'Y' : 'N', text_color = stale02 ? color.red : color.lime, text_size = size.small)
+//     table.cell(sigTable, 9, 2, str.tostring(close02, format.mintick), text_color = color.white, text_size = size.small)
 
 // Required for valid indicator
 plot(na)
