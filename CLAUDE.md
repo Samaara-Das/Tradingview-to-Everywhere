@@ -14,7 +14,7 @@ TradingView to Everywhere (TTE) is an automated trading signals distribution sys
 ## Combo Mode (`tte/main.py`) — Production
 
 - **Method**: Single combo screener (NWE + OB/FVG + setup/exit tracking) with persistent webhook alerts
-- **Workflow**: ~314 persistent alerts (2 symbols each, category-aware pairing) → webhook every 30s to Stock Buddy API
+- **Workflow**: ~314 persistent alerts (2 symbols each, category-aware pairing) → webhook every 45s to Stock Buddy API
 - **Alert lifecycle**: Create once → run forever (+ maintenance every 2.5 mins)
 - **Screener V2**: Setup detection (NWE + OB/FVG alignment), position tracking, exit detection (TP/SL via candle high/low) — all in Pine Script
 - **Single browser**: Alerts created sequentially with one Chrome instance (headless by default)
