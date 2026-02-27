@@ -527,30 +527,56 @@ Receives Order Block + Divergence confirmation signals and creates confirmed tra
 
 ---
 
-## Combo Mode Endpoints
+## Combo Mode Endpoints (V2)
 
-Combo mode uses a different set of endpoints than tiered mode. Instead of separate NWE/OBDIV webhooks, combo mode uses a single webhook endpoint that receives all signal types in one payload.
+Combo mode V2 uses a single webhook endpoint that receives compact pre-computed signal + position state for all symbols in an alert. Divergence has been removed. The payload uses abbreviated keys to stay within TradingView's 2KB alert message limit.
 
-### POST /api/tte/combo — Combo Webhook
+### POST /api/tte/combo — Combo Webhook (V2)
 
-Receives the combo screener webhook payload containing NWE, OB/FVG, and Divergence signals for multiple symbols.
+Receives the V2 combo screener webhook payload containing NWE signals, OB/FVG signals, and active trade positions for 2 symbols.
 
 **URL**: `POST /api/tte/combo`
 
-**Payload Format** (sent by TradingView):
+**Payload Format** (sent by TradingView — V2 compact format):
 ```json
 {
-  "timestamp": 1707264000000,
-  "signals": [
-    {
-      "symbol": "GBPAUD",
-      "nwe": [{"zone": "lower_avg", "type": "bullish", "overlapTimestamp": 1707264000000, "timeframe": "1H"}],
-      "ob_fvg": [{"zonetype": "OB", "subtype": "unmitigated", "type": "bullish", "zoneTimestamp": 1707260400000, "overlapTimestamp": 1707264000000, "timeframe": "H4"}],
-      "divergence": [{"divType": "Logic 2", "type": "bullish", "timestamp": 1707264000000, "timeframe": "1H"}]
-    }
-  ]
+  "ts": 1707264000000,
+  "s": [{
+    "sym": "GBPAUD", "c": 1.985,
+    "nwe": [{"z": "la", "t": "bull", "tf": "1H", "ots": 1707264000}],
+    "ob": [{"zt": "OB", "st": "un", "t": "bull", "zh": 1.99, "zl": 1.97, "tf": "H4", "zts": 1707260400, "ots": 1707264000}],
+    "b": [{"e": 1.98, "sl": 1.975, "tp": 1.99, "et": 1707260000, "l": "LTF", "ntf": "1H", "otf": "H4", "n": true}, null],
+    "se": [null, null]
+  }]
 }
 ```
+
+**Key legend**:
+| Key | Meaning |
+|-----|---------|
+| `ts` | Timestamp (ms) |
+| `s` | Symbols array |
+| `sym` | Symbol name |
+| `c` | Close price |
+| `nwe` | NWE signal entries |
+| `ob` | OB/FVG signal entries |
+| `b` | Buy positions [LTF slot, HTF slot] |
+| `se` | Sell positions [LTF slot, HTF slot] |
+| `e` | Entry price |
+| `sl` | Stop loss price |
+| `tp` | Take profit price |
+| `et` | Entry time (Unix s) |
+| `l` | Label (LTF or HTF) |
+| `ntf` | NWE timeframe |
+| `otf` | OB timeframe |
+| `n` | isNew (true on setup bar only) |
+| `xt` | Exit type (tp or sl) |
+| `xp` | Exit price |
+| `xts` | Exit time (Unix s) |
+
+**NWE zone codes** (`z` field): `la`=lower_avg, `lf`=lower_far, `ua`=upper_avg, `uf`=upper_far
+
+**OB subtype codes** (`st` field): `un`=unmitigated, `br`=breaker, `fv`=fvg
 
 **Response**:
 ```json
@@ -576,7 +602,7 @@ Query live combo signals with pagination and filtering.
 | `sort` | string | `last_updated` | Sort field (`last_updated`, `symbol`) |
 | `order` | string | `desc` | Sort order (`asc` or `desc`) |
 | `direction` | string | - | Filter by direction (`bullish` or `bearish`) |
-| `signalType` | string | - | Filter by signal type (`nwe`, `ob_fvg`, `divergence`) |
+| `signalType` | string | - | Filter by signal type (`nwe`, `ob`) |
 | `symbol` | string | - | Filter by symbol name |
 
 **Response**:
@@ -588,9 +614,10 @@ Query live combo signals with pagination and filtering.
       "_id": "GBPAUD",
       "symbol": "GBPAUD",
       "nwe": [...],
-      "ob_fvg": [...],
-      "divergence": [...],
-      "last_updated": "2026-02-11T12:00:00Z"
+      "ob": [...],
+      "buy": [{...}, null],
+      "sell": [null, null],
+      "last_updated": "2026-02-27T12:00:00Z"
     }
   ],
   "total": 150,
@@ -599,13 +626,20 @@ Query live combo signals with pagination and filtering.
 }
 ```
 
+### Snapshot Endpoints
+
+Used by the TTE snapshot worker to manage chart screenshot requests.
+
+**GET /api/tte/snapshots/pending** — Poll for setups needing screenshots
+**POST /api/tte/snapshots/update** — Report completed snapshot URLs back to Stock Buddy
+
 ### Testing Combo Endpoints
 
 ```bash
-# Test combo webhook
+# Test combo V2 webhook
 curl -X POST https://stock-buddy-app.vercel.app/api/tte/combo \
   -H "Content-Type: application/json" \
-  -d '{"timestamp":1707264000000,"signals":[{"symbol":"EURUSD","nwe":[{"zone":"lower_avg","type":"bullish","overlapTimestamp":1707264000000,"timeframe":"1H"}],"ob_fvg":[],"divergence":[]}]}'
+  -d '{"ts":1707264000000,"s":[{"sym":"EURUSD","c":1.085,"nwe":[],"ob":[],"b":[null,null],"se":[null,null]}]}'
 
 # Query combo signals
 curl "https://stock-buddy-app.vercel.app/api/tte/combo/signals?limit=10"

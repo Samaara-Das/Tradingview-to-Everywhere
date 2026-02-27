@@ -4,16 +4,18 @@ An automated trading signals distribution system that bridges TradingView alerts
 
 ## Overview
 
-TTE uses Selenium browser automation to create and maintain persistent webhook alerts on TradingView. A single combo screener indicator (NWE + OB/FVG + Divergence) monitors ~1,054 symbols across 352 alerts, sending signals to Stock Buddy API continuously.
+TTE uses Selenium browser automation to create and maintain persistent webhook alerts on TradingView. A single combo screener indicator (NWE + OB/FVG + setup/exit tracking) monitors 626 symbols across ~314 alerts, sending signals and position state to Stock Buddy API on every 30-second bar close.
 
 ## Features
 
-- **Combo Mode**: Single-indicator webhook with 352 persistent alerts monitoring ~1,054 symbols
+- **Combo Mode V2**: Single-indicator webhook with ~314 persistent alerts monitoring 626 symbols
+- **Setup/Exit Tracking**: Pine Script detects NWE + OB/FVG alignment, tracks positions, and detects TP/SL exits
+- **Category-Aware Pairing**: Symbols paired within the same asset class (forex/crypto/stocks) for matching market hours
 - **Automated Browser Control**: Selenium-based TradingView automation (headless Chrome)
-- **Webhook Distribution**: Signals fire to Stock Buddy API on every trigger
-- **Alert Maintenance**: Automatic restart of inactive alerts every 5 minutes
+- **Webhook Distribution**: Compact JSON payload fires to Stock Buddy API on every 30-second bar close
+- **Alert Maintenance**: Automatic restart of inactive alerts every 2.5 minutes
 - **GUI Interface**: Visual interface for configuration and monitoring (`TTE.exe` or `tte_gui.py`)
-- **Resume Capability**: Progress tracking allows resuming interrupted alert creation
+- **Chart Snapshots**: Asynchronous chart screenshot worker for setup messages in Stock Buddy
 
 ## Quick Start
 
@@ -110,10 +112,11 @@ All options are configured in `combo_settings.yaml`. The GUI provides a visual e
 
 Key settings:
 - `chart.layout_name` — TradingView layout name (default: `"Screener"`)
-- `chart.chart_timeframe` — Chart timeframe (default: `"1 minute"`)
+- `chart.chart_timeframe` — Chart timeframe (default: `"30 seconds"`)
 - `chart.headless` — Run Chrome without visible window (default: `true`)
-- `alerts.batch_size` — Symbols per alert (default: `3`, hard limit: `4`)
-- `maintenance.interval` — Seconds between restart cycles (default: `300`)
+- `alerts.batch_size` — Symbols per alert (default: `2`, hard limit: `4`)
+- `maintenance.interval` — Seconds between restart cycles (default: `150`)
+- `snapshot.enabled` — Enable chart snapshot worker (default: `true`)
 
 ### Environment Variables
 
