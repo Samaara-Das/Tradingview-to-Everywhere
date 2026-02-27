@@ -21,7 +21,7 @@ class Utils:
         """
         try:
             # make sure the the Alerts tab is currently open
-            alert_tab_selector = 'div[class="widget-X9EuSe_t widgetbar-widget widgetbar-widget-alerts"] div[class="widgetHeader-X9EuSe_t"] button[aria-controls="id_alert-widget-tabs-slots_tabpanel_log"]'
+            alert_tab_selector = 'button[aria-controls="id_alert-widget-tabs-slots_tabpanel_log"]'
 
             if (
                 WebDriverWait(driver, 5)
@@ -45,7 +45,7 @@ class Utils:
         """
         try:
             # make sure the the Alerts tab is currently open
-            alert_tab_selector = 'div[class="widget-X9EuSe_t widgetbar-widget widgetbar-widget-alerts"] div[class="widgetHeader-X9EuSe_t"] button[aria-controls="id_alert-widget-tabs-slots_tabpanel_list"]'
+            alert_tab_selector = 'button[aria-controls="id_alert-widget-tabs-slots_tabpanel_list"]'
 
             if (
                 WebDriverWait(driver, 5)
@@ -72,7 +72,7 @@ class Utils:
         """
         try:
             # make sure the the Alerts tab is currently open
-            alert_tab_selector = 'div[class="widget-X9EuSe_t widgetbar-widget widgetbar-widget-alerts"] div[class="widgetHeader-X9EuSe_t"] button[aria-controls="id_alert-widget-tabs-slots_tabpanel_list"]'
+            alert_tab_selector = 'button[aria-controls="id_alert-widget-tabs-slots_tabpanel_list"]'
 
             if (
                 WebDriverWait(driver, 5)
@@ -105,7 +105,7 @@ class Utils:
         """This makes sure that the Log tab in the alerts sidebar is open."""
         try:
             # make sure the the Log tab is currently open
-            alert_tab_selector = 'div[class="widget-X9EuSe_t widgetbar-widget widgetbar-widget-alerts"] div[class="widgetHeader-X9EuSe_t"] button[aria-controls="id_alert-widget-tabs-slots_tabpanel_log"]'
+            alert_tab_selector = 'button[aria-controls="id_alert-widget-tabs-slots_tabpanel_log"]'
 
             if (
                 driver.find_element(By.CSS_SELECTOR, alert_tab_selector).get_attribute(

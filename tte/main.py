@@ -414,26 +414,32 @@ def restart_inactive_alerts(driver) -> bool:
         )
 
         # Check if the "Show Alerts" section is minimised. If so, expand it
-        show_all_section = dropdown.find_element(
-            By.CSS_SELECTOR, 'div[class="section-xZRtm41u summary-ynHBVe1n"]'
-        )
-        maximized = show_all_section.get_attribute("data-open") == "true"
-        if not maximized:
-            show_all_section.click()
-            logger.info('Expanded the "Show Alerts" section')
+        show_all_sections = [
+            el
+            for el in dropdown.find_elements(By.CSS_SELECTOR, "div[data-open]")
+            if "Show Alerts" in el.text
+        ]
+        if show_all_sections:
+            show_all_section = show_all_sections[0]
+            maximized = show_all_section.get_attribute("data-open") == "true"
+            if not maximized:
+                show_all_section.click()
+                logger.info('Expanded the "Show Alerts" section')
 
         # Check if the "All" option is selected. If not, select it
-        all_option = dropdown.find_element(
-            By.CSS_SELECTOR, 'div[class="item-xZRtm41u item-jFqVJoPk"]'
-        )
-        if not all_option.find_element(By.TAG_NAME, "input").is_selected():
-            all_option.click()
+        all_options = [
+            el
+            for el in dropdown.find_elements(By.CSS_SELECTOR, 'div[data-qa-id="menu-inner"] div')
+            if el.text.strip() == "All" and el.find_elements(By.TAG_NAME, "input")
+        ]
+        if all_options and not all_options[0].find_element(By.TAG_NAME, "input").is_selected():
+            all_options[0].click()
             logger.info('Selected the "All" option')
 
         # Find "Restart all inactive" button (may be disabled when no inactive alerts)
         restart_buttons = [
             el
-            for el in dropdown.find_elements(By.CSS_SELECTOR, "div.item-jFqVJoPk.withIcon-jFqVJoPk")
+            for el in dropdown.find_elements(By.CSS_SELECTOR, 'div[data-qa-id="menu-inner"] div')
             if "Restart all inactive" in el.text
         ]
         if not restart_buttons:
@@ -559,6 +565,9 @@ def run_maintenance(browser: Browser, config: ComboConfig):
                     browser.driver.refresh()
                     if _shutdown_event.wait(5):
                         break  # Shutdown during post-refresh wait
+
+                    # Re-open alerts sidebar (refresh may close it)
+                    browser.open_alerts_sidebar()
 
                     # Restart inactive alerts
                     restart_inactive_alerts(browser.driver)
