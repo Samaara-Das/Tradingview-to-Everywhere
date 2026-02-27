@@ -1,9 +1,9 @@
 # Task Context Tracker
 
 **Last Updated**: 2026-02-27
-**Current Task**: V2 fully operational. Maintenance loop fix applied (sidebar + stale selectors). User testing TTE EXE.
+**Current Task**: V2 production-ready. Debug testing completed, debug code cleaned up. Ready for next work.
 **Active Branch**: `main`
-**Latest Commit (TTE)**: pending commit — Fix maintenance TimeoutException (sidebar + stale selectors)
+**Latest Commit (TTE)**: `9828446` — Rebuild TTE.exe with pystray dependency bundled
 **Latest Commit (Stock Buddy)**: `bc0b810` — Add snapshot backfill endpoint
 
 ---
@@ -17,6 +17,7 @@
 | 147 | Decide on testing strategy (TDD / test coverage) | pending |
 | 148 | Set up pre-commit hooks for linting, type checking, and formatting | completed |
 | 149 | Rebuild and redeploy TTE.exe | completed |
+| — | V2 debug testing (historical bars) + cleanup | completed |
 
 ### V2 Architecture Shift — Implementation (All Complete)
 
@@ -45,6 +46,33 @@
 ---
 
 ## Session History
+
+### Session: 2026-02-27 (V2 Debug Testing + Cleanup)
+
+**Goal**: Test V2 screener signals, setups, and exits on historical bars via debug table, then clean up for production.
+
+**What was done**:
+1. **Identified staleness blocker**: `timenow - time01 > 120000` is always true on historical bars (timenow = real-world current time), so no setups ever fire historically. Added `DEBUG_MODE` input to bypass.
+2. **Built debug table**: 11-column × 9-row table showing: Slot, Entry, Entry Time, SL, TP, NWE Signal, NWE Time, OB Type, OB Zone, OB Created, Status. Color-coded by direction (green=buy, red=sell).
+3. **Added NWE/OB capture vars**: `dbg_*` vars capture which NWE zone and OB/FVG triggered each setup at creation time.
+4. **Added persistent exit tracking**: `last_*` and `lastDbg_*` snapshot vars preserve trade data after position clearing. Table shows 3 states: active (colored), last closed (purple), never had position (gray dashes).
+5. **Fixed compilation errors**: 40 undeclared identifier errors — `dbg_*` vars were declared in debug table section but referenced in position clearing section. Fixed by moving declarations up.
+6. **User tested and confirmed**: Setups, exits, TP/SL levels verified on historical bars.
+7. **Cleaned up for production**:
+   - Commented out `DEBUG_MODE` input
+   - Reverted staleness check to original (no ternary)
+   - Removed all debug var declarations (`dbg_*`, `last_*`, `lastDbg_*`)
+   - Reverted position clearing to original (no snapshot code)
+   - Replaced debug table section with comment block referencing git history
+
+**Key findings**:
+- Exit alerts fire on the **same bar** the exit is detected (not delayed)
+- Debug table timestamps use `syminfo.timezone` (exchange timezone); alert payload uses UTC milliseconds
+- Tables in Pine Script only render on last bar (`barstate.islast`) — labels can appear historically but require setups to fire
+
+**Files modified**: `Pine Script Code/TTE Screener V2.txt` (uncommitted)
+
+---
 
 ### Session: 2026-02-27 (Maintenance TimeoutException Fix)
 
