@@ -1,9 +1,9 @@
 # Task Context Tracker
 
 **Last Updated**: 2026-02-27
-**Current Task**: V2 fully operational + all docs updated. Only pending task: #147 (testing strategy).
+**Current Task**: V2 fully operational. Maintenance loop fix applied (sidebar + stale selectors). User testing TTE EXE.
 **Active Branch**: `main`
-**Latest Commit (TTE)**: `4bacff0` — Docs: update all documentation for V2 architecture (#9)
+**Latest Commit (TTE)**: pending commit — Fix maintenance TimeoutException (sidebar + stale selectors)
 **Latest Commit (Stock Buddy)**: `bc0b810` — Add snapshot backfill endpoint
 
 ---
@@ -45,6 +45,21 @@
 ---
 
 ## Session History
+
+### Session: 2026-02-27 (Maintenance TimeoutException Fix)
+
+**Goal**: Fix `clear_alert_log()` TimeoutException during maintenance loop.
+
+**Root cause**: After `browser.driver.refresh()`, the alert sidebar closes. `open_log_tab()` only switches tabs within an already-open sidebar — it doesn't open the sidebar itself. Also, helpers.py used stale class selectors (`widget-X9EuSe_t`, `widgetHeader-X9EuSe_t`). And `restart_inactive_alerts()` had 3 stale class selectors for dropdown items.
+
+**Changes**:
+1. `tte/main.py` `run_maintenance()`: Added `browser.open_alerts_sidebar()` after page refresh
+2. `tte/browser/helpers.py`: Replaced stale class selectors with `button[aria-controls="..."]` in all 4 tab methods
+3. `tte/main.py` `restart_inactive_alerts()`: Replaced 3 stale class selectors with text-based matching within `div[data-qa-id="menu-inner"]`
+
+**Also this session**: 260 alerts running (not full 314 — EXE errored during setup, will add more later). Webhooks confirmed working.
+
+---
 
 ### Session: 2026-02-27 (Docs Update + Git Cleanup)
 
