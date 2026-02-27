@@ -1,9 +1,9 @@
 # Task Context Tracker
 
-**Last Updated**: 2026-02-26
-**Current Task**: V2 pipeline fully operational. All TTE tasks complete. User testing Stock Buddy V2 adaptation + running TTE EXE for alert creation/maintenance.
-**Active Branch**: `feat/screener-v2` → **PR #8** (https://github.com/Samaara-Das/Tradingview-to-Everywhere/pull/8)
-**Latest Commit (TTE)**: `77d081c` — Fix stale CSS selectors in delete_all_alerts() and no_alerts()
+**Last Updated**: 2026-02-27
+**Current Task**: V2 fully operational + all docs updated. Only pending task: #147 (testing strategy).
+**Active Branch**: `main`
+**Latest Commit (TTE)**: `4bacff0` — Docs: update all documentation for V2 architecture (#9)
 **Latest Commit (Stock Buddy)**: `bc0b810` — Add snapshot backfill endpoint
 
 ---
@@ -45,6 +45,23 @@
 ---
 
 ## Session History
+
+### Session: 2026-02-27 (Docs Update + Git Cleanup)
+
+**Goal**: Update docs-updater agent for TTE, run comprehensive docs audit, clean up stale git branches, merge docs to main.
+
+**What was done**:
+1. **Rewrote `.claude/agents/docs-updater.md`**: Was copied from Stock Buddy — rewritten for TTE with correct doc tiers, file paths, codebase areas, and workflow
+2. **Updated `.claude/skills/update-docs/references/doc-inventory.md`**: Rewritten for TTE documentation structure
+3. **Ran docs-updater agent**: Comprehensive audit updated 10 files — CLAUDE.md, ARCHITECTURE.md, PRD.md, API.md, DATABASE.md, SETUP.md, README.md, doc-inventory. All V1 sections updated to V2 values.
+4. **Fixed CLAUDE.md**: Webhook interval 30s→45s (matches actual `combo_settings.yaml`)
+5. **Deleted 7 stale remote branches**: `combo-architecture`, `multi-alert`, `point-capital`, `single-alert`, `tiered-orchestrator`, `feat/screener-v2`, `feat/snapshot-quality-gui-defaults`, `feature/chart-snapshots` — all from merged/closed PRs
+6. **PR #9 created and merged**: `4bacff0` — Docs: update all documentation for V2 architecture
+7. **Updated MEMORY.md**: Fixed rate limiting section for V2, added V2 architecture summary
+
+**Note**: Chart timeframe is **45 seconds** (not 30s as previously documented). Verified against `combo_settings.yaml`.
+
+---
 
 ### Session: 2026-02-26 (Stale CSS Selectors Fix + V2 Webhook Confirmed)
 
@@ -170,7 +187,7 @@
 
 ### Session: 2026-02-26 (V2 Architecture Shift — Planning + MongoDB)
 
-**Goal**: Plan major architecture shift. Scale: ~1028→626 symbols, 1min→30s chart, setup/exit tracking moved to Pine Script, divergence removed.
+**Goal**: Plan major architecture shift. Scale: ~1028→626 symbols, 1min→45s chart, setup/exit tracking moved to Pine Script, divergence removed.
 - Plan file: `.claude/plans/reflective-petting-flame.md`
 - Agent comms rewritten: `.claude/agent-comms.md`
 - MongoDB symbols updated: 1028 → 626
@@ -191,7 +208,7 @@
 
 ### V2 Architecture Decisions (2026-02-26)
 1. **Indicator over Strategy**: `strategy.entry/exit` only works for chart symbol, not `request.security()` symbols.
-2. **30-second chart**: `alert.freq_once_per_bar_close` — fires every 30s when data exists.
+2. **45-second chart**: `alert.freq_once_per_bar_close` — fires every 45s when data exists.
 3. **Setup/exit in Pine Script**: All tracking in Pine `var` state. No Stock Buddy cron needed.
 4. **Remove divergence**: Deleted ~220 lines in Pine Script, removed from payload.
 5. **Compact JSON keys**: Abbreviated keys for TradingView's ~2KB alert message limit.
@@ -228,7 +245,7 @@
 | `.claude/agent-comms.md` | Stock Buddy agent coordination (V2 array payload spec) |
 | `tte/main.py` | Entry point — `fetch_symbols_by_category()` for category pairing |
 | `tte/config.py` | Config dataclass |
-| `combo_settings.yaml` | Settings (30s, batch_size=2, 150s maintenance) |
+| `combo_settings.yaml` | Settings (45s, batch_size=2, 150s maintenance) |
 | `tte/data/symbols.py` | MongoDB symbol fetching |
 | `tte/browser/tradingview.py` | Browser automation |
 | `tte/snapshot_worker.py` | Snapshot polling (unchanged) |
