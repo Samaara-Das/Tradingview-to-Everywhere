@@ -1,8 +1,8 @@
-# Stock Buddy Documentation Inventory
+# TTE Documentation Inventory
 
-This is the canonical list of all documentation files in Stock Buddy. The `/update-docs` skill uses this to know what exists and what each file covers.
+This is the canonical list of all documentation files in TradingView to Everywhere. The docs-updater agent and `/update-docs` skill use this to know what exists and what each file covers.
 
-Last updated: February 2026
+Last updated: February 2026 (V2 production)
 
 ---
 
@@ -10,73 +10,60 @@ Last updated: February 2026
 
 | File | Purpose | Audience | Update Frequency |
 |------|---------|----------|-----------------|
-| `CLAUDE.md` | Architecture, file org, conventions, dev commands | Claude / developers | Every feature change |
-| `STOCK_BUDDY_PRD.md` | Product requirements, milestones, roadmap | Stakeholders, devs | New features, scope changes |
-| `docs/USER_MANUAL.md` | End-user how-to guide with screenshots | End users | Every UI/feature change |
+| `CLAUDE.md` | Architecture, package structure, conventions, dev commands | Claude / developers | Every feature change |
+| `README.md` | Project overview, setup, usage | Public / developers | Major feature changes |
 
-## Tier 2: Architecture & Feature Docs (audit when features change)
+## Tier 2: Architecture & Combo Docs (audit when features change)
 
 | File | Purpose | Audience | Update Frequency |
 |------|---------|----------|-----------------|
-| `docs/FEATURES.md` | Feature catalog with implementation details | Developers | New features, removed features |
-| `docs/UI_COMPONENTS.md` | Component inventory with props and relationships | Developers | Component adds/removes/renames |
-| `docs/DATA_FLOWS.md` | End-to-end data flows with Mermaid diagrams | Developers | Service/API/store changes |
-| `docs/LIMITATIONS.md` | Known limitations and placeholder features | Developers, testers | When limitations are resolved or new ones added |
+| `docs/combo/ARCHITECTURE.md` | Complete architecture — V2 changes, system overview, data flows | Developers | Architecture changes |
+| `docs/combo/PRD.md` | Product requirements, implementation plan | Developers, stakeholders | New features, scope changes |
+| `docs/combo/IMPLEMENTATION.md` | Implementation details and task tracking — **Archived** (all tasks completed Feb 2026) | Developers | During active development |
 
-## Tier 3: Knowledge Base (audit when signal system changes)
+## Tier 3: Setup & Reference Docs (audit when relevant)
 
-| File | Purpose | Notes |
-|------|---------|-------|
-| `docs/Nadaraya Watson.md` | NW signal type explanation | RAG knowledge base source |
-| `docs/Order Block.md` | OB signal type explanation | RAG knowledge base source |
-| `docs/Structure Break.md` | SB signal type explanation | RAG knowledge base source |
-| `docs/Signal documents in Mongodb.md` | MongoDB signal document schema | Reference for combo + legacy signals |
-| `docs/indicators/nadaraya-watson-envelope.md` | NWE indicator logic | TTE combo system |
-| `docs/indicators/order-block-fvg.md` | OB/FVG indicator logic | TTE combo system |
-| `docs/indicators/kernel-ao-divergence-logic2.md` | Divergence indicator logic | TTE combo system |
+| File | Purpose | Audience | Update Frequency |
+|------|---------|----------|-----------------|
+| `docs/SETUP.md` | Installation and environment setup | New developers | Dependency/config changes |
+| `docs/API.md` | Stock Buddy API integration | Developers | API/payload changes |
+| `docs/DATABASE.md` | MongoDB collections and schemas | Developers | Schema changes |
+| `docs/TROUBLESHOOTING.md` | Common issues and solutions | Developers, users | When new issues discovered |
+| `docs/CONTRIBUTING.md` | Contribution guidelines | Contributors | Rarely |
 
-### Knowledge Base Copies (in `src/lib/knowledge-base/`)
-
-These are copies or derivatives used by the RAG system. They should stay in sync with the `docs/` originals:
-
-| File | Mirrors |
-|------|---------|
-| `src/lib/knowledge-base/Nadaraya Watson.md` | `docs/Nadaraya Watson.md` |
-| `src/lib/knowledge-base/Order Block.md` | `docs/Order Block.md` |
-| `src/lib/knowledge-base/Structure Break.md` | `docs/Structure Break.md` |
-| `src/lib/knowledge-base/Signal documents in Mongodb.md` | `docs/Signal documents in Mongodb.md` |
-| `src/lib/knowledge-base/TTE-Integration.md` | TTE combo system overview (no docs/ mirror) |
-| `src/lib/knowledge-base/OB-SB-NW-Strategy.md` | Trading strategy guide (no docs/ mirror) |
-| `src/lib/knowledge-base/signal-interpretation.md` | Signal interpretation guide (no docs/ mirror) |
-| `src/lib/knowledge-base/stock_buddy_prd.md` | PRD copy for RAG (mirrors `STOCK_BUDDY_PRD.md`) |
-| `src/lib/knowledge-base/README.md` | Knowledge base index file |
-
-## Tier 4: Secondary / Reference Docs (audit when relevant)
+## Tier 4: Technical Reference (audit when indicators change)
 
 | File | Purpose | Notes |
 |------|---------|-------|
-| `src/components/watchlist/README.md` | Watchlist component architecture | Developer reference |
-| `docs/google-doc-migration-summary.md` | Signal system migration reference | Historical — rarely changes |
-| `docs/google-doc-content.md` | Google Doc content mirror | Sync with Google Doc |
-| `docs/doc-inventory.md` | Documentation inventory and audit trail | Update after each docs audit |
+| `docs/indicators/nadaraya-watson-envelope.md` | NWE indicator logic | Core signal type |
+| `docs/indicators/order-block-fvg.md` | OB/FVG indicator logic | Core signal type |
+| `docs/indicators/kernel-ao-divergence-logic2.md` | Divergence indicator logic | Removed in V2, kept for reference |
+| `docs/STOCK_BUDDY_TECHNICAL_ARCHITECTURE.md` | Stock Buddy integration architecture | Cross-project reference |
+| `docs/prds/backfill-snapshots.md` | Backfill snapshots PRD | Feature PRD |
+
+## Tier 5: Agent & Coordination Docs
+
+| File | Purpose | Notes |
+|------|---------|-------|
+| `.claude/agent-comms.md` | Stock Buddy agent coordination | V2 payload format spec |
+| `.claude/task-context.md` | Session progress tracker | Updated each session |
 
 ## Configuration & Templates (not audited for content)
 
 | File | Purpose |
 |------|---------|
-| `.claude/commands/post-commands.md` | Claude Code post-command hooks |
-| `.claude/skills/update-docs/SKILL.md` | Update-docs skill definition |
-| `.claude/skills/update-docs/references/doc-inventory.md` | This file |
-| `.cursor/commands/create-new-branch.md` | Cursor branch creation command |
-| `.github/pull_request_template.md` | PR template |
-| `CLAUDE.local.md` | User's private project instructions (not committed) |
+| `.claude/agents/docs-updater.md` | Docs updater agent definition |
+| `.claude/agents/deploy.md` | Deploy agent definition |
+| `.claude/agents/python-code-guardian.md` | Python code quality agent |
+| `.claude/agents/qa.md` | QA agent definition |
+| `.claude/agents/selenium-patterns.md` | Selenium patterns agent |
+| `.claude/commands/*.md` | Claude Code commands |
+| `.claude/skills/*/SKILL.md` | Skill definitions |
 
-## External Doc (sync manually)
+## Pine Script Files (reference, not doc files)
 
-| Location | Purpose |
-|----------|---------|
-| [Google Doc](https://docs.google.com/document/d/1Ocg1M-zuMg4hDtpjzIsuhc5lJzaA93-ydvcbGErurcc/edit?tab=t.0) | Shared with Rahul uncle for stakeholder visibility |
-
-## Screenshots
-
-`docs/manual-screenshots/` contains numbered screenshots for the User Manual. Several have been deleted as outdated — see `docs/doc-inventory.md` for the list of screenshots needing re-capture.
+| File | Purpose |
+|------|---------|
+| `Pine Script Code/TTE Screener V2.txt` | **Active** — V2 screener with setup/exit tracking |
+| `Pine Script Code/TTE Screener.txt` | Archived — V1 screener |
+| `Pine Script Code/Trade Drawer.txt` | Trade Drawer v6 for chart snapshots |

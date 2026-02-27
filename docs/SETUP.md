@@ -129,13 +129,19 @@ PROFILE = "Profile 4"  # Or the profile number you want to use
 
 ### TradingView Layout Setup
 
-Create and save this layout:
+Create and save these layouts:
 
-1. **"Screener" Layout**:
-   - Add **TTE Screener** indicator
+1. **"Screener" Layout** (required for alerts):
+   - Add **TTE Screener V2** indicator
    - Star/favorite the indicator
-   - Set chart to **1-minute** timeframe
-   - Set bar style to **Line**
+   - Set chart to **45 seconds** timeframe
+   - Set bar style to **Candle**
+   - Save layout
+
+2. **"Snapshot" Layout** (required for chart screenshots):
+   - Add **NWE** indicator and **Trade Drawer v2** indicator
+   - Star/favorite both indicators
+   - Set bar style to **Candle**
    - Save layout
 
 ---
@@ -210,28 +216,36 @@ Combo mode uses `combo_settings.yaml` for all configuration. Edit this file to c
 ```yaml
 chart:
   layout_name: "Screener"        # TradingView layout name
-  chart_timeframe: "1 minute"     # Chart timeframe
-  bar_style: "line"               # Bar style (line for minimal resources)
-  headless: true                  # Run Chrome without visible window
+  chart_timeframe: "45 seconds"  # Chart timeframe (V2)
+  bar_style: "candle"            # Bar style (candle for exit detection)
+  headless: true                 # Run Chrome without visible window
 
 screener:
-  shorttitle: "Screener"          # Indicator short title on chart
-  name: "TTE Screener"           # Full indicator name
+  shorttitle: "Screener V2"      # Indicator short title on chart
+  name: "TTE Screener V2"       # Full indicator name
 
 alerts:
-  batch_size: 3                   # Symbols per alert (max 4)
-  creation_delay: 1.5             # Seconds between batches
-  recalc_wait: 1.5                # Wait for indicator recalculation
-  start_fresh: false              # Delete all alerts before setup
+  batch_size: 2                  # Symbols per alert (V2: 2, category-aware)
+  creation_delay: 1.5            # Seconds between batches
+  recalc_wait: 1.5               # Wait for indicator recalculation
+  start_fresh: false             # Delete all alerts before setup
 
 webhook:
-  url: ""                         # Set via COMBO_WEBHOOK_URL env var
+  url: ""                        # Set via COMBO_WEBHOOK_URL env var
 
 maintenance:
-  interval: 300                   # Seconds between restart cycles
+  interval: 150                  # Seconds between restart cycles (V2: 2.5 min)
+
+snapshot:
+  enabled: true                  # Enable chart snapshot worker
+  layout_name: "Snapshot"        # TradingView layout for snapshots
+  bar_style: "candle"
+  batch_size: 5
+  poll_interval: 60
+  bars_to_right: 60
 
 progress:
-  file: combo_progress.json       # Progress tracking for resume
+  file: combo_progress.json      # Progress tracking for resume
 ```
 
 ### Running Combo Mode
