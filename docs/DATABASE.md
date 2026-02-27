@@ -270,71 +270,89 @@ Stores the current batch rotation state (singleton document).
 
 #### 5. `tte_live_signals`
 
-Stores the current live signal state for combo mode. One document per symbol, upserted on every webhook.
+Stores the current live signal + position state for combo mode V2. One document per symbol, upserted on every 45-second bar close webhook.
 
-##### Document Schema
+> **V2 schema**: Compact abbreviated keys. Divergence removed. Buy/sell positions added.
+
+##### Document Schema (V2)
 
 | Field | Type | Description | Example |
 |-------|------|-------------|---------|
 | `_id` | string | Symbol name (used as document ID) | `"GBPAUD"` |
 | `symbol` | string | Trading symbol | `"GBPAUD"` |
-| `nwe` | array | NWE signal entries | See below |
-| `ob_fvg` | array | OB/FVG signal entries | See below |
-| `divergence` | array | Divergence signal entries | See below |
-| `last_updated` | Date | Last webhook update time | `"2026-02-11T12:00:00Z"` |
+| `close` | number | Latest close price | `1.985` |
+| `nwe` | array | NWE signal entries (compact format) | See below |
+| `ob` | array | OB/FVG signal entries (compact format) | See below |
+| `buy` | array | Buy positions [LTF slot, HTF slot] — null if no position | See below |
+| `sell` | array | Sell positions [LTF slot, HTF slot] — null if no position | See below |
+| `last_updated` | Date | Last webhook update time | `"2026-02-27T12:00:00Z"` |
 
-##### NWE Entry Schema
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `zone` | string | NWE zone name (`lower_avg`, `lower_far`, `upper_avg`, `upper_far`) |
-| `type` | string | Signal direction (`bullish` or `bearish`) |
-| `overlapTimestamp` | number | Timestamp when price overlapped zone (ms) |
-| `timeframe` | string | Signal timeframe (`1H`, `H4`) |
-
-##### OB/FVG Entry Schema
+##### NWE Entry Schema (V2 compact)
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `zonetype` | string | Zone type (`OB`, `FVG`, `Breaker`) |
-| `subtype` | string | Sub-type (`unmitigated`, `unfilled`, etc.) |
-| `type` | string | Signal direction (`bullish` or `bearish`) |
-| `zoneTimestamp` | number | When the zone was created (ms) |
-| `overlapTimestamp` | number | When price overlapped the zone (ms) |
-| `timeframe` | string | Signal timeframe (`1H`, `H4`, `D1`) |
+| `z` | string | Zone: `la`=lower_avg, `lf`=lower_far, `ua`=upper_avg, `uf`=upper_far |
+| `t` | string | Direction: `bull` or `bear` |
+| `tf` | string | Timeframe: `1H` or `H4` |
+| `ots` | number | Overlap timestamp (Unix seconds) |
 
-##### Divergence Entry Schema
+##### OB/FVG Entry Schema (V2 compact)
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `divType` | string | Divergence type (`Logic 2`) |
-| `type` | string | Signal direction (`bullish` or `bearish`) |
-| `timestamp` | number | Divergence detection time (ms) |
-| `timeframe` | string | Signal timeframe (`1H`, `H4`) |
+| `zt` | string | Zone type: `OB`, `FVG`, `Breaker` |
+| `st` | string | Sub-type: `un`=unmitigated, `br`=breaker, `fv`=fvg |
+| `t` | string | Direction: `bull` or `bear` |
+| `zh` | number | Zone high price |
+| `zl` | number | Zone low price |
+| `tf` | string | Timeframe: `H4` or `D1` |
+| `zts` | number | Zone creation timestamp (Unix seconds) |
+| `ots` | number | Overlap timestamp (Unix seconds) |
 
-##### Example Document
+##### Position Entry Schema (V2)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `e` | number | Entry price |
+| `sl` | number | Stop loss price |
+| `tp` | number | Take profit price |
+| `et` | number | Entry time (Unix seconds) |
+| `l` | string | Label: `LTF` or `HTF` |
+| `ntf` | string | NWE timeframe used for setup |
+| `otf` | string | OB timeframe used for setup |
+| `n` | boolean | isNew (true on setup bar only, false on subsequent bars) |
+| `xt` | string | Exit type: `tp` or `sl` (present only on exit bar) |
+| `xp` | number | Exit price (present only on exit bar) |
+| `xts` | number | Exit time Unix seconds (present only on exit bar) |
+
+##### Example Document (V2)
 
 ```json
 {
   "_id": "GBPAUD",
   "symbol": "GBPAUD",
+  "close": 1.985,
   "nwe": [
-    {"zone": "lower_avg", "type": "bullish", "overlapTimestamp": 1707264000000, "timeframe": "1H"}
+    {"z": "la", "t": "bull", "tf": "1H", "ots": 1707264000}
   ],
-  "ob_fvg": [
-    {"zonetype": "OB", "subtype": "unmitigated", "type": "bullish", "zoneTimestamp": 1707260400000, "overlapTimestamp": 1707264000000, "timeframe": "H4"}
+  "ob": [
+    {"zt": "OB", "st": "un", "t": "bull", "zh": 1.99, "zl": 1.97, "tf": "H4", "zts": 1707260400, "ots": 1707264000}
   ],
-  "divergence": [],
-  "last_updated": "2026-02-11T12:00:00Z"
+  "buy": [
+    {"e": 1.98, "sl": 1.975, "tp": 1.99, "et": 1707260000, "l": "LTF", "ntf": "1H", "otf": "H4", "n": false},
+    null
+  ],
+  "sell": [null, null],
+  "last_updated": "2026-02-27T12:00:00Z"
 }
 ```
 
 ##### Upsert Behavior
 
 - Document `_id` is the symbol name (e.g., `"GBPAUD"`)
-- Each webhook **replaces** the entire signal state for included symbols
-- Symbols NOT in a webhook payload retain their previous state
-- Signals persist indefinitely — users judge freshness via `last_updated`
+- Each webhook **replaces** the entire signal + position state for included symbols
+- Symbols excluded due to staleness (`timenow - symTime > 120s`) retain their previous state
+- Position exits appear with `xt`/`xp`/`xts` for one bar, then clear on the next bar
 
 ---
 

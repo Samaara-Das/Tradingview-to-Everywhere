@@ -14,11 +14,11 @@ TradingView to Everywhere (TTE) is an automated trading signals distribution sys
 ## Combo Mode (`tte/main.py`) — Production
 
 - **Method**: Single combo screener (NWE + OB/FVG + setup/exit tracking) with persistent webhook alerts
-- **Workflow**: ~314 persistent alerts (2 symbols each, category-aware pairing) → webhook every 30s to Stock Buddy API
+- **Workflow**: ~314 persistent alerts (2 symbols each, category-aware pairing) → webhook every 45s to Stock Buddy API
 - **Alert lifecycle**: Create once → run forever (+ maintenance every 2.5 mins)
 - **Screener V2**: Setup detection (NWE + OB/FVG alignment), position tracking, exit detection (TP/SL via candle high/low) — all in Pine Script
 - **Single browser**: Alerts created sequentially with one Chrome instance (headless by default)
-- **Chart**: 30-second timeframe, candle bar style, `alert.freq_once_per_bar_close`
+- **Chart**: 45-second timeframe, candle bar style, `alert.freq_once_per_bar_close`
 - **Key files**: `tte/main.py`, `tte/config.py`, `combo_settings.yaml`, `Pine Script Code/TTE Screener V2.txt`
 - **Docs**: `docs/combo/ARCHITECTURE.md`, `docs/combo/PRD.md`
 
@@ -59,7 +59,7 @@ All combo mode options are configured in `combo_settings.yaml`. Secrets (webhook
 | Setting | YAML Path | Default | Description |
 |---------|-----------|---------|-------------|
 | Layout | `chart.layout_name` | "Screener" | TradingView layout name |
-| Timeframe | `chart.chart_timeframe` | "30 seconds" | Chart timeframe (must match dropdown label) |
+| Timeframe | `chart.chart_timeframe` | "45 seconds" | Chart timeframe (must match dropdown label) |
 | Bar style | `chart.bar_style` | "candle" | Chart bar style data-value (candle, line, ha, etc.) |
 | Screener | `screener.shorttitle` | "Screener V2" | Indicator short title on chart |
 | Batch size | `alerts.batch_size` | 2 | Symbols per alert (category-aware pairing) |
@@ -92,7 +92,7 @@ See `tte/config.py` and `.env` file. Key variables: `CHROME_PROFILES_PATH`, `TRA
 
 | What | Where | Use Case |
 |------|-------|----------|
-| Restart inactive alerts | `tte/main.py` `restart_inactive_alerts()` | Maintenance (every 5 mins) |
+| Restart inactive alerts | `tte/main.py` `restart_inactive_alerts()` | Maintenance (every 2.5 mins) |
 | Create webhook alert | `tte/browser/tradingview.py` `create_webhook_alert()` | Alert creation |
 | Change screener settings | `tte/browser/tradingview.py` `change_settings()` | Symbol configuration |
 | Safe element access | `tte/browser/tradingview.py` `_safe_indicator_access()` | When Selenium elements go stale |
