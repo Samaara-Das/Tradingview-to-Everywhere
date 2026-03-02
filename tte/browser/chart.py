@@ -378,8 +378,8 @@ class OpenChart:
                 # Use JS to get the title text — avoids hashed CSS class selectors
                 indicator_name = self.driver.execute_script(
                     """
-                    var divs = arguments[0].querySelectorAll('div[class*="title-"]');
-                    return divs.length > 0 ? divs[0].textContent : "";
+                    var el = arguments[0].querySelector('[data-qa-id*="legend-source-title"]');
+                    return el ? el.textContent.trim() : "";
                     """,
                     ind,
                 )
