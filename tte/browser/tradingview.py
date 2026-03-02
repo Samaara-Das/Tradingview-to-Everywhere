@@ -1126,7 +1126,7 @@ class Browser:
 
             for ind in indicators:
                 indicator_name = self.driver.execute_script(
-                    'var d = arguments[0].querySelectorAll(\'div[class*="title-"]\'); return d.length > 0 ? d[0].textContent : "";',
+                    'var el = arguments[0].querySelector(\'[data-qa-id*="legend-source-title"]\'); return el ? el.textContent.trim() : "";',
                     ind,
                 )
                 if indicator_name == ind_shorttitle:
