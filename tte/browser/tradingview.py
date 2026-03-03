@@ -414,16 +414,12 @@ class Browser:
     def save_layout(self):
         """This saves the current layout of the chart by clicking on the current layout."""
         try:
-            # check if the layout has been saved. If it hasn't, save it.
             curr_layout = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.XPATH, '//*[@id="header-toolbar-save-load"]'))
             )
-            if "hidden" not in curr_layout.find_element(
-                By.CSS_SELECTOR, ".saveString-XVd1Kfjg"
-            ).get_attribute("class"):
-                curr_layout.click()
-                open_tv_logger.exception("Saved the current layout!")
-
+            curr_layout.click()
+            sleep(0.5)
+            open_tv_logger.info("Saved the current layout!")
             return True
 
         except Exception:
