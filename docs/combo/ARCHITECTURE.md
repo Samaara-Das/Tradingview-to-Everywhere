@@ -6,7 +6,7 @@
 
 ## V2 Architecture Changes (Feb 2026)
 
-V2 moves setup detection, position tracking, and exit detection **into Pine Script**. Stock Buddy receives pre-computed trade positions instead of raw signals.
+V2 uses stateless setup detection in Pine Script. On every bar, if NWE + OB/FVG conditions align, setup data is sent to Stock Buddy, which handles deduplication (DB-level partial unique index) and exit detection (server-side cron every 5 min via Binance/Yahoo candle data).
 
 ### What Changed
 
@@ -14,12 +14,12 @@ V2 moves setup detection, position tracking, and exit detection **into Pine Scri
 |--------|----|----|
 | Symbols per alert | 3 | **2** |
 | Chart timeframe | 1 minute | **45 seconds** |
-| Alert frequency | `alert.freq_all` (every tick) | **`alert.freq_once_per_bar_close`** (every 30s) |
+| Alert frequency | `alert.freq_all` (every tick) | **`alert.freq_once_per_bar_close`** (every 45s) |
 | Divergence | Included | **Removed** |
-| Setup detection | Stock Buddy (from raw signals) | **Pine Script** (NWE + OB/FVG alignment) |
-| Exit detection | Stock Buddy cron (price API) | **Pine Script** (candle high/low vs TP/SL) |
+| Setup detection | Stock Buddy (from raw signals) | **Pine Script** (stateless NWE + OB/FVG alignment) |
+| Exit detection | Pine Script (candle high/low) | **Stock Buddy cron** (5-min candles from Binance/Yahoo) |
 | Payload format | Verbose keys | **Compact keys** (for 2KB limit) |
-| Payload content | Raw signals only | **Signals + positions + exits** |
+| Payload content | Raw signals only | **Signals + setups** (exits handled server-side) |
 | `request.security()` calls | 12 (4 symbols × 3 TFs) | **8** (2 symbols × 4 call types) |
 | Maintenance interval | 300s (5 min) | **150s** (2.5 min) |
 | Total symbols | ~1,028 | **626** (expandable to 800) |
@@ -29,14 +29,13 @@ V2 moves setup detection, position tracking, and exit detection **into Pine Scri
 
 - **File**: `Pine Script Code/TTE Screener V2.txt`
 - **Indicator**: "TTE Screener V2" (short title: "Screener V2")
-- **`max_bars_back`**: 5000 (for 30s chart `var` history)
-- **Position tracking**: `var` state variables (12 per position × 8 positions = 96 vars)
-- **Setup types**: LTF (1H NWE + H4/D1 OB) and HTF (H4 NWE + D1 OB), tracked independently
-- **Max positions**: 1 LTF buy + 1 HTF buy + 1 LTF sell + 1 HTF sell per symbol (up to 4 concurrent)
+- **`max_bars_back`**: 5000
+- **Stateless**: No `var` position tracking. Setup data computed fresh each bar.
+- **Setup types**: LTF (1H NWE + H4/D1 OB) and HTF (H4 NWE + D1 OB), independent
 - **SL**: MIN(confirming OB zoneLow) for buys, MAX(zoneHigh) for sells
 - **TP**: 1:2 risk-reward from entry
-- **Exit detection**: Candle high/low vs TP/SL, TP checked before SL
-- **Staleness**: `timenow - symTime > 120000` excludes stale symbols from payload
+- **Exit detection**: Handled by Stock Buddy cron (not in Pine Script)
+- **Dedup**: Stock Buddy uses partial unique DB index — same setup sent repeatedly is ignored
 
 ### V2 Category-Aware Symbol Pairing
 
@@ -59,30 +58,29 @@ Symbols are paired within the same asset class (forex with forex, crypto with cr
     "sym": "GBPAUD", "c": 1.985,
     "nwe": [{"z": "la", "t": "bull", "tf": "1H", "ots": 1707264000}],
     "ob": [{"zt": "OB", "st": "un", "t": "bull", "zh": 1.99, "zl": 1.97, "tf": "H4", "zts": 1707260400, "ots": 1707264000}],
-    "b": [{"e": 1.98, "sl": 1.975, "tp": 1.99, "et": 1707260000, "l": "LTF", "ntf": "1H", "otf": "H4", "n": true}, null],
+    "b": [{"e": 1.98, "sl": 1.975, "tp": 1.99, "et": 1707260000, "l": "LTF", "ntf": "1H", "otf": "H4"}, null],
     "se": [null, null]
   }]
 }
 ```
 
-Key legend: `ts`=timestamp, `s`=symbols, `sym`=symbol, `c`=close, `nwe`=NWE signals, `ob`=OB/FVG signals, `b`=buy positions [LTF, HTF], `se`=sell positions [LTF, HTF], `e`=entry, `sl`=stopLoss, `tp`=takeProfit, `et`=entryTime, `l`=label(LTF/HTF), `ntf`=nweTf, `otf`=obTf, `n`=isNew, `xt`=exitType(tp/sl), `xp`=exitPrice, `xts`=exitTime
+Key legend: `ts`=timestamp, `s`=symbols, `sym`=symbol, `c`=close, `nwe`=NWE signals, `ob`=OB/FVG signals, `b`=buy setups [LTF, HTF], `se`=sell setups [LTF, HTF], `e`=entry, `sl`=stopLoss, `tp`=takeProfit, `et`=entryTime, `l`=label(LTF/HTF), `ntf`=nweTf, `otf`=obTf
 
-### V2 Position Lifecycle
+### V2 Stateless Setup Behavior
 
-Tracked per array slot (index 0 = LTF, index 1 = HTF). LTF and HTF are independent:
+Setup slots (`b` and `se` arrays, index 0 = LTF, index 1 = HTF) are computed fresh each bar:
 
-1. No position: `"b": [null, null]`
-2. New LTF setup: `"b": [{"e":1.98, ..., "n": true}, null]` (one bar only)
-3. Both running: `"b": [{"e":1.98, ..., "n": false}, {"e":1.97, ..., "n": false}]`
-4. LTF exit: `"b": [{"e":1.98, ..., "xt": "tp", "xp": 1.99, "xts": 123}, {"e":1.97, ..., "n": false}]`
-5. LTF cleared: `"b": [null, {"e":1.97, ..., "n": false}]` (next bar after exit)
+- **Non-null** = NWE + OB/FVG conditions currently align for that setup type
+- **`null`** = no conditions align
+- Stock Buddy deduplicates: first non-null creates a setup, subsequent identical signals are ignored
+- Exit detection is server-side (Stock Buddy cron checks Binance/Yahoo candles every 5 min)
 
 ### V2 Files
 
 | File | Change |
 |------|--------|
-| `Pine Script Code/TTE Screener V2.txt` | **New** — forked from V1 with setup/exit tracking |
-| `combo_settings.yaml` | Updated: 30s timeframe, batch_size=2, 150s maintenance |
+| `Pine Script Code/TTE Screener V2.txt` | **Stateless** — setup detection only, no position tracking or exit detection |
+| `combo_settings.yaml` | Updated: 45s timeframe, batch_size=2, 150s maintenance |
 | `tte/main.py` | Updated: `fetch_symbols_by_category()` for category-aware pairing |
 
 ---
@@ -219,7 +217,7 @@ The 4-symbol hard limit (more causes memory/runtime errors in TradingView) and t
 - **Signal types detected**:
   - **NWE (Nadaraya-Watson Envelope)**: Price in lower/upper envelope zones on 1H/H4
   - **OB/FVG (Order Block / Fair Value Gap)**: Unmitigated OBs, breaker zones, unfilled FVGs on 1H/H4/D1
-- **Setup/exit tracking**: Pine Script tracks positions (up to 4 per symbol: LTF buy, HTF buy, LTF sell, HTF sell)
+- **Setup detection**: Stateless — computes setup data fresh each bar (up to 4 per symbol: LTF buy, HTF buy, LTF sell, HTF sell)
 - **Alert behavior**: Fires on every 45-second bar close (`alert.freq_once_per_bar_close`)
 - **Payload**: Compact JSON with abbreviated keys (see Section 8 and V2 section at top)
 
@@ -406,13 +404,13 @@ The same browser instance is shared — they never run concurrently.
 
 **C. Divergence** — **Removed in V2**
 
-### Setup/Exit Tracking (V2)
+### Stateless Setup Detection (V2)
 
 - **Setup detection**: NWE + OB/FVG alignment triggers LTF (1H NWE + H4 OB) or HTF (H4 NWE + D1 OB) setups
-- **Position tracking**: `var` state variables (12 per position × 8 positions per alert = 96 vars)
-- **Exit detection**: Candle high/low vs TP/SL; TP checked before SL
+- **No position tracking**: Computed fresh each bar, no `var` state
+- **Exit detection**: Server-side (Stock Buddy cron, 5-min candles from Binance/Yahoo)
 - **TP**: 1:2 risk-reward from entry; **SL**: MIN/MAX of confirming OB zone
-- **Staleness**: Symbols with `timenow - symTime > 120000ms` excluded from payload
+- **Dedup**: Stock Buddy uses partial unique DB index (`{ symbol, dedupKey }` where `outcome: "running"`)
 
 ### Alert Behavior (V2)
 
@@ -560,19 +558,20 @@ https://stock-buddy-app.vercel.app/api/tte/combo
     "sym": "GBPAUD", "c": 1.985,
     "nwe": [{"z": "la", "t": "bull", "tf": "1H", "ots": 1707264000}],
     "ob": [{"zt": "OB", "st": "un", "t": "bull", "zh": 1.99, "zl": 1.97, "tf": "H4", "zts": 1707260400, "ots": 1707264000}],
-    "b": [{"e": 1.98, "sl": 1.975, "tp": 1.99, "et": 1707260000, "l": "LTF", "ntf": "1H", "otf": "H4", "n": true}, null],
+    "b": [{"e": 1.98, "sl": 1.975, "tp": 1.99, "et": 1707260000, "l": "LTF", "ntf": "1H", "otf": "H4"}, null],
     "se": [null, null]
   }]
 }
 ```
 
-**Key legend**: `ts`=timestamp, `s`=symbols, `sym`=symbol, `c`=close, `nwe`=NWE signals, `ob`=OB/FVG signals, `b`=buy positions [LTF, HTF], `se`=sell positions [LTF, HTF], `e`=entry, `sl`=stopLoss, `tp`=takeProfit, `et`=entryTime, `l`=label, `ntf`=nweTf, `otf`=obTf, `n`=isNew, `xt`=exitType(tp/sl), `xp`=exitPrice, `xts`=exitTime
+**Key legend**: `ts`=timestamp, `s`=symbols, `sym`=symbol, `c`=close, `nwe`=NWE signals, `ob`=OB/FVG signals, `b`=buy setups [LTF, HTF], `se`=sell setups [LTF, HTF], `e`=entry, `sl`=stopLoss, `tp`=takeProfit, `et`=entryTime, `l`=label, `ntf`=nweTf, `otf`=obTf
 
 **Key rules**:
-- Both symbols are always included (unless stale — timenow - symTime > 120s)
+- Both symbols included when conditions align (session.ismarket guard)
 - `b` and `se` arrays have fixed slots: index 0 = LTF, index 1 = HTF
-- `null` in a slot means no active position of that type
-- Divergence is removed in V2 — no `divergence` field
+- `null` in a slot means no setup conditions align for that type
+- Non-null = Stock Buddy checks DB for dedup, creates setup if new
+- Divergence removed in V2 — no `divergence` field
 
 ### Stock Buddy Endpoint Design: `POST /api/tte/combo`
 
