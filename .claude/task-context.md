@@ -1,9 +1,9 @@
 # Task Context Tracker
 
-**Last Updated**: 2026-02-27
-**Current Task**: V2 production-ready. Debug testing completed, debug code cleaned up. Ready for next work.
-**Active Branch**: `main`
-**Latest Commit (TTE)**: `9828446` — Rebuild TTE.exe with pystray dependency bundled
+**Last Updated**: 2026-03-03
+**Current Task**: Task #2 — Signal detection guards implemented. Pending deployment after architecture + alert count fix.
+**Active Branch**: `fix/signal-detection-guards`
+**Latest Commit (TTE)**: `e77888e` — Fix Indian stock alerts never triggering (#11)
 **Latest Commit (Stock Buddy)**: `bc0b810` — Add snapshot backfill endpoint
 
 ---
@@ -12,12 +12,13 @@
 
 | # | Task | Status |
 |---|------|--------|
-| 131–144 | Chart snapshots feature + backfill | completed |
-| 145 | Understand snapshot processing timing and batch size | completed |
-| 147 | Decide on testing strategy (TDD / test coverage) | pending |
-| 148 | Set up pre-commit hooks for linting, type checking, and formatting | completed |
-| 149 | Rebuild and redeploy TTE.exe | completed |
-| — | V2 debug testing (historical bars) + cleanup | completed |
+| 1 | Get alerts to trigger for Indian stocks | **done** (PR #11) |
+| 2 | Check signal detection for US stocks and Indian stocks | **done** (guards implemented + tested, pending deployment) |
+| 3 | Figure out why only 262 alerts got created instead of 314 | pending |
+| 4 | Make new API polling architecture | pending |
+| 5 | Test signals, setups, exits for the user | pending (blocked by #1, #4) |
+| 6 | Verify Indian stock alerts trigger after exchange prefix fix | **pending** (test during next NSE hours) |
+| 7 | Post-deployment: verify signal timing & timestamps (forex/crypto/stocks) | **pending** (blocked by deployment) |
 
 ### V2 Architecture Shift — Implementation (All Complete)
 
@@ -46,6 +47,112 @@
 ---
 
 ## Session History
+
+### Session: 2026-03-03 (Task 2: Debug Wrong Signal Detection — Investigation)
+
+**Goal**: Investigate wrong NWE and OB/FVG signals the user observed in Stock Buddy database for US stocks and crypto.
+
+**User's initial report**: They saw wrong signals when checking the database yesterday — e.g., "bearish NWE signal on a symbol, but price was not in any band at that timestamp." They hypothesized timestamps/sessions/timezones were the cause. We chose to debug first rather than act on the hypothesis.
+
+**Chronological discussion flow**:
+
+1. **Explored V2 screener time handling** (2 parallel Explore agents):
+   - All timestamps from Pine Script's `time` built-in (Unix milliseconds, UTC)
+   - NWE signal detection runs INSIDE `request.security()` (line 434-461) using HTF candle's OHLC
+   - `ots` (observation timestamp) uses chart bar's `time`, not the HTF bar's time
+   - No `session.ismarket` or timezone checks anywhere in Pine Script
+   - No `timenow` usage (removed in PR #11)
+   - `barmerge.gaps_off` (default) returns last known value when market is closed
+
+2. **Asked user about specific wrong signals**:
+   - User provided 5 detailed examples: PPL, AU, ADSK (US stocks), XLMUSDT, LINKUSDT (crypto)
+   - Wrong signal types: NWE zone/direction and OB/FVG data that didn't match TradingView charts
+   - Categories affected: Crypto and US Stocks (Indian stocks had no signals to test)
+
+3. **Asked about chart symbol**: User confirmed TTE changes chart symbol to batch[0] (first symbol in indicator settings) before creating each alert.
+
+4. **Designed debugging plan** (Plan agent): Hypothesized extended hours + stale HTF data as root cause. PPL at "Mar 2, 05:51 UTC" was key — before NYSE opens.
+
+5. **User verification on TradingView**:
+   - Regular trading hours IS enabled (not extended hours)
+   - PPL: No 45s bars at 05:51 UTC on Monday
+   - PPL: Last 1H bar before that time (Feb 27, 20:30) — price NOT in any NWE band
+   - AU H4: No bar at Feb 27 20:59 — closest at 18:30 where price WAS in upper NWE band
+   - AU 1H: At March 2 20:30, price NOT in any band
+
+6. **Database investigation** (MongoDB queries):
+
+   **Key findings from `tte_live_signals` collection**:
+   - **425 total live signals** in DB
+   - **PPL**: `alert_timestamp = 1772526510` = **2026-03-03 08:28 UTC** (before NYSE opens!)
+     - `nwe[0].overlapTimestamp = 1772526510000.0` (milliseconds, same time)
+     - PPL paired with PNC (both US stocks), chart symbol = PNC
+     - PPL is the **only US stock (1 of 368)** with an off-hours timestamp
+   - **AU**: `alert_timestamp = 1772485155` = **2026-03-02 20:59 UTC** (during NYSE hours, NOT Feb 27 as user recalled)
+   - **ADSK**: Same timestamp as AU (same alert pair — identical `alert_timestamp`)
+   - **XLMUSDT/LINKUSDT**: Crypto, timestamps at 09:16 UTC — expected (24/7 market)
+   - **Off-hours analysis**: 49/425 signals outside 12-21 UTC, but 48 of those are crypto/forex (expected). Only PPL is a US stock anomaly.
+
+   **Timestamp unit findings**:
+   - `alert_timestamp`: Stored in **seconds** (Stock Buddy converts: `Math.floor(ts / 1000)`)
+   - `ots`, `zts`, `et`, `xts`: Stored in **milliseconds** (passed through as-is from payload)
+   - Documentation in `agent-comms.md` says "seconds" for `ots`/`zts` — **doc bug**, actual values are milliseconds
+   - Stock Buddy always upserts both symbols in a payload (no "skip if unchanged" logic)
+
+   **Stock Buddy webhook handler** (explored via agent):
+   - `POST /api/tte/combo/route.ts` receives V2 payload
+   - `Math.floor(validation.data.ts / 1000)` converts top-level `ts` from ms to seconds
+   - NWE/OB timestamps (`ots`, `zts`) stored as-is (milliseconds from Pine Script)
+   - Both symbols always upserted — PNC and PPL should have same `alert_timestamp` but DON'T (PNC=20:59 Mar 2, PPL=08:28 Mar 3)
+
+7. **Signal verification results**:
+   - **AU H4 signal: CORRECT** — user confirmed price was in upper NWE band on the 16:00-20:00 H4 candle on Mar 2
+   - **AU 1H: CORRECT** — no 1H NWE signal in DB, and price wasn't in 1H band
+   - User's initial date confusion (Feb 27 vs Mar 2) explained some "wrong signal" reports
+
+8. **Root cause conclusions**:
+   - **PPL off-hours anomaly** (1/368 US stocks): Alert likely created when extended hours was ON. TradingView saves chart state with alert at creation time. TTE doesn't check/set extended hours before creating alerts.
+   - **"Wrong signals" from user's initial report**: Mostly explained by checking wrong dates and misunderstanding HTF candle semantics (signals reflect last completed HTF candle, not current price)
+   - **NWE signals inside `request.security()`**: Signals reflect last completed HTF candle's OHLC, which persists until next HTF candle completes. This is by design but can confuse verification.
+
+**Plan created**: `.claude/plans/cozy-popping-graham.md` with 3 changes:
+1. Add `session.ismarket` guard to Pine Script alert firing (line ~911)
+2. Have TTE ensure regular trading hours before alert creation
+3. Fix `agent-comms.md` doc bug (ots/zts are milliseconds, not seconds)
+
+**Status**: Plan pending user approval. User asked to update task context before continuing.
+
+**Key references discovered this session**:
+- `.claude/skills/pinescript/references/time_sessions_cross_market.md` — comprehensive Pine Script time/session reference
+- `session.ismarket` is `true` only during regular hours on intraday charts (perfect guard)
+- Pine Script `time` = Unix milliseconds (not seconds)
+- Stock Buddy combo handler: `src/app/api/tte/combo/route.ts`
+- Stock Buddy collections: `tte.tte_live_signals` (425 docs), `tte.tte_entry_setups` (400 docs), `tte.setup_messages` (1548 docs)
+
+---
+
+### Session: 2026-03-03 (Fix Indian Stock Alerts Never Triggering)
+
+**Goal**: Fix Indian stock alerts that never fired (zero webhooks received). Task #1.
+
+**Root cause identified**: Two issues compounding:
+1. **`change_settings()` stripped exchange prefixes** (`tte/browser/tradingview.py:451-458`): `"NSE:RELIANCE"` → `"RELIANCE"`. TradingView resolved ambiguous bare symbol to wrong exchange (e.g., `BSE:RELIANCE`). Different exchange = different data feed = staleness check always excluded it.
+2. **Redundant staleness check in Pine Script**: `timenow - time01 > 120000` was unnecessary with category-aware pairing (both symbols always share same market hours as chart symbol).
+
+**Changes made**:
+1. **`tte/browser/tradingview.py`**: Removed prefix stripping block (lines 451-458), kept full `EXCHANGE:SYMBOL` format. Added `sleep(0.5)` before `Keys.ENTER` in symbol search to let results populate.
+2. **`Pine Script Code/TTE Screener V2.txt`**: Removed entire staleness detection section (`stale01`/`stale02` variables), removed `not stale01`/`not stale02` from all 16 setup/exit conditions, removed `isStale` parameter from `buildSymV2()` function and its call sites. Updated comments.
+
+**PR #11**: `fix/indian-stock-alerts` → squash-merged to main (`e77888e`). Code review: no issues found.
+
+**Pre-commit hook issue**: `dist/TTE.exe` locked by running process blocked pre-commit stash. Workaround: `git update-index --assume-unchanged dist/TTE.exe`, commit, then restore.
+
+**Next steps** (Task #6 — pending, requires NSE market hours):
+1. Update Pine Script V2 on TradingView (paste updated code)
+2. Recreate all alerts: `python combo_main.py --fresh`
+3. Verify webhooks arrive during NSE hours (9:15 AM - 3:30 PM IST)
+
+---
 
 ### Session: 2026-02-27 (V2 Debug Testing + Cleanup)
 
@@ -256,7 +363,7 @@
 4. **Remove divergence**: Deleted ~220 lines in Pine Script, removed from payload.
 5. **Compact JSON keys**: Abbreviated keys for TradingView's ~2KB alert message limit.
 6. **Category-aware pairing**: Symbols paired within same asset class for matching market hours.
-7. **Staleness detection**: `timenow - symTime > 120000` — stale symbols excluded.
+7. **Staleness detection**: REMOVED (PR #11). Was `timenow - symTime > 120000` — caused false positives when exchange prefix was stripped. Category-aware pairing makes it unnecessary.
 8. **Position lifecycle**: `null → [ltf,htf] → exit → null` per slot.
 9. **Independent LTF/HTF**: 4 positions per symbol max (LTF buy, HTF buy, LTF sell, HTF sell). No cross-restrictions.
 10. **SL**: MIN(confirming OB zoneLow) for buys, MAX(zoneHigh) for sells.

@@ -118,7 +118,7 @@ The payload uses abbreviated keys to stay under TradingView's ~2,000 character a
 - `z` = zone name: `"la"` (lower_avg), `"lf"` (lower_far), `"ua"` (upper_avg), `"uf"` (upper_far)
 - `t` = type: `"bull"` or `"bear"`
 - `tf` = timeframe: `"1H"` or `"H4"`
-- `ots` = overlapTimestamp (Unix seconds to save space)
+- `ots` = overlapTimestamp (Unix milliseconds — from Pine Script `time`)
 
 **OB/FVG signal object:**
 - `zt` = zone type: `"OB"` or `"FVG"`
@@ -127,14 +127,14 @@ The payload uses abbreviated keys to stay under TradingView's ~2,000 character a
 - `zh` = zoneHigh (price)
 - `zl` = zoneLow (price)
 - `tf` = timeframe: `"1H"`, `"H4"`, or `"D1"`
-- `zts` = zoneTimestamp (Unix seconds)
-- `ots` = overlapTimestamp (Unix seconds)
+- `zts` = zoneTimestamp (Unix milliseconds — from Pine Script `time`)
+- `ots` = overlapTimestamp (Unix milliseconds — from Pine Script `time`)
 
 **Position object (buy `b` or sell `se`):**
 - `e` = entry price
 - `sl` = stop loss price
 - `tp` = take profit price
-- `et` = entry time (Unix seconds)
+- `et` = entry time (Unix milliseconds — from Pine Script `time`)
 - `l` = label: `"LTF"` or `"HTF"`
 - `ntf` = NWE timeframe used: `"1H"` or `"H4"`
 - `otf` = OB/FVG confirming timeframe: `"H4"` or `"D1"`
@@ -143,7 +143,7 @@ The payload uses abbreviated keys to stay under TradingView's ~2,000 character a
 **Exit fields (added to position when TP/SL hit):**
 - `xt` = exit type: `"tp"` or `"sl"`
 - `xp` = exit price (the TP or SL level that was hit)
-- `xts` = exit timestamp (Unix seconds)
+- `xts` = exit timestamp (Unix milliseconds — from Pine Script `time`)
 
 ### Position Lifecycle in the Payload
 
