@@ -907,8 +907,10 @@ string sig02 = buildSymV2(getSymbolName(s02), close02, nwe02, ob02, buy02_ltf, b
 // Combine
 string allSignals = joinEntries(sig01, sig02)
 
-// Fire alert on confirmed bar close (30-second chart)
-if str.length(allSignals) > 0 and barstate.isconfirmed
+// Fire alert on confirmed bar close during regular market hours only.
+// session.ismarket prevents alerts during pre/post-market (extended hours).
+// Crypto (24/7) and forex (~24/5) are unaffected — their sessions cover normal trading hours.
+if str.length(allSignals) > 0 and barstate.isconfirmed and session.ismarket
     string payload = '{"ts":' + str.tostring(time) + ',"s":[' + allSignals + ']}'
     alert(payload, alert.freq_once_per_bar_close)
 
