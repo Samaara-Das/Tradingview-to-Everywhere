@@ -7,7 +7,7 @@
 // Detects NWE + OB/FVG alignment → creates setups with entry/SL/TP (1:2 RR).
 // Tracks running positions and detects TP/SL exits using candle high/low.
 // Sends compact JSON payload with signals + setups + exits every 30s bar close.
-// Stale symbols (market closed >2min) are excluded from payload.
+// Category-aware pairing ensures both symbols share the same market hours as the chart.
 
 //@version=6
 indicator('TTE Screener V2', 'Screener V2', overlay = true, precision = 5, max_bars_back = 5000)
@@ -26,7 +26,7 @@ int f3 = input.int(1000, 'fill3')
 int f4 = input.int(1000, 'fill4')
 int f5 = input.int(1000, 'fill5')
 
-// Debug mode — bypasses staleness check so setups fire on historical bars
+// Debug mode — enable to test setups on historical bars
 // bool DEBUG_MODE = input.bool(false, 'Debug Mode', group = 'Debug', tooltip = 'Enable to test setups on historical bars. Disable for production.')
 
 // Timeframes for calculations
@@ -670,20 +670,13 @@ if not na(pos_s2sh_entry) and pos_s2sh_isNew and not pos_s2sh_exited
     pos_s2sh_isNew := false
 
 ///////////////////////////////
-// STALENESS DETECTION       //
-///////////////////////////////
-
-bool stale01 = na(time01) or (timenow - time01) > 120000
-bool stale02 = na(time02) or (timenow - time02) > 120000
-
-///////////////////////////////
 // SETUP DETECTION           //
 ///////////////////////////////
 
 // LTF and HTF setups are independent — both can exist simultaneously
 
 // Symbol 1 — LTF Buy (1H NWE + H4/D1 OB)
-if na(pos_s1bl_entry) and not stale01 and nweBull01_1h and (bullF01_h4 == 1 or bullF01_d1 == 1)
+if na(pos_s1bl_entry) and nweBull01_1h and (bullF01_h4 == 1 or bullF01_d1 == 1)
     float sl = bullF01_h4 == 1 and bullF01_d1 == 1 ? math.min(bullZL01_h4, bullZL01_d1) : bullF01_h4 == 1 ? bullZL01_h4 : bullZL01_d1
     if not na(sl) and sl < close01
         pos_s1bl_entry := close01, pos_s1bl_sl := sl, pos_s1bl_tp := close01 + 2 * (close01 - sl)
@@ -692,7 +685,7 @@ if na(pos_s1bl_entry) and not stale01 and nweBull01_1h and (bullF01_h4 == 1 or b
         pos_s1bl_isNew := true, pos_s1bl_exited := false, pos_s1bl_exitSent := false
 
 // Symbol 1 — HTF Buy (H4 NWE + D1 OB)
-if na(pos_s1bh_entry) and not stale01 and nweBull01_h4 and bullF01_d1 == 1
+if na(pos_s1bh_entry) and nweBull01_h4 and bullF01_d1 == 1
     float sl = bullZL01_d1
     if not na(sl) and sl < close01
         pos_s1bh_entry := close01, pos_s1bh_sl := sl, pos_s1bh_tp := close01 + 2 * (close01 - sl)
@@ -700,7 +693,7 @@ if na(pos_s1bh_entry) and not stale01 and nweBull01_h4 and bullF01_d1 == 1
         pos_s1bh_isNew := true, pos_s1bh_exited := false, pos_s1bh_exitSent := false
 
 // Symbol 1 — LTF Sell (1H NWE + H4/D1 OB)
-if na(pos_s1sl_entry) and not stale01 and nweBear01_1h and (bearF01_h4 == 1 or bearF01_d1 == 1)
+if na(pos_s1sl_entry) and nweBear01_1h and (bearF01_h4 == 1 or bearF01_d1 == 1)
     float sl = bearF01_h4 == 1 and bearF01_d1 == 1 ? math.max(bearZH01_h4, bearZH01_d1) : bearF01_h4 == 1 ? bearZH01_h4 : bearZH01_d1
     if not na(sl) and sl > close01
         pos_s1sl_entry := close01, pos_s1sl_sl := sl, pos_s1sl_tp := close01 - 2 * (sl - close01)
@@ -709,7 +702,7 @@ if na(pos_s1sl_entry) and not stale01 and nweBear01_1h and (bearF01_h4 == 1 or b
         pos_s1sl_isNew := true, pos_s1sl_exited := false, pos_s1sl_exitSent := false
 
 // Symbol 1 — HTF Sell (H4 NWE + D1 OB)
-if na(pos_s1sh_entry) and not stale01 and nweBear01_h4 and bearF01_d1 == 1
+if na(pos_s1sh_entry) and nweBear01_h4 and bearF01_d1 == 1
     float sl = bearZH01_d1
     if not na(sl) and sl > close01
         pos_s1sh_entry := close01, pos_s1sh_sl := sl, pos_s1sh_tp := close01 - 2 * (sl - close01)
@@ -717,7 +710,7 @@ if na(pos_s1sh_entry) and not stale01 and nweBear01_h4 and bearF01_d1 == 1
         pos_s1sh_isNew := true, pos_s1sh_exited := false, pos_s1sh_exitSent := false
 
 // Symbol 2 — LTF Buy (1H NWE + H4/D1 OB)
-if na(pos_s2bl_entry) and not stale02 and nweBull02_1h and (bullF02_h4 == 1 or bullF02_d1 == 1)
+if na(pos_s2bl_entry) and nweBull02_1h and (bullF02_h4 == 1 or bullF02_d1 == 1)
     float sl = bullF02_h4 == 1 and bullF02_d1 == 1 ? math.min(bullZL02_h4, bullZL02_d1) : bullF02_h4 == 1 ? bullZL02_h4 : bullZL02_d1
     if not na(sl) and sl < close02
         pos_s2bl_entry := close02, pos_s2bl_sl := sl, pos_s2bl_tp := close02 + 2 * (close02 - sl)
@@ -726,7 +719,7 @@ if na(pos_s2bl_entry) and not stale02 and nweBull02_1h and (bullF02_h4 == 1 or b
         pos_s2bl_isNew := true, pos_s2bl_exited := false, pos_s2bl_exitSent := false
 
 // Symbol 2 — HTF Buy (H4 NWE + D1 OB)
-if na(pos_s2bh_entry) and not stale02 and nweBull02_h4 and bullF02_d1 == 1
+if na(pos_s2bh_entry) and nweBull02_h4 and bullF02_d1 == 1
     float sl = bullZL02_d1
     if not na(sl) and sl < close02
         pos_s2bh_entry := close02, pos_s2bh_sl := sl, pos_s2bh_tp := close02 + 2 * (close02 - sl)
@@ -734,7 +727,7 @@ if na(pos_s2bh_entry) and not stale02 and nweBull02_h4 and bullF02_d1 == 1
         pos_s2bh_isNew := true, pos_s2bh_exited := false, pos_s2bh_exitSent := false
 
 // Symbol 2 — LTF Sell (1H NWE + H4/D1 OB)
-if na(pos_s2sl_entry) and not stale02 and nweBear02_1h and (bearF02_h4 == 1 or bearF02_d1 == 1)
+if na(pos_s2sl_entry) and nweBear02_1h and (bearF02_h4 == 1 or bearF02_d1 == 1)
     float sl = bearF02_h4 == 1 and bearF02_d1 == 1 ? math.max(bearZH02_h4, bearZH02_d1) : bearF02_h4 == 1 ? bearZH02_h4 : bearZH02_d1
     if not na(sl) and sl > close02
         pos_s2sl_entry := close02, pos_s2sl_sl := sl, pos_s2sl_tp := close02 - 2 * (sl - close02)
@@ -743,7 +736,7 @@ if na(pos_s2sl_entry) and not stale02 and nweBear02_1h and (bearF02_h4 == 1 or b
         pos_s2sl_isNew := true, pos_s2sl_exited := false, pos_s2sl_exitSent := false
 
 // Symbol 2 — HTF Sell (H4 NWE + D1 OB)
-if na(pos_s2sh_entry) and not stale02 and nweBear02_h4 and bearF02_d1 == 1
+if na(pos_s2sh_entry) and nweBear02_h4 and bearF02_d1 == 1
     float sl = bearZH02_d1
     if not na(sl) and sl > close02
         pos_s2sh_entry := close02, pos_s2sh_sl := sl, pos_s2sh_tp := close02 - 2 * (sl - close02)
@@ -755,49 +748,49 @@ if na(pos_s2sh_entry) and not stale02 and nweBear02_h4 and bearF02_d1 == 1
 ///////////////////////////////
 
 // Symbol 1 — LTF Buy exit (TP checked FIRST)
-if not na(pos_s1bl_entry) and not pos_s1bl_exited and not stale01
+if not na(pos_s1bl_entry) and not pos_s1bl_exited
     if high01 >= pos_s1bl_tp
         pos_s1bl_exited := true, pos_s1bl_exitType := "tp", pos_s1bl_exitPrice := pos_s1bl_tp, pos_s1bl_exitTime := time01
     else if low01 <= pos_s1bl_sl
         pos_s1bl_exited := true, pos_s1bl_exitType := "sl", pos_s1bl_exitPrice := pos_s1bl_sl, pos_s1bl_exitTime := time01
 // Symbol 1 — HTF Buy exit
-if not na(pos_s1bh_entry) and not pos_s1bh_exited and not stale01
+if not na(pos_s1bh_entry) and not pos_s1bh_exited
     if high01 >= pos_s1bh_tp
         pos_s1bh_exited := true, pos_s1bh_exitType := "tp", pos_s1bh_exitPrice := pos_s1bh_tp, pos_s1bh_exitTime := time01
     else if low01 <= pos_s1bh_sl
         pos_s1bh_exited := true, pos_s1bh_exitType := "sl", pos_s1bh_exitPrice := pos_s1bh_sl, pos_s1bh_exitTime := time01
 // Symbol 1 — LTF Sell exit (TP checked FIRST: low <= tp)
-if not na(pos_s1sl_entry) and not pos_s1sl_exited and not stale01
+if not na(pos_s1sl_entry) and not pos_s1sl_exited
     if low01 <= pos_s1sl_tp
         pos_s1sl_exited := true, pos_s1sl_exitType := "tp", pos_s1sl_exitPrice := pos_s1sl_tp, pos_s1sl_exitTime := time01
     else if high01 >= pos_s1sl_sl
         pos_s1sl_exited := true, pos_s1sl_exitType := "sl", pos_s1sl_exitPrice := pos_s1sl_sl, pos_s1sl_exitTime := time01
 // Symbol 1 — HTF Sell exit
-if not na(pos_s1sh_entry) and not pos_s1sh_exited and not stale01
+if not na(pos_s1sh_entry) and not pos_s1sh_exited
     if low01 <= pos_s1sh_tp
         pos_s1sh_exited := true, pos_s1sh_exitType := "tp", pos_s1sh_exitPrice := pos_s1sh_tp, pos_s1sh_exitTime := time01
     else if high01 >= pos_s1sh_sl
         pos_s1sh_exited := true, pos_s1sh_exitType := "sl", pos_s1sh_exitPrice := pos_s1sh_sl, pos_s1sh_exitTime := time01
 // Symbol 2 — LTF Buy exit
-if not na(pos_s2bl_entry) and not pos_s2bl_exited and not stale02
+if not na(pos_s2bl_entry) and not pos_s2bl_exited
     if high02 >= pos_s2bl_tp
         pos_s2bl_exited := true, pos_s2bl_exitType := "tp", pos_s2bl_exitPrice := pos_s2bl_tp, pos_s2bl_exitTime := time02
     else if low02 <= pos_s2bl_sl
         pos_s2bl_exited := true, pos_s2bl_exitType := "sl", pos_s2bl_exitPrice := pos_s2bl_sl, pos_s2bl_exitTime := time02
 // Symbol 2 — HTF Buy exit
-if not na(pos_s2bh_entry) and not pos_s2bh_exited and not stale02
+if not na(pos_s2bh_entry) and not pos_s2bh_exited
     if high02 >= pos_s2bh_tp
         pos_s2bh_exited := true, pos_s2bh_exitType := "tp", pos_s2bh_exitPrice := pos_s2bh_tp, pos_s2bh_exitTime := time02
     else if low02 <= pos_s2bh_sl
         pos_s2bh_exited := true, pos_s2bh_exitType := "sl", pos_s2bh_exitPrice := pos_s2bh_sl, pos_s2bh_exitTime := time02
 // Symbol 2 — LTF Sell exit
-if not na(pos_s2sl_entry) and not pos_s2sl_exited and not stale02
+if not na(pos_s2sl_entry) and not pos_s2sl_exited
     if low02 <= pos_s2sl_tp
         pos_s2sl_exited := true, pos_s2sl_exitType := "tp", pos_s2sl_exitPrice := pos_s2sl_tp, pos_s2sl_exitTime := time02
     else if high02 >= pos_s2sl_sl
         pos_s2sl_exited := true, pos_s2sl_exitType := "sl", pos_s2sl_exitPrice := pos_s2sl_sl, pos_s2sl_exitTime := time02
 // Symbol 2 — HTF Sell exit
-if not na(pos_s2sh_entry) and not pos_s2sh_exited and not stale02
+if not na(pos_s2sh_entry) and not pos_s2sh_exited
     if low02 <= pos_s2sh_tp
         pos_s2sh_exited := true, pos_s2sh_exitType := "tp", pos_s2sh_exitPrice := pos_s2sh_tp, pos_s2sh_exitTime := time02
     else if high02 >= pos_s2sh_sl
@@ -875,18 +868,15 @@ joinEntries4(string e1, string e2, string e3, string e4) =>
 joinEntries6(string e1, string e2, string e3, string e4, string e5, string e6) =>
     joinEntries(joinEntries3(e1, e2, e3), joinEntries3(e4, e5, e6))
 
-// Build complete symbol JSON (excludes stale symbols)
+// Build complete symbol JSON
 // b and se are now arrays: [ltfPos, htfPos] — null entries are kept so Stock Buddy knows the slot
-buildSymV2(string sym, float closePrice, string nweArr, string obArr, string buyLtf, string buyHtf, string sellLtf, string sellHtf, bool isStale) =>
-    if isStale
-        ''
+buildSymV2(string sym, float closePrice, string nweArr, string obArr, string buyLtf, string buyHtf, string sellLtf, string sellHtf) =>
+    bool hasSignals = str.length(nweArr) > 0 or str.length(obArr) > 0
+    bool hasPositions = buyLtf != 'null' or buyHtf != 'null' or sellLtf != 'null' or sellHtf != 'null'
+    if hasSignals or hasPositions
+        '{"sym":"' + sym + '","c":' + str.tostring(closePrice) + ',"nwe":[' + nweArr + '],"ob":[' + obArr + '],"b":[' + buyLtf + ',' + buyHtf + '],"se":[' + sellLtf + ',' + sellHtf + ']}'
     else
-        bool hasSignals = str.length(nweArr) > 0 or str.length(obArr) > 0
-        bool hasPositions = buyLtf != 'null' or buyHtf != 'null' or sellLtf != 'null' or sellHtf != 'null'
-        if hasSignals or hasPositions
-            '{"sym":"' + sym + '","c":' + str.tostring(closePrice) + ',"nwe":[' + nweArr + '],"ob":[' + obArr + '],"b":[' + buyLtf + ',' + buyHtf + '],"se":[' + sellLtf + ',' + sellHtf + ']}'
-        else
-            ''
+        ''
 
 ////////////////////////////
 // ALERT GENERATION (V2)  //
@@ -910,9 +900,9 @@ string buy02_htf  = buildPosV2(pos_s2bh_entry, pos_s2bh_sl, pos_s2bh_tp, pos_s2b
 string sell02_ltf = buildPosV2(pos_s2sl_entry, pos_s2sl_sl, pos_s2sl_tp, pos_s2sl_entryTime, "LTF", pos_s2sl_nweTf, pos_s2sl_obTf, pos_s2sl_isNew, pos_s2sl_exited, pos_s2sl_exitType, pos_s2sl_exitPrice, pos_s2sl_exitTime)
 string sell02_htf = buildPosV2(pos_s2sh_entry, pos_s2sh_sl, pos_s2sh_tp, pos_s2sh_entryTime, "HTF", pos_s2sh_nweTf, pos_s2sh_obTf, pos_s2sh_isNew, pos_s2sh_exited, pos_s2sh_exitType, pos_s2sh_exitPrice, pos_s2sh_exitTime)
 
-// Build complete symbol JSON (stale symbols excluded)
-string sig01 = buildSymV2(getSymbolName(s01), close01, nwe01, ob01, buy01_ltf, buy01_htf, sell01_ltf, sell01_htf, stale01)
-string sig02 = buildSymV2(getSymbolName(s02), close02, nwe02, ob02, buy02_ltf, buy02_htf, sell02_ltf, sell02_htf, stale02)
+// Build complete symbol JSON
+string sig01 = buildSymV2(getSymbolName(s01), close01, nwe01, ob01, buy01_ltf, buy01_htf, sell01_ltf, sell01_htf)
+string sig02 = buildSymV2(getSymbolName(s02), close02, nwe02, ob02, buy02_ltf, buy02_htf, sell02_ltf, sell02_htf)
 
 // Combine
 string allSignals = joinEntries(sig01, sig02)
@@ -942,8 +932,7 @@ if pos_s2sh_exited and not pos_s2sh_exitSent
 
 // ┌──────────────────────────────────────────────────────────────────────────┐
 // │ V2 DEBUG TABLE — Commented out for production. Uncomment entire block  │
-// │ to enable. Also uncomment DEBUG_MODE input at the top of the file and  │
-// │ change staleness lines to use DEBUG_MODE ternary.                      │
+// │ to enable. Also uncomment DEBUG_MODE input at the top of the file.     │
 // │ See git history for the full working version.                          │
 // └──────────────────────────────────────────────────────────────────────────┘
 
