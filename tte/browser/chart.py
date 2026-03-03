@@ -301,6 +301,73 @@ class OpenChart:
                 return False
         return False
 
+    def ensure_regular_hours(self):
+        """Ensure the chart session is set to 'Regular trading hours'.
+
+        Opens the session dropdown menu (data-name="session-menu") and clicks
+        'Regular trading hours' if it isn't already active. This prevents alerts
+        from firing during pre/post-market sessions for stocks.
+
+        Symbols without a session menu (forex, crypto) are unaffected.
+
+        Returns True if regular hours is confirmed, False on error.
+        """
+        try:
+            # Look for the session menu button in the toolbar
+            session_buttons = self.driver.find_elements(
+                By.CSS_SELECTOR, 'button[data-name="session-menu"]'
+            )
+
+            if not session_buttons:
+                # No session menu means the symbol doesn't support sessions
+                # (e.g., forex, crypto) — this is fine
+                entry_chart_logger.info(
+                    "No session menu button found (symbol may not support it) — OK"
+                )
+                return True
+
+            session_btn = session_buttons[0]
+
+            # Check if already on regular hours via the button tooltip/label
+            btn_label = session_btn.get_attribute("data-tooltip") or ""
+            if btn_label == "Regular trading hours":
+                entry_chart_logger.info("Session already set to 'Regular trading hours' — OK")
+                return True
+
+            # Click to open the session dropdown menu
+            session_btn.click()
+
+            # Wait for the SESSIONS dropdown to appear
+            menu = WebDriverWait(self.driver, 5).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-qa-id="menu-inner"]'))
+            )
+
+            # Find and click 'Regular trading hours' in the menu
+            items = menu.find_elements(By.CSS_SELECTOR, 'div[data-role="menuitem"]')
+            clicked = False
+            for item in items:
+                label_els = item.find_elements(By.CSS_SELECTOR, "span.label-jFqVJoPk")
+                if label_els and label_els[0].text == "Regular trading hours":
+                    item.click()
+                    clicked = True
+                    break
+
+            if clicked:
+                sleep(1)  # Wait for chart to reload with regular hours
+                entry_chart_logger.info("Set session to 'Regular trading hours'")
+                return True
+            else:
+                entry_chart_logger.warning(
+                    "'Regular trading hours' option not found in session menu"
+                )
+                # Close the menu
+                ActionChains(self.driver).send_keys(Keys.ESCAPE).perform()
+                return False
+
+        except Exception:
+            entry_chart_logger.exception("Failed to set regular trading hours:")
+            return False
+
     def save_chart_img(self):
         """Clicks on the camera icon to take a snapshot of the chart and opens it in a new tab. The link of the tab and image are returned in a dictionary. If an error occurs, an empty string is returned.
 

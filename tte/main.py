@@ -683,6 +683,13 @@ def main():
     # --- Initialize browser ---
     browser = create_browser(config, args)
 
+    # --- Ensure regular trading hours (prevents off-hours signals for stocks) ---
+    if browser.open_chart.ensure_regular_hours():
+        # Save layout so the session setting persists across future sessions
+        browser.save_layout()
+    else:
+        logger.warning("Could not verify session hours setting — continuing anyway")
+
     # --- Run alert creation ---
     logger.info("Starting alert creation...")
     result = run_alert_creation(browser, batches, config)
