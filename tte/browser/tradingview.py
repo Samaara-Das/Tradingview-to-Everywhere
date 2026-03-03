@@ -448,17 +448,10 @@ class Browser:
             screener_shorttitle: The short title of the screener to configure. If None, uses all 3 screeners.
         """
         try:
-            # Strip exchange prefix from symbols (e.g., "OANDA:EURUSD" -> "EURUSD")
-            cleaned_symbols = []
-            for symbol in symbols_list:
-                if ":" in symbol:
-                    cleaned_symbols.append(symbol.split(":")[-1])
-                else:
-                    cleaned_symbols.append(symbol)
-            symbols_list = cleaned_symbols
-            open_tv_logger.info(
-                f"Cleaned symbols (removed exchange prefix): {symbols_list[:5]}..."
-            )  # Log first 5
+            # Keep full symbol with exchange prefix (e.g., "NSE:RELIANCE") for unambiguous resolution.
+            # TradingView's input.symbol() search accepts "EXCHANGE:SYMBOL" format.
+            # Stripping the prefix causes ambiguous resolution for stocks listed on multiple exchanges.
+            open_tv_logger.info(f"Setting symbols (with exchange prefix): {symbols_list[:5]}...")
             # Determine which screeners to configure
             screeners_to_configure = []
             if screener_shorttitle:
@@ -534,6 +527,7 @@ class Browser:
                             '//*[@id="overlap-manager-root"]/div/div/div[2]/div/div/div[2]/div/div[2]/div/input',
                         )
                         search_input.send_keys(to_be_symbol)
+                        sleep(0.5)  # Wait for search results to populate
                         search_input.send_keys(Keys.ENTER)
 
                     # click on submit
