@@ -1,10 +1,10 @@
 # Task Context Tracker
 
 **Last Updated**: 2026-03-03
-**Current Task**: Task #2 — Signal detection guards implemented. Pending deployment after architecture + alert count fix.
-**Active Branch**: `fix/signal-detection-guards`
-**Latest Commit (TTE)**: `e77888e` — Fix Indian stock alerts never triggering (#11)
-**Latest Commit (Stock Buddy)**: `bc0b810` — Add snapshot backfill endpoint
+**Current Task**: Task 4 (Exit checker architecture) — Phase 3 complete. Pine Script rewritten to stateless. Needs TradingView upload + alert recreation.
+**Active Branch**: `feature/stateless-screener` (to be created)
+**Latest Commit (TTE)**: `72237e1` — Fix save_layout: remove stale class selector and wrong log level
+**Latest Commit (Stock Buddy)**: PR #64 deployed — exit checker cron + webhook handler update
 
 ---
 
@@ -13,340 +13,176 @@
 | # | Task | Status |
 |---|------|--------|
 | 1 | Get alerts to trigger for Indian stocks | **done** (PR #11) |
-| 2 | Check signal detection for US stocks and Indian stocks | **done** (guards implemented + tested, pending deployment) |
-| 3 | Figure out why only 262 alerts got created instead of 314 | pending |
-| 4 | Make new API polling architecture | pending |
-| 5 | Test signals, setups, exits for the user | pending (blocked by #1, #4) |
+| 2 | Check signal detection for US stocks and Indian stocks | **done** (PR #12 merged) |
+| 3 | Figure out why only 262 alerts got created instead of 314 | **deferred** (will resolve after Task 4 finalizes symbol list) |
+| 4 | Make new API polling architecture (exit checker) | **in-progress** — Phase 3 done (Pine Script stateless). Needs TV upload + `--fresh` alert recreation |
+| 5 | Test signals, setups, exits for the user | pending (blocked by #4) |
 | 6 | Verify Indian stock alerts trigger after exchange prefix fix | **pending** (test during next NSE hours) |
 | 7 | Post-deployment: verify signal timing & timestamps (forex/crypto/stocks) | **pending** (blocked by deployment) |
 
-### V2 Architecture Shift — Implementation (All Complete)
+### Exit Checker Implementation Status
 
-| # | Task | Status |
-|---|------|--------|
-| 151 | Fork V2 + strip divergence + reduce to 2 symbols | completed |
-| 152 | Rewrite request.security() calls (15→8) | completed |
-| 153 | Add position state var declarations + clearing logic | completed |
-| 154 | Add staleness + setup detection + exit detection logic | completed |
-| 155 | Rewrite compact JSON builders + alert generation | completed |
-| 156 | Update combo_settings.yaml for V2 | completed |
-| 157 | Add category-aware symbol pairing in tte/main.py | completed |
-| 158 | Create branch, update docs, and open PR | completed |
-
-### V2 Testing & Deployment
-
-| # | Task | Status | Blocked By |
-|---|------|--------|------------|
-| 159 | Validate config with new V2 settings (`--validate`) | completed | — |
-| 160 | Upload V2 indicator to TradingView + verify compilation | completed (needs re-upload after LTF/HTF refactor) | — |
-| 161 | Test setup conditions, signals, and exits in indicator | completed (verified via code comparison) | — |
-| 162 | Rebuild TTE.exe with V2 changes | completed (11.3MB) | — |
-| 163 | Create alerts with `--fresh` using V2 indicator | completed | — |
-| 164 | Test webhook delivery with V2 compact payload | completed | #163 |
+| Phase | Scope | Owner | Status |
+|-------|-------|-------|--------|
+| Phase 1 | DB reset (wipe collections, verify indexes) | Stock Buddy | **Done** |
+| Phase 2 | Webhook handler update + exit checker cron | Stock Buddy | **Done** (PR #64 deployed) |
+| Phase 3 | Strip exit tracking from Pine Script V2 | TTE | **Done** (code complete, needs TV upload) |
+| Phase 4 | End-to-end verification | Both | **Next** — upload to TV, recreate alerts, verify |
 
 ---
 
 ## Session History
 
-### Session: 2026-03-03 (Task 2: Debug Wrong Signal Detection — Investigation)
+### Session: 2026-03-03 (Exit Checker Spec, Symbol Validation, Agent Comms)
 
-**Goal**: Investigate wrong NWE and OB/FVG signals the user observed in Stock Buddy database for US stocks and crypto.
+**Goal**: Finalize exit checker architecture spec, validate all symbols against price APIs, communicate tasks to Stock Buddy agent.
 
-**User's initial report**: They saw wrong signals when checking the database yesterday — e.g., "bearish NWE signal on a symbol, but price was not in any band at that timestamp." They hypothesized timestamps/sessions/timezones were the cause. We chose to debug first rather than act on the hypothesis.
+**Chronological flow**:
 
-**Chronological discussion flow**:
+1. **Gathered context**: Read task-context.md, git log, task-master list. Corrected task 4 status (in-progress, not done — spec written but not implemented).
 
-1. **Explored V2 screener time handling** (2 parallel Explore agents):
-   - All timestamps from Pine Script's `time` built-in (Unix milliseconds, UTC)
-   - NWE signal detection runs INSIDE `request.security()` (line 434-461) using HTF candle's OHLC
-   - `ots` (observation timestamp) uses chart bar's `time`, not the HTF bar's time
-   - No `session.ismarket` or timezone checks anywhere in Pine Script
-   - No `timenow` usage (removed in PR #11)
-   - `barmerge.gaps_off` (default) returns last known value when market is closed
+2. **Read exit-checker-architecture.md** (written in previous session): Full spec covering Pine Script stateless rewrite, webhook handler dedup changes, Vercel cron for TP/SL detection via Binance/Yahoo candles.
 
-2. **Asked user about specific wrong signals**:
-   - User provided 5 detailed examples: PPL, AU, ADSK (US stocks), XLMUSDT, LINKUSDT (crypto)
-   - Wrong signal types: NWE zone/direction and OB/FVG data that didn't match TradingView charts
-   - Categories affected: Crypto and US Stocks (Indian stocks had no signals to test)
+3. **Identified spec discrepancy**: Spec said to keep `stale01`/`stale02` staleness checks, but PR #11 already removed them. **Updated spec** to remove all staleness references.
 
-3. **Asked about chart symbol**: User confirmed TTE changes chart symbol to batch[0] (first symbol in indicator settings) before creating each alert.
+4. **Symbol validation script** (`scripts/validate_symbols.py`):
+   - Created script to check all 626 MongoDB symbols against Binance (crypto) and Yahoo Finance (stocks/forex)
+   - First run: **614 valid, 12 invalid**
+   - **Fixed 8 mapping issues**:
+     - Indian stocks: `_` → `-` (`BAJAJ_AUTO` → `BAJAJ-AUTO.NS`)
+     - US stocks: `.`/`/` → `-` (`BRK.A` → `BRK-A`, `C/PR` → `C-PR`)
+     - Commodities: `XAUUSD` → `GC=F`, `XAGUSD` → `SI=F` (futures tickers, not forex `=X`)
+     - Exchange prefix: `NSE:HAL` → `HAL` (strip prefix)
+   - Second run: **622 valid, 4 invalid** (GVTD, KRT, M_M, M_MFIN — delisted Indian stocks)
+   - **Removed 4 invalid symbols** from MongoDB with `--remove` flag
+   - **622 symbols remain**, all validated
 
-4. **Designed debugging plan** (Plan agent): Hypothesized extended hours + stale HTF data as root cause. PPL at "Mar 2, 05:51 UTC" was key — before NYSE opens.
+5. **Updated exit-checker-architecture.md** Section 5 (Symbol Mapping):
+   - Added pre-processing step (strip exchange prefix)
+   - Updated transform table with correct mappings for US/Indian stocks
+   - Added commodities special case (XAUUSD/XAGUSD)
+   - Added Yahoo 5m data limit note (~60 days, no pagination needed)
+   - Added validation note referencing the script
 
-5. **User verification on TradingView**:
-   - Regular trading hours IS enabled (not extended hours)
-   - PPL: No 45s bars at 05:51 UTC on Monday
-   - PPL: Last 1H bar before that time (Feb 27, 20:30) — price NOT in any NWE band
-   - AU H4: No bar at Feb 27 20:59 — closest at 18:30 where price WAS in upper NWE band
-   - AU 1H: At March 2 20:30, price NOT in any band
+6. **Removed auto-expire feature** from spec per user request:
+   - Deleted Force-Expire Threshold subsection (30-day TTL)
+   - Removed `"expired"` from outcome enum
+   - Removed all force-expire references across sections 4, 5, 6, 7, 8, 9
+   - Setups stay "running" until TP or SL is actually hit
 
-6. **Database investigation** (MongoDB queries):
+7. **Wrote agent-comms.md** to Stock Buddy agent:
+   - Cleared old content, explained new architecture
+   - Listed all Stock Buddy tasks (Phase 1 DB reset + Phase 2 code changes)
+   - Asked 5 specific questions about existing code
 
-   **Key findings from `tte_live_signals` collection**:
-   - **425 total live signals** in DB
-   - **PPL**: `alert_timestamp = 1772526510` = **2026-03-03 08:28 UTC** (before NYSE opens!)
-     - `nwe[0].overlapTimestamp = 1772526510000.0` (milliseconds, same time)
-     - PPL paired with PNC (both US stocks), chart symbol = PNC
-     - PPL is the **only US stock (1 of 368)** with an off-hours timestamp
-   - **AU**: `alert_timestamp = 1772485155` = **2026-03-02 20:59 UTC** (during NYSE hours, NOT Feb 27 as user recalled)
-   - **ADSK**: Same timestamp as AU (same alert pair — identical `alert_timestamp`)
-   - **XLMUSDT/LINKUSDT**: Crypto, timestamps at 09:16 UTC — expected (24/7 market)
-   - **Off-hours analysis**: 49/425 signals outside 12-21 UTC, but 48 of those are crypto/forex (expected). Only PPL is a US stock anomaly.
+8. **Stock Buddy agent replied** with detailed answers:
+   - `resolveSetupExit()` exists at `src/lib/tte/collections.ts:197-246` — takes PositionState, calls `updateSetupOutcome()`
+   - `insertSetupMessage()` exists at `src/lib/tte/collections.ts:141-190` — already uses insert-and-catch with E11000
+   - `yahoo-finance2` already installed (`^3.13.1`)
+   - Current Zod schema shown — `n`, `xt`, `xp`, `xts` fields identified for removal
+   - 6 files need updating (schemas.ts, collections.ts, route.ts, 3 test files)
+   - **Design decisions by Stock Buddy**:
+     - **Dedup**: Keep Option B (insert-and-catch) — already in place, atomic, race-free
+     - **Cron function**: New `resolveSetupByCron(setupId, outcome, exitPrice, exitTimestamp)` — calls `updateSetupOutcome()` directly, adds `exitSource: "cron"`
+     - **Position nulling**: New `nullifyLiveSignalPosition(symbol, direction, slotIndex)`
+     - **Transition**: Option A — make `n`/`xt`/`xp`/`xts` optional during transition, then cleanup after TTE Phase 3
 
-   **Timestamp unit findings**:
-   - `alert_timestamp`: Stored in **seconds** (Stock Buddy converts: `Math.floor(ts / 1000)`)
-   - `ots`, `zts`, `et`, `xts`: Stored in **milliseconds** (passed through as-is from payload)
-   - Documentation in `agent-comms.md` says "seconds" for `ots`/`zts` — **doc bug**, actual values are milliseconds
-   - Stock Buddy always upserts both symbols in a payload (no "skip if unchanged" logic)
+9. **TTE confirmed all Stock Buddy decisions**:
+   - Option A transition (optional fields) — approved
+   - Option B dedup (insert-and-catch) — approved
+   - All new functions — approved
+   - Clarified cron algorithm: walk candles chronologically, per-candle TP-first priority, stop at first hit
+   - Gave green light to start building
 
-   **Stock Buddy webhook handler** (explored via agent):
-   - `POST /api/tte/combo/route.ts` receives V2 payload
-   - `Math.floor(validation.data.ts / 1000)` converts top-level `ts` from ms to seconds
-   - NWE/OB timestamps (`ots`, `zts`) stored as-is (milliseconds from Pine Script)
-   - Both symbols always upserted — PNC and PPL should have same `alert_timestamp` but DON'T (PNC=20:59 Mar 2, PPL=08:28 Mar 3)
+**Key files created/modified this session**:
+- `scripts/validate_symbols.py` — symbol validation script (new)
+- `.claude/exit-checker-architecture.md` — spec updates (staleness, symbol mapping, auto-expire removal)
+- `.claude/agent-comms.md` — rewritten for exit checker communication
 
-7. **Signal verification results**:
-   - **AU H4 signal: CORRECT** — user confirmed price was in upper NWE band on the 16:00-20:00 H4 candle on Mar 2
-   - **AU 1H: CORRECT** — no 1H NWE signal in DB, and price wasn't in 1H band
-   - User's initial date confusion (Feb 27 vs Mar 2) explained some "wrong signal" reports
-
-8. **Root cause conclusions**:
-   - **PPL off-hours anomaly** (1/368 US stocks): Alert likely created when extended hours was ON. TradingView saves chart state with alert at creation time. TTE doesn't check/set extended hours before creating alerts.
-   - **"Wrong signals" from user's initial report**: Mostly explained by checking wrong dates and misunderstanding HTF candle semantics (signals reflect last completed HTF candle, not current price)
-   - **NWE signals inside `request.security()`**: Signals reflect last completed HTF candle's OHLC, which persists until next HTF candle completes. This is by design but can confuse verification.
-
-**Plan created**: `.claude/plans/cozy-popping-graham.md` with 3 changes:
-1. Add `session.ismarket` guard to Pine Script alert firing (line ~911)
-2. Have TTE ensure regular trading hours before alert creation
-3. Fix `agent-comms.md` doc bug (ots/zts are milliseconds, not seconds)
-
-**Status**: Plan pending user approval. User asked to update task context before continuing.
-
-**Key references discovered this session**:
-- `.claude/skills/pinescript/references/time_sessions_cross_market.md` — comprehensive Pine Script time/session reference
-- `session.ismarket` is `true` only during regular hours on intraday charts (perfect guard)
-- Pine Script `time` = Unix milliseconds (not seconds)
-- Stock Buddy combo handler: `src/app/api/tte/combo/route.ts`
-- Stock Buddy collections: `tte.tte_live_signals` (425 docs), `tte.tte_entry_setups` (400 docs), `tte.setup_messages` (1548 docs)
+**Status**: Waiting for Stock Buddy to build and deploy Phase 1+2. TTE Phase 3 starts after.
 
 ---
 
-### Session: 2026-03-03 (Fix Indian Stock Alerts Never Triggering)
+### Session: 2026-03-03 (Phase 3: Stateless Pine Script Rewrite)
 
-**Goal**: Fix Indian stock alerts that never fired (zero webhooks received). Task #1.
+**Goal**: Rewrite TTE Screener V2 Pine Script to remove all position tracking and exit detection (Phase 3 of exit checker architecture).
 
-**Root cause identified**: Two issues compounding:
-1. **`change_settings()` stripped exchange prefixes** (`tte/browser/tradingview.py:451-458`): `"NSE:RELIANCE"` → `"RELIANCE"`. TradingView resolved ambiguous bare symbol to wrong exchange (e.g., `BSE:RELIANCE`). Different exchange = different data feed = staleness check always excluded it.
-2. **Redundant staleness check in Pine Script**: `timenow - time01 > 120000` was unnecessary with category-aware pairing (both symbols always share same market hours as chart symbol).
+**Chronological flow**:
 
-**Changes made**:
-1. **`tte/browser/tradingview.py`**: Removed prefix stripping block (lines 451-458), kept full `EXCHANGE:SYMBOL` format. Added `sleep(0.5)` before `Keys.ENTER` in symbol search to let results populate.
-2. **`Pine Script Code/TTE Screener V2.txt`**: Removed entire staleness detection section (`stale01`/`stale02` variables), removed `not stale01`/`not stale02` from all 16 setup/exit conditions, removed `isStale` parameter from `buildSymV2()` function and its call sites. Updated comments.
+1. **Stock Buddy confirmed Phase 2 complete** via agent-comms.md — all tasks done, PR #64 deployed to production.
+2. **Planned the rewrite**: Explored Pine Script file (943 lines), mapped all 104 `var` declarations, exit detection, position clearing, isNew reset, exitSent flags.
+3. **Applied 9 edits bottom-up** (preserving line numbers):
+   - Deleted exitSent flag setting (lines 917-933)
+   - Replaced buildPosV2() calls with simple setup variable assignments (lines 893-901)
+   - Rewrote `buildPosV2()` → `buildSetupV2()` (12 params → 7 params, no exit fields)
+   - Deleted EXIT DETECTION section (lines 746-797)
+   - Rewrote setup detection to stateless (lines 672-744) — removed `na(pos_entry)` guard, local string vars
+   - Deleted isNew reset logic (lines 654-670)
+   - Deleted position clearing logic (lines 616-652)
+   - Deleted all 104 var declarations (lines 498-614)
+   - Updated description comment
+4. **Moved `buildSetupV2()` definition** above its first call (Pine Script requires top-down order)
+5. **Verified**: Grep for `pos_s`, `isNew`, `exited`, `exitSent`, `exitType`, `exitPrice`, `exitTime`, `buildPosV2` — all zero results
+6. **File reduced**: 943 → 695 lines
+7. **Updated docs**: agent-comms.md (Phase 3 complete notice), ARCHITECTURE.md (stateless design), task-context.md
 
-**PR #11**: `fix/indian-stock-alerts` → squash-merged to main (`e77888e`). Code review: no issues found.
+**Key files modified**:
+- `Pine Script Code/TTE Screener V2.txt` — stateless rewrite (sole code change)
+- `.claude/agent-comms.md` — Phase 3 complete notice to Stock Buddy
+- `docs/combo/ARCHITECTURE.md` — updated V2 sections for stateless design
+- `.claude/task-context.md` — this file
 
-**Pre-commit hook issue**: `dist/TTE.exe` locked by running process blocked pre-commit stash. Workaround: `git update-index --assume-unchanged dist/TTE.exe`, commit, then restore.
-
-**Next steps** (Task #6 — pending, requires NSE market hours):
-1. Update Pine Script V2 on TradingView (paste updated code)
-2. Recreate all alerts: `python combo_main.py --fresh`
-3. Verify webhooks arrive during NSE hours (9:15 AM - 3:30 PM IST)
-
----
-
-### Session: 2026-02-27 (V2 Debug Testing + Cleanup)
-
-**Goal**: Test V2 screener signals, setups, and exits on historical bars via debug table, then clean up for production.
-
-**What was done**:
-1. **Identified staleness blocker**: `timenow - time01 > 120000` is always true on historical bars (timenow = real-world current time), so no setups ever fire historically. Added `DEBUG_MODE` input to bypass.
-2. **Built debug table**: 11-column × 9-row table showing: Slot, Entry, Entry Time, SL, TP, NWE Signal, NWE Time, OB Type, OB Zone, OB Created, Status. Color-coded by direction (green=buy, red=sell).
-3. **Added NWE/OB capture vars**: `dbg_*` vars capture which NWE zone and OB/FVG triggered each setup at creation time.
-4. **Added persistent exit tracking**: `last_*` and `lastDbg_*` snapshot vars preserve trade data after position clearing. Table shows 3 states: active (colored), last closed (purple), never had position (gray dashes).
-5. **Fixed compilation errors**: 40 undeclared identifier errors — `dbg_*` vars were declared in debug table section but referenced in position clearing section. Fixed by moving declarations up.
-6. **User tested and confirmed**: Setups, exits, TP/SL levels verified on historical bars.
-7. **Cleaned up for production**:
-   - Commented out `DEBUG_MODE` input
-   - Reverted staleness check to original (no ternary)
-   - Removed all debug var declarations (`dbg_*`, `last_*`, `lastDbg_*`)
-   - Reverted position clearing to original (no snapshot code)
-   - Replaced debug table section with comment block referencing git history
-
-**Key findings**:
-- Exit alerts fire on the **same bar** the exit is detected (not delayed)
-- Debug table timestamps use `syminfo.timezone` (exchange timezone); alert payload uses UTC milliseconds
-- Tables in Pine Script only render on last bar (`barstate.islast`) — labels can appear historically but require setups to fire
-
-**Files modified**: `Pine Script Code/TTE Screener V2.txt` (uncommitted)
+**Next steps**:
+1. Upload modified Pine Script to TradingView Pine Editor
+2. Verify it compiles and loads on chart without errors
+3. Run `python combo_main.py --fresh` to recreate all alerts
+4. Monitor Stock Buddy logs for correct payload format
+5. Confirm to Stock Buddy agent → triggers cleanup pass
 
 ---
 
-### Session: 2026-02-27 (Maintenance TimeoutException Fix)
+### Session: 2026-03-03 (PR Review, Merge, save_layout Fix, Smoke Test)
 
-**Goal**: Fix `clear_alert_log()` TimeoutException during maintenance loop.
+**Goal**: Review and merge signal detection guards PR, fix save_layout bug, smoke test `ensure_regular_hours()`.
 
-**Root cause**: After `browser.driver.refresh()`, the alert sidebar closes. `open_log_tab()` only switches tabs within an already-open sidebar — it doesn't open the sidebar itself. Also, helpers.py used stale class selectors (`widget-X9EuSe_t`, `widgetHeader-X9EuSe_t`). And `restart_inactive_alerts()` had 3 stale class selectors for dropdown items.
+1. **Opened & merged PR #12** (`fix/signal-detection-guards` → `main`, `7c5ebd9`):
+   - `session.ismarket` guard in Pine Script V2
+   - `ensure_regular_hours()` in `tte/browser/chart.py`
+   - `agent-comms.md` doc fix (ots/zts are milliseconds, not seconds)
 
-**Changes**:
-1. `tte/main.py` `run_maintenance()`: Added `browser.open_alerts_sidebar()` after page refresh
-2. `tte/browser/helpers.py`: Replaced stale class selectors with `button[aria-controls="..."]` in all 4 tab methods
-3. `tte/main.py` `restart_inactive_alerts()`: Replaced 3 stale class selectors with text-based matching within `div[data-qa-id="menu-inner"]`
+2. **Smoke test** confirmed `ensure_regular_hours()` works.
 
-**Also this session**: 260 alerts running (not full 314 — EXE errored during setup, will add more later). Webhooks confirmed working.
-
----
-
-### Session: 2026-02-27 (Docs Update + Git Cleanup)
-
-**Goal**: Update docs-updater agent for TTE, run comprehensive docs audit, clean up stale git branches, merge docs to main.
-
-**What was done**:
-1. **Rewrote `.claude/agents/docs-updater.md`**: Was copied from Stock Buddy — rewritten for TTE with correct doc tiers, file paths, codebase areas, and workflow
-2. **Updated `.claude/skills/update-docs/references/doc-inventory.md`**: Rewritten for TTE documentation structure
-3. **Ran docs-updater agent**: Comprehensive audit updated 10 files — CLAUDE.md, ARCHITECTURE.md, PRD.md, API.md, DATABASE.md, SETUP.md, README.md, doc-inventory. All V1 sections updated to V2 values.
-4. **Fixed CLAUDE.md**: Webhook interval 30s→45s (matches actual `combo_settings.yaml`)
-5. **Deleted 7 stale remote branches**: `combo-architecture`, `multi-alert`, `point-capital`, `single-alert`, `tiered-orchestrator`, `feat/screener-v2`, `feat/snapshot-quality-gui-defaults`, `feature/chart-snapshots` — all from merged/closed PRs
-6. **PR #9 created and merged**: `4bacff0` — Docs: update all documentation for V2 architecture
-7. **Updated MEMORY.md**: Fixed rate limiting section for V2, added V2 architecture summary
-
-**Note**: Chart timeframe is **45 seconds** (not 30s as previously documented). Verified against `combo_settings.yaml`.
+3. **Fixed save_layout() bug** (`72237e1`):
+   - `logger.exception()` → `logger.info()` (was logging ERROR for success)
+   - Removed stale class selector check, just click save directly
 
 ---
 
-### Session: 2026-02-26 (Stale CSS Selectors Fix + V2 Webhook Confirmed)
+### Session: 2026-03-03 (Task 2: Debug Wrong Signal Detection)
 
-**Goal**: Fix `--fresh` failing to detect/delete existing alerts, and confirm V2 webhook delivery end-to-end.
+**Goal**: Investigate wrong NWE/OB signals in Stock Buddy DB.
 
-**Root cause**: TradingView changed dynamically generated CSS class names (e.g., `itemBody-ucBqatk5` → new hash). Three hardcoded selectors in `tte/browser/tradingview.py` matched nothing, so `delete_all_alerts()` and `no_alerts()` always thought there were no alerts. Old V1 alerts kept firing, Stock Buddy rejected them with 400 Bad Request (V2-only now).
-
-**Changes made** (`tte/browser/tradingview.py`):
-
-1. **Alert existence check** (line 1068): `"div.list-G90Hl2iS div.itemBody-ucBqatk5"` → `'div[data-name="alert-item-name"]'` — stable `data-name` attribute
-2. **Debug logging** (lines 1073-1077): Added `find_elements('[data-name^="alert-"]')` debug log before "no alerts" message
-3. **Dropdown option selector** (line 1048): `"div.item-jFqVJoPk"` → `'div[data-qa-id="menu-inner"] > div'` — stable `data-qa-id` container
-4. **`no_alerts()` rewrite** (lines 1312-1332): Replaced stale class selector + fixed logic bug where `TimeoutException` (= no alerts found) fell into generic `except` returning `False` instead of `True`. Now has separate `except TimeoutException: return True` branch.
-
-**EXE rebuilt**: 12MB, all validation passed. Committed as `77d081c`.
-
-**Webhook delivery confirmed**: User tested and confirmed V2 webhooks are being sent and received by Stock Buddy.
-
-**Symbols investigation**: Both TTE and Stock Buddy read from the **same** MongoDB `symbols` collection (database `tte`, cluster `cluster1.565lfln.mongodb.net`). 626 symbols currently (Currencies: 29, Crypto: 20, US Stocks: 376, Indian Stocks: 201). No seed script exists — collection was populated externally. Header comment in `symbols.py` is stale (says 1054).
-
-**Next steps**: User will test Stock Buddy V2 adaptation and run TTE EXE for alert creation + maintenance.
+**Root causes found**:
+- PPL off-hours anomaly (1/368 US stocks): Alert created when extended hours was ON
+- "Wrong signals": Mostly user checking wrong dates + HTF candle semantics confusion
+- **Fix**: `session.ismarket` guard + `ensure_regular_hours()` (PR #12)
 
 ---
 
-### Session: 2026-02-26 (Graceful Shutdown for TTE)
+### Session: 2026-03-03 (Fix Indian Stock Alerts)
 
-**Goal**: Make Ctrl+C shutdown complete in ~2-3 seconds with clean log output instead of ~30 seconds with noisy connection-refused errors.
+**Goal**: Fix Indian stock alerts never firing. Task #1.
 
-**Root cause of slow shutdown**:
-1. On Windows, Ctrl+C propagates to entire process group — Chrome/ChromeDriver die immediately, making WebDriver socket dead
-2. Operations continue after `_shutdown_requested` is set — `change_layout()`, snapshot worker init, etc. still run and hit 10s WebDriverWait timeouts against dead browser
-3. `driver.quit()` on dead browser takes ~16s — urllib3 retries dead connection multiple times
-
-**Changes made** (`tte/main.py`):
-
-1. **`threading.Event` replaces boolean flag**: `_shutdown_requested = False` → `_shutdown_event = threading.Event()`. Enables interruptible waits via `.wait(timeout)`.
-2. **All `sleep()` → `_shutdown_event.wait()`**: Returns instantly when shutdown signaled. Applies to: recalc waits, alert creation delay, maintenance tick loop, post-refresh wait, post-restart/clear-log waits.
-3. **`_force_close_browser()` helper**: Tries `driver.quit()` first; if it hangs (dead browser), force-kills ChromeDriver process tree via `taskkill /F /T` (Windows) or `os.kill(SIGKILL)` (Unix).
-4. **Shutdown checks before every browser operation**: Before `change_layout()`, snapshot worker init, each maintenance cycle, after refresh wait, before `save_layout()`, before entering maintenance.
-5. **Early return in `restart_inactive_alerts()` / `clear_alert_log()`**: Check `_shutdown_event.is_set()` at entry.
-6. **Suppressed noisy errors during shutdown**: Exception handlers log at `DEBUG` instead of `ERROR`/`EXCEPTION` when shutdown is active.
-7. **Removed unused imports**: `sleep`, `contextlib` removed; added `os`, `platform`, `subprocess`, `threading`.
-
-**EXE rebuild**: Triggered after code changes.
-
----
-
-### Session: 2026-02-26 (Bug Fix: delete_all_alerts race condition)
-
-**Goal**: Fix `delete_all_alerts()` failing to detect existing alerts when running `--fresh`.
-
-**Root cause**: `find_elements()` at `tradingview.py:1065` was instant (no wait). If the alert list DOM hadn't finished rendering after opening the sidebar, it returned `[]` and the method exited thinking there were no alerts.
-
-**Fix applied** (`tte/browser/tradingview.py:1064-1071`):
-- Replaced instant `find_elements()` with `WebDriverWait(driver, 3).until(EC.presence_of_element_located(...))`
-- Polls up to 3 seconds for alert elements. Only reports "no alerts" if nothing renders within that window.
-- Config validation passed (`--validate`). EXE rebuild triggered.
-
----
-
-### Session: 2026-02-26 (LTF/HTF Independent Positions Refactor)
-
-**Goal**: Continue from previous session — complete the LTF/HTF refactor so both setup types coexist independently.
-
-**Context**: User requested "if an HTF and LTF setup exist, both should be sent in the payload and not just the LTF/HTF one". Previous session had completed var declarations, clearing, isNew reset, setup detection, and exit detection. JSON builders/payload/exitSent still needed updating.
-
-**What was done (this session)**:
-
-1. **Updated `buildPosV2()`**: Replaced `label` param with `ltfOrHtf` string ("LTF"/"HTF") — label field now encoded in slot name
-2. **Updated `buildSymV2()`**: Changed signature to accept 4 position strings (buyLtf, buyHtf, sellLtf, sellHtf). Payload format changed from `"b":{single}` to `"b":[ltfPos,htfPos]`
-3. **Updated position JSON build calls**: 8 `buildPosV2()` calls instead of 4 (buy01_ltf, buy01_htf, sell01_ltf, sell01_htf, etc.)
-4. **Updated `buildSymV2()` calls**: Now pass 4 position strings per symbol
-5. **Updated exitSent flags**: 8 blocks instead of 4
-6. **Updated debug table**: 12 columns (added BuyLTF, BuyHTF, SellLTF, SellHTF), all using new `pos_s1bl_*` etc. var names. Commented out for production.
-7. **Verified no old var name references remain** (`pos_s1b_`, `pos_s1s_`, `pos_s2b_`, `pos_s2s_` — all gone)
-8. **Updated docs**:
-   - `agent-comms.md`: Payload examples with arrays, dedup key changed to `{symbol}-{direction}-{label}`, lifecycle examples updated
-   - `ARCHITECTURE.md`: Position tracking (96 vars, 8 positions), payload format, lifecycle
-   - `task-context.md`: Payload format
-9. **Pine Script expert review**: All checks passed (v6 syntax, barstate.isconfirmed, var usage, JSON validity, no repainting, 8 request.security calls). Payload size ~2KB worst case.
-10. **Committed**: `9824be9` — Independent LTF/HTF positions: 8 slots, array payload format
-11. **Added 15 dummy symbol inputs** (`d01`–`d15`): Extend settings panel for Selenium scrolling
-12. **Committed**: `211e72c` — Add 15 dummy symbol inputs to extend settings panel for Selenium
-13. **User confirmed**: Screener V2 is favorited in TradingView. No EXE rebuild needed (only Pine Script changed).
-
-**Bugs Fixed**: None this session (clean refactor).
-
-**Key clarifications**:
-- **4 setups per symbol max**: 1 LTF buy + 1 HTF buy + 1 LTF sell + 1 HTF sell
-- **No cross-restrictions**: LTF buy doesn't block HTF buy or any sell. Each slot independent.
-- **EXE rebuild not needed**: Python code unchanged since last build.
-
----
-
-### Session: 2026-02-26 (V2 Testing, Compilation Fix, Code Verification)
-
-**Goal**: Execute testing tasks #159–#162, verify V2 indicator correctness.
-
-**What was done**:
-- **Task #159**: `--validate` passed
-- **Task #162**: TTE.exe rebuilt (11.3MB)
-- **Task #160**: User uploaded indicator. Hit compilation error: `Could not find method 'rationalQuadratic' for 'kernels'`. Fixed by restoring `import jdehorty/KernelFunctions/2 as kernels` (was incorrectly removed — NWE's `calcNWE()` uses it, not just divergence).
-- **Task #161**: Instead of manual testing, ran `diff` comparing V1 vs V2 for all core functions (calcNWE, scanOBRange, getNweZoneName, checkSignalWithOB). Result: ALL V1 calculations preserved exactly, only divergence removed. V2 new code (setups/exits) logically correct.
-- **Debug table**: Uncommented with NWE/OB data cells + color coding, then re-commented for production.
-- **User feedback**: "if an HTF and LTF setup exist, both should be sent" → triggered the LTF/HTF refactor (completed in next session above).
-
----
-
-### Session: 2026-02-26 (V2 Implementation — Pine Script + Python + PR)
-
-**Goal**: Execute the V2 implementation plan — build Pine Script V2, update Python, open PR.
-
-**What was built**:
-- Pine Script V2 forked from V1 (1267 lines), divergence removed, reduced to 2 symbols
-- 8 `request.security()` calls, position state tracking, compact JSON builders
-- Python: `fetch_symbols_by_category(batch_size)` in `tte/main.py`, `combo_settings.yaml` updated
-- Docs updated, branch `feat/screener-v2` created, PR #8 opened
-- Commit: `4f7d0ab`
-
-**Bugs fixed**: Divergence deletion incomplete, `config.batch_size` scoping bug, OB subtype abbreviation mismatch.
-
----
-
-### Session: 2026-02-26 (V2 Architecture Shift — Planning + MongoDB)
-
-**Goal**: Plan major architecture shift. Scale: ~1028→626 symbols, 1min→45s chart, setup/exit tracking moved to Pine Script, divergence removed.
-- Plan file: `.claude/plans/reflective-petting-flame.md`
-- Agent comms rewritten: `.claude/agent-comms.md`
-- MongoDB symbols updated: 1028 → 626
+**Root causes**: `change_settings()` stripped exchange prefixes + redundant staleness check.
+**Fix**: Keep full `EXCHANGE:SYMBOL` format, remove staleness detection. PR #11 merged (`e77888e`).
 
 ---
 
 ### Previous Sessions (Summary)
-- **2026-02-23**: Snapshot quality + GUI defaults (PR #7 → `d8cd061`)
-- **2026-02-21**: Snapshot reliability — `_wait_for_indicator_ready()`, backfill endpoint
+- **2026-02-27**: V2 debug testing + cleanup, maintenance TimeoutException fix, docs update + git cleanup
+- **2026-02-26**: Stale CSS selectors fix, V2 webhook confirmed, graceful shutdown, delete_all_alerts race condition, LTF/HTF independent positions refactor, V2 testing/compilation fix, V2 implementation (Pine Script + Python + PR), V2 architecture planning + MongoDB
+- **2026-02-23**: Snapshot quality + GUI defaults (PR #7)
+- **2026-02-21**: Snapshot reliability
 - **2026-02-20**: Chart snapshots feature (PR #6), Trade Drawer v6, dual-timer maintenance
 - **2026-02-13**: Codebase reorganization into `tte/` package (PR #4)
 - **2026-02-12**: Pine Script screener, entry setups, divergence fix, GUI stop button
@@ -356,31 +192,29 @@
 
 ## Important Decisions Made
 
+### Exit Checker Architecture (2026-03-03)
+1. **Decouple exit detection from TradingView**: Pine Script `var` state is unreliable (wiped on alert restart). Move exit detection to server-side cron.
+2. **Pine Script becomes stateless**: Only sends signals + setup data. No position tracking, no exit detection.
+3. **DB-level dedup**: Stock Buddy uses insert-and-catch with partial unique index (atomic, race-free) instead of `n: true` flag.
+4. **Vercel cron every 5 min**: Fetches running setups, gets 5-min OHLC candles from Binance/Yahoo, scans for TP/SL hits.
+5. **No auto-expire**: Setups stay "running" until TP or SL is actually hit. No 30-day TTL.
+6. **Symbol mapping validated**: 622 symbols confirmed. Special handling for Indian stocks (underscore→hyphen), US stocks (dot/slash→hyphen), commodities (XAUUSD→GC=F, XAGUSD→SI=F).
+7. **Transition strategy**: Stock Buddy makes `n`/`xt`/`xp`/`xts` optional first, then removes after TTE Phase 3 completes.
+8. **TP-first on same candle**: When both TP and SL hit in same 5-min candle, TP wins (matches Pine Script behavior).
+
 ### V2 Architecture Decisions (2026-02-26)
-1. **Indicator over Strategy**: `strategy.entry/exit` only works for chart symbol, not `request.security()` symbols.
-2. **45-second chart**: `alert.freq_once_per_bar_close` — fires every 45s when data exists.
-3. **Setup/exit in Pine Script**: All tracking in Pine `var` state. No Stock Buddy cron needed.
-4. **Remove divergence**: Deleted ~220 lines in Pine Script, removed from payload.
-5. **Compact JSON keys**: Abbreviated keys for TradingView's ~2KB alert message limit.
-6. **Category-aware pairing**: Symbols paired within same asset class for matching market hours.
-7. **Staleness detection**: REMOVED (PR #11). Was `timenow - symTime > 120000` — caused false positives when exchange prefix was stripped. Category-aware pairing makes it unnecessary.
-8. **Position lifecycle**: `null → [ltf,htf] → exit → null` per slot.
-9. **Independent LTF/HTF**: 4 positions per symbol max (LTF buy, HTF buy, LTF sell, HTF sell). No cross-restrictions.
-10. **SL**: MIN(confirming OB zoneLow) for buys, MAX(zoneHigh) for sells.
-11. **TP**: 1:2 risk-reward → `entry ± 2 × |entry - sl|`.
-12. **Stock Buddy hard swap**: Same `/api/tte/combo` endpoint, wipe old collections, `{symbol}-{direction}-{label}` dedup.
-13. **Array payload**: `"b":[ltfPos, htfPos]`, `"se":[ltfPos, htfPos]` — both slots always present.
+1. **Indicator over Strategy**: `strategy.entry/exit` only works for chart symbol.
+2. **45-second chart**: `alert.freq_once_per_bar_close`.
+3. **Compact JSON keys**: Abbreviated for TradingView's ~2KB limit.
+4. **Category-aware pairing**: Same asset class for matching market hours.
+5. **Staleness detection REMOVED** (PR #11).
+6. **Independent LTF/HTF**: 4 positions per symbol max. No cross-restrictions.
+7. **Array payload**: `"b":[ltfPos, htfPos]`, `"se":[ltfPos, htfPos]`.
 
-### Graceful Shutdown (2026-02-26)
-18. **`threading.Event` over boolean**: Enables `_shutdown_event.wait(N)` which returns instantly on signal vs `sleep(N)` + polling.
-19. **Force-kill over graceful quit**: On Ctrl+C, Chrome is already dead; `driver.quit()` hangs 16s on urllib3 retries. `taskkill /F /T /PID` is instant.
-20. **DEBUG logging during shutdown**: Prevents noisy `ConnectionRefusedError` / `MaxRetryError` tracebacks that alarm users.
-
-### Previous Decisions (2026-02-20–23)
-14. **Snapshot architecture**: Async polling (TTE polls Stock Buddy every 60s).
-15. **Alt+S for snapshots**: Clipboard via `navigator.clipboard.readText()` + CDP headless permission.
-16. **Pre-commit hooks**: ruff (lint + format) + pyright (type check).
-17. **Webhook URL in YAML**: Production URL kept in `combo_settings.yaml`.
+### Other Decisions
+- **Graceful shutdown**: `threading.Event` + force-kill ChromeDriver on Ctrl+C.
+- **Snapshot architecture**: Async polling (TTE polls Stock Buddy every 60s).
+- **Pre-commit hooks**: ruff + pyright.
 
 ---
 
@@ -389,76 +223,50 @@
 ### TTE Project
 | File | Purpose |
 |------|---------|
-| `Pine Script Code/TTE Screener V2.txt` | **V2 screener** with independent LTF/HTF setup/exit tracking |
-| `Pine Script Code/TTE Screener.txt` | V1 screener (archived, no longer in use) |
-| `.claude/plans/reflective-petting-flame.md` | Full V2 architecture plan/PRD |
-| `.claude/agent-comms.md` | Stock Buddy agent coordination (V2 array payload spec) |
+| `.claude/exit-checker-architecture.md` | **Exit checker spec** — full design for cron-based exit detection |
+| `Pine Script Code/TTE Screener V2.txt` | V2 screener (will be simplified to stateless in Phase 3) |
+| `.claude/agent-comms.md` | Communication with Stock Buddy agent |
+| `scripts/validate_symbols.py` | Symbol validation against Binance/Yahoo APIs |
 | `tte/main.py` | Entry point — `fetch_symbols_by_category()` for category pairing |
 | `tte/config.py` | Config dataclass |
 | `combo_settings.yaml` | Settings (45s, batch_size=2, 150s maintenance) |
-| `tte/data/symbols.py` | MongoDB symbol fetching |
 | `tte/browser/tradingview.py` | Browser automation |
-| `tte/snapshot_worker.py` | Snapshot polling (unchanged) |
-| `tte_gui.py` | GUI (reads YAML dynamically) |
 
 ### Stock Buddy App
 | File | Purpose |
 |------|---------|
-| `src/app/api/tte/combo/route.ts` | Combo webhook handler (needs V2 update — Stock Buddy scope) |
-| `src/app/api/tte/snapshots/*/route.ts` | Snapshot API endpoints (unchanged) |
-
----
-
-## V2 Compact Payload Format
-
-```json
-{
-  "ts": 1707264000000,
-  "s": [{
-    "sym": "GBPAUD", "c": 1.985,
-    "nwe": [{"z": "la", "t": "bull", "tf": "1H", "ots": 1707264000}],
-    "ob": [{"zt": "OB", "st": "un", "t": "bull", "zh": 1.99, "zl": 1.97, "tf": "H4", "zts": 1707260400, "ots": 1707264000}],
-    "b": [{"e": 1.98, "sl": 1.975, "tp": 1.99, "et": 1707260000, "l": "LTF", "ntf": "1H", "otf": "H4", "n": true}, null],
-    "se": [null, null]
-  }]
-}
-```
-
-**Key legend**: `ts`=timestamp, `s`=symbols, `sym`=symbol, `c`=close, `nwe`=NWE signals, `ob`=OB/FVG signals, `b`=buy positions [LTF, HTF], `se`=sell positions [LTF, HTF], `e`=entry, `sl`=stopLoss, `tp`=takeProfit, `et`=entryTime, `l`=label(LTF/HTF), `ntf`=nweTf, `otf`=obTf, `n`=isNew, `xt`=exitType(tp/sl), `xp`=exitPrice, `xts`=exitTime
+| `src/lib/tte/schemas.ts` | Zod schemas + PositionState interface (being updated) |
+| `src/lib/tte/collections.ts` | `insertSetupMessage()`, `resolveSetupExit()`, `updateSetupOutcome()` |
+| `src/app/api/tte/combo/route.ts` | Webhook handler (being updated) |
+| `src/app/api/cron/check-exits/route.ts` | **New** — exit checker cron (being built) |
 
 ---
 
 ## Verified Patterns
 
-### Snapshot API Contract (unchanged)
-```
-GET  /api/tte/snapshots/pending?limit=5
-POST /api/tte/snapshots/update  (success: {setupMessageId, snapshotUrl, snapshotTvUrl})
-POST /api/tte/snapshots/backfill
-```
+### Symbol Mapping (TradingView → Price API)
+| Category | API | Transform |
+|----------|-----|-----------|
+| Crypto | Binance | Direct (`BTCUSDT`) |
+| US Stocks | Yahoo | `.`/`/` → `-` (`BRK.A` → `BRK-A`) |
+| Indian Stocks | Yahoo | `_` → `-`, append `.NS` (`BAJAJ_AUTO` → `BAJAJ-AUTO.NS`) |
+| Currencies | Yahoo | Append `=X` (`EURUSD` → `EURUSD=X`) |
+| Commodities | Yahoo | `XAUUSD` → `GC=F`, `XAGUSD` → `SI=F` |
 
 ### Working TradingView Selectors
 ```
-Legend items:      div[data-qa-id="legend-source-item"]  (data-status="loading" while loading)
-Legend toggler:    button[data-qa-id="legend-toggler"]
-Indicator inputs:  input[data-qa-id="ui-lib-Input-input"]
-Indicator title:   JS: querySelectorAll('div[class*="title-"]')[0].textContent
-Settings dialog:   div[data-name="indicator-properties-dialog"]
-Inputs tab:        button[id="inputs"]
-Submit button:     button[name="submit"]
-Alert items:       div[data-name="alert-item-name"]              (stable — use instead of class-based selectors!)
+Alert items:       div[data-name="alert-item-name"]
 Alert settings:    div[data-name="alerts-settings-button"]
-Dropdown menu:     div[data-qa-id="menu-inner"] > div            (children = Stop All, Delete All Inactive, etc.)
+Dropdown menu:     div[data-qa-id="menu-inner"] > div
+Legend items:      div[data-qa-id="legend-source-item"]
+Indicator inputs:  input[data-qa-id="ui-lib-Input-input"]
+Settings dialog:   div[data-name="indicator-properties-dialog"]
 ```
 
-**WARNING**: Never use TradingView's dynamically generated class names (e.g., `itemBody-ucBqatk5`, `item-jFqVJoPk`, `list-G90Hl2iS`). These change between UI builds. Always prefer `data-name` and `data-qa-id` attribute selectors.
+**WARNING**: Never use TradingView's dynamically generated class names. Always prefer `data-name` and `data-qa-id` selectors.
 
-### MongoDB Symbols Schema
-```json
-{ "symbol": "NVDA", "full_symbol": "NVDA", "category": "US Stocks" }
-```
-Categories: `Currencies`, `Crypto`, `US Stocks`, `Indian Stocks`
-Unique index on `symbol` field.
+### MongoDB — 622 Symbols
+Categories: `Currencies` (29), `Crypto` (20), `US Stocks` (376), `Indian Stocks` (197)
 
 ---
 
@@ -471,13 +279,7 @@ pipenv run python combo_main.py --validate         # Validate config
 pipenv run python combo_main.py --fresh            # Delete alerts & recreate
 dist/TTE.exe                                       # GUI (requires pystray)
 
-# MongoDB symbol counts
-pipenv run python -c "
-import pymongo, os; from dotenv import load_dotenv; load_dotenv('.env')
-from collections import Counter
-col = pymongo.MongoClient(os.getenv('MONGODB_URI'))['tte']['symbols']
-cats = Counter(doc['category'] for doc in col.find({}, {'category': 1}))
-for cat, count in sorted(cats.items()): print(f'{cat}: {count}')
-print(f'Total: {sum(cats.values())}')
-"
+# Symbol validation
+.venv/Scripts/python.exe -u scripts/validate_symbols.py          # Dry-run report
+.venv/Scripts/python.exe -u scripts/validate_symbols.py --remove # Remove invalid from DB
 ```
