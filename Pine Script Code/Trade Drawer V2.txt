@@ -49,6 +49,13 @@ s19 = input.symbol('NZDAUD', group='Symbols', inline='s19')
 s20 = input.symbol('CHFJPY', group='Symbols', inline='s20')
 
 // ============================================================================
+// STANDARD OHLC (guaranteed real values on any chart type)
+// ============================================================================
+// On non-standard charts (Heikin Ashi, Renko, etc.), built-in open/high/low/close
+// return MODIFIED values. ticker.standard() ensures we always get real OHLC.
+[stdOpen, stdHigh, stdLow, stdClose] = request.security(ticker.standard(syminfo.tickerid), timeframe.period, [open, high, low, close])
+
+// ============================================================================
 // A. NWE BANDS (Nadaraya-Watson Envelope)
 // ============================================================================
 // Hardcoded params matching the NWE indicator defaults.
@@ -76,9 +83,9 @@ nwe_atr_length = 60
 nwe_nearFactor = 1.5
 nwe_farFactor = 8.0
 
-yhat_close = kernels.rationalQuadratic(close, nwe_h, nwe_alpha, nwe_x0)
-yhat_high  = kernels.rationalQuadratic(high, nwe_h, nwe_alpha, nwe_x0)
-yhat_low   = kernels.rationalQuadratic(low, nwe_h, nwe_alpha, nwe_x0)
+yhat_close = kernels.rationalQuadratic(stdClose, nwe_h, nwe_alpha, nwe_x0)
+yhat_high  = kernels.rationalQuadratic(stdHigh, nwe_h, nwe_alpha, nwe_x0)
+yhat_low   = kernels.rationalQuadratic(stdLow, nwe_h, nwe_alpha, nwe_x0)
 yhat       = yhat_close
 ktr        = kernel_atr(nwe_atr_length, yhat_high, yhat_low, yhat_close)
 
@@ -110,11 +117,9 @@ fill(p_lower_far, p_lower_avg, color = green_far, title = 'Lower Boundary: Farmo
 // ============================================================================
 // B. PRICE CANDLES via plotcandle()
 // ============================================================================
-// Show ~80 bars around current bar area (where Alt+R centers the view)
-int barsFromEnd = bar_index - (last_bar_index - 40)
-bool showBar = math.abs(barsFromEnd) <= 40
-
-plotcandle(showBar ? open : na, showBar ? high : na, showBar ? low : na, showBar ? close : na, title = 'Price Candles', color = close >= open ? #089981 : #f23645, wickcolor = close >= open ? #089981 : #f23645, bordercolor = close >= open ? #089981 : #f23645)
+// Uses standard OHLC from request.security() above — accurate on any chart type.
+// No windowing: candles drawn on all bars. Alt+R only adjusts vertical scale.
+plotcandle(stdOpen, stdHigh, stdLow, stdClose, title = 'Price Candles', color = stdClose >= stdOpen ? #089981 : #f23645, wickcolor = stdClose >= stdOpen ? #089981 : #f23645, bordercolor = stdClose >= stdOpen ? #089981 : #f23645)
 
 // ============================================================================
 // C. TRADE LEVELS (Entry, SL, TP lines + fills + labels)
