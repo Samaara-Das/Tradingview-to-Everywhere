@@ -4,7 +4,7 @@ Functions for loading symbols from MongoDB.
 Currencies - 30
 US Stocks - 719
 Indian Stocks - 268
-Crypto - 19
+Crypto - 18
 Indices - 18
 """
 
