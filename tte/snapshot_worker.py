@@ -2,8 +2,8 @@
 Snapshot Worker — Polls Stock Buddy for pending chart snapshots and takes them.
 
 Uses TradingView browser automation to:
-1. Switch to "Snapshot" layout (with NWE + Trade Drawer indicators)
-2. For each pending setup: change symbol, timeframe, Trade Drawer settings
+1. Switch to "Snapshot" layout (with Trade Drawer V2 — NWE bands + trade levels)
+2. For each pending setup: change symbol, timeframe, Trade Drawer V2 settings
 3. Take chart snapshot → get PNG URL
 4. Report result back to Stock Buddy API
 """
@@ -178,7 +178,7 @@ class SnapshotWorker:
             self.client.update_snapshot(setup_id, error="Failed to set Trade Drawer settings")
             return False
 
-        sleep(1)  # Wait for indicator to render
+        sleep(2)  # Wait for NWE + candles + trade levels to render
 
         # 5. Hide indicator legend so it doesn't appear in the snapshot
         self._hide_legend()

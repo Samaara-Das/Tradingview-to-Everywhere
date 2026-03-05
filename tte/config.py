@@ -68,7 +68,7 @@ class ComboConfig:
     snapshot_enabled: bool = _yaml.get("snapshot", {}).get("enabled", True)
     snapshot_layout_name: str = _yaml.get("snapshot", {}).get("layout_name", "Snapshot")
     snapshot_drawer_shorttitle: str = _yaml.get("snapshot", {}).get(
-        "drawer_shorttitle", "Trade Drawer"
+        "drawer_shorttitle", "Trade Drawer V2"
     )
     snapshot_bar_style: str = _yaml.get("snapshot", {}).get("bar_style", "candle")
     snapshot_batch_size: int = _yaml.get("snapshot", {}).get("batch_size", 5)
