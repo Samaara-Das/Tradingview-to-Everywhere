@@ -2,10 +2,11 @@
 Snapshot Worker — Polls Stock Buddy for pending chart snapshots and takes them.
 
 Uses TradingView browser automation to:
-1. Switch to "Snapshot" layout (with NWE + Trade Drawer indicators)
-2. For each pending setup: change symbol, timeframe, Trade Drawer settings
-3. Take chart snapshot → get PNG URL
-4. Report result back to Stock Buddy API
+1. Switch to "Snapshot" layout (with Trade Drawer V2 — self-contained renderer)
+2. Hide chart bars (once per session) so only Trade Drawer V2's output is visible
+3. For each pending setup: change symbol, timeframe, Trade Drawer V2 settings
+4. Take chart snapshot → get PNG URL
+5. Report result back to Stock Buddy API
 """
 
 import contextlib
@@ -99,6 +100,7 @@ class SnapshotWorker:
         self.config = config
         self.client = client
         self._bars_right_last_set: float = 0
+        self._bars_hidden: bool = False
 
     def process_pending_snapshots(self) -> int:
         """Poll for pending snapshots, take them, report results.
@@ -116,6 +118,10 @@ class SnapshotWorker:
         # Set "bars to right" margin (once at startup, then every 24h)
         if time() - self._bars_right_last_set > 86400:
             self._set_bars_to_right()
+
+        # Hide chart bars (once per session, persisted via save_layout)
+        if not self._bars_hidden:
+            self._hide_chart_bars()
 
         # Set bar style for snapshots
         self.browser.change_candles_type(self.config.snapshot_bar_style)
@@ -178,7 +184,7 @@ class SnapshotWorker:
             self.client.update_snapshot(setup_id, error="Failed to set Trade Drawer settings")
             return False
 
-        sleep(1)  # Wait for indicator to render
+        sleep(2)  # Wait for NWE + candles + trade levels to render
 
         # 5. Hide indicator legend so it doesn't appear in the snapshot
         self._hide_legend()
@@ -326,6 +332,90 @@ class SnapshotWorker:
 
         except Exception:
             logger.warning("Failed to set bars to right — continuing anyway", exc_info=True)
+            with contextlib.suppress(Exception):
+                ActionChains(driver).send_keys(Keys.ESCAPE).perform()
+
+    def _hide_chart_bars(self):
+        """Hide chart bars via Settings dialog (make candle body/borders/wick invisible).
+
+        Uses the same right-click → Settings pattern as _set_bars_to_right().
+        Unchecks Body, Borders, and Wick checkboxes in the Symbol tab.
+        Persisted via save_layout() so only needs to run once.
+        """
+        from selenium.webdriver.common.action_chains import ActionChains
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.common.keys import Keys
+        from selenium.webdriver.support import expected_conditions as EC
+        from selenium.webdriver.support.wait import WebDriverWait
+
+        driver = self.browser.driver
+
+        try:
+            # 1. Right-click chart area to open context menu
+            chart = driver.find_element(By.CSS_SELECTOR, "div.chart-markup-table")
+            ActionChains(driver).context_click(chart).perform()
+            sleep(0.5)
+
+            # 2. Wait for context menu
+            WebDriverWait(driver, 5).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-qa-id="menu-inner"]'))
+            )
+
+            # 3. Click "Settings..." row
+            menu_items = driver.find_elements(By.CSS_SELECTOR, 'span[data-label="true"]')
+            settings_clicked = False
+            for item in menu_items:
+                if "Settings" in item.text:
+                    item.click()
+                    settings_clicked = True
+                    break
+            if not settings_clicked:
+                logger.warning("Could not find 'Settings...' in context menu")
+                ActionChains(driver).send_keys(Keys.ESCAPE).perform()
+                return
+
+            # 4. Wait for chart settings dialog
+            dialog = WebDriverWait(driver, 5).until(
+                EC.presence_of_element_located(
+                    (By.CSS_SELECTOR, 'div[data-name="series-properties-dialog"]')
+                )
+            )
+            sleep(0.5)
+
+            # 5. Click "Symbol" tab
+            symbol_tab = dialog.find_element(By.CSS_SELECTOR, 'button[data-name="symbol"]')
+            symbol_tab.click()
+            sleep(0.5)
+
+            # 6. Uncheck Body, Borders, Wick checkboxes (only if checked)
+            checkbox_selectors = [
+                'div[data-qa-id="property-dialog-item mainSeriesSymbolcandleCandlesColor"] input[type="checkbox"]',
+                'div[data-qa-id="property-dialog-item mainSeriesSymbolcandleBordersColor"] input[type="checkbox"]',
+                'div[data-qa-id="property-dialog-item mainSeriesSymbolcandleWickColors"] input[type="checkbox"]',
+            ]
+            for selector in checkbox_selectors:
+                try:
+                    checkbox = dialog.find_element(By.CSS_SELECTOR, selector)
+                    if checkbox.get_attribute("aria-checked") == "true":
+                        # Click the parent div (visual checkbox), not the hidden input
+                        parent = checkbox.find_element(By.XPATH, "./..")
+                        parent.click()
+                        sleep(0.2)
+                except Exception:
+                    logger.debug(f"Checkbox not found or failed: {selector}")
+
+            # 7. Click submit to save
+            dialog.find_element(By.CSS_SELECTOR, 'button[name="submit"]').click()
+            sleep(0.5)
+
+            # 8. Save layout to persist the change
+            self.browser.save_layout()
+
+            self._bars_hidden = True
+            logger.info("Chart bars hidden (body/borders/wick unchecked)")
+
+        except Exception:
+            logger.warning("Failed to hide chart bars — continuing anyway", exc_info=True)
             with contextlib.suppress(Exception):
                 ActionChains(driver).send_keys(Keys.ESCAPE).perform()
 
