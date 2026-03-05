@@ -16,6 +16,7 @@ webhook:
 snapshot:
   enabled: true
   layout_name: Snapshot
+  drawer_shorttitle: "Trade Drawer V2"
   bar_style: candle
   batch_size: 5
   poll_interval: 60

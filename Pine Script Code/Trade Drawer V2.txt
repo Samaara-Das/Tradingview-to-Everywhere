@@ -1,0 +1,188 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © SamaaraDas
+
+// @description
+// Draws NWE bands and trade levels (entry, SL, TP) on the chart. Used by TTE's
+// snapshot worker to visualize setups. Replaces the need for a separate NWE indicator
+// on the Snapshot layout.
+
+//@version=6
+indicator("Trade Drawer V2", overlay = true, precision = 5, max_lines_count = 10, max_labels_count = 10)
+
+// ============================================================================
+// LIBRARIES
+// ============================================================================
+import jdehorty/KernelFunctions/2 as kernels
+
+// ============================================================================
+// INPUTS
+// ============================================================================
+
+// Trade level inputs (filled by TTE Python via indicator settings dialog)
+dateTime = input.int(0, 'Entry Time')
+entry    = input.float(0, 'Entry Price')
+sl       = input.float(0, 'SL Price')
+tp1      = input.float(0, 'TP1 Price')
+tp2      = input.float(0, 'TP2 Price')
+tp3      = input.float(0, 'TP3 Price')
+
+// Symbol inputs (for TTE Python to find this indicator on the chart)
+s01 = input.symbol('AUDUSD', group='Symbols', inline='s01')
+s02 = input.symbol('EURUSD', group='Symbols', inline='s02')
+s03 = input.symbol('GBPJPY', group='Symbols', inline='s03')
+s04 = input.symbol('USDCAD', group='Symbols', inline='s04')
+s05 = input.symbol('XAUUSD', group='Symbols', inline='s05')
+s06 = input.symbol('USDJPY', group='Symbols', inline='s06')
+s07 = input.symbol('AUDNZD', group='Symbols', inline='s07')
+s08 = input.symbol('NZDUSD', group='Symbols', inline='s08')
+s09 = input.symbol('USDCHF', group='Symbols', inline='s09')
+s10 = input.symbol('EURJPY', group='Symbols', inline='s10')
+s11 = input.symbol('EURGBP', group='Symbols', inline='s11')
+s12 = input.symbol('GBPAUD', group='Symbols', inline='s12')
+s13 = input.symbol('AUDJPY', group='Symbols', inline='s13')
+s14 = input.symbol('EURCAD', group='Symbols', inline='s14')
+s15 = input.symbol('GBPCHF', group='Symbols', inline='s15')
+s16 = input.symbol('GBPUSD', group='Symbols', inline='s16')
+s17 = input.symbol('GBPNZD', group='Symbols', inline='s17')
+s18 = input.symbol('NZDJPY', group='Symbols', inline='s18')
+s19 = input.symbol('NZDAUD', group='Symbols', inline='s19')
+s20 = input.symbol('CHFJPY', group='Symbols', inline='s20')
+
+// ============================================================================
+// A. NWE BANDS (Nadaraya-Watson Envelope)
+// ============================================================================
+// Hardcoded params matching the NWE indicator defaults.
+// Calculated on chart timeframe using built-in close/high/low (Snapshot layout
+// uses standard candles, so no ticker.standard() needed).
+
+// NWE Helper Functions
+getBounds(_atr, _nearFactor, _farFactor, _yhat) =>
+    _upper_far = _yhat + _farFactor * _atr
+    _upper_near = _yhat + _nearFactor * _atr
+    _lower_near = _yhat - _nearFactor * _atr
+    _lower_far = _yhat - _farFactor * _atr
+    _upper_avg = (_upper_far + _upper_near) / 2
+    _lower_avg = (_lower_far + _lower_near) / 2
+    [_upper_near, _upper_far, _upper_avg, _lower_near, _lower_far, _lower_avg]
+
+kernel_atr(length, _high, _low, _close) =>
+    trueRange = na(_high[1]) ? _high - _low : math.max(math.max(_high - _low, math.abs(_high - _close[1])), math.abs(_low - _close[1]))
+    ta.rma(trueRange, length)
+
+// NWE Kernel calculation (stable params: h=8, alpha=8.0, x_0=25, atr=60, near=1.5, far=8.0)
+nwe_h = 8
+nwe_alpha = 8.0
+nwe_x0 = 25
+nwe_atr_length = 60
+nwe_nearFactor = 1.5
+nwe_farFactor = 8.0
+
+yhat_close = kernels.rationalQuadratic(close, nwe_h, nwe_alpha, nwe_x0)
+yhat_high  = kernels.rationalQuadratic(high, nwe_h, nwe_alpha, nwe_x0)
+yhat_low   = kernels.rationalQuadratic(low, nwe_h, nwe_alpha, nwe_x0)
+yhat       = yhat_close
+ktr        = kernel_atr(nwe_atr_length, yhat_high, yhat_low, yhat_close)
+
+[upper_near, upper_far, upper_avg, lower_near, lower_far, lower_avg] = getBounds(ktr, nwe_nearFactor, nwe_farFactor, yhat_close)
+
+// NWE Colors (matching original NWE indicator)
+red_far    = color.new(color.red, 60)
+red_near   = color.new(color.red, 80)
+yhat_green = color.new(color.green, 50)
+yhat_red   = color.new(color.red, 50)
+green_near = color.new(color.green, 80)
+green_far  = color.new(color.green, 60)
+
+// NWE Plots (7 plots)
+p_upper_far  = plot(upper_far, color = red_far, title = 'Upper Boundary: Far')
+p_upper_avg  = plot(upper_avg, color = red_near, title = 'Upper Boundary: Average')
+p_upper_near = plot(upper_near, color = red_near, title = 'Upper Boundary: Near')
+p_yhat       = plot(yhat_close, color = yhat > yhat[1] ? yhat_green : yhat_red, linewidth = 2, title = 'Nadaraya-Watson Estimation')
+p_lower_near = plot(lower_near, color = green_near, title = 'Lower Boundary: Near')
+p_lower_avg  = plot(lower_avg, color = green_near, title = 'Lower Boundary: Average')
+p_lower_far  = plot(lower_far, color = green_far, title = 'Lower Boundary: Far')
+
+// NWE Fills (4 fills)
+fill(p_upper_far, p_upper_avg, color = red_far, title = 'Upper Boundary: Farmost Region')
+fill(p_upper_near, p_upper_avg, color = red_near, title = 'Upper Boundary: Nearmost Region')
+fill(p_lower_near, p_lower_avg, color = green_near, title = 'Lower Boundary: Nearmost Region')
+fill(p_lower_far, p_lower_avg, color = green_far, title = 'Lower Boundary: Farmost Region')
+
+// ============================================================================
+// B. TRADE LEVELS (Entry, SL, TP lines + fills + labels)
+// ============================================================================
+
+// Colors
+COLOR_TP      = color.new(#2962FF, 75)  // Blue, 75% transparent — profit zone
+COLOR_SL      = color.new(#FF6D00, 75)  // Orange, 75% transparent — risk zone
+COLOR_ENTRY   = #FFFFFF                 // White — entry level
+COLOR_SL_LINE = #FF6D00                // Orange — stop loss line
+COLOR_TP_LINE = #2962FF                // Blue — take profit line
+COLOR_LABEL   = #E0E0E0               // Light gray — label text
+
+// Drawing objects (persistent)
+var line entryLine = na
+var line slLine    = na
+var line tp1Line   = na
+var line tp2Line   = na
+var line tp3Line   = na
+var linefill slFill  = na
+var linefill tp1Fill = na
+var linefill tp2Fill = na
+var linefill tp3Fill = na
+var label entryLabel = na
+var label slLabel    = na
+var label tp1Label   = na
+var label tp2Label   = na
+var label tp3Label   = na
+
+bool hasValidInputs = entry != 0 and sl != 0 and tp1 != 0
+
+if barstate.islast and hasValidInputs
+    // Delete old drawings
+    line.delete(entryLine)
+    line.delete(slLine)
+    line.delete(tp1Line)
+    line.delete(tp2Line)
+    line.delete(tp3Line)
+    linefill.delete(slFill)
+    linefill.delete(tp1Fill)
+    linefill.delete(tp2Fill)
+    linefill.delete(tp3Fill)
+    label.delete(entryLabel)
+    label.delete(slLabel)
+    label.delete(tp1Label)
+    label.delete(tp2Label)
+    label.delete(tp3Label)
+
+    // Calculate time range: 30 bars forward from the entry time
+    int dt = time - time[1]  // duration of one bar (always valid on last bar)
+    int startTime = dateTime > 0 ? dateTime * 1000 : time
+    int endTime = startTime + 15 * dt
+
+    // --- Lines ---
+    entryLine := line.new(startTime, entry, endTime, entry, xloc.bar_time, color = COLOR_ENTRY, width = 2)
+    slLine    := line.new(startTime, sl, endTime, sl, xloc.bar_time, color = COLOR_SL_LINE, width = 1, style = line.style_dashed)
+    tp1Line   := line.new(startTime, tp1, endTime, tp1, xloc.bar_time, color = COLOR_TP_LINE, width = 1, style = line.style_dashed)
+
+    if tp2 != 0
+        tp2Line := line.new(startTime, tp2, endTime, tp2, xloc.bar_time, color = COLOR_TP_LINE, width = 1, style = line.style_dashed)
+    if tp3 != 0
+        tp3Line := line.new(startTime, tp3, endTime, tp3, xloc.bar_time, color = COLOR_TP_LINE, width = 1, style = line.style_dashed)
+
+    // --- Fill zones ---
+    slFill  := linefill.new(slLine, entryLine, COLOR_SL)
+    tp1Fill := linefill.new(entryLine, tp1Line, COLOR_TP)
+    if tp2 != 0 and not na(tp2Line)
+        tp2Fill := linefill.new(tp1Line, tp2Line, COLOR_TP)
+    if tp3 != 0 and not na(tp3Line)
+        tp3Fill := linefill.new(tp2Line, tp3Line, COLOR_TP)
+
+    // --- Labels ---
+    entryLabel := label.new(endTime, entry, str.format('Entry {0}', str.tostring(entry, '#.#####')), xloc = xloc.bar_time, yloc = yloc.price, style = label.style_none, textcolor = COLOR_LABEL, textalign = text.align_left, size = size.normal)
+    slLabel    := label.new(endTime, sl, str.format('SL {0}', str.tostring(sl, '#.#####')), xloc = xloc.bar_time, yloc = yloc.price, style = label.style_none, textcolor = COLOR_SL_LINE, textalign = text.align_left, size = size.normal)
+    tp1Label   := label.new(endTime, tp1, str.format('TP1 {0}', str.tostring(tp1, '#.#####')), xloc = xloc.bar_time, yloc = yloc.price, style = label.style_none, textcolor = COLOR_TP_LINE, textalign = text.align_left, size = size.normal)
+    if tp2 != 0
+        tp2Label := label.new(endTime, tp2, str.format('TP2 {0}', str.tostring(tp2, '#.#####')), xloc = xloc.bar_time, yloc = yloc.price, style = label.style_none, textcolor = COLOR_TP_LINE, textalign = text.align_left, size = size.normal)
+    if tp3 != 0
+        tp3Label := label.new(endTime, tp3, str.format('TP3 {0}', str.tostring(tp3, '#.#####')), xloc = xloc.bar_time, yloc = yloc.price, style = label.style_none, textcolor = COLOR_TP_LINE, textalign = text.align_left, size = size.normal)
