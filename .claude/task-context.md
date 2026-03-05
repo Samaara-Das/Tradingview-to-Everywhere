@@ -1,10 +1,10 @@
 # Task Context Tracker
 
 **Last Updated**: 2026-03-05
-**Current Task**: Trade Drawer V2 simplified — NWE bands + trade levels only (no candles, no bar hiding). Tested with real SCCO setup from Stock Buddy. Ready to commit.
-**Active Branch**: `fix/snapshot-trade-drawer`
-**Latest Commit (TTE)**: `d987d35` — Draw exactly 60 candles before entry using box/line objects
-**Latest Commit (Stock Buddy)**: PR #64 deployed — exit checker cron + webhook handler update
+**Current Task**: EOSUSDT/EOSBTC removal done. User will run `--setup-only --symbols BCHUSDT` to restore BCHUSDT coverage.
+**Active Branch**: `main`
+**Latest Commit (TTE)**: `dab4b33` — Simplify Trade Drawer V2 (PR #14 squash-merged)
+**Latest Commit (Stock Buddy)**: PR #67 deployed — exit cron bug fixes (yahoo-finance2 v3, entry candle skip)
 
 ---
 
@@ -19,7 +19,8 @@
 | 5 | Test signals, setups, exits for the user | pending (blocked by #4) |
 | 6 | Verify Indian stock alerts trigger after exchange prefix fix | **pending** (test during next NSE hours) |
 | 7 | Post-deployment: verify signal timing & timestamps (forex/crypto/stocks) | **pending** (blocked by deployment) |
-| 8 | Fix snapshot Trade Drawer not rendering on chart | **in-progress** — V2 simplified (NWE + trade levels, no candles/bar hiding). Tested with real SCCO setup. Ready to commit. |
+| 8 | Fix snapshot Trade Drawer not rendering on chart | **done** — PR #14 merged. V2 simplified (NWE + trade levels). TTE.exe rebuilt. |
+| 9 | Remove delisted EOSUSDT/EOSBTC from MongoDB | **done** — Both deleted. User running `--setup-only --symbols BCHUSDT` to restore coverage. |
 
 ### Exit Checker Implementation Status
 
@@ -33,6 +34,24 @@
 ---
 
 ## Session History
+
+### Session: 2026-03-05 (EOSUSDT/EOSBTC Removal — Orchestrator Mission)
+
+**Goal**: Remove delisted EOS symbols from MongoDB per orchestrator mission in `.claude/current-mission.md`.
+
+**Chronological flow**:
+
+1. **Queried MongoDB**: Found EOSUSDT and EOSBTC in `tte.symbols` (Crypto category). No live_signals or setup_messages existed for either.
+2. **Deleted both symbols** from `tte.symbols` by ObjectId (bulk `$in` delete failed silently — used direct `delete_one` per ObjectId).
+3. **Verified counts**: 620 total symbols, 18 Crypto (was 622/20).
+4. **Pairing analysis**: Initially thought EOSBTC+EOSUSDT were paired together (alphabetical sort). User corrected: the actual TradingView alert paired **EOSUSDT + BCHUSDT**. After deleting that alert, BCHUSDT has no coverage.
+5. **Resolution**: User will run `python combo_main.py --setup-only --symbols BCHUSDT` to create a single alert for BCHUSDT. On next `--fresh` run, BCHUSDT will auto-pair with BCHBTC (new alphabetical order).
+6. **Updated docs**: ARCHITECTURE.md (Crypto 20→18, totals), task-context.md, exit-checker-architecture.md, symbols.py docstring, MEMORY.md.
+7. **Wrote completion report** to `C:/Users/dassa/Work/TTE-SB-Orchestrator/agent-comms.md`.
+
+**Key learning**: TradingView alert pairing may not match the alphabetical sort order assumed in code — the actual pairing depends on when `--fresh` was run and with what symbol list.
+
+---
 
 ### Session: 2026-03-05 (Trade Drawer V2 — Simplification)
 
@@ -54,6 +73,9 @@
    - Reverted module docstring (removed bar-hiding references)
    - Kept `sleep(2)` render wait (NWE calculation needs time)
 5. **Tested with real Stock Buddy data**: SCCO Buy setup (Entry 199.13, SL 197.5, TP1 202.39, nweTf 1H). User confirmed setup draws correctly on chart.
+6. **Committed** `42ffba3`, pushed, PR #14 squash-merged → `dab4b33` on main.
+7. **Rebuilt TTE.exe** — `dist/TTE.exe` (PyInstaller onefile, ~19MB).
+8. **User completed TradingView setup**: Pasted Trade Drawer V2 on Snapshot layout, removed separate NWE indicator.
 
 **Key files modified**:
 - `Pine Script Code/Trade Drawer V2.txt` — Simplified: NWE bands + dateTime-anchored trade levels
@@ -158,8 +180,8 @@ Settings dialog:   div[data-name="indicator-properties-dialog"]
 | Currencies | Yahoo | Append `=X` (`EURUSD` → `EURUSD=X`) |
 | Commodities | Yahoo | `XAUUSD` → `GC=F`, `XAGUSD` → `SI=F` |
 
-### MongoDB — 622 Symbols
-Categories: `Currencies` (29), `Crypto` (20), `US Stocks` (376), `Indian Stocks` (197)
+### MongoDB — 620 Symbols
+Categories: `Currencies` (29), `Crypto` (18), `US Stocks` (376), `Indian Stocks` (197)
 
 ---
 

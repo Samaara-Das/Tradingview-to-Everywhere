@@ -44,10 +44,10 @@ Symbols are paired within the same asset class (forex with forex, crypto with cr
 | Category | Symbols | Alerts |
 |----------|---------|--------|
 | Currencies | 29 | 15 |
-| Crypto | 20 | 10 |
+| Crypto | 18 | 9 |
 | US Stocks | 376 | 188 |
 | Indian Stocks | 201 | 101 |
-| **Total** | **626** | **~314** |
+| **Total** | **624** | **~313** |
 
 ### V2 Compact Payload Format
 
@@ -682,10 +682,10 @@ With `alert.freq_once_per_bar_close` at 45 seconds:
 | Category | Symbols | Alerts |
 |----------|---------|--------|
 | Currencies | 29 | 15 |
-| Crypto | 20 | 10 |
+| Crypto | 18 | 9 |
 | US Stocks | 376 | 188 |
 | Indian Stocks | 201 | 101 |
-| **Total** | **626** | **~314** |
+| **Total** | **624** | **~313** |
 
 ### Category-Aware Pairing
 

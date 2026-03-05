@@ -273,7 +273,7 @@ The MongoDB `symbols` collection (database `tte`) stores each symbol with a `cat
 
 **Special cases — Commodities**: `XAUUSD` and `XAGUSD` are in the Currencies category but Yahoo lists them as futures, not forex. Map explicitly: `XAUUSD` → `GC=F`, `XAGUSD` → `SI=F`.
 
-> **Validated**: All 622 symbols confirmed to have market data (4 delisted Indian stocks removed). See `scripts/validate_symbols.py`.
+> **Validated**: All 620 symbols confirmed to have market data (4 delisted Indian stocks + 2 delisted EOS pairs removed). See `scripts/validate_symbols.py`.
 
 ### Symbol-to-Category Lookup
 
