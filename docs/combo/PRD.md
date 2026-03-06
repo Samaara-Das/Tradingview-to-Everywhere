@@ -8,14 +8,14 @@
 
 ## 1. Product Overview
 
-TradingView to Everywhere (TTE) Combo Mode V2 is an automated trading signal distribution system. It creates persistent webhook alerts on TradingView that continuously monitor 626 trading symbols for NWE + OB/FVG signals, track trade positions (setup/exit), and send compact pre-computed trade state to the Stock Buddy API on every 45-second bar close.
+TradingView to Everywhere (TTE) Combo Mode V2 is an automated trading signal distribution system. It creates persistent webhook alerts on TradingView that continuously monitor 620 trading symbols for NWE + OB/FVG signals using stateless setup detection, and send compact pre-computed setup data to the Stock Buddy API on every 45-second bar close. Exit detection is handled server-side by a Stock Buddy cron job (every 5 min).
 
 ### Why Combo Mode Replaced Tiered Mode
 
 | Factor | Tiered Mode | Combo Mode |
 |--------|-------------|------------|
 | Alert lifecycle | Create → wait → delete → repeat | Create once → run forever |
-| Symbol coverage | 20 per cycle, rotating | All 626 simultaneously |
+| Symbol coverage | 20 per cycle, rotating | All 620 simultaneously |
 | Browser needed | Every cycle (~90s each) | Only setup + maintenance |
 | Signal merging | 2 separate webhooks to correlate | Single payload with all data |
 | Webhook delivery | After each batch cycle | Every bar close (45s) |
@@ -28,7 +28,7 @@ TradingView to Everywhere (TTE) Combo Mode V2 is an automated trading signal dis
 
 ```
 TradingView Pine Script (TTE Screener V2)
-    → ~314 persistent alerts (2 symbols each, category-aware)
+    → ~310 persistent alerts (2 symbols each, category-aware)
     → Webhook fires on every 45-second bar close
     → POST /api/tte/combo (Stock Buddy API)
     → Upsert into tte_live_signals (MongoDB)
@@ -40,7 +40,7 @@ TradingView Pine Script (TTE Screener V2)
 
 | Component | Technology | Purpose |
 |-----------|-----------|---------|
-| TTE Screener V2 | Pine Script v6 | Combo indicator: NWE + OB/FVG + setup/exit tracking |
+| TTE Screener V2 | Pine Script v6 | Combo indicator: NWE + OB/FVG (stateless setup detection) |
 | TTE Orchestrator | Python + Selenium | One-time alert setup + periodic maintenance |
 | Stock Buddy API | Next.js / Vercel | Webhook receiver + signal query API |
 | MongoDB Atlas | MongoDB | Signal storage (`tte_live_signals`) |
@@ -50,9 +50,9 @@ TradingView Pine Script (TTE Screener V2)
 
 | Setting | Value | Notes |
 |---------|-------|-------|
-| Total symbols | 626 | Currencies, US stocks, Indian stocks, crypto |
+| Total symbols | 620 | Currencies, US stocks, Indian stocks, crypto |
 | Batch size | 2 | Category-aware pairing (same asset class) |
-| Total alerts | ~314 | 626 ÷ 2 |
+| Total alerts | ~310 | 620 ÷ 2 |
 | Browser mode | Single (sequential) | Headless Chrome, one browser instance |
 | Chart timeframe | 45 seconds | Fastest practical bar close for signal detection |
 | Bar style | Candle | Required for accurate high/low exit detection |
@@ -75,15 +75,15 @@ TradingView Pine Script (TTE Screener V2)
 | OB/FVG (Order Block / Fair Value Gap) | H4, D1 | Unmitigated OBs, breaker zones, unfilled FVGs |
 | Divergence | — | **Removed in V2** |
 
-### Setup/Exit Tracking (V2)
+### Stateless Setup Detection (V2)
 
 | Feature | Description |
 |---------|-------------|
 | Setup types | LTF (1H NWE + H4 OB), HTF (H4 NWE + D1 OB) |
-| Max positions | 1 LTF buy + 1 HTF buy + 1 LTF sell + 1 HTF sell per symbol (4 concurrent) |
+| Max setup slots | 1 LTF buy + 1 HTF buy + 1 LTF sell + 1 HTF sell per symbol (4 concurrent) |
 | SL calculation | MIN(confirming OB zoneLow) for buys, MAX(zoneHigh) for sells |
 | TP calculation | 1:2 risk-reward from entry |
-| Exit detection | Candle high/low vs TP/SL (TP checked before SL) |
+| Exit detection | **Server-side** — Stock Buddy cron (every 5 min) via Binance/Yahoo candles |
 | Staleness | `timenow - symTime > 120000ms` → symbol excluded from payload |
 
 ### `request.security()` Budget (V2)
@@ -176,7 +176,7 @@ progress:
 }
 ```
 
-Key: `ts`=timestamp, `s`=symbols, `sym`=symbol, `c`=close, `nwe`=NWE signals, `ob`=OB signals, `b`=buy positions [LTF,HTF], `se`=sell positions [LTF,HTF], `n`=isNew, `xt`=exitType, `xp`=exitPrice, `xts`=exitTime
+Key: `ts`=timestamp, `s`=symbols, `sym`=symbol, `c`=close, `nwe`=NWE signals, `ob`=OB signals, `b`=buy setups [LTF,HTF], `se`=sell setups [LTF,HTF], `e`=entry, `sl`=stopLoss, `tp`=takeProfit, `et`=entryTime, `l`=label, `ntf`=nweTf, `otf`=obTf
 
 ---
 
@@ -218,7 +218,7 @@ python tte_gui.py                     # GUI interface
 | Enhancement | Description |
 |------------|-------------|
 | TTE Screener V2 | Forked from V1, stripped divergence, reduced to 2 symbols |
-| Setup/exit tracking | Position tracking and TP/SL exit detection moved into Pine Script |
+| Stateless setup detection | Setup detection in Pine Script; exit detection moved to Stock Buddy cron |
 | Compact payload | Abbreviated keys to fit 2KB TradingView alert message limit |
 | Category-aware pairing | Symbols paired within same asset class for matching market hours |
 | 45-second timeframe | Faster bar close for quicker signal/exit detection |
@@ -234,14 +234,14 @@ python tte_gui.py                     # GUI interface
 | Enhancement | Description |
 |------------|-------------|
 | Failed batch retry | Automatic retry for failed alert creation batches |
-| Symbol expansion | Expand from 626 to ~800 symbols (architecture supports up to 400 alerts) |
+| Symbol expansion | Expand from 620 to ~800 symbols (architecture supports up to 400 alerts) |
 
 ---
 
 ## 10. Production Metrics (V2)
 
-- **Total symbols**: 626 (currencies, US stocks, Indian stocks, crypto)
-- **Total alerts**: ~314 (2 symbols per alert, category-aware pairing)
+- **Total symbols**: 620 (currencies, US stocks, Indian stocks, crypto)
+- **Total alerts**: ~310 (2 symbols per alert, category-aware pairing)
 - **Setup time**: Sequential with single headless browser
 - **Browser mode**: Single Chrome instance, headless by default
 - **Maintenance cycle**: Every 2.5 minutes (includes page refresh + alert log clearing)
