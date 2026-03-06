@@ -17,13 +17,13 @@ V2 uses stateless setup detection in Pine Script. On every bar, if NWE + OB/FVG 
 | Alert frequency | `alert.freq_all` (every tick) | **`alert.freq_once_per_bar_close`** (every 45s) |
 | Divergence | Included | **Removed** |
 | Setup detection | Stock Buddy (from raw signals) | **Pine Script** (stateless NWE + OB/FVG alignment) |
-| Exit detection | Pine Script (candle high/low) | **Stock Buddy cron** (5-min candles from Binance/Yahoo) |
+| Exit detection | Pine Script (candle high/low) | **Stock Buddy cron** (every 5 min via Binance/Yahoo candles) |
 | Payload format | Verbose keys | **Compact keys** (for 2KB limit) |
 | Payload content | Raw signals only | **Signals + setups** (exits handled server-side) |
 | `request.security()` calls | 12 (4 symbols × 3 TFs) | **8** (2 symbols × 4 call types) |
 | Maintenance interval | 300s (5 min) | **150s** (2.5 min) |
-| Total symbols | ~1,028 | **626** (expandable to 800) |
-| Total alerts | ~338 | **~314** (expandable to 400) |
+| Total symbols | ~1,028 | **620** (expandable to 800) |
+| Total alerts | ~338 | **~310** (expandable to 400) |
 
 ### V2 Pine Script Indicator
 
@@ -46,8 +46,8 @@ Symbols are paired within the same asset class (forex with forex, crypto with cr
 | Currencies | 29 | 15 |
 | Crypto | 18 | 9 |
 | US Stocks | 376 | 188 |
-| Indian Stocks | 201 | 101 |
-| **Total** | **624** | **~313** |
+| Indian Stocks | 197 | 99 |
+| **Total** | **620** | **~310** |
 
 ### V2 Compact Payload Format
 
@@ -108,7 +108,7 @@ Setup slots (`b` and `se` arrays, index 0 = LTF, index 1 = HTF) are computed fre
 
 ## 1. Context & Why This Architecture
 
-> **V1 archived section.** V2 uses 626 symbols, 2 per alert, ~314 alerts, 45-second timeframe, no divergence.
+> **V1 archived section.** V2 uses 620 symbols, 2 per alert, ~310 alerts, 45-second timeframe, no divergence.
 
 ### Problem
 TTE needs to monitor hundreds of trading symbols across multiple timeframes for NWE and Order Block/FVG signals, track positions, and send pre-computed trade state to Stock Buddy for real-time display.
@@ -124,8 +124,8 @@ Architecture 1 was chosen because:
 
 | Factor | Arch 1 (Combo) | Arch 2 (Separate) |
 |--------|---------------|-------------------|
-| Alert cycles for 626 symbols | **~314** | **~628** (2x more) |
-| Browser automation interactions | 314 create | 628 create |
+| Alert cycles for 620 symbols | **~310** | **~620** (2x more) |
+| Browser automation interactions | 310 create | 620 create |
 | Setup approach | Single browser, sequential | Single browser, sequential |
 | Signal merging needed | No — single payload has all data | Yes — payloads must be correlated per batch |
 | Pine Script already built | Yes | No |
@@ -142,12 +142,12 @@ The 4-symbol hard limit (more causes memory/runtime errors in TradingView) and t
 │                    ONE-TIME SETUP PHASE                         │
 │                                                                 │
 │  TTE Orchestrator (Python + Selenium, headless Chrome)          │
-│  ├── Fetches 626 symbols (category-aware pairing)              │
+│  ├── Fetches 620 symbols (category-aware pairing)              │
 │  ├── Takes batch of 2 symbols (same category)                  │
 │  ├── Opens TradingView, inputs symbols into combo screener     │
 │  ├── Creates webhook alert → points to Stock Buddy API         │
-│  ├── Repeats for all ~314 batches (single browser, sequential) │
-│  └── Result: ~314 alerts live on TradingView                   │
+│  ├── Repeats for all ~310 batches (single browser, sequential) │
+│  └── Result: ~310 alerts live on TradingView                   │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -155,7 +155,7 @@ The 4-symbol hard limit (more causes memory/runtime errors in TradingView) and t
 │                   CONTINUOUS OPERATION                          │
 │                                                                 │
 │  TradingView (Server-Side)                                     │
-│  ├── ~314 alerts running continuously                          │
+│  ├── ~310 alerts running continuously                          │
 │  ├── Each alert monitors 2 symbols via V2 combo screener       │
 │  ├── On every 45-second bar close: evaluates signals/positions │
 │  ├── Fires webhook with compact JSON payload                   │
@@ -224,11 +224,11 @@ The 4-symbol hard limit (more causes memory/runtime errors in TradingView) and t
 ### 3.2 TTE Orchestrator (Python)
 
 - **File**: `tte/main.py`, `tte/config.py`
-- **Purpose**: One-time setup of all ~314 alerts, plus periodic maintenance
+- **Purpose**: One-time setup of all ~310 alerts, plus periodic maintenance
 - **Technology**: Python + Selenium (single headless Chrome browser)
 - **GUI**: `tte_gui.py` (or standalone `dist/TTE.exe`) provides a desktop interface for settings and execution
 - **Responsibilities**:
-  1. Fetch 626 symbols from MongoDB, grouped by category
+  1. Fetch 620 symbols from MongoDB, grouped by category
   2. Pair into batches of 2 within the same category (category-aware pairing)
   3. For each batch: open TradingView → input symbols → create webhook alert (sequential, single browser)
   4. Periodically (every 2.5 min): refresh page, clear alert log, restart stopped alerts
@@ -236,7 +236,7 @@ The 4-symbol hard limit (more causes memory/runtime errors in TradingView) and t
 ### 3.3 TradingView Platform
 
 - **Subscription**: Premium (required for webhooks)
-- **~314 alerts**: All running simultaneously as server-side alerts
+- **~310 alerts**: All running simultaneously as server-side alerts
 - **Each alert**: Monitors 2 symbols via the V2 combo screener indicator
 - **Server-side execution**: Alerts continue running after browser is closed
 - **Alert snapshots**: When an alert is created, TradingView captures a snapshot of the indicator. Editing the script does NOT update existing alerts — they must be deleted and recreated.
@@ -275,9 +275,9 @@ The 4-symbol hard limit (more causes memory/runtime errors in TradingView) and t
   - `StockBuddyClient`: HTTP client for `GET /api/tte/snapshots/pending` and `POST /api/tte/snapshots/update`
   - `SnapshotWorker`: Orchestrates chart screenshots using existing browser automation
 - **TradingView layout**: "Snapshot" (separate from "Screener") with NWE + Trade Drawer v2 indicators. The maintenance loop switches to this layout at startup and stays on it for the entire session.
-- **Trade Drawer v2**: Pine Script indicator (`Pine Script Code/Trade Drawer.txt`, v6) that draws entry/SL/TP levels on the chart. Controlled via 4 input fields: entry_time, entry_price, sl, tp1.
+- **Trade Drawer v2**: Pine Script indicator (`Pine Script Code/Trade Drawer V2.txt`, v6) that draws NWE bands + entry/SL/TP levels on the chart. Controlled via 4 input fields: entry_time, entry_price, sl, tp1.
 - **Chart defaults**: Bar style `candle`, with "Bars to right" margin set to 60 via chart settings (applied once at startup, then refreshed every 24h).
-- **Dual-timer integration**: Runs every 60s in the maintenance loop. Maintenance (every 5 min) has priority — if both timers fire simultaneously, snapshots skip that tick.
+- **Dual-timer integration**: Runs every 60s in the maintenance loop. Maintenance (every 2.5 min) has priority — if both timers fire simultaneously, snapshots skip that tick.
 - **Snapshot method**: Alt+R (auto-fit/reset scale) → Alt+S (snapshot) → reads clipboard URL via `navigator.clipboard.readText()` (CDP clipboard permission granted for headless Chrome)
 - **Workflow per setup**: change_symbol → force_change_tframe → show legend → set Trade Drawer inputs → hide legend → Alt+R auto-fit → Alt+S snapshot → show legend → report URL
 - **Initialization**: `_set_bars_to_right()` sets the right margin (60 bars) via the chart settings dialog (Canvas tab → `paneRightMargin` input). Runs once at startup, then every 24 hours.
@@ -286,11 +286,11 @@ The 4-symbol hard limit (more causes memory/runtime errors in TradingView) and t
 
 ### 3.8 Trade Drawer Indicator (Pine Script)
 
-- **File**: `Pine Script Code/Trade Drawer.txt`
+- **File**: `Pine Script Code/Trade Drawer V2.txt`
 - **Version**: Pine Script v6
-- **Purpose**: Draws entry/SL/TP levels on chart for snapshot screenshots
-- **Inputs**: entry_time (Unix ms), entry_price, sl_price, tp1_price, tp2_price, tp3_price + 20 symbol inputs (for TTE to find the indicator)
-- **Drawing behavior**: Only draws on `barstate.islast` (avoids broken coordinates from bar 0). Deletes old drawings before redrawing.
+- **Purpose**: Self-contained indicator: NWE bands + entry/SL/TP trade levels on chart for snapshot screenshots
+- **Inputs**: entry_time (Unix seconds, converted to ms internally), entry_price, sl_price, tp1_price + symbol inputs (for TTE to find the indicator)
+- **Drawing behavior**: NWE bands via 7 plots + 4 fills; trade levels drawn on `barstate.islast` with 15-bar span. Deletes old drawings before redrawing.
 - **Colors**: Orange `#FF6D00` for SL zone, Blue `#2962FF` for TP zone (distinct from NWE's red/green)
 
 ---
@@ -301,8 +301,8 @@ The 4-symbol hard limit (more causes memory/runtime errors in TradingView) and t
 
 ```
 Step 1: TTE Orchestrator starts
-Step 2: Fetches 626 symbols from MongoDB, grouped by category
-Step 3: Divides into ~314 batches of 2 symbols (same category per batch)
+Step 2: Fetches 620 symbols from MongoDB, grouped by category
+Step 3: Divides into ~310 batches of 2 symbols (same category per batch)
 Step 4: For batch #1 (e.g., GBPAUD, AUDJPY — both currencies):
         a. Opens TradingView in headless Chrome via Selenium
         b. Loads the "Screener" layout (has TTE Screener V2 indicator)
@@ -315,8 +315,8 @@ Step 4: For batch #1 (e.g., GBPAUD, AUDJPY — both currencies):
         i. Enables webhook checkbox
         j. Enters webhook URL: https://stock-buddy-app.vercel.app/api/tte/combo
         k. Clicks Create
-Step 5: Repeats Step 4 for all ~314 batches (sequential, single browser)
-Step 6: All ~314 alerts are now live on TradingView's servers
+Step 5: Repeats Step 4 for all ~310 batches (sequential, single browser)
+Step 6: All ~310 alerts are now live on TradingView's servers
 ```
 
 ### Phase 2: Continuous Signal Flow
@@ -325,10 +325,10 @@ Step 6: All ~314 alerts are now live on TradingView's servers
 Step 1: TradingView server evaluates alert #47 (symbols: GBPAUD, AUDJPY)
 Step 2: V2 combo screener runs on 45-second bar close
         → GBPAUD: bullish NWE on 1H + bullish OB on H4 → new LTF setup detected
-        → AUDJPY: existing LTF buy position running (not new)
+        → AUDJPY: no conditions align this bar
 Step 3: Screener builds compact JSON payload:
-        - GBPAUD: nwe signals, ob signals, buy[0] = new LTF position (n:true), positions
-        - AUDJPY: buy[0] = running LTF position (n:false)
+        - GBPAUD: nwe signals, ob signals, buy[0] = LTF setup data (entry/SL/TP)
+        - AUDJPY: buy[0] = null (no conditions)
         - Stale symbols (timenow - symTime > 120000ms) excluded
 Step 4: alert() fires → TradingView sends POST to Stock Buddy webhook URL
 Step 5: Stock Buddy receives compact payload
@@ -336,7 +336,7 @@ Step 5: Stock Buddy receives compact payload
         b. Upserts signal + position state for each symbol
         c. Returns 200 OK
 Step 6: Frontend polls signals endpoint
-        → Shows positions, entry/SL/TP, NWE + OB signals per symbol
+        → Shows setups, entry/SL/TP, NWE + OB signals per symbol
 ```
 
 ### Phase 3: Maintenance (Every 2.5 min)
@@ -383,7 +383,7 @@ The same browser instance is shared — they never run concurrently.
 
 ## 5. TTE Combo Screener (Pine Script)
 
-> **V2 active** (`TTE Screener V2.txt`). Divergence removed. 2 symbols per alert. Position tracking in Pine Script.
+> **V2 active** (`TTE Screener V2.txt`). Divergence removed. 2 symbols per alert. Stateless setup detection; exit detection server-side.
 
 ### Signal Detection Logic (V2)
 
@@ -443,7 +443,7 @@ The same browser instance is shared — they never run concurrently.
 ```python
 # Pseudocode for the setup phase (V2)
 def setup_all_alerts():
-    batches, total = fetch_symbols_by_category(batch_size=2)  # ~314 batches of 2
+    batches, total = fetch_symbols_by_category(batch_size=2)  # ~310 batches of 2
 
     browser = Browser()  # Selenium Chrome
     browser.open_tradingview()
@@ -500,7 +500,7 @@ def run_maintenance(browser, config):
 | `combo_settings.yaml` | All combo mode settings (incl. snapshot config) |
 | `tte_gui.py` | GUI interface (also `dist/TTE.exe`) |
 | `tte/browser/tradingview.py` | Browser automation (Selenium) |
-| `Pine Script Code/Trade Drawer.txt` | Trade Drawer v6 indicator for chart snapshots |
+| `Pine Script Code/Trade Drawer V2.txt` | Trade Drawer V2 indicator (NWE bands + trade levels) for chart snapshots |
 
 ---
 
@@ -623,23 +623,23 @@ function calculateLevel(signal) {
 
 ## 9. Live Signal State Model
 
-> **V2**: Both symbols in an alert fire on every bar close. Stock Buddy receives positions + signals together.
+> **V2**: Both symbols in an alert fire on every bar close. Stock Buddy receives setup data + signals together.
 
 ### Decisions Made (V2)
 
 - **Payload**: Both alert symbols are included on every bar close (unless stale).
-- **Signal + position state**: NWE signals, OB signals, and active positions (buy/sell, LTF/HTF) all in one payload.
+- **Signal + setup state**: NWE signals, OB signals, and setup data (buy/sell, LTF/HTF) all in one payload.
 - **Divergence**: Removed. No longer tracked or sent.
-- **Signal disappearance**: State is overwritten on each webhook. If a position exits, it appears with exit info for one bar, then is cleared on the next bar.
+- **Stateless**: Setup slots computed fresh each bar. Stock Buddy handles dedup and exit detection.
 
 ### How State Flows (V2)
 
-When a webhook arrives, Stock Buddy upserts the signal + position state for each included symbol. The V2 payload provides complete position state on every bar — Stock Buddy does not need to calculate setups or exits.
+When a webhook arrives, Stock Buddy upserts the signal + setup state for each included symbol. The V2 payload provides stateless setup data on every bar — Stock Buddy handles dedup (DB partial unique index) and exit detection (cron every 5 min).
 
 ### Volume Estimate (V2 — 45-second timeframe)
 
 With `alert.freq_once_per_bar_close` at 45 seconds:
-- ~314 alerts × 2 bars/min × 60 min × market hours ≈ manageable volume
+- ~310 alerts × ~1.3 bars/min × 60 min × market hours ≈ manageable volume
 - Actual firing depends on when symbols are active vs stale
 - Well within Vercel Pro capacity
 
@@ -672,10 +672,10 @@ With `alert.freq_once_per_bar_close` at 45 seconds:
 
 ### Overview (V2)
 
-- **Total symbols**: 626 (expandable to ~800)
+- **Total symbols**: 620 (expandable to ~800)
 - **Batch size**: 2 symbols per alert (category-aware pairing)
-- **Total batches**: ~314 alerts
-- **Full coverage**: All 626 symbols covered by ~314 simultaneously running alerts
+- **Total batches**: ~310 alerts
+- **Full coverage**: All 620 symbols covered by ~310 simultaneously running alerts
 
 ### Symbol Categories (V2)
 
@@ -684,8 +684,8 @@ With `alert.freq_once_per_bar_close` at 45 seconds:
 | Currencies | 29 | 15 |
 | Crypto | 18 | 9 |
 | US Stocks | 376 | 188 |
-| Indian Stocks | 201 | 101 |
-| **Total** | **624** | **~313** |
+| Indian Stocks | 197 | 99 |
+| **Total** | **620** | **~310** |
 
 ### Category-Aware Pairing
 
@@ -693,7 +693,7 @@ Symbols are paired within the same asset class so that both symbols in an alert 
 
 ### Important Note
 
-"Rotation" in V2 means the initial setup phase. Once all ~314 alerts are created and running, they continuously monitor their 2 symbols. The setup must be re-run when:
+"Rotation" in V2 means the initial setup phase. Once all ~310 alerts are created and running, they continuously monitor their 2 symbols. The setup must be re-run when:
 1. **Script updates**: After editing the Pine Script indicator (alerts use a snapshot of the code at creation time)
 2. **Symbol list changes**: If symbols are added/removed from MongoDB
 3. **Fresh start**: Use `--fresh` flag to delete all alerts and recreate
@@ -730,7 +730,7 @@ Symbols are paired within the same asset class so that both symbols in an alert 
 
 ### Stale Data on Dashboard
 
-- **Problem**: If an alert stops and isn't restarted, its 3 symbols show stale data
+- **Problem**: If an alert stops and isn't restarted, its 2 symbols show stale data
 - **Mitigation**: Frontend checks `last_updated` timestamp and visually indicates staleness
 - **Threshold**: If `last_updated` > 60 seconds old, show as stale
 
@@ -749,7 +749,7 @@ Symbols are paired within the same asset class so that both symbols in an alert 
 
 With V2 `alert.freq_once_per_bar_close` at 45-second timeframe:
 - Alerts fire once per 45-second bar close
-- ~314 alerts × ~1,920 bars/day (45-second bars during 24h) = manageable volume
+- ~310 alerts × ~1,920 bars/day (45-second bars during 24h) = manageable volume
 - Active symbol filtering (staleness check) further reduces payload size
 - **Verdict**: Tested and confirmed working without capacity issues
 
@@ -761,7 +761,7 @@ With V2 `alert.freq_once_per_bar_close` at 45-second timeframe:
 |------------|-------|--------|
 | Symbols per batch | 2 (4 hard limit) | Category-aware pairing for matching market hours |
 | `request.security()` per indicator | 40 max (8 used) | 32 calls available for future expansion |
-| Total alerts needed | ~314 | One-time setup, single browser sequential |
+| Total alerts needed | ~310 | One-time setup, single browser sequential |
 | Alert snapshot behavior | Code frozen at creation time | Must delete & recreate after script edits |
 | Webhook payload size | ~500 bytes - 2 KB | Compact keys keep within TradingView limits |
 | Bar close delivery | Every 45-second bar close | Predictable, manageable webhook volume |
@@ -808,7 +808,7 @@ With V2 `alert.freq_once_per_bar_close` at 45-second timeframe:
   5. Clicks "Restart all inactive" button
   6. Confirms via the popup dialog ("Yes")
 - **Logging**: Each restart cycle logs whether inactive alerts were found and restarted
-- **Runs continuously**: The orchestrator's maintenance loop sleeps 5 minutes between checks (not cron-based)
+- **Runs continuously**: The orchestrator's maintenance loop sleeps 150 seconds (2.5 minutes) between checks (not cron-based)
 
 ### Q9 Detail: Single Browser Sequential Creation
 
@@ -816,7 +816,7 @@ With V2 `alert.freq_once_per_bar_close` at 45-second timeframe:
 - **Why not parallel**: Parallel tab approach was evaluated but abandoned — single browser is simpler, more reliable, and avoids TradingView session limit issues
 - **Workflow**:
   1. Open one headless Chrome instance with the "Screener" layout
-  2. For each of the 338 batches: input 3 symbols → create webhook alert → next batch
+  2. For each of the ~310 batches: input 2 symbols → create webhook alert → next batch
   3. Progress tracked in `combo_progress.json` for resume capability on interruption
 - **Headless mode**: Runs without visible browser window (`headless: true` in combo_settings.yaml)
 - **GUI**: `tte_gui.py` (or `dist/TTE.exe`) provides a desktop interface for configuration and execution

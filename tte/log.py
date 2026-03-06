@@ -4,9 +4,6 @@ This was done to avoid repetition of code.
 """
 
 import logging
-import os
-import threading
-import time
 
 
 def setup_logger(name, level=logging.INFO):
@@ -42,40 +39,3 @@ INFO = logging.INFO
 WARNING = logging.WARNING
 ERROR = logging.ERROR
 CRITICAL = logging.CRITICAL
-
-
-def trim_file(file_path, max_lines=1000):
-    """
-    Trims a file to a maximum number of lines, keeping the most recent entries.
-    Creates the file if it doesn't exist.
-    """
-    try:
-        # Create file if it doesn't exist
-        if not os.path.exists(file_path):
-            with open(file_path, "w", encoding="utf-8") as file:
-                file.write("")
-            return
-
-        # Read existing lines
-        with open(file_path, encoding="utf-8") as file:
-            lines = file.readlines()
-
-        if len(lines) > max_lines:
-            with open(file_path, "w", encoding="utf-8") as file:
-                file.writelines(lines[-max_lines:])
-    except Exception as e:
-        print(f"Error trimming file: {e}")
-
-
-def continuous_trim(file_path, interval=300):
-    """Continuously trims a file at specified intervals."""
-    while True:
-        trim_file(file_path)
-        time.sleep(interval)
-
-
-def start_continuous_trim(file_path, interval=300):
-    """Starts the continuous trimming in a separate thread."""
-    trim_thread = threading.Thread(target=continuous_trim, args=(file_path, interval), daemon=True)
-    trim_thread.start()
-    return trim_thread

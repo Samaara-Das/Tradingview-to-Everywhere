@@ -15,54 +15,6 @@ utils_logger = log.setup_logger(__name__, log.INFO)
 
 
 class Utils:
-    def is_log_tab_open(self, driver):
-        """
-        This checks if the Logs tab is open or not. If it is open, it returns True. If it is not open or an error occurs, it returns False.
-        """
-        try:
-            # make sure the the Alerts tab is currently open
-            alert_tab_selector = 'button[aria-controls="id_alert-widget-tabs-slots_tabpanel_log"]'
-
-            if (
-                WebDriverWait(driver, 5)
-                .until(EC.presence_of_element_located((By.CSS_SELECTOR, alert_tab_selector)))
-                .get_attribute("aria-selected")
-                == "true"
-            ):  # if the Alerts tab is already open
-                utils_logger.info("Logs tab is already open.")
-                return True
-            else:  # if the Alerts tab is not open, open it
-                utils_logger.info("Logs tab is closed.")
-                return False
-
-        except Exception:
-            utils_logger.exception("Error ocurred when opening the Alert tab. Error: ")
-            return False
-
-    def is_alert_tab_open(self, driver):
-        """
-        This checks if the Alerts tab is open or not. If it is open, it returns True. If it is not open or an error occurs, it returns False.
-        """
-        try:
-            # make sure the the Alerts tab is currently open
-            alert_tab_selector = 'button[aria-controls="id_alert-widget-tabs-slots_tabpanel_list"]'
-
-            if (
-                WebDriverWait(driver, 5)
-                .until(EC.presence_of_element_located((By.CSS_SELECTOR, alert_tab_selector)))
-                .get_attribute("aria-selected")
-                == "true"
-            ):  # if the Alerts tab is already open
-                utils_logger.info("Alerts tab is already open.")
-                return True
-            else:  # if the Alerts tab is not open, open it
-                utils_logger.info("Alerts tab is closed.")
-                return False
-
-        except Exception:
-            utils_logger.exception("Error ocurred when opening the Alert tab. Error: ")
-            return False
-
     def open_alert_tab(self, driver):
         """
         This makes sure that the Alert tab in the alerts sidebar is open. If it isn't, it opens the Alerts tab.
