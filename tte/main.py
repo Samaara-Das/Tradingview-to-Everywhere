@@ -102,11 +102,6 @@ def fetch_symbols_by_category(batch_size: int) -> tuple[list[list[str]], int]:
     return batches, total
 
 
-def chunk_symbols(symbols: list[str], size: int = 3) -> list[list[str]]:
-    """Split symbols into batches of `size`."""
-    return [symbols[i : i + size] for i in range(0, len(symbols), size)]
-
-
 # ---------------------------------------------------------------------------
 # Browser setup
 # ---------------------------------------------------------------------------

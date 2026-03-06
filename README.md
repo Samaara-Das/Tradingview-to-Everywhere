@@ -4,15 +4,15 @@ An automated trading signals distribution system that bridges TradingView alerts
 
 ## Overview
 
-TTE uses Selenium browser automation to create and maintain persistent webhook alerts on TradingView. A single combo screener indicator (NWE + OB/FVG + setup/exit tracking) monitors 626 symbols across ~314 alerts, sending signals and position state to Stock Buddy API on every 30-second bar close.
+TTE uses Selenium browser automation to create and maintain persistent webhook alerts on TradingView. A stateless combo screener indicator (NWE + OB/FVG setup detection) monitors 620 symbols across ~310 alerts, sending signals and setup data to Stock Buddy API on every 45-second bar close. Exit detection is handled server-side by a Stock Buddy cron job.
 
 ## Features
 
-- **Combo Mode V2**: Single-indicator webhook with ~314 persistent alerts monitoring 626 symbols
-- **Setup/Exit Tracking**: Pine Script detects NWE + OB/FVG alignment, tracks positions, and detects TP/SL exits
+- **Combo Mode V2**: Single-indicator webhook with ~310 persistent alerts monitoring 620 symbols
+- **Stateless Setup Detection**: Pine Script detects NWE + OB/FVG alignment; exit detection handled by Stock Buddy cron (every 5 min)
 - **Category-Aware Pairing**: Symbols paired within the same asset class (forex/crypto/stocks) for matching market hours
 - **Automated Browser Control**: Selenium-based TradingView automation (headless Chrome)
-- **Webhook Distribution**: Compact JSON payload fires to Stock Buddy API on every 30-second bar close
+- **Webhook Distribution**: Compact JSON payload fires to Stock Buddy API on every 45-second bar close
 - **Alert Maintenance**: Automatic restart of inactive alerts every 2.5 minutes
 - **GUI Interface**: Visual interface for configuration and monitoring (`TTE.exe` or `tte_gui.py`)
 - **Chart Snapshots**: Asynchronous chart screenshot worker for setup messages in Stock Buddy
@@ -112,7 +112,7 @@ All options are configured in `combo_settings.yaml`. The GUI provides a visual e
 
 Key settings:
 - `chart.layout_name` — TradingView layout name (default: `"Screener"`)
-- `chart.chart_timeframe` — Chart timeframe (default: `"30 seconds"`)
+- `chart.chart_timeframe` — Chart timeframe (default: `"45 seconds"`)
 - `chart.headless` — Run Chrome without visible window (default: `true`)
 - `alerts.batch_size` — Symbols per alert (default: `2`, hard limit: `4`)
 - `maintenance.interval` — Seconds between restart cycles (default: `150`)

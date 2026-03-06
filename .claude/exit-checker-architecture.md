@@ -1,7 +1,7 @@
 # Exit Checker Architecture Spec
 
 > **Date**: 2026-03-03
-> **Status**: Design — pending implementation
+> **Status**: Implemented (Pine Script stateless: PR #13, Stock Buddy cron: PR #64)
 > **Scope**: TTE Pine Script changes + Stock Buddy Vercel cron + API changes
 
 ---

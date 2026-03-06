@@ -843,9 +843,8 @@ class Browser:
                 open_tv_logger.error("Could not find condition dropdown with any known selector")
                 return False
 
-            # Get current label text from inside the dropdown
-            label_element = condition_dropdown.find_element(By.CSS_SELECTOR, ".label-LM2kIa9B")
-            current_label = label_element.text.strip()
+            # Get current label text from the dropdown button
+            current_label = condition_dropdown.text.strip()
             open_tv_logger.info(f"Condition dropdown currently shows: '{current_label}'")
 
             # Check if already showing the correct screener
@@ -1154,33 +1153,6 @@ class Browser:
                     )
         return None
 
-    def _reinitialize_screener_indicator(self, shorttitle):
-        """Re-initializes a screener indicator after it has been re-uploaded to avoid stale element errors.
-
-        Args:
-            shorttitle: The short title of the screener to re-initialize
-
-        Returns:
-            The re-initialized indicator element, or None if not found
-        """
-        if self.mode == "combo":
-            # Combo mode only has one screener (screener_ob_short)
-            if shorttitle == self.screener_ob_short:
-                self.screener_ob_indicator = self.get_indicator(self.screener_ob_short)
-                return self.screener_ob_indicator
-        else:
-            # Legacy/tiered modes have 3 screeners
-            if shorttitle == self.screener_ob_short:
-                self.screener_ob_indicator = self.get_indicator(self.screener_ob_short)
-                return self.screener_ob_indicator
-            elif shorttitle == self.screener_nw_short:
-                self.screener_nw_indicator = self.get_indicator(self.screener_nw_short)
-                return self.screener_nw_indicator
-            elif shorttitle == self.screener_sb_short:
-                self.screener_sb_indicator = self.get_indicator(self.screener_sb_short)
-                return self.screener_sb_indicator
-        return None
-
     def reupload_indicator(self, indicator, indicator_name, indicator_shorttitle):
         """removes indicator and reuploads it again to the chart by clicking on the screener in the Favorites dropdown. It then waits for the indicator to show up on the chart and returns `True` if it does otherwise `False`.
 
@@ -1241,7 +1213,7 @@ class Browser:
                         break
                     else:
                         # Scroll the element into view
-                        actions = ActionChains(menu).move_to_element(el)
+                        actions = ActionChains(self.driver).move_to_element(el)
                         actions.perform()
                         el.click()
                         break
