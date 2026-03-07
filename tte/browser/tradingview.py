@@ -19,9 +19,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
-from webdriver_manager.chrome import ChromeDriverManager
-from webdriver_manager.core.os_manager import PATTERN
-from webdriver_manager.core.utils import read_version_from_cmd
 
 from tte import log
 from tte.browser.chart import OpenChart
@@ -138,16 +135,7 @@ class Browser:
             chrome_options.add_argument(f"--remote-debugging-port={debug_port}")
             open_tv_logger.debug(f"Remote debugging port: {debug_port} (browser_id={browser_id})")
 
-        open_tv_logger.debug("Getting Chrome version...")
-        cmd = "powershell -command \"&{(Get-Item 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe').VersionInfo.ProductVersion}\""
-        version = read_version_from_cmd(cmd, PATTERN["google-chrome"])
-        open_tv_logger.debug(f"Chrome version: {version}")
-
-        open_tv_logger.debug("Installing/getting ChromeDriver...")
-        service = ChromeDriverManager(driver_version=version).install()
-        open_tv_logger.debug(f"ChromeDriver path: {service}")
-
-        open_tv_logger.debug("Creating Chrome webdriver...")
+        open_tv_logger.debug("Creating Chrome webdriver (Selenium built-in driver management)...")
         # Use unique ChromeDriver service port per browser to avoid collisions
         # port=0 means auto-assign (preserves legacy behavior when no chrome_profile)
         service_port = 9515 + browser_id if chrome_profile is not None else 0
@@ -156,7 +144,7 @@ class Browser:
                 f"ChromeDriver service port: {service_port} (browser_id={browser_id})"
             )
         self.driver = webdriver.Chrome(
-            service=ChromeService(service, port=service_port), options=chrome_options
+            service=ChromeService(port=service_port), options=chrome_options
         )
         open_tv_logger.debug("Chrome webdriver created successfully")
 
