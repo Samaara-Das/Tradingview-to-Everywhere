@@ -3,7 +3,9 @@ Browser automation for TradingView. Handles sign-in, layout/timeframe management
 screener indicator configuration, webhook alert creation, and indicator re-uploading.
 """
 
+import subprocess
 from os import getenv
+from pathlib import Path
 from time import sleep, time
 
 from selenium import webdriver
@@ -36,6 +38,77 @@ SCREENER_REUPLOAD_TIMEOUT = (
 )
 
 CHROME_PROFILES_PATH = getenv("CHROME_PROFILES_PATH")
+
+
+def _get_chrome_major_version() -> str | None:
+    """Get the major version of the installed Chrome browser (e.g. '145')."""
+    chrome_path = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
+    try:
+        result = subprocess.run(
+            [
+                "powershell",
+                "-NoProfile",
+                "-Command",
+                f"&{{(Get-Item '{chrome_path}').VersionInfo.ProductVersion}}",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        version = result.stdout.strip()
+        if version and "." in version:
+            return version.split(".")[0]
+    except Exception as e:
+        open_tv_logger.debug(f"Could not detect Chrome version: {e}")
+    return None
+
+
+def _find_chromedriver() -> str | None:
+    """Find a cached chromedriver, matching Chrome's major version if possible.
+
+    Fallback chain:
+    1. CHROMEDRIVER_PATH env var (explicit override)
+    2. ~/.wdm/drivers/chromedriver/win64/ cache (version-matched)
+    3. None (let Selenium auto-discover via SeleniumManager)
+    """
+    # 1. Explicit env var override
+    env_path = getenv("CHROMEDRIVER_PATH")
+    if env_path:
+        p = Path(env_path)
+        if p.is_file():
+            open_tv_logger.debug(f"Using CHROMEDRIVER_PATH env var: {p}")
+            return str(p)
+        open_tv_logger.warning(f"CHROMEDRIVER_PATH set but not found: {env_path}")
+
+    # 2. Scan webdriver-manager cache
+    wdm_cache = Path.home() / ".wdm" / "drivers" / "chromedriver" / "win64"
+    if not wdm_cache.is_dir():
+        return None
+
+    chrome_major = _get_chrome_major_version()
+    best_match = None
+
+    for version_dir in sorted(wdm_cache.iterdir(), reverse=True):
+        if not version_dir.is_dir():
+            continue
+        # Look for chromedriver.exe in any subdirectory
+        candidates = list(version_dir.rglob("chromedriver.exe"))
+        if not candidates:
+            continue
+        candidate = candidates[0]
+        # If we know Chrome's major version, prefer a matching driver
+        if chrome_major and version_dir.name.startswith(chrome_major + "."):
+            open_tv_logger.debug(f"Found version-matched chromedriver: {candidate}")
+            return str(candidate)
+        # Otherwise keep the newest as fallback
+        if best_match is None:
+            best_match = candidate
+
+    if best_match:
+        open_tv_logger.debug(f"Using best-available cached chromedriver: {best_match}")
+        return str(best_match)
+
+    return None
 
 
 # class
@@ -71,8 +144,6 @@ class Browser:
         open_tv_logger.debug(f"Chrome profile: {actual_profile}")
 
         # Kill Chrome processes that would conflict with our user-data-dir
-        import subprocess
-
         if browser_id == 0:
             # Combo mode (first browser only): kill Chrome processes using TTE user-data-dirs
             # This prevents profile lock conflicts without killing unrelated Chrome windows
@@ -135,7 +206,7 @@ class Browser:
             chrome_options.add_argument(f"--remote-debugging-port={debug_port}")
             open_tv_logger.debug(f"Remote debugging port: {debug_port} (browser_id={browser_id})")
 
-        open_tv_logger.debug("Creating Chrome webdriver (Selenium built-in driver management)...")
+        open_tv_logger.debug("Creating Chrome webdriver...")
         # Use unique ChromeDriver service port per browser to avoid collisions
         # port=0 means auto-assign (preserves legacy behavior when no chrome_profile)
         service_port = 9515 + browser_id if chrome_profile is not None else 0
@@ -143,9 +214,14 @@ class Browser:
             open_tv_logger.debug(
                 f"ChromeDriver service port: {service_port} (browser_id={browser_id})"
             )
-        self.driver = webdriver.Chrome(
-            service=ChromeService(port=service_port), options=chrome_options
-        )
+        chromedriver_path = _find_chromedriver()
+        if chromedriver_path:
+            open_tv_logger.info(f"Using cached chromedriver: {chromedriver_path}")
+            service = ChromeService(executable_path=chromedriver_path, port=service_port)
+        else:
+            open_tv_logger.info("No cached chromedriver found, using Selenium auto-discovery")
+            service = ChromeService(port=service_port)
+        self.driver = webdriver.Chrome(service=service, options=chrome_options)
         open_tv_logger.debug("Chrome webdriver created successfully")
 
         self.open_chart = OpenChart(self.driver)
