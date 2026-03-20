@@ -117,6 +117,10 @@ def create_browser(config: ComboConfig, args, layout_override: str = "") -> Brow
 
     layout = layout_override or config.layout_name
 
+    # Snapshot layout uses 1h/4h timeframes (set per-snapshot by the worker),
+    # not the 45-second screener timeframe which may not exist in the dropdown.
+    chart_timeframe = "1 hour" if layout_override else config.chart_timeframe
+
     browser = Browser(
         keep_open=True,
         screener_shorttitle=config.screener_shorttitle,
@@ -133,7 +137,7 @@ def create_browser(config: ComboConfig, args, layout_override: str = "") -> Brow
         screener_sb_name=config.screener_name,
         mode="combo",
         layout_name=layout,
-        chart_timeframe=config.chart_timeframe,
+        chart_timeframe=chart_timeframe,
         bar_style=config.bar_style,
         headless=config.headless,
     )
@@ -537,7 +541,7 @@ def run_maintenance(browser: Browser, config: ComboConfig):
         from tte.snapshot_worker import SnapshotWorker, StockBuddyClient
 
         client = StockBuddyClient(config)
-        snapshot_worker = SnapshotWorker(browser, config, client)
+        snapshot_worker = SnapshotWorker(browser, config, client, _shutdown_event)
         logger.info("Snapshot worker initialized")
 
         # Trigger backfill to queue old setups without snapshotStatus

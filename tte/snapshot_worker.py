@@ -9,6 +9,7 @@ Uses TradingView browser automation to:
 """
 
 import contextlib
+import threading
 from time import sleep, time
 
 import requests
@@ -118,11 +119,18 @@ class StockBuddyClient:
 class SnapshotWorker:
     """Orchestrates chart snapshot workflow using existing browser automation."""
 
-    def __init__(self, browser, config: ComboConfig, client: StockBuddyClient):
+    def __init__(
+        self,
+        browser,
+        config: ComboConfig,
+        client: StockBuddyClient,
+        shutdown_event: threading.Event | None = None,
+    ):
         self.browser = browser
         self.config = config
         self.client = client
         self._bars_right_last_set: float = 0
+        self._shutdown = shutdown_event
 
     def process_pending_snapshots(self) -> int:
         """Poll for pending snapshots, take them, report results.
@@ -158,6 +166,10 @@ class SnapshotWorker:
 
             completed = 0
             for setup in pending:
+                if self._shutdown and self._shutdown.is_set():
+                    logger.info("Shutdown requested — stopping snapshot processing")
+                    total_completed += completed
+                    return total_completed
                 try:
                     success = self._take_snapshot(setup)
                     if success:
