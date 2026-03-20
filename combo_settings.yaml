@@ -17,7 +17,7 @@ snapshot:
   enabled: true
   layout_name: Snapshot
   bar_style: candle
-  batch_size: 5
+  batch_size: 10
   poll_interval: 60
   bars_to_right: 60
 maintenance:
