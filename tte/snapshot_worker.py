@@ -239,7 +239,7 @@ class SnapshotWorker:
         self._dismiss_dialogs()
 
         setup_id = setup["setupMessageId"]
-        symbol = setup["symbol"]
+        symbol = setup.get("full_symbol", setup["symbol"])
         nwe_tf = setup.get("nweTf", "LTF")
         timeframe = TF_MAP.get(nwe_tf, "1 hour")
 
