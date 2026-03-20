@@ -532,17 +532,23 @@ def run_maintenance(browser: Browser, config: ComboConfig):
 
     # Initialize snapshot worker if enabled
     snapshot_worker = None
+    client = None
     if config.snapshot_enabled:
         from tte.snapshot_worker import SnapshotWorker, StockBuddyClient
 
         client = StockBuddyClient(config)
         snapshot_worker = SnapshotWorker(browser, config, client)
         logger.info("Snapshot worker initialized")
+
+        # Trigger backfill to queue old setups without snapshotStatus
+        client.trigger_backfill()
     else:
         logger.info("Snapshot worker disabled")
 
     last_maintenance = 0.0  # Force immediate first maintenance run
     last_snapshot = 0.0  # Force immediate first snapshot check
+    last_backfill = time()  # Just ran above; re-trigger every hour
+    backfill_interval = 3600  # 1 hour
 
     try:
         while not _shutdown_event.is_set():
@@ -572,20 +578,26 @@ def run_maintenance(browser: Browser, config: ComboConfig):
                     # Clear alert log
                     clear_alert_log(browser.driver)
 
+                    # Reset bars_to_right after refresh (refresh clears chart settings)
+                    if snapshot_worker:
+                        snapshot_worker._bars_right_last_set = 0
+
                 except Exception:
                     if _shutdown_event.is_set():
                         logger.debug("Maintenance interrupted by shutdown")
                     else:
                         logger.exception("Maintenance cycle failed, will retry next cycle:")
 
-            # --- Snapshot check (skipped if maintenance just ran this tick) ---
+            # --- Snapshot check (now runs after maintenance too) ---
             if (
                 snapshot_worker
                 and (now - last_snapshot >= snapshot_interval)
-                and not maintenance_due
                 and not _shutdown_event.is_set()
             ):
-                last_snapshot = now
+                # Brief stabilization wait after maintenance refresh
+                if maintenance_due and not _shutdown_event.is_set():
+                    _shutdown_event.wait(3)
+
                 try:
                     snapshot_worker.process_pending_snapshots()
                 except Exception:
@@ -593,6 +605,12 @@ def run_maintenance(browser: Browser, config: ComboConfig):
                         logger.debug("Snapshot cycle interrupted by shutdown")
                     else:
                         logger.exception("Snapshot cycle failed, will retry next cycle:")
+                last_snapshot = time()  # Set AFTER processing (not before)
+
+            # --- Periodic backfill (every hour) ---
+            if client and now - last_backfill >= backfill_interval:
+                last_backfill = now
+                client.trigger_backfill()
 
             # Interruptible sleep — returns immediately when shutdown is signaled
             _shutdown_event.wait(tick)

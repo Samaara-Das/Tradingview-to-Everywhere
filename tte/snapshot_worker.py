@@ -60,6 +60,30 @@ class StockBuddyClient:
             logger.error(f"Failed to fetch pending snapshots: {e}")
             return []
 
+    def trigger_backfill(self, days: int = 30) -> bool:
+        """Trigger backfill of old setups that lack snapshotStatus field.
+
+        POST {base_url}/snapshots/backfill
+        Queues them as "pending" so the worker can process them.
+        """
+        try:
+            resp = requests.post(
+                f"{self.base_url}/snapshots/backfill",
+                json={"days": days},
+                timeout=self.timeout,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            count = data.get("updated", 0)
+            if count:
+                logger.info(f"Backfill triggered: {count} setups queued for snapshots")
+            else:
+                logger.info("Backfill: no setups needed queuing")
+            return True
+        except requests.RequestException as e:
+            logger.error(f"Failed to trigger snapshot backfill: {e}")
+            return False
+
     def update_snapshot(
         self,
         setup_message_id: str,
@@ -103,48 +127,105 @@ class SnapshotWorker:
     def process_pending_snapshots(self) -> int:
         """Poll for pending snapshots, take them, report results.
 
-        Returns the number of snapshots successfully processed.
+        Processes up to 2 rounds of batch_size snapshots per cycle to clear
+        backlogs faster. Stops when a batch returns fewer than batch_size.
+
+        Returns the total number of snapshots successfully processed.
         """
-        pending = self.client.get_pending_snapshots(self.config.snapshot_batch_size)
-        if not pending:
-            return 0
+        max_rounds = 2
+        total_completed = 0
 
-        logger.info(f"Processing {len(pending)} pending snapshots")
+        for round_num in range(max_rounds):
+            pending = self.client.get_pending_snapshots(self.config.snapshot_batch_size)
+            if not pending:
+                break
 
-        # Already on Snapshot layout (set by run_maintenance at startup)
+            logger.info(
+                f"Processing {len(pending)} pending snapshots (round {round_num + 1}/{max_rounds})"
+            )
 
-        # Set "bars to right" margin (once at startup, then every 24h)
-        if time() - self._bars_right_last_set > 86400:
-            self._set_bars_to_right()
+            # One-time setup on first round only
+            if round_num == 0:
+                # Set "bars to right" margin (once at startup, then every 24h)
+                if time() - self._bars_right_last_set > 86400:
+                    self._set_bars_to_right()
 
-        # Set bar style for snapshots
-        self.browser.change_candles_type(self.config.snapshot_bar_style)
+                # Set bar style for snapshots
+                self.browser.change_candles_type(self.config.snapshot_bar_style)
 
-        # Ensure legend is visible (needed to double-click Trade Drawer for first setup)
-        self._show_legend()
+                # Ensure legend is visible (needed to double-click Trade Drawer)
+                self._show_legend()
 
-        completed = 0
-        for setup in pending:
+            completed = 0
+            for setup in pending:
+                try:
+                    success = self._take_snapshot(setup)
+                    if success:
+                        completed += 1
+                except Exception:
+                    logger.exception(
+                        f"Unexpected error processing snapshot for {setup.get('symbol', '?')}"
+                    )
+                    self.client.update_snapshot(setup["setupMessageId"], error="Unexpected error")
+                    # Clean up after failure to prevent cascading failures
+                    self._dismiss_dialogs()
+                    self._show_legend()
+
+            total_completed += completed
+            logger.info(f"Round {round_num + 1}: {completed}/{len(pending)} succeeded")
+
+            # If fewer than batch_size returned, no more pending — stop
+            if len(pending) < self.config.snapshot_batch_size:
+                break
+
+        if total_completed:
+            logger.info(f"Snapshot phase complete: {total_completed} total succeeded")
+        return total_completed
+
+    def _dismiss_dialogs(self):
+        """Close any leftover dialogs from a failed snapshot.
+
+        Checks for specific dialog types and clicks cancel/close. Falls back
+        to ESC only if a dialog is detected but has no cancel button.
+        Prevents cascading failures when one snapshot leaves a dialog open.
+        """
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.common.keys import Keys
+
+        driver = self.browser.driver
+        dialog_selectors = [
+            'div[data-name="indicator-properties-dialog"]',
+            'div[data-name="series-properties-dialog"]',
+        ]
+        for selector in dialog_selectors:
             try:
-                success = self._take_snapshot(setup)
-                if success:
-                    completed += 1
+                dialogs = driver.find_elements(By.CSS_SELECTOR, selector)
+                if not dialogs:
+                    continue
+                # Try clicking cancel button
+                cancel = dialogs[0].find_elements(By.CSS_SELECTOR, 'button[name="cancel"]')
+                if cancel:
+                    cancel[0].click()
+                    sleep(0.2)
+                    logger.info(f"Dismissed leftover dialog: {selector}")
+                    return
+                # Fallback: ESC (only if dialog was found but no cancel button)
+                dialogs[0].send_keys(Keys.ESCAPE)
+                sleep(0.2)
+                logger.info(f"Dismissed dialog via ESC: {selector}")
+                return
             except Exception:
-                logger.exception(
-                    f"Unexpected error processing snapshot for {setup.get('symbol', '?')}"
-                )
-                self.client.update_snapshot(setup["setupMessageId"], error="Unexpected error")
-
-        # No need to switch back to Screener — maintenance can run on any layout
-        # (alert restart + log clear work regardless of current layout)
-        logger.info(f"Snapshot phase complete: {completed}/{len(pending)} succeeded")
-        return completed
+                continue
 
     def _take_snapshot(self, setup: dict) -> bool:
         """Take a chart snapshot for a single setup.
 
-        Steps: change_symbol → change_tframe → change_indicator_settings → save_chart_img
+        Steps: dismiss_dialogs → change_symbol → change_tframe →
+               change_indicator_settings → save_chart_img
         """
+        # Dismiss any leftover dialogs from previous failed snapshot
+        self._dismiss_dialogs()
+
         setup_id = setup["setupMessageId"]
         symbol = setup["symbol"]
         nwe_tf = setup.get("nweTf", "LTF")
@@ -216,7 +297,7 @@ class SnapshotWorker:
             )
             if toggler.get_attribute("aria-label") == "Hide indicators legend":
                 toggler.click()
-                sleep(0.3)
+                sleep(0.1)
                 logger.info("Legend hidden")
             else:
                 logger.debug("Legend already hidden")
@@ -233,7 +314,7 @@ class SnapshotWorker:
             )
             if toggler.get_attribute("aria-label") == "Show indicators legend":
                 toggler.click()
-                sleep(0.3)
+                sleep(0.1)
                 logger.info("Legend shown")
             else:
                 logger.debug("Legend already visible")
@@ -250,9 +331,9 @@ class SnapshotWorker:
         try:
             chart = driver.find_element(By.CSS_SELECTOR, "div.chart-markup-table")
             ActionChains(driver).click(chart).perform()
-            sleep(0.3)
+            sleep(0.1)
             ActionChains(driver).key_down(Keys.ALT).send_keys("r").key_up(Keys.ALT).perform()
-            sleep(1)  # Wait for chart to re-render
+            sleep(0.7)  # Wait for chart to re-render
             logger.info("Chart auto-fit (Alt+R) applied")
         except Exception:
             logger.warning("Failed to auto-fit chart via Alt+R — continuing anyway")
@@ -272,7 +353,7 @@ class SnapshotWorker:
             # 1. Right-click chart area to open context menu
             chart = driver.find_element(By.CSS_SELECTOR, "div.chart-markup-table")
             ActionChains(driver).context_click(chart).perform()
-            sleep(0.5)
+            sleep(0.3)
 
             # 2. Wait for context menu
             WebDriverWait(driver, 5).until(
@@ -298,12 +379,12 @@ class SnapshotWorker:
                     (By.CSS_SELECTOR, 'div[data-name="series-properties-dialog"]')
                 )
             )
-            sleep(0.5)
+            sleep(0.3)
 
             # 5. Click "Canvas" tab
             canvas_tab = dialog.find_element(By.CSS_SELECTOR, 'button[data-name="canvas"]')
             canvas_tab.click()
-            sleep(0.5)
+            sleep(0.3)
 
             # 6. Find and fill "paneRightMargin" input
             margin_input = dialog.find_element(
@@ -414,7 +495,7 @@ class SnapshotWorker:
             # Click Inputs tab
             inputs_tab = settings.find_element(By.CSS_SELECTOR, 'button[id="inputs"]')
             inputs_tab.click()
-            sleep(0.5)
+            sleep(0.3)
 
             # Find the 6 numeric input fields using stable data-qa-id selector
             inputs = settings.find_elements(
@@ -505,7 +586,7 @@ class SnapshotWorker:
             # Click on the chart to make it active/focused
             chart = driver.find_element(By.CSS_SELECTOR, "div.chart-markup-table")
             ActionChains(driver).click(chart).perform()
-            sleep(0.5)
+            sleep(0.2)
 
             # Send Alt+S to take snapshot (copies link to clipboard)
             ActionChains(driver).key_down(Keys.ALT).send_keys("s").key_up(Keys.ALT).perform()
@@ -543,7 +624,7 @@ class SnapshotWorker:
                     return {"png": png_url, "tv": tv_url}
 
                 if attempt < 4:
-                    sleep(1)
+                    sleep(0.7)
 
             logger.error("Failed to get snapshot URL from clipboard after Alt+S")
             return {}

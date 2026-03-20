@@ -1,9 +1,9 @@
 # Task Context Tracker
 
-**Last Updated**: 2026-03-06
-**Current Task**: All TTE work complete. No pending tasks.
+**Last Updated**: 2026-03-07
+**Current Task**: All TTE work complete. TTE.exe running and working perfectly.
 **Active Branch**: `main`
-**Latest Commit (TTE)**: `cbd5481` — Chore: Fix bugs, remove dead code, sync docs (PR #16 squash-merged)
+**Latest Commit (TTE)**: PR #19 merged — Fix: Bypass SeleniumManager network calls with explicit chromedriver path
 **Latest Commit (Stock Buddy)**: PR #67 deployed — exit cron bug fixes (yahoo-finance2 v3, entry candle skip)
 
 ---
@@ -22,6 +22,8 @@
 | 8 | Fix snapshot Trade Drawer not rendering on chart | **done** (PR #14) |
 | 9 | Remove delisted EOSUSDT/EOSBTC from MongoDB | **done** (PR #15) |
 | 10 | Fix bugs, remove dead code, sync docs | **done** (PR #16) |
+| 11 | Remove webdriver-manager dependency | **done** (PR #17) |
+| 12 | Bypass SeleniumManager network calls with explicit chromedriver path | **done** (PR #19) |
 
 ### Exit Checker Implementation Status
 
@@ -36,86 +38,72 @@
 
 ## Session History
 
-### Session: 2026-03-06 (Codebase Audit & Cleanup — PR #16)
+### Session: 2026-03-07 (ChromeDriver Fix — PRs #17, #18/#19)
 
-**Goal**: Comprehensive audit of TTE for remaining bugs, dead code, and doc inaccuracies. Fix everything in one PR.
+**Goal**: Fix ChromeDriver initialization failures caused by SeleniumManager network errors after removing `webdriver-manager`.
 
 **Chronological flow**:
 
-1. **Ran 4 parallel audit agents**:
-   - TODO/FIXME scan → no active markers in production code
-   - Doc accuracy audit → found ~40 discrepancies across 5 doc files
-   - QA audit (Pyright, dead code, Selenium patterns) → found 2 bugs, 6 dead functions, fragile selectors
-   - Pending tasks scan → confirmed remaining items are user-side only
+1. **PR #17 (from previous session)**: Removed `webdriver-manager` dependency, switched to Selenium 4 built-in driver management. But SeleniumManager also failed with network errors (`code: 65, error decoding response body`).
 
-2. **Bug fixes** (2):
-   - `tte/browser/tradingview.py:1244`: `ActionChains(menu)` passed `WebElement` instead of `WebDriver` → fixed to `ActionChains(self.driver)`. Would crash on scroll fallback in `reupload_indicator()`.
-   - `tte/browser/tradingview.py:847`: Replaced fragile `.label-LM2kIa9B` hashed CSS selector with `condition_dropdown.text` in `_validate_alert_condition()`.
+2. **PR #19**: Added `_find_chromedriver()` + `_get_chrome_major_version()` helpers to `tte/browser/tradingview.py`:
+   - Fallback chain: `CHROMEDRIVER_PATH` env var → `~/.wdm` cache (version-matched to Chrome major version) → Selenium auto-discovery
+   - `_get_chrome_major_version()` runs local PowerShell to get Chrome version (no network)
+   - When explicit path found, passes `ChromeService(executable_path=...)` which skips SeleniumManager entirely
+   - Also moved `import subprocess` from local (inside `__init__`) to module-level, added `from pathlib import Path`
 
-3. **Dead code removal** (6 functions, 2 test files, ~160 lines):
-   - `chunk_symbols()` from `tte/main.py` — never called (replaced by `fetch_symbols_by_category()`)
-   - `_reinitialize_screener_indicator()` from `tradingview.py` — never called, would crash (references unset attributes)
-   - `is_log_tab_open()`, `is_alert_tab_open()` from `helpers.py` — never called
-   - `trim_file()`, `continuous_trim()`, `start_continuous_trim()` from `log.py` — never called
-   - Removed `threading`, `time`, `os` imports from `log.py` (only used by dead code)
-   - Deleted `tests/test_log.py` and `tests/test_main.py` (tested deleted functions)
+3. **Verification**:
+   - `--validate` passed
+   - `_find_chromedriver()` correctly found `~/.wdm/drivers/chromedriver/win64/145.0.7632.117/.../chromedriver.exe`
+   - Pre-commit hooks passed (ruff, pyright, ruff-format)
+   - `dist/TTE.exe` rebuilt successfully
 
-4. **Doc updates** (~40 corrections across 5 files):
-   - `README.md`: "30 seconds" → "45 seconds" (3 places), 626→620, "setup/exit tracking" → "stateless"
-   - `CLAUDE.md`: "all in Pine Script" → clarified exit detection is server-side
-   - `docs/combo/ARCHITECTURE.md`: Fixed ~25 stale references (626→620, ~314→~310, "position tracking in Pine Script" → stateless, Trade Drawer V1→V2 refs, maintenance "5 min" → "2.5 min", Q9 "338 batches of 3" → "~310 batches of 2")
-   - `docs/combo/PRD.md`: Fixed ~10 stale references (same patterns as above)
-   - `.claude/exit-checker-architecture.md`: Status "pending implementation" → "Implemented (PR #13, PR #64)"
+4. **PR workflow**: Branch created from `fix/remove-webdriver-manager` (PR #17). After merging #17, rebased onto main. PR #18 was auto-closed (base branch deleted), so created PR #19 which was squash-merged.
 
-5. **Cleanup**: Deleted `.claude/current-mission.md` (EOSUSDT mission completed)
+5. **TTE.exe confirmed working** — running perfectly in production.
 
-6. **Committed** `8c293d0`, pushed, PR #16 squash-merged → `cbd5481` on main. Pre-commit hooks passed (Pyright, ruff, ruff-format).
+### Session: 2026-03-06 (Codebase Audit & Cleanup — PR #16)
 
-**Known risks left as-is** (fragile hashed selectors, currently working):
-- `.text-yyMUOAN9` / `.layoutTitle-yyMUOAN9` in `change_layout()` (lines 369, 394, 409)
-- `.content-tBgV1m0B` in `_close_dropdown_by_clicking_settings()` (line 433)
-
----
+**Summary**: Comprehensive audit — 2 bug fixes (ActionChains wrong arg, fragile `.label-*` selector), 6 dead functions removed (~160 lines), ~40 doc corrections across 5 files.
 
 ### Session: 2026-03-05 (EOSUSDT/EOSBTC Removal — PR #15)
 
-**Summary**: Removed delisted EOS symbols from MongoDB (620 total, 18 Crypto). BCHUSDT needs `--setup-only --symbols BCHUSDT` to restore coverage.
+**Summary**: Removed delisted EOS symbols from MongoDB (620 total, 18 Crypto).
 
 ### Session: 2026-03-05 (Trade Drawer V2 Simplification — PR #14)
 
-**Summary**: Simplified Trade Drawer V2 to NWE bands + trade levels only (removed candle drawing & bar hiding). Fixed seconds→ms bug. TTE.exe rebuilt.
+**Summary**: Simplified Trade Drawer V2 to NWE bands + trade levels only. Fixed seconds-to-ms bug. TTE.exe rebuilt.
 
 ### Session: 2026-03-03 (Exit Checker Spec + Phase 3 — PR #13)
 
-**Summary**: Finalized exit checker architecture spec. Rewrote TTE Screener V2 to stateless (943→695 lines, removed 104 `var` declarations). Validated 622 symbols against APIs (removed 4 invalid Indian stocks).
+**Summary**: Finalized exit checker architecture spec. Rewrote TTE Screener V2 to stateless (943 to 695 lines, removed 104 `var` declarations). Validated 622 symbols against APIs (removed 4 invalid Indian stocks).
 
 ### Previous Sessions (Summary)
 - **2026-03-03**: PR #12 merged (signal detection guards), save_layout() fix, Task 1/2 debug
 - **2026-02-27**: V2 debug testing + cleanup, maintenance TimeoutException fix
 - **2026-02-26**: V2 implementation cycle (Pine Script + Python + PR), stale CSS selectors fix
 - **2026-02-23**: Snapshot quality + GUI defaults (PR #7)
-- **2026-02-20–21**: Chart snapshots feature (PR #6), Trade Drawer, dual-timer maintenance
+- **2026-02-20-21**: Chart snapshots feature (PR #6), Trade Drawer, dual-timer maintenance
 - **2026-02-13**: Codebase reorganization into `tte/` package (PR #4)
-- **2026-02-10–12**: Pine Script screener, maintenance loop, Stock Buddy combo API
+- **2026-02-10-12**: Pine Script screener, maintenance loop, Stock Buddy combo API
 
 ---
 
 ## Important Decisions Made
 
-### Cleanup PR #16 (2026-03-06)
-1. **Leave fragile hashed selectors as-is**: `.text-yyMUOAN9`, `.layoutTitle-yyMUOAN9`, `.content-tBgV1m0B` are risky to change without inspecting current TradingView HTML. They work today.
-2. **Use `condition_dropdown.text`** instead of finding child `.label-*` element — simpler and selector-agnostic.
+### ChromeDriver Fix (2026-03-07)
+1. **Bypass SeleniumManager with explicit path**: Pass `executable_path` to `ChromeService` when cached driver found — avoids all network calls.
+2. **Version matching**: Match chromedriver to Chrome's major version from `~/.wdm` cache. Fallback to newest available if no match.
+3. **Graceful degradation**: If no cached driver found, fall back to Selenium auto-discovery (works when network available).
 
-### Trade Drawer V2 (2026-03-05)
-1. **NWE bands + trade levels only**: No candle drawing, no bar hiding.
-2. **dateTime anchoring with ms conversion**: `startTime = dateTime > 0 ? dateTime * 1000 : time`.
-3. **15-bar trade level span**: `endTime = startTime + 15 * dt`.
+### Cleanup PR #16 (2026-03-06)
+1. **Leave fragile hashed selectors as-is**: `.text-yyMUOAN9`, `.layoutTitle-yyMUOAN9`, `.content-tBgV1m0B` are risky to change without inspecting current TradingView HTML.
+2. **Use `condition_dropdown.text`** instead of finding child `.label-*` element.
 
 ### Exit Checker Architecture (2026-03-03)
 1. **Decouple exit detection from TradingView**: Server-side cron (every 5 min).
 2. **Pine Script becomes stateless**: Only sends signals + setup data.
 3. **DB-level dedup**: Partial unique index on `{ symbol, dedupKey }` where `outcome: "running"`.
-4. **TP-first on same candle**: When both hit in same 5-min candle, TP wins.
 
 ### V2 Architecture (2026-02-26)
 1. **45-second chart** with `alert.freq_once_per_bar_close`.
@@ -141,6 +129,14 @@
 
 ## Verified Patterns
 
+### ChromeDriver Discovery
+```
+Env var override:  CHROMEDRIVER_PATH
+WDM cache path:    ~/.wdm/drivers/chromedriver/win64/<version>/chromedriver-win32/chromedriver.exe
+Chrome exe path:   C:\Program Files\Google\Chrome\Application\chrome.exe
+Current versions:  Chrome 145.0.7632.160, chromedriver 145.0.7632.117
+```
+
 ### Chart Settings Selectors
 ```
 Settings dialog:    div[data-name="series-properties-dialog"]
@@ -161,14 +157,14 @@ Settings dialog:   div[data-name="indicator-properties-dialog"]
 
 **WARNING**: Never use TradingView's dynamically generated class names. Always prefer `data-name` and `data-qa-id` selectors.
 
-### Symbol Mapping (TradingView → Price API)
+### Symbol Mapping (TradingView to Price API)
 | Category | API | Transform |
 |----------|-----|-----------|
 | Crypto | Binance | Direct (`BTCUSDT`) |
-| US Stocks | Yahoo | `.`/`/` → `-` (`BRK.A` → `BRK-A`) |
-| Indian Stocks | Yahoo | `_` → `-`, append `.NS` |
-| Currencies | Yahoo | Append `=X` (`EURUSD` → `EURUSD=X`) |
-| Commodities | Yahoo | `XAUUSD` → `GC=F`, `XAGUSD` → `SI=F` |
+| US Stocks | Yahoo | `.`/`/` to `-` (`BRK.A` to `BRK-A`) |
+| Indian Stocks | Yahoo | `_` to `-`, append `.NS` |
+| Currencies | Yahoo | Append `=X` (`EURUSD` to `EURUSD=X`) |
+| Commodities | Yahoo | `XAUUSD` to `GC=F`, `XAGUSD` to `SI=F` |
 
 ### MongoDB — 620 Symbols
 Categories: `Currencies` (29), `Crypto` (18), `US Stocks` (376), `Indian Stocks` (197)
