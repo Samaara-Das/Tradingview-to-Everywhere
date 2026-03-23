@@ -652,6 +652,12 @@ def parse_args():
         action="store_true",
         help="Validate configuration and exit",
     )
+    parser.add_argument(
+        "--symbols",
+        type=str,
+        default=None,
+        help="Comma-separated list of symbols to create alerts for (e.g., NSE:RELIANCE,BSE:ABBOTINDIA). Only these symbols will be batched and processed.",
+    )
     return parser.parse_args()
 
 
@@ -692,7 +698,17 @@ def main():
         return
 
     # --- Fetch symbols and create batches ---
-    batches, total = fetch_symbols_by_category(config.batch_size)
+    if args.symbols:
+        # Use explicit symbol list instead of fetching from MongoDB
+        symbol_list = [s.strip() for s in args.symbols.split(",") if s.strip()]
+        logger.info(f"Using --symbols filter: {len(symbol_list)} symbols")
+        batches = []
+        for i in range(0, len(symbol_list), config.batch_size):
+            batches.append(symbol_list[i : i + config.batch_size])
+        total = len(symbol_list)
+        logger.info(f"Total: {total} symbols in {len(batches)} batches of {config.batch_size}")
+    else:
+        batches, total = fetch_symbols_by_category(config.batch_size)
     if not batches:
         logger.error("No symbols fetched — cannot continue")
         sys.exit(1)

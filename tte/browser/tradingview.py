@@ -10,6 +10,7 @@ from time import sleep, time
 
 from selenium import webdriver
 from selenium.common.exceptions import (
+    ElementClickInterceptedException,
     StaleElementReferenceException,
     TimeoutException,
     WebDriverException,
@@ -556,8 +557,30 @@ class Browser:
                     continue
 
                 try:
-                    # Open its settings
-                    screener.click()
+                    # Open its settings (retry with overlay dismissal)
+                    for click_attempt in range(3):
+                        try:
+                            screener.click()
+                            break
+                        except ElementClickInterceptedException:
+                            open_tv_logger.warning(
+                                f"Overlay blocking screener click (attempt {click_attempt + 1}/3), dismissing..."
+                            )
+                            # Wait for overlay to disappear, then retry
+                            try:
+                                WebDriverWait(self.driver, 5).until(
+                                    EC.invisibility_of_element_located(
+                                        (By.CSS_SELECTOR, "div.screen-otjoFNF2.fade-otjoFNF2")
+                                    )
+                                )
+                            except TimeoutException:
+                                # Overlay didn't disappear — try ESC then JS click
+                                ActionChains(self.driver).send_keys(Keys.ESCAPE).perform()
+                                sleep(1)
+                            if click_attempt == 2:
+                                # Last resort: JS click bypasses overlays
+                                self.driver.execute_script("arguments[0].click();", screener)
+                                open_tv_logger.info("Used JS click to bypass overlay")
                     WebDriverWait(screener, 15).until(
                         EC.element_to_be_clickable(
                             (
