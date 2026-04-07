@@ -46,15 +46,15 @@ Stores symbol definitions and categories for the combo screener.
 | `category` | string | Symbol category | `"currencies"` |
 | `active` | boolean | Whether symbol is active | `true` |
 
-##### Categories
+##### Categories (V2 Production)
 
-| Category | Typical Count |
-|----------|---------------|
-| `currencies` | ~30 |
-| `us_stocks` | ~719 |
-| `indian_stocks` | ~268 |
-| `crypto` | ~19 |
-| `indices` | ~18 |
+| Category | Count |
+|----------|-------|
+| `currencies` | 29 |
+| `us_stocks` | 376 |
+| `indian_stocks` | 197 |
+| `crypto` | 18 |
+| **Total** | **620** |
 
 ---
 
@@ -388,13 +388,13 @@ Stock Buddy database is accessed via API. See [API.md](API.md) for complete endp
 
 ```bash
 # Get Level 3 signals
-curl "https://stock-buddy-app.vercel.app/api/tte/signals?level=3&limit=20"
+curl "https://stockbuddy.co/api/tte/signals?level=3&limit=20"
 
 # Get bullish signals from last 48 hours
-curl "https://stock-buddy-app.vercel.app/api/tte/signals?direction=bullish&from=1705226400"
+curl "https://stockbuddy.co/api/tte/signals?direction=bullish&from=1705226400"
 
 # Get signals pending screenshots
-curl "https://stock-buddy-app.vercel.app/api/tte/signals?status=pending_screenshot"
+curl "https://stockbuddy.co/api/tte/signals?status=pending_screenshot"
 ```
 
 ---

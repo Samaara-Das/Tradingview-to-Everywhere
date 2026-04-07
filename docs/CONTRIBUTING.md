@@ -35,8 +35,8 @@ class Browser:
     pass
 
 # Use UPPER_SNAKE_CASE for constants
-BATCH_SIZE = 3
-CHART_TIMEFRAME = "1 minute"
+BATCH_SIZE = 2
+CHART_TIMEFRAME = "45 seconds"
 ```
 
 ### Naming Guidelines
@@ -346,6 +346,9 @@ git push origin feature/my-feature
 - `CLAUDE.md` - Project overview and instructions
 - `docs/combo/PRD.md` - Combo mode specification
 - `docs/combo/ARCHITECTURE.md` - Combo mode system design
+- `tte/browser/tradingview.py` - Browser automation (largest file, ~1400 lines)
+- `tte/browser/chart.py` - Chart navigation (timeframe, symbol, snapshots)
+- `tte/snapshot_worker.py` - Chart snapshot polling and orchestration
 
 ---
 

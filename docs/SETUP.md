@@ -167,7 +167,7 @@ MONGODB_PWD=your_mongodb_password
 MONGODB_DATABASE=tte
 
 # Combo Webhook
-COMBO_WEBHOOK_URL=https://stock-buddy-app.vercel.app/api/tte/combo
+COMBO_WEBHOOK_URL=https://stockbuddy.co/api/tte/combo
 ```
 
 ---

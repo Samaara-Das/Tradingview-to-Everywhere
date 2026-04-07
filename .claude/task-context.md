@@ -1,9 +1,9 @@
 # Task Context Tracker
 
-**Last Updated**: 2026-04-07 (continued session)
-**Current Task**: Run `--fresh` via TTE.exe to recreate all 340 alerts (Task 25 — unblocked)
-**Active Branch**: `main` (uncommitted changes in `tte/browser/chart.py`, `tte/browser/tradingview.py`, `tte/main.py`)
-**Latest Commit**: `c0d7695` — Merge pull request #23
+**Last Updated**: 2026-04-07
+**Current Task**: Run `--fresh` via TTE.exe to recreate all ~340 alerts (Task 25 — unblocked)
+**Active Branch**: `main` (clean — all changes committed and merged via PRs #23, #24)
+**Latest Commit**: `7f344ab` — Merge pull request #24 (TradingView UI redesign fixes)
 
 ---
 

@@ -59,9 +59,7 @@ class ComboConfig:
     progress_file: str = _yaml.get("progress", {}).get("file", "combo_progress.json")
 
     # Stock Buddy API
-    api_base_url: str = os.getenv(
-        "STOCK_BUDDY_API_URL", "https://stock-buddy-app.vercel.app/api/tte"
-    )
+    api_base_url: str = os.getenv("STOCK_BUDDY_API_URL", "https://stockbuddy.co/api/tte")
     api_timeout: int = int(os.getenv("API_TIMEOUT", "30"))
 
     # Snapshot worker

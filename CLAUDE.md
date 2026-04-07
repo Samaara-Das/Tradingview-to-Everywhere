@@ -32,6 +32,7 @@ python combo_main.py --setup-only         # Create alerts, then exit
 python combo_main.py --maintain-only      # Skip setup, run maintenance only
 python combo_main.py --fresh              # Delete all existing alerts before setup
 python combo_main.py --validate           # Validate config and exit
+python combo_main.py --symbols EURUSD,GBPUSD  # Test with specific symbols only
 python tte_gui.py                         # GUI interface
 ```
 
@@ -41,17 +42,20 @@ python tte_gui.py                         # GUI interface
 - `tte/main.py` — Entry point (orchestrator)
 - `tte/config.py` — Configuration loader + PROFILE constant
 - `tte/log.py` — Logger setup (named `log` to avoid shadowing stdlib `logging`)
+- `tte/snapshot_worker.py` — Chart snapshot polling & browser orchestration
 - `tte/browser/tradingview.py` — TradingView browser automation (Selenium)
-- `tte/browser/chart.py` — Chart navigation & snapshots
+- `tte/browser/chart.py` — Chart navigation (timeframe collapsible sections, symbol search)
 - `tte/browser/helpers.py` — Selenium utility functions
 - `tte/data/symbols.py` — MongoDB symbol fetching
 
 ### Browser Automation (`tte/browser/tradingview.py`)
 - Manages all Selenium interactions with TradingView
 - Key pattern: `_safe_indicator_access()` handles stale elements with retry logic
-- `create_webhook_alert()` creates alerts with webhook notification
+- `create_webhook_alert()` creates alerts via two-dialog flow (main dialog + webhook notifications sub-dialog)
 - `reupload_indicator()` recovers from screener errors
 - `change_settings()` fills in symbol inputs for the screener
+- `change_layout()` switches layouts via scoped XPath + href navigation for non-current layouts
+- `_validate_alert_condition()` validates the condition dropdown shows the screener (not "Price")
 
 ### Settings (`combo_settings.yaml`)
 All combo mode options are configured in `combo_settings.yaml`. Secrets (webhook URL) are in `.env`.
@@ -68,7 +72,7 @@ All combo mode options are configured in `combo_settings.yaml`. Secrets (webhook
 | Snapshot enabled | `snapshot.enabled` | true | Enable chart snapshot worker |
 | Snapshot layout | `snapshot.layout_name` | "Snapshot" | TradingView layout for snapshots |
 | Snapshot bar style | `snapshot.bar_style` | "candle" | Bar style for snapshot charts |
-| Snapshot batch size | `snapshot.batch_size` | 5 | Pending snapshots per poll |
+| Snapshot batch size | `snapshot.batch_size` | 10 | Pending snapshots per poll |
 | Snapshot poll interval | `snapshot.poll_interval` | 60 | Seconds between snapshot polls |
 | Snapshot bars right | `snapshot.bars_to_right` | 60 | Right margin bars for chart framing |
 
@@ -86,17 +90,21 @@ See `tte/config.py` and `.env` file. Key variables: `CHROME_PROFILES_PATH`, `TRA
 1. **Reuse existing code**: Check before implementing — patterns for alerts, tabs, indicators already exist
 2. **Always log**: Use `logger.info/debug/error()` in every significant code block
 3. **Test `tte/browser/tradingview.py` changes carefully**: Browser automation is fragile; verify with a real browser
-4. **Document mistakes**: Write learnings to `AGENTS.md` to prevent repetition
+4. **TradingView UI changes frequently**: Always use `data-qa-id` selectors (stable) over dynamic class names
 
 ## Key Code Locations
 
 | What | Where | Use Case |
 |------|-------|----------|
 | Restart inactive alerts | `tte/main.py` `restart_inactive_alerts()` | Maintenance (every 2.5 mins) |
-| Create webhook alert | `tte/browser/tradingview.py` `create_webhook_alert()` | Alert creation |
+| Create webhook alert | `tte/browser/tradingview.py` `create_webhook_alert()` | Alert creation (two-dialog flow) |
 | Change screener settings | `tte/browser/tradingview.py` `change_settings()` | Symbol configuration |
 | Safe element access | `tte/browser/tradingview.py` `_safe_indicator_access()` | When Selenium elements go stale |
 | Re-upload indicator | `tte/browser/tradingview.py` `reupload_indicator()` | Screener error recovery |
+| Change timeframe | `tte/browser/chart.py` `change_tframe()` | Timeframe with collapsible section support |
+| Switch layout | `tte/browser/tradingview.py` `change_layout()` | Layout switch via href navigation |
+| Chart snapshots | `tte/snapshot_worker.py` `SnapshotWorker` | Async chart screenshots for setups |
+| Auto-retry failed batches | `tte/main.py` `run_alert_creation()` | Retry once after initial failures |
 
 ## Documentation
 

@@ -313,7 +313,7 @@ Step 4: For batch #1 (e.g., GBPAUD, AUDJPY — both currencies):
         g. Selects "Any alert() function call" as condition
         h. Goes to Notifications tab
         i. Enables webhook checkbox
-        j. Enters webhook URL: https://stock-buddy-app.vercel.app/api/tte/combo
+        j. Enters webhook URL: https://stockbuddy.co/api/tte/combo
         k. Clicks Create
 Step 5: Repeats Step 4 for all ~310 batches (sequential, single browser)
 Step 6: All ~310 alerts are now live on TradingView's servers
@@ -459,7 +459,7 @@ def setup_all_alerts():
         # Create webhook alert
         browser.click_indicator()  # Select it
         browser.create_webhook_alert(
-            webhook_url="https://stock-buddy-app.vercel.app/api/tte/combo",
+            webhook_url="https://stockbuddy.co/api/tte/combo",
             condition="Any alert() function call"
         )
 
@@ -544,7 +544,7 @@ def run_maintenance(browser, config):
 ### Webhook URL
 
 ```
-https://stock-buddy-app.vercel.app/api/tte/combo
+https://stockbuddy.co/api/tte/combo
 ```
 
 ### JSON Payload Structure (V2 Compact Format)
@@ -794,12 +794,12 @@ With V2 `alert.freq_once_per_bar_close` at 45-second timeframe:
 | # | Question | Decision |
 |---|----------|----------|
 | Q5 | Alert maintenance frequency | **Every 2.5 minutes (150s)** in V2. Orchestrator runs continuously and calls `restart_inactive_alerts()` on each cycle. This method opens the TradingView alerts settings menu → selects "All" → clicks "Restart all inactive" → confirms. Logs each restart event. |
-| Q9 | Alert creation approach | **Single browser, sequential**. Each batch of 3 symbols is processed one at a time in a single headless Chrome instance. Parallel tab approach was evaluated but abandoned in favor of simplicity and reliability. |
+| Q9 | Alert creation approach | **Single browser, sequential**. Each batch of 2 symbols is processed one at a time in a single headless Chrome instance. Parallel tab approach was evaluated but abandoned in favor of simplicity and reliability. |
 
 ### Q5 Detail: Alert Maintenance
 
 - **Frequency**: Every 2.5 minutes / 150s (configurable via `maintenance.interval` in `combo_settings.yaml`)
-- **Method**: Reuse `restart_inactive_alerts()` from `handle_alerts.py` (lines 240-303)
+- **Method**: `restart_inactive_alerts()` in `tte/main.py`
 - **How it works**:
   1. Opens the Alerts tab via `open_alert_tab()`
   2. Clicks the 3-dot settings button (`alerts-settings-button`)
@@ -816,7 +816,7 @@ With V2 `alert.freq_once_per_bar_close` at 45-second timeframe:
 - **Why not parallel**: Parallel tab approach was evaluated but abandoned — single browser is simpler, more reliable, and avoids TradingView session limit issues
 - **Workflow**:
   1. Open one headless Chrome instance with the "Screener" layout
-  2. For each of the ~310 batches: input 2 symbols → create webhook alert → next batch
+  2. For each of the ~310 batches: input 2 symbols → create webhook alert → next batch (with auto-retry of failed batches)
   3. Progress tracked in `combo_progress.json` for resume capability on interruption
 - **Headless mode**: Runs without visible browser window (`headless: true` in combo_settings.yaml)
 - **GUI**: `tte_gui.py` (or `dist/TTE.exe`) provides a desktop interface for configuration and execution

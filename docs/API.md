@@ -6,7 +6,9 @@ Stock Buddy API reference and webhook documentation for TTE.
 
 The Stock Buddy API manages signal storage, symbol data, and combo mode live signals. TTE sends webhook payloads to Stock Buddy when TradingView alerts fire.
 
-**Base URL**: `https://stock-buddy-app.vercel.app/api/tte`
+**Base URL**: `https://stockbuddy.co/api/tte`
+
+> **Note**: The base URL was migrated from `stock-buddy-app.vercel.app` to the custom domain `stockbuddy.co` in April 2026.
 
 ---
 
@@ -628,24 +630,74 @@ Query live combo signals with pagination and filtering.
 
 ### Snapshot Endpoints
 
-Used by the TTE snapshot worker to manage chart screenshot requests.
+Used by the TTE snapshot worker (`tte/snapshot_worker.py`) to manage chart screenshot requests.
 
-**GET /api/tte/snapshots/pending** — Poll for setups needing screenshots
-**POST /api/tte/snapshots/update** — Report completed snapshot URLs back to Stock Buddy
+#### GET /api/tte/snapshots/pending — Poll for Pending Snapshots
+
+**Query Parameters**:
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `limit` | integer | 5 | Max snapshots to return per poll |
+
+**Response**:
+```json
+{
+  "success": true,
+  "snapshots": [
+    {
+      "setupMessageId": "abc123",
+      "symbol": "GBPCAD",
+      "full_symbol": "FX:GBPCAD",
+      "nweTf": "LTF",
+      "entryPrice": 1.825,
+      "stopLoss": 1.820,
+      "takeProfit": 1.835,
+      "alertTimestamp": 1707264000000
+    }
+  ]
+}
+```
+
+#### POST /api/tte/snapshots/update — Report Completed Snapshot
+
+**Request Body**:
+```json
+{
+  "setupMessageId": "abc123",
+  "snapshotUrl": "https://s3.tradingview.com/snapshots/a/a1b2c3d4.png",
+  "snapshotTvUrl": "https://www.tradingview.com/x/a1b2c3d4/"
+}
+```
+
+**Error Body** (when snapshot fails):
+```json
+{
+  "setupMessageId": "abc123",
+  "error": "Failed to take snapshot: element not found"
+}
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "updated": true
+}
+```
 
 ### Testing Combo Endpoints
 
 ```bash
 # Test combo V2 webhook
-curl -X POST https://stock-buddy-app.vercel.app/api/tte/combo \
+curl -X POST https://stockbuddy.co/api/tte/combo \
   -H "Content-Type: application/json" \
   -d '{"ts":1707264000000,"s":[{"sym":"EURUSD","c":1.085,"nwe":[],"ob":[],"b":[null,null],"se":[null,null]}]}'
 
 # Query combo signals
-curl "https://stock-buddy-app.vercel.app/api/tte/combo/signals?limit=10"
+curl "https://stockbuddy.co/api/tte/combo/signals?limit=10"
 
 # Filter by signal type
-curl "https://stock-buddy-app.vercel.app/api/tte/combo/signals?signalType=nwe&direction=bullish"
+curl "https://stockbuddy.co/api/tte/combo/signals?signalType=nwe&direction=bullish"
 ```
 
 ---
@@ -748,25 +800,25 @@ TTE's combo mode uses persistent alerts that fire continuously, so rate limiting
 
 ```bash
 # Health check
-curl https://stock-buddy-app.vercel.app/api/health
+curl https://stockbuddy.co/api/health
 
 # Get stats
-curl https://stock-buddy-app.vercel.app/api/tte/stats
+curl https://stockbuddy.co/api/tte/stats
 
 # Get init status
-curl https://stock-buddy-app.vercel.app/api/tte/init
+curl https://stockbuddy.co/api/tte/init
 
 # Get next batch
-curl "https://stock-buddy-app.vercel.app/api/tte/symbols/next-batch?size=20"
+curl "https://stockbuddy.co/api/tte/symbols/next-batch?size=20"
 
 # Get hot symbols
-curl "https://stock-buddy-app.vercel.app/api/tte/hot-symbols?limit=8"
+curl "https://stockbuddy.co/api/tte/hot-symbols?limit=8"
 
 # Get signals
-curl "https://stock-buddy-app.vercel.app/api/tte/signals?limit=10&level=3"
+curl "https://stockbuddy.co/api/tte/signals?limit=10&level=3"
 
 # Test NWE webhook (batch format)
-curl -X POST https://stock-buddy-app.vercel.app/api/tte/nwe \
+curl -X POST https://stockbuddy.co/api/tte/nwe \
   -H "Content-Type: application/json" \
   -d '{"tier":"nwe","symbols":[{"symbol":"EURUSD","direction":"bullish","timeframes":["5m"]}],"timestamp":1705312800,"count":1}'
 ```

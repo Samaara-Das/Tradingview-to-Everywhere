@@ -65,9 +65,9 @@ Common issues and solutions for TTE.
 2. Delete cached ChromeDriver:
    ```bash
    # Windows - find and delete
-   del %USERPROFILE%\.wdm\drivers\chromedriver\*
+   del %USERPROFILE%\.wdm\drivers\chromedriver\win64\*
    ```
-3. TTE uses webdriver-manager which should auto-download matching version
+3. TTE uses Selenium 4's built-in driver management (`_find_chromedriver()` in `tradingview.py`) which checks `~/.wdm/drivers/chromedriver/` for cached drivers and falls back to Selenium's auto-discovery
 4. Restart TTE
 
 ---
@@ -118,14 +118,17 @@ Common issues and solutions for TTE.
 **Symptoms**:
 - Error: `Cannot change layout to <name>`
 - Wrong layout active after switch
+- New tab opens instead of switching layout
 
-**Cause**: Layout doesn't exist or timing issue.
+**Cause**: Layout doesn't exist, timing issue, or TradingView UI changed.
 
 **Solutions**:
 1. Verify layout exists with exact name matching `chart.layout_name` in `combo_settings.yaml`
 2. Names are case-sensitive
 3. Save layouts in TradingView before running TTE
 4. Check if layout dropdown is accessible
+5. Non-current layouts in TradingView's dropdown are `<a target="_blank">` links — TTE navigates via `driver.get(href)` instead of clicking (since clicking opens a new tab). If this fails, the layout item XPath selector may need updating.
+6. Layout items use `data-qa-id="save-load-menu-item-recent"` — the XPath is scoped to these items only
 
 ---
 
@@ -134,12 +137,42 @@ Common issues and solutions for TTE.
 **Symptoms**:
 - Error: `Cannot change timeframe`
 - Chart shows wrong timeframe
+- Timeframe item not found in dropdown
+
+**Cause**: TradingView's timeframe dropdown uses collapsible sections (Ticks/Seconds/Minutes/Hours/Days/Ranges). The target section must be expanded before clicking the item.
 
 **Solutions**:
 1. Valid timeframe values include:
-   - `"1 minute"`, `"5 minutes"`, `"15 minutes"`, `"1 hour"`, `"4 hours"`, `"1 day"`
+   - `"45 seconds"`, `"1 minute"`, `"5 minutes"`, `"15 minutes"`, `"1 hour"`, `"4 hours"`, `"1 day"`
 2. Ensure timeframe button is visible and clickable
 3. Check for popup dialogs blocking interaction
+4. TTE auto-expands the correct section (e.g., "Seconds" for "45 seconds") via `_expand_timeframe_section()` in `chart.py`
+5. If a section is collapsed (`aria-expanded="false"`), items inside it have `aria-hidden="true"` and won't be found
+
+---
+
+### Alert Creation Hangs / Webhook Tab Not Found
+
+**Symptoms**:
+- Alert creation hangs indefinitely
+- Error: `alert-dialog-tabs__notifications` not found
+- Webhook checkbox not found
+
+**Cause**: TradingView redesigned the alert dialog (2026-04). The old tabbed layout (Settings tab + Notifications tab) was replaced with a main dialog + a separate notifications sub-dialog accessed via a "Webhook >" button.
+
+**Solutions**:
+1. TTE uses the new two-dialog flow:
+   - Click `button[data-qa-id="alert-notifications-button"]` to open notifications sub-dialog
+   - Wait for `div[data-qa-id="alerts-notifications-edit-dialog"]`
+   - Configure webhook in sub-dialog, click Apply
+   - Return to main dialog, click Create
+2. If selectors have changed again, inspect the alert dialog in Chrome DevTools
+3. Key selectors (verified 2026-04-07):
+   - Main dialog: `div[data-qa-id="alerts-create-edit-dialog"]`
+   - Webhook button: `button[data-qa-id="alert-notifications-button"]`
+   - Notifications sub-dialog: `div[data-qa-id="alerts-notifications-edit-dialog"]`
+   - Webhook checkbox: `label[data-qa-id="webhook"] input[type="checkbox"]`
+   - Webhook URL input: `input#webhook-url`
 
 ---
 
@@ -152,7 +185,7 @@ Common issues and solutions for TTE.
 - `tte_live_signals` collection empty
 
 **Solutions**:
-1. Verify webhook URL: `https://stock-buddy-app.vercel.app/api/tte/combo`
+1. Verify webhook URL: `https://stockbuddy.co/api/tte/combo`
 2. Check `COMBO_WEBHOOK_URL` in `.env`
 3. Test webhook manually with curl (see API.md)
 4. Check Vercel function logs for errors

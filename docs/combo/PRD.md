@@ -130,7 +130,7 @@ snapshot:
   enabled: true
   layout_name: "Snapshot"
   bar_style: "candle"
-  batch_size: 5
+  batch_size: 10
   poll_interval: 60
   bars_to_right: 60
 
@@ -188,6 +188,7 @@ python combo_main.py --setup-only     # Create alerts, then exit
 python combo_main.py --maintain-only  # Skip setup, run maintenance only
 python combo_main.py --fresh          # Delete all existing alerts before setup
 python combo_main.py --validate       # Validate config and exit
+python combo_main.py --symbols EURUSD,GBPUSD  # Test specific symbols only
 python tte_gui.py                     # GUI interface
 ```
 
@@ -227,13 +228,23 @@ python tte_gui.py                     # GUI interface
 | Snapshot worker | Chart screenshot system for setup messages in Stock Buddy |
 | GUI snapshot settings | Snapshot config exposed in GUI settings card |
 
+### Post-V2 Milestones (Completed Mar-Apr 2026)
+| Enhancement | Description |
+|------------|-------------|
+| Failed batch retry | Auto-retry failed alert creation batches once after initial setup |
+| `--symbols` CLI flag | Test with specific symbols without full MongoDB fetch |
+| Overlay retry in change_settings | Handles overlay popups during screener settings changes |
+| delete_all_alerts text matching | XPath text-based matching instead of index-based dropdown selection |
+| TradingView UI redesign adaptation | Alert dialog two-step flow, timeframe collapsible sections, layout href navigation |
+| Selenium 4 built-in drivers | Removed webdriver-manager, uses Selenium 4's driver management |
+| Snapshot pipeline fixes | Backfill, dialog cleanup, throughput improvements |
+
 ---
 
 ## 9. Future Enhancements
 
 | Enhancement | Description |
 |------------|-------------|
-| Failed batch retry | Automatic retry for failed alert creation batches |
 | Symbol expansion | Expand from 620 to ~800 symbols (architecture supports up to 400 alerts) |
 
 ---

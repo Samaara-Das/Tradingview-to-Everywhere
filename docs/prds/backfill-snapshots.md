@@ -228,7 +228,7 @@ No additional UI or endpoint is required to surface failures — the existing UI
 
 ```bash
 # Production
-curl -X POST https://stock-buddy-app.vercel.app/api/tte/snapshots/backfill
+curl -X POST https://stockbuddy.co/api/tte/snapshots/backfill
 
 # Local dev
 curl -X POST http://localhost:3000/api/tte/snapshots/backfill
