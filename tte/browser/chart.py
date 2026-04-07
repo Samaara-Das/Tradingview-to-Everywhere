@@ -186,49 +186,96 @@ class OpenChart:
             entry_chart_logger.exception(f"Failed to change the symbol of the chart. Error: {e}")
             return False
 
+    @staticmethod
+    def _get_timeframe_section(timeframe):
+        """Map a timeframe label like '45 seconds' to its dropdown section name."""
+        tf = timeframe.lower()
+        if "tick" in tf:
+            return "Ticks"
+        elif "second" in tf:
+            return "Seconds"
+        elif "minute" in tf:
+            return "Minutes"
+        elif "hour" in tf:
+            return "Hours"
+        elif "day" in tf:
+            return "Days"
+        elif "week" in tf:
+            return "Weeks"
+        elif "month" in tf:
+            return "Months"
+        elif "range" in tf:
+            return "Ranges"
+        return ""
+
+    def _open_timeframe_dropdown(self):
+        """Click the timeframe dropdown chevron and wait for the menu to render."""
+        chevron = WebDriverWait(self.driver, 15).until(
+            EC.element_to_be_clickable(
+                (By.CSS_SELECTOR, '#header-toolbar-intervals > button[aria-label="Chart interval"]')
+            )
+        )
+        try:
+            chevron.click()
+        except Exception:
+            self.driver.execute_script("arguments[0].click();", chevron)
+        WebDriverWait(self.driver, 10).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-qa-id="menu-inner"]'))
+        )
+        sleep(0.3)
+
+    def _expand_timeframe_section(self, timeframe):
+        """Expand the collapsible section (e.g. 'Seconds') that contains `timeframe`."""
+        section_name = self._get_timeframe_section(timeframe)
+        if section_name:
+            section_btns = self.driver.find_elements(
+                By.XPATH,
+                f'//button[@data-qa-id="ui-lib-title-list-item"][@aria-label="{section_name}"]',
+            )
+            if section_btns and section_btns[0].get_attribute("aria-expanded") != "true":
+                section_btns[0].click()
+                sleep(0.3)
+
     def change_tframe(self, timeframe):
         """Changes the timeframe of the chart to `timeframe`"""
         try:
-            # click on the timeframe dropdown and choose from the dropdown options and click on the one which matches the timeframe
-            tf_button = WebDriverWait(self.driver, 15).until(
-                EC.element_to_be_clickable((By.XPATH, '//*[@id="header-toolbar-intervals"]/button'))
+            # Check if a quick-access button already has this timeframe active
+            active_btns = self.driver.find_elements(
+                By.CSS_SELECTOR, '#header-toolbar-intervals button[aria-checked="true"]'
             )
-
-            if (
-                tf_button.get_attribute("aria-label") != timeframe
-            ):  # if the chart's timeframe is different, change it to the desired timeframe
-                try:
-                    tf_button.click()
-                except Exception:
-                    # Fallback: JS click bypasses overlay elements intercepting the click
-                    self.driver.execute_script("arguments[0].click();", tf_button)
-                dropdown = WebDriverWait(self.driver, 15).until(
-                    EC.presence_of_element_located(
-                        (By.CSS_SELECTOR, 'div[data-qa-id="menu-inner"]')
-                    )
-                )
-                options = dropdown.find_elements(
-                    By.CSS_SELECTOR,
-                    "div.menuItem-RmqZNwwp",
-                )
-
-                for option in options:
-                    label_el = option.find_elements(By.CSS_SELECTOR, "span.label-jFqVJoPk")
-                    if label_el and label_el[0].text == timeframe:
-                        option.click()
-                        entry_chart_logger.info(
-                            f"Successfully changed the timeframe to {timeframe}!"
-                        )
-                        return True
-            elif (
-                tf_button.get_attribute("aria-label") == timeframe
-            ):  # if the chart's timeframe is already the desired timeframe
+            if active_btns and active_btns[0].get_attribute("aria-label") == timeframe:
                 entry_chart_logger.info(
                     "No need to change the timeframe as the current chart is already on that timeframe!"
                 )
                 return True
 
-            return False
+            # Open the timeframe dropdown via the chevron button
+            self._open_timeframe_dropdown()
+
+            # Expand the correct section (Seconds, Minutes, etc.) if collapsed
+            self._expand_timeframe_section(timeframe)
+
+            # Find and click the timeframe item
+            item = WebDriverWait(self.driver, 5).until(
+                EC.element_to_be_clickable(
+                    (
+                        By.CSS_SELECTOR,
+                        f'div[data-qa-id="interval-menu-item"][aria-label="{timeframe}"]',
+                    )
+                )
+            )
+
+            # Already selected — just close the dropdown
+            if item.get_attribute("aria-selected") == "true":
+                ActionChains(self.driver).send_keys(Keys.ESCAPE).perform()
+                entry_chart_logger.info(
+                    "No need to change the timeframe as the current chart is already on that timeframe!"
+                )
+                return True
+
+            item.click()
+            entry_chart_logger.info(f"Successfully changed the timeframe to {timeframe}!")
+            return True
         except Exception:
             entry_chart_logger.exception(
                 f"Failed to change the timeframe of the chart to {timeframe}. Error:"
@@ -243,52 +290,24 @@ class OpenChart:
         """
         for attempt in range(2):
             try:
-                tf_button = WebDriverWait(self.driver, 15).until(
+                # Open the timeframe dropdown via the chevron button
+                self._open_timeframe_dropdown()
+
+                # Expand the correct section if collapsed
+                self._expand_timeframe_section(timeframe)
+
+                # Find and click the timeframe item
+                item = WebDriverWait(self.driver, 5).until(
                     EC.element_to_be_clickable(
-                        (By.XPATH, '//*[@id="header-toolbar-intervals"]/button')
+                        (
+                            By.CSS_SELECTOR,
+                            f'div[data-qa-id="interval-menu-item"][aria-label="{timeframe}"]',
+                        )
                     )
                 )
-
-                # Log current aria-label for debugging
-                current_label = tf_button.get_attribute("aria-label")
-                entry_chart_logger.info(
-                    f"Current timeframe aria-label: '{current_label}', target: '{timeframe}'"
-                )
-
-                # Always click to open dropdown, regardless of current timeframe
-                tf_button.click()
-
-                dropdown = WebDriverWait(self.driver, 15).until(
-                    EC.presence_of_element_located(
-                        (By.CSS_SELECTOR, 'div[data-qa-id="menu-inner"]')
-                    )
-                )
-
-                # Use JavaScript to find and click the matching option (avoids stale elements)
-                clicked = self.driver.execute_script(
-                    """
-                    var items = arguments[0].querySelectorAll('[class*="menuItem"]');
-                    for (var i = 0; i < items.length; i++) {
-                        var labels = items[i].querySelectorAll('[class*="label-"]');
-                        if (labels.length > 0 && labels[0].textContent === arguments[1]) {
-                            items[i].click();
-                            return true;
-                        }
-                    }
-                    return false;
-                    """,
-                    dropdown,
-                    timeframe,
-                )
-
-                if clicked:
-                    entry_chart_logger.info(f"Force changed the timeframe to {timeframe}!")
-                    return True
-
-                # If we didn't find the timeframe, close the dropdown
-                entry_chart_logger.warning(f"Timeframe '{timeframe}' not found in dropdown")
-                ActionChains(self.driver).send_keys(Keys.ESCAPE).perform()
-                return False
+                item.click()
+                entry_chart_logger.info(f"Force changed the timeframe to {timeframe}!")
+                return True
 
             except Exception as e:
                 if attempt == 0 and "stale" in str(e).lower():
