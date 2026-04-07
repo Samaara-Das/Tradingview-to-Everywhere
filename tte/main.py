@@ -733,6 +733,19 @@ def main():
         for fb in result["failed"]:
             logger.warning(f"  Batch {fb['batch']}: {fb['symbols']} — {fb['error']}")
 
+        # --- Auto-retry failed batches (once) ---
+        retry_batches = [fb["symbols"] for fb in result["failed"]]
+        retry_total = sum(len(b) for b in retry_batches)
+        logger.info(f"Retrying {len(retry_batches)} failed batches ({retry_total} symbols)...")
+        retry_result = run_alert_creation(browser, retry_batches, config)
+        logger.info(
+            f"Retry finished: {retry_result['completed']}/{retry_result['total']} alerts created"
+        )
+        if retry_result["failed"]:
+            logger.warning(f"{len(retry_result['failed'])} batches still failed after retry:")
+            for fb in retry_result["failed"]:
+                logger.warning(f"  Batch {fb['batch']}: {fb['symbols']} — {fb['error']}")
+
     # --- Setup only mode ---
     if args.setup_only:
         logger.info("Setup complete (--setup-only). Exiting.")
