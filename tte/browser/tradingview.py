@@ -435,16 +435,42 @@ class Browser:
                 EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[data-name="save-load-menu"]'))
             )
             ActionChains(self.driver).click(dropdown_btn).perform()
-            sleep(0.5)
 
-            # Find layout item by visible text using XPath
-            layout_item = WebDriverWait(self.driver, 5).until(
-                EC.element_to_be_clickable(
-                    (By.XPATH, f'//*[normalize-space(text())="{layout_name}"]')
+            # Wait for dropdown menu to render
+            WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-qa-id="menu-inner"]'))
+            )
+            sleep(0.3)
+
+            # Find layout in "Recently used" section by visible text
+            # Scoped to data-qa-id to avoid matching chart legend or other page elements
+            layout_item = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located(
+                    (
+                        By.XPATH,
+                        '//*[@data-qa-id="save-load-menu-item-recent"]'
+                        f'[.//span[normalize-space(text())="{layout_name}"]]',
+                    )
                 )
             )
-            layout_item.click()
-            sleep(0.5)
+
+            # Non-current layouts are <a target="_blank"> links.
+            # Clicking them opens a new tab — navigate directly instead.
+            href = layout_item.get_attribute("href")
+            if href:
+                full_url = href if href.startswith("http") else f"https://www.tradingview.com{href}"
+                self.driver.get(full_url)
+                # Wait for the new layout page to fully load
+                WebDriverWait(self.driver, 30).until(
+                    EC.presence_of_element_located(
+                        (By.CSS_SELECTOR, "button#header-toolbar-save-load")
+                    )
+                )
+                sleep(2)
+            else:
+                # Current layout item is a <div>, not a link — just click it
+                ActionChains(self.driver).click(layout_item).perform()
+                sleep(0.5)
             return True
         except Exception:
             open_tv_logger.exception("An error happened when changing the layout. Error: ")
@@ -727,12 +753,15 @@ class Browser:
                 - (False, "condition_invalid") - Screener not in dropdown
         """
         try:
+            open_tv_logger.info("create_webhook_alert: opening alert tab...")
             self.utils.open_alert_tab(self.driver)
+            open_tv_logger.info("create_webhook_alert: alert tab opened, looking for + button...")
 
             # Click the + button to open alert creation dialog
             plus_button = WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-name="set-alert-button"]'))
             )
+            open_tv_logger.info("create_webhook_alert: + button found, clicking...")
             plus_button.click()
             open_tv_logger.info("Clicked on the + button to create webhook alert")
 
@@ -773,32 +802,37 @@ class Browser:
                 self._close_alert_dialog()
                 return (False, "condition_invalid")
 
-            # Step 1: Click on the Notifications tab
-            notifications_tab = WebDriverWait(popup, 10).until(
+            # Step 1: Click the "Webhook >" button to open notifications sub-dialog
+            # (TradingView replaced the old tabbed dialog with a button that opens a sub-dialog)
+            webhook_nav_btn = WebDriverWait(popup, 10).until(
                 EC.element_to_be_clickable(
-                    (By.CSS_SELECTOR, 'button[id="alert-dialog-tabs__notifications"]')
+                    (By.CSS_SELECTOR, 'button[data-qa-id="alert-notifications-button"]')
                 )
             )
-            notifications_tab.click()
-            open_tv_logger.info("Clicked on Notifications tab")
+            webhook_nav_btn.click()
+            open_tv_logger.info("Clicked Webhook button to open notifications sub-dialog")
 
-            # Step 2: Wait for the webhook checkbox to appear (indicates tab is loaded)
-            webhook_checkbox = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, 'input[data-qa-id="webhook"]'))
+            # Step 2: Wait for the notifications sub-dialog to appear
+            notif_dialog = WebDriverWait(self.driver, 10).until(
+                EC.visibility_of_element_located(
+                    (By.CSS_SELECTOR, 'div[data-qa-id="alerts-notifications-edit-dialog"]')
+                )
             )
-            open_tv_logger.info("Notifications tab loaded - webhook checkbox visible")
+            open_tv_logger.info("Notifications sub-dialog appeared")
 
             # Step 3: Ensure the webhook checkbox is checked
-            if not webhook_checkbox.is_selected():
-                # Click the parent label element since the input might not be directly clickable
-                webhook_label = webhook_checkbox.find_element(By.XPATH, "./ancestor::label")
+            webhook_label = notif_dialog.find_element(
+                By.CSS_SELECTOR, 'label[data-qa-id="webhook"]'
+            )
+            webhook_input = webhook_label.find_element(By.CSS_SELECTOR, 'input[type="checkbox"]')
+            if not webhook_input.get_attribute("checked"):
                 webhook_label.click()
                 open_tv_logger.info("Enabled webhook checkbox")
             else:
                 open_tv_logger.info("Webhook checkbox was already enabled")
 
-            # Step 4: Clear and fill the webhook URL using Ctrl+A, Backspace, then type
-            webhook_url_input = WebDriverWait(self.driver, 10).until(
+            # Step 4: Clear and fill the webhook URL
+            webhook_url_input = WebDriverWait(notif_dialog, 10).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, "input#webhook-url"))
             )
             webhook_url_input.click()
@@ -809,10 +843,19 @@ class Browser:
             webhook_url_input.send_keys(webhook_url)
             open_tv_logger.info(f"Entered webhook URL: {webhook_url}")
 
-            # Step 5: Click the Create button
-            submit_button = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[data-qa-id="submit"]'))
+            # Step 5: Click "Apply" in the notifications sub-dialog
+            apply_button = notif_dialog.find_element(By.CSS_SELECTOR, 'button[data-qa-id="submit"]')
+            apply_button.click()
+            open_tv_logger.info('Clicked "Apply" in notifications sub-dialog')
+
+            # Step 6: Wait for main dialog to return, then click "Create"
+            sleep(0.5)
+            main_dialog = WebDriverWait(self.driver, 10).until(
+                EC.visibility_of_element_located(
+                    (By.CSS_SELECTOR, 'div[data-qa-id="alerts-create-edit-dialog"]')
+                )
             )
+            submit_button = main_dialog.find_element(By.CSS_SELECTOR, 'button[data-qa-id="submit"]')
             submit_button.click()
             open_tv_logger.info('Clicked "Create" to submit the alert')
 
@@ -894,16 +937,17 @@ class Browser:
         """
         try:
             # Find the condition dropdown on the Settings tab (default tab when dialog opens)
-            # Try multiple selectors since TradingView UI may vary
+            # Use contains-match on data-qa-id to be resilient to prefix changes
             condition_dropdown = None
             selectors = [
+                '[data-qa-id*="main-series-select"]',
                 'span[data-qa-id="ui-lib-Input main-series-select"]',
                 'span[data-qa-id="ui-kit-disclosure-control main-series-select"]',
             ]
 
             for selector in selectors:
                 try:
-                    condition_dropdown = WebDriverWait(popup, 2).until(
+                    condition_dropdown = WebDriverWait(popup, 3).until(
                         EC.presence_of_element_located((By.CSS_SELECTOR, selector))
                     )
                     open_tv_logger.info(f"Found condition dropdown with selector: {selector}")
@@ -912,6 +956,13 @@ class Browser:
                     continue
 
             if not condition_dropdown:
+                # Last resort: check if the dialog text already contains the screener name
+                dialog_text = popup.text
+                if indicator_shorttitle in dialog_text:
+                    open_tv_logger.info(
+                        f"Condition dropdown selector not found, but dialog text contains '{indicator_shorttitle}' — assuming correct"
+                    )
+                    return True
                 open_tv_logger.error("Could not find condition dropdown with any known selector")
                 return False
 
@@ -1054,15 +1105,20 @@ class Browser:
                 open_tv_logger.info(f"Making {shorttitle} visible before checking for errors")
                 self.indicator_visibility(True, shorttitle)
 
-            # if there is no error
-            if (
-                indicator
-                and indicator.find_elements(
+            # if there is no error — use stable data-qa-id + class-contains selectors
+            # (old hashed classes like statusesWrapper-l31H9iuA broke on TradingView UI updates)
+            error_elements = (
+                indicator.find_elements(
                     By.CSS_SELECTOR,
-                    'div[class="statusesWrapper-l31H9iuA"] span[class="statusItem-Lgtz1OtS small-Lgtz1OtS dataProblemLow-Lgtz1OtS"]',
+                    '[data-qa-id="legend-statuses-wrapper"] [class*="dataProblem"]',
                 )
-                == []
-            ):
+                if indicator
+                else ["no indicator"]
+            )
+            open_tv_logger.info(
+                f"is_no_error: error_elements count={len(error_elements)}, indicator found={indicator is not None}"
+            )
+            if indicator and error_elements == []:
                 open_tv_logger.info(f"There is no error in {shorttitle}!")
                 return True
 
@@ -1085,7 +1141,7 @@ class Browser:
                     indicator
                     and indicator.find_elements(
                         By.CSS_SELECTOR,
-                        ".statusItem-Lgtz1OtS.small-Lgtz1OtS.dataProblemLow-Lgtz1OtS",
+                        '[data-qa-id="legend-statuses-wrapper"] [class*="dataProblem"]',
                     )
                     == []
                 ):
@@ -1202,6 +1258,18 @@ class Browser:
                     indicator = ind
                     break
         except Exception:
+            # Debug: check why legend items aren't found
+            try:
+                in_source = "legend-source-item" in self.driver.page_source
+                url = self.driver.current_url
+                open_tv_logger.error(
+                    f"Failed to find indicator {ind_shorttitle}. "
+                    f"URL={url}, legend-source-item in page_source={in_source}"
+                )
+                self.driver.save_screenshot("debug_get_indicator_fail.png")
+                open_tv_logger.error("Debug screenshot saved to debug_get_indicator_fail.png")
+            except Exception:
+                pass
             open_tv_logger.exception(f"Failed to find indicator {ind_shorttitle}. Error:")
             return None
 
@@ -1319,14 +1387,15 @@ class Browser:
         return val
 
     def current_chart_tframe(self):
-        """Returns the current chart's timeframe"""
+        """Returns the current chart's timeframe via the active quick-access button."""
         try:
-            tf_button = WebDriverWait(self.driver, 15).until(
-                EC.presence_of_element_located(
-                    (By.XPATH, '//*[@id="header-toolbar-intervals"]/button')
-                )
+            active_btns = self.driver.find_elements(
+                By.CSS_SELECTOR, '#header-toolbar-intervals button[aria-checked="true"]'
             )
-            return tf_button.get_attribute("aria-label")
+            if active_btns:
+                return active_btns[0].get_attribute("aria-label")
+            # No quick-access button is active (e.g. 45 seconds is set via dropdown)
+            return ""
         except Exception:
             open_tv_logger.exception("Failed to get the current chart timeframe. Error:")
             return ""

@@ -1,9 +1,9 @@
 # Task Context Tracker
 
-**Last Updated**: 2026-04-07
-**Current Task**: Webhook URL updated, delete bug fixed, auto-retry added. TTE.exe rebuilt. Ready for `--fresh` run.
-**Active Branch**: `main` (uncommitted changes in `tte/main.py` and `tte/browser/tradingview.py`)
-**Latest Commit (TTE)**: `e15ea73` — Update task-context.md for 2026-04-07 session
+**Last Updated**: 2026-04-07 (continued session)
+**Current Task**: Run `--fresh` via TTE.exe to recreate all 340 alerts (Task 25 — unblocked)
+**Active Branch**: `main` (uncommitted changes in `tte/browser/chart.py`, `tte/browser/tradingview.py`, `tte/main.py`)
+**Latest Commit**: `c0d7695` — Merge pull request #23
 
 ---
 
@@ -11,124 +11,121 @@
 
 | # | Task | Status |
 |---|------|--------|
-| 1 | Get alerts to trigger for Indian stocks | **done** (PR #11) |
-| 2 | Check signal detection for US stocks and Indian stocks | **done** (PR #12) |
-| 3 | Figure out why only 262 alerts got created instead of 314 | **resolved** |
-| 4 | Make new API polling architecture (exit checker) | **done** (PR #13, Stock Buddy PR #64) |
-| 5 | Test signals, setups, exits for the user | **pending** (user-side, needs market hours) |
-| 6 | Verify Indian stock alerts trigger after exchange prefix fix | **pending** (user-side, needs NSE hours) |
-| 7 | Post-deployment: verify signal timing & timestamps | **pending** (user-side, needs market hours) |
-| 8 | Fix snapshot Trade Drawer not rendering on chart | **done** (PR #14) |
-| 9 | Remove delisted EOSUSDT/EOSBTC from MongoDB | **done** (PR #15) |
-| 10 | Fix bugs, remove dead code, sync docs | **done** (PR #16) |
-| 11 | Remove webdriver-manager dependency | **done** (PR #17) |
-| 12 | Bypass SeleniumManager network calls with explicit chromedriver path | **done** (PR #19) |
-| 13 | Fix snapshot pipeline — backfill, dialog cleanup, throughput | **done** (PR #20, merged) |
-| 14 | Symbol universe update (620 → 677) — snapshot fix + fresh run | **done** (PR #21, merged) |
-| 15 | Fix 41 failed symbols — overlay retry, --symbols flag, TV UI adaptation | **done** (PR #22, merged) |
-| 16 | Verify alert-symbol alignment (orchestrator mission) | **done** — PASS |
+| 1-16 | Previous tasks (alerts, signals, snapshots, cleanup) | **done** |
 | 17 | Fix TradingView layout selector bug (dynamic class names changed) | **done** (2026-04-06) |
 | 18 | Update webhook URL to new Stock Buddy deployment | **done** (2026-04-06) |
 | 19 | Update webhook URL to stockbuddy.co custom domain | **done** (2026-04-07) |
-| 20 | Fix delete_all_alerts dropdown bug (index-based → XPath text matching) | **done** (2026-04-07) |
+| 20 | Fix delete_all_alerts dropdown bug (index-based to XPath text matching) | **done** (2026-04-07) |
 | 21 | Auto-retry failed alert batches after creation | **done** (2026-04-07) |
+| 22 | Fix layout dropdown selector (scoped XPath + navigate via href) | **done** (2026-04-07) |
+| 23 | Fix timeframe dropdown (collapsible sections redesign) | **done** (2026-04-07) |
+| 24 | Fix alert creation hang (two root causes found and fixed) | **done** (2026-04-07) |
+| 25 | Run `--fresh` via TTE.exe to recreate 340 alerts | **READY** — unblocked |
 
 ---
 
 ## Session History
 
-### Session: 2026-04-07 (Webhook URL + Delete Bug Fix + Auto-Retry)
+### Session: 2026-04-07 (TradingView UI Redesign Fixes — ALL FIXED)
 
-**User request**: Update webhook URL to `https://stockbuddy.co/api/tte/combo`, fix delete all alerts bug, add auto-retry for failed alerts.
+**User request**: Run `--fresh` to recreate all 340 alerts with new `stockbuddy.co` webhook URL. Hit multiple TradingView UI breakages.
 
-**Change 1 — Webhook URL update**:
-- Updated `.env`: `COMBO_WEBHOOK_URL` changed from `stock-buddy-app-nine.vercel.app` to `stockbuddy.co`
-- No git commit needed (`.env` is gitignored)
+#### Bug 1 — Layout dropdown XPath too broad (FIXED)
 
-**Change 2 — Fix `delete_all_alerts()` bug** (`tte/browser/tradingview.py`):
-- **Root cause**: Used index-based access (`[1]` for Pause, `[2]` for Delete) on dropdown children (`div[data-qa-id="menu-inner"] > div`). TradingView's dropdown has many more child divs (separators, sections, radio buttons, checkboxes) so the indices pointed to wrong items. Alerts got paused but never deleted.
-- **Fix**: Replaced with `find_menu_item(label)` using XPath scoped to the parent item div:
-  ```
-  //div[@data-qa-id="menu-inner"]/div[.//span[normalize-space(text())="{label}"]]
-  ```
-  Returns the `div.item` element (has `isDisabled` class, is clickable). Finds "Pause all" and "Delete all inactive" by visible text.
-- **Important**: The `isDisabled` class (e.g. `isDisabled-jFqVJoPk`) is on the parent `div.item`, NOT on the inner `span.label`. The XPath must return the item div, not the span.
+**Root cause**: XPath `//*[normalize-space(text())="Screener"]` matched the chart legend instead of the dropdown item.
+**Fix** (`tte/browser/tradingview.py` `change_layout()`):
+1. Scoped XPath to `data-qa-id="save-load-menu-item-recent"` items only
+2. Non-current layouts are `<a target="_blank">` links — extract `href` and navigate via `driver.get(url)` instead of clicking
 
-**Change 3 — Auto-retry failed alert batches** (`tte/main.py` ~line 731):
-- After `run_alert_creation()` completes, if `result["failed"]` is non-empty, automatically retry once
-- Preserves original category-aware batch pairing: `retry_batches = [fb["symbols"] for fb in result["failed"]]`
-- Logs retry results and any still-failed batches
+#### Bug 2 — Timeframe dropdown completely redesigned (FIXED)
 
-**Exe rebuild**: `dist/TTE.exe` rebuilt (19 MB), all validations passed.
+**Root cause**: Dropdown changed from flat list to collapsible sections (Ticks/Seconds/Minutes/Hours/Days/Ranges).
+**Fix** (`tte/browser/chart.py`): Three new helpers (`_get_timeframe_section()`, `_open_timeframe_dropdown()`, `_expand_timeframe_section()`) + rewrote `change_tframe()` and `force_change_tframe()`.
 
-**Next step**: User needs to run TTE.exe with "Fresh (delete all)" to recreate alerts with new webhook URL.
+#### Bug 3 — Legend items not found (TRANSIENT)
 
-### Session: 2026-04-06 (Layout Selector Fix + Webhook URL Update)
+**Root cause**: Corrupted Chrome profile state from force-killed runs. Resolved by killing all Chrome processes and running fresh.
+- The selector `data-qa-id="legend-source-item"` IS STILL VALID
+- Added debug logging to `get_indicator()` (screenshot + page_source check on failure)
 
-**User request**: Update webhook URL in all 340 alerts to `https://stock-buddy-app-nine.vercel.app/api/tte/combo`, and fix TTE startup error.
+#### Bug 4 — Alert creation hang (FIXED — two root causes)
 
-**Bug 1 — Layout selector crash** (`NoSuchElementException: .text-yyMUOAN9`):
-- **Root cause**: TradingView redesigned the layout toolbar. `#header-toolbar-save-load` changed from a `div` containing buttons to a single `button` element. Dynamic class names no longer exist.
-- **Fix** (`tte/browser/tradingview.py`):
-  - `change_layout()`: Click `button[data-name="save-load-menu"]` via ActionChains, find layout item by XPath `normalize-space(text())`
-  - `current_layout()`: Get text directly from `#header-toolbar-save-load` button
-  - Removed all dynamic class selectors
-- **Tested**: Layout switched successfully, alert creation began
+**Root Cause 1: Screener V2 indicator missing from chart layout**
+- Previous force-kills of Chrome corrupted the TradingView layout state
+- The Screener V2 indicator was completely removed from the "Screener" layout at URL 3Bcyo3gz
+- `_safe_indicator_access()` timed out repeatedly (15s x retries) creating the appearance of an infinite hang
+- **Fix**: User manually re-added the indicator to the chart and saved the layout
 
-**Bug 2 — Webhook URL update**: Updated `.env` with new URL.
+**Root Cause 2: TradingView alert dialog redesign — no more tabs**
+- OLD: Single alert dialog with Settings tab + Notifications tab
+- NEW: Main dialog with a "Webhook >" button that opens a separate notifications sub-dialog
+- The old code tried to click `button[id="alert-dialog-tabs__notifications"]` which no longer exists
+- This caused `create_webhook_alert()` to fail, which triggered `reupload_indicator()` (removes indicator from chart)
 
-**Exe rebuild**: `dist/TTE.exe` rebuilt, all validations passed.
+**Fix** (`tradingview.py` `create_webhook_alert()`):
+1. Click `button[data-qa-id="alert-notifications-button"]` to navigate to notifications sub-dialog
+2. Wait for `div[data-qa-id="alerts-notifications-edit-dialog"]`
+3. Find webhook checkbox via `label[data-qa-id="webhook"]` then `input[type="checkbox"]`
+4. Fill `input#webhook-url` with webhook URL
+5. Click "Apply" (`button[data-qa-id="submit"]` inside sub-dialog) to return to main dialog
+6. Click "Create" (`button[data-qa-id="submit"]` in main dialog) to submit
 
-### Session: 2026-03-23 (Alert-Symbol Alignment Verification)
+**Other fixes applied:**
+- `_validate_alert_condition()` — Added contains-match selector `[data-qa-id*="main-series-select"]` + text-based fallback
+- `is_no_error()` — Replaced dynamic class selectors (`statusesWrapper-l31H9iuA`, `dataProblemLow-Lgtz1OtS`) with stable `[data-qa-id="legend-statuses-wrapper"] [class*="dataProblem"]`
+- Diagnostic logging added to `main.py` alert creation loop and `create_webhook_alert()`
 
-**Orchestrator mission**: Verify `--fresh` and retry runs used correct 677-symbol DB.
-- Sampled 28 symbols from logs — **28/28 match**
-- Searched for 6 removed symbols — **zero matches**
-- Retry run: 21/21 alerts (100% success)
-- **Verdict**: PASS
+**False lead investigated and reverted:**
+- Initially renamed `legend-source-item` to `legend-series-item` thinking TradingView renamed it
+- Actually: `legend-series-item` = main chart series, `legend-source-item` = added indicators/studies (BOTH exist, different purposes)
+- Reverted all legend-source-item changes
 
-### Session: 2026-03-23 (Fix 41 Failed Symbols + TradingView UI Adaptation)
+#### Verified Working (15:49:16)
+- Full alert creation flow: change_symbol -> change_settings -> is_no_error -> click indicator -> create_webhook_alert -> SUCCESS
+- 1 test alert created for FX:NZDCHF, FX:NZDJPY with stockbuddy.co webhook in 19.7s
 
-- Overlay retry fix: 3-attempt retry loop (wait for overlay → ESC → JS click)
-- `--symbols` CLI flag for targeted alert creation
-- Timeframe toolbar CSS selector fix (`#header-toolbar-intervals`)
-- Alert dialog Notifications sub-page adaptation
-- Result: 319 + 21 = **340 alerts covering all 677 symbols**
-- PR #22 created
+---
 
-### Previous Sessions (Summary)
-- **2026-03-20**: Snapshot pipeline fix (PR #20, #21) — backfill, dialog cleanup, multi-batch
-- **2026-03-07**: ChromeDriver fix (PRs #17, #19)
-- **2026-03-06**: Codebase audit, bug fixes, dead code removal (PR #16)
-- **2026-03-05**: Trade Drawer V2, EOS removal (PRs #14, #15)
-- **2026-03-03**: Signal guards, stateless screener (PRs #12, #13)
-- **2026-02-26**: V2 implementation (Pine Script + Python)
-- **2026-02-20-23**: Snapshots feature (PRs #6, #7)
-- **2026-02-10-13**: Codebase reorg (PR #4), Pine Script screener
+## Uncommitted Changes (3 files)
+
+### `tte/browser/chart.py` (+136 -86 lines)
+- New: `_get_timeframe_section()`, `_open_timeframe_dropdown()`, `_expand_timeframe_section()`
+- Rewritten: `change_tframe()` — collapsible section support
+- Rewritten: `force_change_tframe()` — uses shared helpers
+- Removed: All dynamic class name selectors (`menuItem-RmqZNwwp`, `label-jFqVJoPk`)
+
+### `tte/browser/tradingview.py` (major changes)
+- Rewritten: `change_layout()` — scoped XPath, navigate via href for `<a>` links
+- Rewritten: `current_chart_tframe()` — uses `button[aria-checked="true"]`
+- Rewritten: `create_webhook_alert()` — new two-dialog flow (main + notifications sub-dialog)
+- Fixed: `_validate_alert_condition()` — contains-match selector + text-based fallback
+- Fixed: `is_no_error()` — stable `data-qa-id` selectors instead of dynamic class names
+- Added: Debug logging in `get_indicator()` and `create_webhook_alert()`
+
+### `tte/main.py`
+- Added: Diagnostic logging in alert creation loop
 
 ---
 
 ## Important Decisions Made
 
-### Delete All Alerts Fix + Auto-Retry (2026-04-07)
-1. **XPath text matching for dropdown items**: Same pattern as layout fix — find items by visible text, not index position. Scoped XPath returns the parent `div.item` for correct `isDisabled` check and click target.
-2. **Preserve category-aware batch pairing on retry**: Never flatten and re-batch failed symbols. Use original batch's `symbols` list directly. Category-aware pairing (currencies with currencies, stocks with stocks) must stay intact.
-3. **Single retry only**: Retry failed batches once after main loop. No infinite retry loops.
+### Layout Navigation via href (2026-04-07)
+Non-current layouts in TradingView's dropdown are `<a target="_blank">` links. Clicking them via Selenium opens a new tab. **Solution**: Extract `href` from the `<a>` element and navigate via `driver.get(url)`. This reloads the page with the correct layout.
 
-### Layout Selector Fix (2026-04-06)
-1. **XPath text matching over CSS selectors**: TradingView dropdown items render in unidentified containers. `normalize-space(text())` XPath is the most reliable approach.
-2. **`button[data-name="save-load-menu"]` is stable**: Survived the TV redesign.
-3. **ActionChains click over JS click**: Produces proper mouse events for TradingView's React handlers.
-4. **`#header-toolbar-save-load` is now a button**: Get layout name via `.text.strip()` directly.
+### Timeframe Dropdown Section Expansion (2026-04-07)
+TradingView now groups timeframes into collapsible sections. TTE must: (1) identify the section from the timeframe label, (2) expand it if `aria-expanded="false"`, (3) then find the item.
 
-### Previous Decisions (Summary)
-- **Overlay retry (2026-03-23)**: 3 attempts — wait for overlay, ESC, then JS click
-- **CSS selectors over XPath for timeframe toolbar (2026-03-23)**
-- **Alert dialog Notifications sub-page (2026-03-23)**: New flow replaces old tab-based approach
-- **Snapshot pipeline (2026-03-20)**: Targeted dialog cleanup, multi-batch, backfill
-- **ChromeDriver (2026-03-07)**: Bypass SeleniumManager with explicit `~/.wdm` cache path
-- **Exit checker (2026-03-03)**: Server-side cron, Pine Script stateless
-- **V2 architecture (2026-02-26)**: 45s chart, compact JSON keys, category-aware pairing
+### Alert Dialog Two-Step Flow (2026-04-07)
+TradingView removed the tabbed alert dialog. Webhook settings are now behind a "Webhook >" button that opens a separate sub-dialog. TTE must: (1) configure alert conditions in main dialog, (2) click webhook button, (3) configure webhook in sub-dialog, (4) apply sub-dialog, (5) create alert in main dialog.
+
+### legend-source-item vs legend-series-item (2026-04-07)
+Both selectors exist in TradingView with different purposes:
+- `legend-series-item` = main chart series (e.g., OHLC bars)
+- `legend-source-item` = added indicators/studies (e.g., Screener V2)
+TTE must continue using `legend-source-item` for indicator access.
+
+### Chrome Version Mismatch (2026-04-07)
+Chrome auto-updated to **146.0.7680.178** but cached chromedriver is **145.0.7632.117**. The `_find_chromedriver()` function falls back to the best-available cached driver. This mismatch did NOT prevent Chrome from launching. Should be fixed eventually.
 
 ---
 
@@ -136,76 +133,90 @@
 
 | File | Purpose |
 |------|---------|
-| `tte/main.py` | Entry point (orchestrator, maintenance loop, `--symbols` flag, auto-retry) |
-| `tte/snapshot_worker.py` | Snapshot worker (multi-batch, dialog cleanup, backfill) |
-| `tte/config.py` | Config dataclass |
-| `tte/browser/tradingview.py` | Browser automation (layout switch, overlay retry, Notifications sub-page) |
-| `tte/browser/chart.py` | Chart navigation (timeframe with CSS selectors, symbol search) |
-| `tte/data/symbols.py` | MongoDB symbol fetching (returns `full_symbol` with exchange prefix) |
-| `combo_settings.yaml` | Settings (batch_size=2, snapshot batch_size=10, 150s maintenance) |
-| `Pine Script Code/TTE Screener V2.txt` | V2 screener (stateless setup detection) |
-| `Pine Script Code/Trade Drawer V2.txt` | NWE bands + trade level drawings for snapshots |
+| `tte/main.py` | Entry point (orchestrator, alert creation loop lines 160-330, auto-retry) |
+| `tte/browser/tradingview.py` | Browser automation (layout switch, indicator access, alert creation, `is_no_error`) |
+| `tte/browser/chart.py` | Chart navigation (timeframe with collapsible sections, symbol search) |
+| `tte/config.py` | Config dataclass (`recalc_wait=2.0`, `headless=true`) |
+| `combo_settings.yaml` | Settings (batch_size=2, 45 seconds, screener "Screener V2") |
+| `.env` | `COMBO_WEBHOOK_URL=https://stockbuddy.co/api/tte/combo` |
 
 ---
 
-## Verified Patterns
+## Verified Patterns (Updated 2026-04-07)
 
-### Layout Toolbar Selectors (Updated 2026-04-06)
+### Layout Toolbar Selectors
 ```
 Save button:        button#header-toolbar-save-load
 Layout name:        button#header-toolbar-save-load .text (use .text.strip())
-Dropdown trigger:   button[data-name="save-load-menu"] (aria-label="Manage layouts")
-Layout items:       XPath: //*[normalize-space(text())="LayoutName"]
-```
-
-### Alert Dialog Selectors (Updated 2026-03-23)
-```
-Webhook button:     button[data-qa-id="alert-notifications-button"]
-Notifications page: div[data-qa-id="alerts-notifications-edit-dialog"]
-Webhook checkbox:   label[data-qa-id="webhook"] input[type="checkbox"]
-Webhook URL input:  input#webhook-url
-Apply/Submit:       button[data-qa-id="submit"]
-Create dialog:      div[data-qa-id="alerts-create-edit-dialog"]
-Condition dropdown: span[data-qa-id="ui-kit-disclosure-control main-series-select"]
-```
-
-### Timeframe Toolbar Selectors (Updated 2026-03-23)
-```
-Dropdown arrow:     #header-toolbar-intervals > button[aria-label="Chart interval"]
-Active timeframe:   #header-toolbar-intervals button[aria-checked="true"]
+Dropdown trigger:   button[data-name="save-load-menu"]
 Dropdown menu:      div[data-qa-id="menu-inner"]
-Menu items:         div.menuItem-RmqZNwwp
-Menu labels:        span.label-jFqVJoPk
+Layout items:       *[@data-qa-id="save-load-menu-item-recent"]
+  Current layout:   <div> element (no href)
+  Other layouts:    <a href="/chart/{id}" target="_blank"> element
+Layout name span:   .//span[normalize-space(text())="LayoutName"]
 ```
 
-### Alerts Settings Dropdown (Updated 2026-04-07)
+### Timeframe Toolbar Selectors
+```
+Quick-access btns:  #header-toolbar-intervals button (5m, 15m, 1h, 4h, D, W, 45s)
+Active timeframe:   #header-toolbar-intervals button[aria-checked="true"]
+Dropdown chevron:   #header-toolbar-intervals > button[aria-label="Chart interval"]
+Dropdown menu:      div[data-qa-id="menu-inner"]
+Section headers:    button[data-qa-id="ui-lib-title-list-item"][aria-label="Seconds"]
+  Expanded:         aria-expanded="true"
+  Collapsed:        aria-expanded="false", children aria-hidden="true"
+Timeframe items:    div[data-qa-id="interval-menu-item"][aria-label="45 seconds"]
+  Selected:         aria-selected="true"
+  Value attr:       data-value="45S"
+```
+
+### Legend/Indicator Selectors
+```
+Legend items:       div[data-qa-id="legend-source-item"]   (indicators/studies)
+Chart series:       div[data-qa-id="legend-series-item"]   (main chart bars — NOT for indicators)
+Indicator title:    [data-qa-id*="legend-source-title"]
+Settings button:    button[data-qa-id="legend-settings-action"]
+Statuses wrapper:   div[data-qa-id="legend-statuses-wrapper"]
+Error detection:    [data-qa-id="legend-statuses-wrapper"] [class*="dataProblem"]
+```
+
+### Alert Dialog Selectors (VERIFIED WORKING 2026-04-07)
+```
++ button:           div[data-name="set-alert-button"]
+Main dialog:        div[data-qa-id="alerts-create-edit-dialog"]
+Condition dropdown: [data-qa-id*="main-series-select"]
+Operator dropdown:  button[data-qa-id="operator-dropdown"]
+Webhook nav button: button[data-qa-id="alert-notifications-button"]
+Submit/Create:      button[data-qa-id="submit"]
+Cancel:             button[name="cancel"][data-qa-id="cancel"]
+Close (X):          button[data-qa-id="close"]
+
+Notifications sub-dialog:
+  Dialog container:  div[data-qa-id="alerts-notifications-edit-dialog"]
+  Back button:       button[data-qa-id="back"]
+  Webhook checkbox:  label[data-qa-id="webhook"] input[type="checkbox"]
+  Webhook URL input: input#webhook-url
+  Apply button:      button[data-qa-id="submit"] (inside sub-dialog context)
+```
+
+### Alerts Settings Dropdown
 ```
 3-dots button:      div[data-name="alerts-settings-button"]
-Dropdown container: div[data-qa-id="menu-inner"]
-Menu items (by text): XPath: //div[@data-qa-id="menu-inner"]/div[.//span[normalize-space(text())="Label"]]
-Disabled check:     "isDisabled" in item_div.get_attribute("class")
+Menu items (text):  XPath: //div[@data-qa-id="menu-inner"]/div[.//span[normalize-space(text())="Label"]]
 Confirm dialog:     div[data-name="confirm-dialog"]
-Confirm yes button: button[name="yes"]
+Confirm yes:        button[name="yes"]
 ```
 
-### Other TradingView Selectors
-```
-Alert items:       div[data-name="alert-item-name"]
-Alert settings:    div[data-name="alerts-settings-button"]
-Legend items:      div[data-qa-id="legend-source-item"]
-Settings dialog:   div[data-name="indicator-properties-dialog"]
-Overlay (blocker): div.screen-otjoFNF2.fade-otjoFNF2
-```
+---
 
-**WARNING**: Never use TradingView's dynamically generated class names. Always prefer `data-name`, `data-qa-id`, `aria-label`, and XPath text matching.
+## Debug Files Created This Session
 
-### MongoDB — 677 Symbols
-Categories: `Currencies` (29), `Crypto` (18), `US Stocks` (243), `Indian Stocks` (387)
-Exchanges: NSE (300), BSE (87), NASDAQ (122), NYSE (118), AMEX (1), CBOE (2), BINANCE (18), FX (29)
+- `debug_headless.png` — Screenshot of headless Chrome with default profile
+- `debug_tte_profile.png` — Screenshot of headless Chrome with TTE profile
+- `debug_flow.png` — Screenshot of TTE flow replication test
+- `debug_get_indicator_fail.png` — Saved by debug logging when get_indicator fails
 
-### Alert Math
-- 340 alerts total: 337 with 2 symbols + 3 with 1 symbol
-- 337 x 2 + 3 x 1 = 677 symbols (no duplicates)
+**Clean up**: Delete these debug PNG files after confirming full `--fresh` run works.
 
 ---
 
@@ -213,22 +224,23 @@ Exchanges: NSE (300), BSE (87), NASDAQ (122), NYSE (118), AMEX (1), CBOE (2), BI
 
 ```bash
 # TTE
-pipenv run python combo_main.py --maintain-only    # Run maintenance + snapshots (headless)
-pipenv run python combo_main.py --validate         # Validate config
 pipenv run python combo_main.py --fresh            # Delete alerts & recreate (~340 alerts)
-pipenv run python combo_main.py --setup-only --symbols SYM1,SYM2  # Specific symbols only
-dist/TTE.exe                                       # GUI (requires pystray)
+pipenv run python combo_main.py --setup-only        # Setup only (stop after browser init)
+pipenv run python combo_main.py --maintain-only     # Maintenance + snapshots (headless)
+pipenv run python combo_main.py --validate          # Validate config
+dist/TTE.exe                                        # GUI (requires rebuild after code changes)
 
 # Verification
-pipenv run pyright tte/                            # Type checking
-pipenv run ruff check tte/                         # Linting
+pipenv run pyright tte/                             # Type checking
+pipenv run ruff check tte/                          # Linting
 ```
 
-## Remaining Tasks
+## Remaining Tasks (Priority Order)
 
-- [ ] Commit & PR the delete fix + auto-retry changes (uncommitted on `main`)
-- [ ] Run `--fresh` via TTE.exe to recreate 340 alerts with new webhook URL (`stockbuddy.co`)
-- [ ] Restart maintenance loop via TTE.exe GUI
-- [ ] **Task 5**: Verify alerts are firing — check Stock Buddy webhook logs
-- [ ] **Task 6**: Verify Indian stock (BSE) alerts trigger during NSE hours
-- [ ] **Task 7**: Verify signal timing & timestamps
+1. [ ] **Run `--fresh` via TTE.exe** to recreate all 340 alerts with stockbuddy.co webhook (Task 25)
+2. [ ] Remove diagnostic logging from `main.py` and `tradingview.py` after confirming full run works
+3. [ ] Delete debug PNG files
+4. [ ] Commit & PR all selector fixes (layout, timeframe, alert dialog, is_no_error)
+5. [ ] Rebuild `dist/TTE.exe` after final cleanup
+6. [ ] Restart maintenance loop
+7. [ ] Verify alerts fire — check Stock Buddy webhook logs
