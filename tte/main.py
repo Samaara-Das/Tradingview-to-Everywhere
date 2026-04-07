@@ -256,8 +256,10 @@ def run_alert_creation(
                     continue
 
             t_error_check = time() - t0
+            logger.info(f"  is_no_error check took {t_error_check:.1f}s")
 
             # Click indicator (is_no_error already validated it exists; get a fresh reference)
+            logger.info("  Finding indicator in legend...")
             try:
                 indicators = browser.driver.find_elements(
                     By.CSS_SELECTOR, 'div[data-qa-id="legend-source-item"]'
@@ -271,7 +273,9 @@ def run_alert_creation(
                     if name == config.screener_shorttitle:
                         indicator = ind
                         break
+                logger.info(f"  Found indicator in legend: {indicator is not None}")
             except Exception:
+                logger.exception("  Exception finding indicator in legend")
                 indicator = None
 
             if not indicator:
@@ -279,7 +283,9 @@ def run_alert_creation(
                 failed.append({"batch": i, "symbols": batch, "error": "indicator_access_failed"})
                 continue
 
+            logger.info("  Clicking indicator...")
             indicator.click()
+            logger.info("  Indicator clicked. Calling create_webhook_alert...")
 
             # Create alert
             t0 = time()
