@@ -1,9 +1,9 @@
 # Task Context Tracker
 
 **Last Updated**: 2026-04-07
-**Current Task**: Webhook URL updated to `https://stockbuddy.co/api/tte/combo`, TTE.exe rebuilt. Ready for `--fresh` run.
-**Active Branch**: `main`
-**Latest Commit (TTE)**: `585aca5` — Merge pull request #22
+**Current Task**: Webhook URL updated, delete bug fixed, auto-retry added. TTE.exe rebuilt. Ready for `--fresh` run.
+**Active Branch**: `main` (uncommitted changes in `tte/main.py` and `tte/browser/tradingview.py`)
+**Latest Commit (TTE)**: `e15ea73` — Update task-context.md for 2026-04-07 session
 
 ---
 
@@ -30,22 +30,38 @@
 | 17 | Fix TradingView layout selector bug (dynamic class names changed) | **done** (2026-04-06) |
 | 18 | Update webhook URL to new Stock Buddy deployment | **done** (2026-04-06) |
 | 19 | Update webhook URL to stockbuddy.co custom domain | **done** (2026-04-07) |
+| 20 | Fix delete_all_alerts dropdown bug (index-based → XPath text matching) | **done** (2026-04-07) |
+| 21 | Auto-retry failed alert batches after creation | **done** (2026-04-07) |
 
 ---
 
 ## Session History
 
-### Session: 2026-04-07 (Webhook URL Update to stockbuddy.co)
+### Session: 2026-04-07 (Webhook URL + Delete Bug Fix + Auto-Retry)
 
-**User request**: Update webhook URL to `https://stockbuddy.co/api/tte/combo` (custom domain) and rebuild exe.
+**User request**: Update webhook URL to `https://stockbuddy.co/api/tte/combo`, fix delete all alerts bug, add auto-retry for failed alerts.
 
-**What was done**:
-1. Switched to `main` branch (PR #22 already merged at `585aca5`)
-2. Updated `.env`: `COMBO_WEBHOOK_URL` changed from `stock-buddy-app-nine.vercel.app` to `stockbuddy.co`
-3. Rebuilt `dist/TTE.exe` (19 MB) — all validations passed
-4. No git commit needed (`.env` is gitignored)
+**Change 1 — Webhook URL update**:
+- Updated `.env`: `COMBO_WEBHOOK_URL` changed from `stock-buddy-app-nine.vercel.app` to `stockbuddy.co`
+- No git commit needed (`.env` is gitignored)
 
-**Next step**: User needs to run TTE.exe with "Fresh (delete all)" to recreate all 340 alerts with new webhook URL.
+**Change 2 — Fix `delete_all_alerts()` bug** (`tte/browser/tradingview.py`):
+- **Root cause**: Used index-based access (`[1]` for Pause, `[2]` for Delete) on dropdown children (`div[data-qa-id="menu-inner"] > div`). TradingView's dropdown has many more child divs (separators, sections, radio buttons, checkboxes) so the indices pointed to wrong items. Alerts got paused but never deleted.
+- **Fix**: Replaced with `find_menu_item(label)` using XPath scoped to the parent item div:
+  ```
+  //div[@data-qa-id="menu-inner"]/div[.//span[normalize-space(text())="{label}"]]
+  ```
+  Returns the `div.item` element (has `isDisabled` class, is clickable). Finds "Pause all" and "Delete all inactive" by visible text.
+- **Important**: The `isDisabled` class (e.g. `isDisabled-jFqVJoPk`) is on the parent `div.item`, NOT on the inner `span.label`. The XPath must return the item div, not the span.
+
+**Change 3 — Auto-retry failed alert batches** (`tte/main.py` ~line 731):
+- After `run_alert_creation()` completes, if `result["failed"]` is non-empty, automatically retry once
+- Preserves original category-aware batch pairing: `retry_batches = [fb["symbols"] for fb in result["failed"]]`
+- Logs retry results and any still-failed batches
+
+**Exe rebuild**: `dist/TTE.exe` rebuilt (19 MB), all validations passed.
+
+**Next step**: User needs to run TTE.exe with "Fresh (delete all)" to recreate alerts with new webhook URL.
 
 ### Session: 2026-04-06 (Layout Selector Fix + Webhook URL Update)
 
@@ -94,6 +110,11 @@
 
 ## Important Decisions Made
 
+### Delete All Alerts Fix + Auto-Retry (2026-04-07)
+1. **XPath text matching for dropdown items**: Same pattern as layout fix — find items by visible text, not index position. Scoped XPath returns the parent `div.item` for correct `isDisabled` check and click target.
+2. **Preserve category-aware batch pairing on retry**: Never flatten and re-batch failed symbols. Use original batch's `symbols` list directly. Category-aware pairing (currencies with currencies, stocks with stocks) must stay intact.
+3. **Single retry only**: Retry failed batches once after main loop. No infinite retry loops.
+
 ### Layout Selector Fix (2026-04-06)
 1. **XPath text matching over CSS selectors**: TradingView dropdown items render in unidentified containers. `normalize-space(text())` XPath is the most reliable approach.
 2. **`button[data-name="save-load-menu"]` is stable**: Survived the TV redesign.
@@ -115,7 +136,7 @@
 
 | File | Purpose |
 |------|---------|
-| `tte/main.py` | Entry point (orchestrator, maintenance loop, `--symbols` flag) |
+| `tte/main.py` | Entry point (orchestrator, maintenance loop, `--symbols` flag, auto-retry) |
 | `tte/snapshot_worker.py` | Snapshot worker (multi-batch, dialog cleanup, backfill) |
 | `tte/config.py` | Config dataclass |
 | `tte/browser/tradingview.py` | Browser automation (layout switch, overlay retry, Notifications sub-page) |
@@ -157,6 +178,16 @@ Menu items:         div.menuItem-RmqZNwwp
 Menu labels:        span.label-jFqVJoPk
 ```
 
+### Alerts Settings Dropdown (Updated 2026-04-07)
+```
+3-dots button:      div[data-name="alerts-settings-button"]
+Dropdown container: div[data-qa-id="menu-inner"]
+Menu items (by text): XPath: //div[@data-qa-id="menu-inner"]/div[.//span[normalize-space(text())="Label"]]
+Disabled check:     "isDisabled" in item_div.get_attribute("class")
+Confirm dialog:     div[data-name="confirm-dialog"]
+Confirm yes button: button[name="yes"]
+```
+
 ### Other TradingView Selectors
 ```
 Alert items:       div[data-name="alert-item-name"]
@@ -195,6 +226,7 @@ pipenv run ruff check tte/                         # Linting
 
 ## Remaining Tasks
 
+- [ ] Commit & PR the delete fix + auto-retry changes (uncommitted on `main`)
 - [ ] Run `--fresh` via TTE.exe to recreate 340 alerts with new webhook URL (`stockbuddy.co`)
 - [ ] Restart maintenance loop via TTE.exe GUI
 - [ ] **Task 5**: Verify alerts are firing — check Stock Buddy webhook logs

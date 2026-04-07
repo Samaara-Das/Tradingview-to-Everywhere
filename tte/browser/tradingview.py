@@ -1121,10 +1121,9 @@ class Browser:
 
     def delete_all_alerts(self):
         """Waits for the alert sidebar to show up and checks if there are any alerts. If there are, they are deleted by making all the alerts inactive and then deleting the inactive alerts. Then it waits a second."""
-        dropdown_option_selector = 'div[data-qa-id="menu-inner"] > div'
 
         def open_dropdown():
-            """If the drpodown isn't already open, clicks the 3 dots and returns the dropdown that opens"""
+            """If the dropdown isn't already open, clicks the 3 dots and returns the dropdown that opens"""
             # if the dropdown menu isn't already open
             if not self.driver.find_elements(By.CSS_SELECTOR, 'div[data-qa-id="menu-inner"]'):
                 WebDriverWait(self.driver, 5).until(
@@ -1135,6 +1134,15 @@ class Browser:
             return WebDriverWait(self.driver, 5).until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-qa-id="menu-inner"]'))
             )
+
+        def find_menu_item(label):
+            """Find a dropdown menu item div by its text label.
+            Returns the parent item div (for clicking and isDisabled checks)."""
+            items = self.driver.find_elements(
+                By.XPATH,
+                f'//div[@data-qa-id="menu-inner"]/div[.//span[normalize-space(text())="{label}"]]',
+            )
+            return items[0] if items else None
 
         try:
             # Make sure that the Alerts tab is open
@@ -1154,31 +1162,30 @@ class Browser:
                 open_tv_logger.info("There are no alerts. No need to delete any alerts!")
                 return True
 
-            dropdown = open_dropdown()
-
-            # Check if "Stop All" is disabled
-            stop_all_button = WebDriverWait(dropdown, 10).until(
-                EC.presence_of_all_elements_located((By.CSS_SELECTOR, dropdown_option_selector))
-            )[1]
-            if "isDisabled" in stop_all_button.get_attribute("class"):
-                open_tv_logger.info('The "Stop All" option is disabled. No need to click it.')
-            else:
-                stop_all_button.click()
+            # Step 1: Pause all alerts
+            open_dropdown()
+            pause_btn = find_menu_item("Pause all")
+            if not pause_btn:
+                # Try legacy label
+                pause_btn = find_menu_item("Stop all")
+            if pause_btn and "isDisabled" not in (pause_btn.get_attribute("class") or ""):
+                pause_btn.click()
                 self.utils.click_yes_in_confirm_popup(self.driver)
+                open_tv_logger.info("Paused all alerts")
+            else:
+                open_tv_logger.info("Pause all is disabled or not found — alerts already inactive")
 
-            dropdown = open_dropdown()
-
-            # Check if "Delete All Inactive" is disabled
-            delete_inactive_button = WebDriverWait(dropdown, 10).until(
-                EC.presence_of_all_elements_located((By.CSS_SELECTOR, dropdown_option_selector))
-            )[2]
-            if "isDisabled" in delete_inactive_button.get_attribute("class"):
+            # Step 2: Delete all inactive alerts
+            open_dropdown()
+            delete_btn = find_menu_item("Delete all inactive")
+            if delete_btn and "isDisabled" not in (delete_btn.get_attribute("class") or ""):
+                delete_btn.click()
+                self.utils.click_yes_in_confirm_popup(self.driver)
+                open_tv_logger.info("Deleted all inactive alerts")
+            else:
                 open_tv_logger.info(
-                    'The "Delete All Inactive" option is disabled. No need to click it.'
+                    "Delete all inactive is disabled or not found — no inactive alerts"
                 )
-            else:
-                delete_inactive_button.click()
-                self.utils.click_yes_in_confirm_popup(self.driver)
 
             open_tv_logger.info("All alerts deleted successfully")
             return True

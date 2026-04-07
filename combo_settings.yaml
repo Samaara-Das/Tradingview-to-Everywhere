@@ -12,7 +12,7 @@ alerts:
   recalc_wait: 1.5
   start_fresh: false
 webhook:
-  url: https://stock-buddy-app.vercel.app/api/tte/combo
+  url: https://stockbuddy.co/api/tte/combo
 snapshot:
   enabled: true
   layout_name: Snapshot
