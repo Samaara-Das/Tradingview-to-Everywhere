@@ -427,40 +427,25 @@ class Browser:
     def change_layout(self, layout_name):
         """This changes the layout of the chart to `layout_name` if we are a different one. If we are on the same layout, it does nothing."""
         try:
-            # switch the layout if we are on some other layout. if we are on the screener layout, we don't need to do anything
-            curr_layout = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.XPATH, '//*[@id="header-toolbar-save-load"]'))
-            )
-            if curr_layout.find_element(By.CSS_SELECTOR, ".text-yyMUOAN9").text == layout_name:
+            if self.current_layout() == layout_name:
                 return True
 
-            # click on the dropdown arrow
-            WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located(
-                    (
-                        By.XPATH,
-                        "/html/body/div[2]/div/div[3]/div/div/div[3]/div[1]/div/div/div/div/div[14]/div/div/div/button",
-                    )
-                )
-            ).click()
+            # Click the dropdown arrow (Manage layouts button)
+            dropdown_btn = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[data-name="save-load-menu"]'))
+            )
+            ActionChains(self.driver).click(dropdown_btn).perform()
+            sleep(0.5)
 
-            # choose the screener layout
-            layouts = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_all_elements_located(
-                    (
-                        By.XPATH,
-                        '//*[@id="overlap-manager-root"]/div/span/div[1]/div/div/a',
-                    )
+            # Find layout item by visible text using XPath
+            layout_item = WebDriverWait(self.driver, 5).until(
+                EC.element_to_be_clickable(
+                    (By.XPATH, f'//*[normalize-space(text())="{layout_name}"]')
                 )
             )
-
-            for layout in layouts:
-                if (
-                    layout.find_element(By.CSS_SELECTOR, ".layoutTitle-yyMUOAN9").text
-                    == layout_name
-                ):
-                    layout.click()
-                    return True
+            layout_item.click()
+            sleep(0.5)
+            return True
         except Exception:
             open_tv_logger.exception("An error happened when changing the layout. Error: ")
             return False
@@ -469,9 +454,9 @@ class Browser:
         """This returns the current layout of the chart."""
         try:
             curr_layout = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.XPATH, '//*[@id="header-toolbar-save-load"]'))
+                EC.presence_of_element_located((By.CSS_SELECTOR, "button#header-toolbar-save-load"))
             )
-            return curr_layout.find_element(By.CSS_SELECTOR, ".text-yyMUOAN9").text
+            return curr_layout.text.strip()
         except Exception:
             open_tv_logger.exception("An error happened when getting the current layout. Error: ")
             return ""
@@ -1121,10 +1106,9 @@ class Browser:
 
     def delete_all_alerts(self):
         """Waits for the alert sidebar to show up and checks if there are any alerts. If there are, they are deleted by making all the alerts inactive and then deleting the inactive alerts. Then it waits a second."""
-        dropdown_option_selector = 'div[data-qa-id="menu-inner"] > div'
 
         def open_dropdown():
-            """If the drpodown isn't already open, clicks the 3 dots and returns the dropdown that opens"""
+            """If the dropdown isn't already open, clicks the 3 dots and returns the dropdown that opens"""
             # if the dropdown menu isn't already open
             if not self.driver.find_elements(By.CSS_SELECTOR, 'div[data-qa-id="menu-inner"]'):
                 WebDriverWait(self.driver, 5).until(
@@ -1135,6 +1119,15 @@ class Browser:
             return WebDriverWait(self.driver, 5).until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-qa-id="menu-inner"]'))
             )
+
+        def find_menu_item(label):
+            """Find a dropdown menu item div by its text label.
+            Returns the parent item div (for clicking and isDisabled checks)."""
+            items = self.driver.find_elements(
+                By.XPATH,
+                f'//div[@data-qa-id="menu-inner"]/div[.//span[normalize-space(text())="{label}"]]',
+            )
+            return items[0] if items else None
 
         try:
             # Make sure that the Alerts tab is open
@@ -1154,31 +1147,30 @@ class Browser:
                 open_tv_logger.info("There are no alerts. No need to delete any alerts!")
                 return True
 
-            dropdown = open_dropdown()
-
-            # Check if "Stop All" is disabled
-            stop_all_button = WebDriverWait(dropdown, 10).until(
-                EC.presence_of_all_elements_located((By.CSS_SELECTOR, dropdown_option_selector))
-            )[1]
-            if "isDisabled" in stop_all_button.get_attribute("class"):
-                open_tv_logger.info('The "Stop All" option is disabled. No need to click it.')
-            else:
-                stop_all_button.click()
+            # Step 1: Pause all alerts
+            open_dropdown()
+            pause_btn = find_menu_item("Pause all")
+            if not pause_btn:
+                # Try legacy label
+                pause_btn = find_menu_item("Stop all")
+            if pause_btn and "isDisabled" not in (pause_btn.get_attribute("class") or ""):
+                pause_btn.click()
                 self.utils.click_yes_in_confirm_popup(self.driver)
+                open_tv_logger.info("Paused all alerts")
+            else:
+                open_tv_logger.info("Pause all is disabled or not found — alerts already inactive")
 
-            dropdown = open_dropdown()
-
-            # Check if "Delete All Inactive" is disabled
-            delete_inactive_button = WebDriverWait(dropdown, 10).until(
-                EC.presence_of_all_elements_located((By.CSS_SELECTOR, dropdown_option_selector))
-            )[2]
-            if "isDisabled" in delete_inactive_button.get_attribute("class"):
+            # Step 2: Delete all inactive alerts
+            open_dropdown()
+            delete_btn = find_menu_item("Delete all inactive")
+            if delete_btn and "isDisabled" not in (delete_btn.get_attribute("class") or ""):
+                delete_btn.click()
+                self.utils.click_yes_in_confirm_popup(self.driver)
+                open_tv_logger.info("Deleted all inactive alerts")
+            else:
                 open_tv_logger.info(
-                    'The "Delete All Inactive" option is disabled. No need to click it.'
+                    "Delete all inactive is disabled or not found — no inactive alerts"
                 )
-            else:
-                delete_inactive_button.click()
-                self.utils.click_yes_in_confirm_popup(self.driver)
 
             open_tv_logger.info("All alerts deleted successfully")
             return True
