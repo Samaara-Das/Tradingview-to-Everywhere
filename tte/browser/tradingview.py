@@ -427,40 +427,25 @@ class Browser:
     def change_layout(self, layout_name):
         """This changes the layout of the chart to `layout_name` if we are a different one. If we are on the same layout, it does nothing."""
         try:
-            # switch the layout if we are on some other layout. if we are on the screener layout, we don't need to do anything
-            curr_layout = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.XPATH, '//*[@id="header-toolbar-save-load"]'))
-            )
-            if curr_layout.find_element(By.CSS_SELECTOR, ".text-yyMUOAN9").text == layout_name:
+            if self.current_layout() == layout_name:
                 return True
 
-            # click on the dropdown arrow
-            WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located(
-                    (
-                        By.XPATH,
-                        "/html/body/div[2]/div/div[3]/div/div/div[3]/div[1]/div/div/div/div/div[14]/div/div/div/button",
-                    )
-                )
-            ).click()
+            # Click the dropdown arrow (Manage layouts button)
+            dropdown_btn = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[data-name="save-load-menu"]'))
+            )
+            ActionChains(self.driver).click(dropdown_btn).perform()
+            sleep(0.5)
 
-            # choose the screener layout
-            layouts = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_all_elements_located(
-                    (
-                        By.XPATH,
-                        '//*[@id="overlap-manager-root"]/div/span/div[1]/div/div/a',
-                    )
+            # Find layout item by visible text using XPath
+            layout_item = WebDriverWait(self.driver, 5).until(
+                EC.element_to_be_clickable(
+                    (By.XPATH, f'//*[normalize-space(text())="{layout_name}"]')
                 )
             )
-
-            for layout in layouts:
-                if (
-                    layout.find_element(By.CSS_SELECTOR, ".layoutTitle-yyMUOAN9").text
-                    == layout_name
-                ):
-                    layout.click()
-                    return True
+            layout_item.click()
+            sleep(0.5)
+            return True
         except Exception:
             open_tv_logger.exception("An error happened when changing the layout. Error: ")
             return False
@@ -469,9 +454,9 @@ class Browser:
         """This returns the current layout of the chart."""
         try:
             curr_layout = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.XPATH, '//*[@id="header-toolbar-save-load"]'))
+                EC.presence_of_element_located((By.CSS_SELECTOR, "button#header-toolbar-save-load"))
             )
-            return curr_layout.find_element(By.CSS_SELECTOR, ".text-yyMUOAN9").text
+            return curr_layout.text.strip()
         except Exception:
             open_tv_logger.exception("An error happened when getting the current layout. Error: ")
             return ""
