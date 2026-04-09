@@ -32,6 +32,7 @@ python combo_main.py --setup-only         # Create alerts, then exit
 python combo_main.py --maintain-only      # Skip setup, run maintenance only
 python combo_main.py --fresh              # Delete all existing alerts before setup
 python combo_main.py --validate           # Validate config and exit
+python combo_main.py --symbols EURUSD,GBPUSD  # Setup only these symbols
 python tte_gui.py                         # GUI interface
 ```
 
@@ -45,6 +46,7 @@ python tte_gui.py                         # GUI interface
 - `tte/browser/chart.py` — Chart navigation & snapshots
 - `tte/browser/helpers.py` — Selenium utility functions
 - `tte/data/symbols.py` — MongoDB symbol fetching
+- `tte/snapshot_worker.py` — Chart snapshot polling & browser orchestration
 
 ### Browser Automation (`tte/browser/tradingview.py`)
 - Manages all Selenium interactions with TradingView
@@ -68,12 +70,12 @@ All combo mode options are configured in `combo_settings.yaml`. Secrets (webhook
 | Snapshot enabled | `snapshot.enabled` | true | Enable chart snapshot worker |
 | Snapshot layout | `snapshot.layout_name` | "Snapshot" | TradingView layout for snapshots |
 | Snapshot bar style | `snapshot.bar_style` | "candle" | Bar style for snapshot charts |
-| Snapshot batch size | `snapshot.batch_size` | 5 | Pending snapshots per poll |
+| Snapshot batch size | `snapshot.batch_size` | 10 | Pending snapshots per poll |
 | Snapshot poll interval | `snapshot.poll_interval` | 60 | Seconds between snapshot polls |
 | Snapshot bars right | `snapshot.bars_to_right` | 60 | Right margin bars for chart framing |
 
 ### Environment Variables
-See `tte/config.py` and `.env` file. Key variables: `CHROME_PROFILES_PATH`, `TRADINGVIEW_EMAIL`, `TRADINGVIEW_PASSWORD`, `MONGODB_PWD`, `COMBO_WEBHOOK_URL`
+See `tte/config.py` and `.env` file. Key variables: `CHROME_PROFILES_PATH`, `TRADINGVIEW_EMAIL`, `TRADINGVIEW_PASSWORD`, `MONGODB_PWD`, `COMBO_WEBHOOK_URL`, `STOCK_BUDDY_API_URL`, `API_TIMEOUT`
 
 ### TradingView Requirements
 - **2FA**: Must be disabled
@@ -86,7 +88,7 @@ See `tte/config.py` and `.env` file. Key variables: `CHROME_PROFILES_PATH`, `TRA
 1. **Reuse existing code**: Check before implementing — patterns for alerts, tabs, indicators already exist
 2. **Always log**: Use `logger.info/debug/error()` in every significant code block
 3. **Test `tte/browser/tradingview.py` changes carefully**: Browser automation is fragile; verify with a real browser
-4. **Document mistakes**: Write learnings to `AGENTS.md` to prevent repetition
+4. **Document mistakes**: Write learnings to prevent repetition
 
 ## Key Code Locations
 

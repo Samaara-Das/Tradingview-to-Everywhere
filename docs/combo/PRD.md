@@ -130,7 +130,7 @@ snapshot:
   enabled: true
   layout_name: "Snapshot"
   bar_style: "candle"
-  batch_size: 5
+  batch_size: 10
   poll_interval: 60
   bars_to_right: 60
 
@@ -226,6 +226,9 @@ python tte_gui.py                     # GUI interface
 | Graceful shutdown | `threading.Event` for interruptible waits on SIGINT/SIGTERM |
 | Snapshot worker | Chart screenshot system for setup messages in Stock Buddy |
 | GUI snapshot settings | Snapshot config exposed in GUI settings card |
+| Failed batch retry | Automatic retry for failed alert creation batches |
+| TradingView UI redesign fixes | Alert dialog two-step flow, timeframe collapsible sections, layout href navigation |
+| Delete alerts rewrite | Text-based matching + auto-retry for delete-all-alerts |
 
 ---
 
@@ -233,7 +236,6 @@ python tte_gui.py                     # GUI interface
 
 | Enhancement | Description |
 |------------|-------------|
-| Failed batch retry | Automatic retry for failed alert creation batches |
 | Symbol expansion | Expand from 620 to ~800 symbols (architecture supports up to 400 alerts) |
 
 ---

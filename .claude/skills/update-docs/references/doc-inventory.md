@@ -1,8 +1,8 @@
 # TTE Documentation Inventory
 
-This is the canonical list of all documentation files in TradingView to Everywhere. The docs-updater agent and `/update-docs` skill use this to know what exists and what each file covers.
+This is the canonical list of all documentation files in TradingView to Everywhere. The `/update-docs` skill uses this to know what exists and what each file covers.
 
-Last updated: February 2026 (V2 production)
+Last updated: April 2026
 
 ---
 
@@ -17,16 +17,16 @@ Last updated: February 2026 (V2 production)
 
 | File | Purpose | Audience | Update Frequency |
 |------|---------|----------|-----------------|
-| `docs/combo/ARCHITECTURE.md` | Complete architecture — V2 changes, system overview, data flows | Developers | Architecture changes |
-| `docs/combo/PRD.md` | Product requirements, implementation plan | Developers, stakeholders | New features, scope changes |
-| `docs/combo/IMPLEMENTATION.md` | Implementation details and task tracking — **Archived** (all tasks completed Feb 2026) | Developers | During active development |
+| `docs/combo/ARCHITECTURE.md` | Complete architecture — V2 system overview, data flows, payload format | Developers | Architecture changes |
+| `docs/combo/PRD.md` | Product requirements, implementation plan, production config | Developers, stakeholders | New features, scope changes |
+| `docs/combo/IMPLEMENTATION.md` | Implementation details and task tracking — **Archived** (all tasks completed Feb 2026) | Developers | No longer updated |
 
 ## Tier 3: Setup & Reference Docs (audit when relevant)
 
 | File | Purpose | Audience | Update Frequency |
 |------|---------|----------|-----------------|
 | `docs/SETUP.md` | Installation and environment setup | New developers | Dependency/config changes |
-| `docs/API.md` | Stock Buddy API integration | Developers | API/payload changes |
+| `docs/API.md` | Stock Buddy API integration, webhook format | Developers | API/payload changes |
 | `docs/DATABASE.md` | MongoDB collections and schemas | Developers | Schema changes |
 | `docs/TROUBLESHOOTING.md` | Common issues and solutions | Developers, users | When new issues discovered |
 | `docs/CONTRIBUTING.md` | Contribution guidelines | Contributors | Rarely |
@@ -41,12 +41,12 @@ Last updated: February 2026 (V2 production)
 | `docs/STOCK_BUDDY_TECHNICAL_ARCHITECTURE.md` | Stock Buddy integration architecture | Cross-project reference |
 | `docs/prds/backfill-snapshots.md` | Backfill snapshots PRD | Feature PRD |
 
-## Tier 5: Agent & Coordination Docs
+## Tier 5: Agent & Session Docs (audit for staleness)
 
 | File | Purpose | Notes |
 |------|---------|-------|
-| `.claude/agent-comms.md` | Stock Buddy agent coordination | V2 payload format spec |
-| `.claude/task-context.md` | Session progress tracker | Updated each session |
+| `.claude/task-context.md` | Session progress tracker | Updated each session, contains verified selectors |
+| `.claude/skills/update-docs/references/doc-inventory.md` | This file — documentation inventory | Update after doc changes |
 
 ## Configuration & Templates (not audited for content)
 
@@ -64,6 +64,7 @@ Last updated: February 2026 (V2 production)
 
 | File | Purpose |
 |------|---------|
-| `Pine Script Code/TTE Screener V2.txt` | **Active** — V2 screener with setup/exit tracking |
+| `Pine Script Code/TTE Screener V2.txt` | **Active** — V2 screener with stateless setup detection |
 | `Pine Script Code/TTE Screener.txt` | Archived — V1 screener |
-| `Pine Script Code/Trade Drawer.txt` | Trade Drawer v6 for chart snapshots |
+| `Pine Script Code/Trade Drawer V2.txt` | **Active** — Trade Drawer V2 (NWE bands + trade levels) for chart snapshots |
+| `Pine Script Code/Trade Drawer.txt` | Archived — V1 Trade Drawer |

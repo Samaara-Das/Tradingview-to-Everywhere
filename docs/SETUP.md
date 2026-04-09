@@ -167,7 +167,7 @@ MONGODB_PWD=your_mongodb_password
 MONGODB_DATABASE=tte
 
 # Combo Webhook
-COMBO_WEBHOOK_URL=https://stock-buddy-app.vercel.app/api/tte/combo
+COMBO_WEBHOOK_URL=https://stockbuddy.co/api/tte/combo
 ```
 
 ---
@@ -240,7 +240,7 @@ snapshot:
   enabled: true                  # Enable chart snapshot worker
   layout_name: "Snapshot"        # TradingView layout for snapshots
   bar_style: "candle"
-  batch_size: 5
+  batch_size: 10
   poll_interval: 60
   bars_to_right: 60
 

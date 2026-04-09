@@ -313,7 +313,7 @@ Step 4: For batch #1 (e.g., GBPAUD, AUDJPY — both currencies):
         g. Selects "Any alert() function call" as condition
         h. Goes to Notifications tab
         i. Enables webhook checkbox
-        j. Enters webhook URL: https://stock-buddy-app.vercel.app/api/tte/combo
+        j. Enters webhook URL: https://stockbuddy.co/api/tte/combo
         k. Clicks Create
 Step 5: Repeats Step 4 for all ~310 batches (sequential, single browser)
 Step 6: All ~310 alerts are now live on TradingView's servers
@@ -459,7 +459,7 @@ def setup_all_alerts():
         # Create webhook alert
         browser.click_indicator()  # Select it
         browser.create_webhook_alert(
-            webhook_url="https://stock-buddy-app.vercel.app/api/tte/combo",
+            webhook_url="https://stockbuddy.co/api/tte/combo",
             condition="Any alert() function call"
         )
 
@@ -544,7 +544,7 @@ def run_maintenance(browser, config):
 ### Webhook URL
 
 ```
-https://stock-buddy-app.vercel.app/api/tte/combo
+https://stockbuddy.co/api/tte/combo
 ```
 
 ### JSON Payload Structure (V2 Compact Format)
@@ -799,7 +799,7 @@ With V2 `alert.freq_once_per_bar_close` at 45-second timeframe:
 ### Q5 Detail: Alert Maintenance
 
 - **Frequency**: Every 2.5 minutes / 150s (configurable via `maintenance.interval` in `combo_settings.yaml`)
-- **Method**: Reuse `restart_inactive_alerts()` from `handle_alerts.py` (lines 240-303)
+- **Method**: Reuse `restart_inactive_alerts()` from `tte/main.py`
 - **How it works**:
   1. Opens the Alerts tab via `open_alert_tab()`
   2. Clicks the 3-dot settings button (`alerts-settings-button`)
