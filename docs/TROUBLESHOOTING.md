@@ -62,13 +62,9 @@ Common issues and solutions for TTE.
 
 **Solutions**:
 1. Update Chrome to latest version
-2. Delete cached ChromeDriver:
-   ```bash
-   # Windows - find and delete
-   del %USERPROFILE%\.wdm\drivers\chromedriver\*
-   ```
-3. TTE uses webdriver-manager which should auto-download matching version
-4. Restart TTE
+2. TTE uses Selenium 4's built-in driver management which auto-downloads matching ChromeDriver
+3. If issues persist, delete cached drivers and restart TTE
+4. Check `tte/browser/tradingview.py` `_find_chromedriver()` for the driver resolution logic
 
 ---
 
@@ -152,7 +148,7 @@ Common issues and solutions for TTE.
 - `tte_live_signals` collection empty
 
 **Solutions**:
-1. Verify webhook URL: `https://stock-buddy-app.vercel.app/api/tte/combo`
+1. Verify webhook URL: `https://stockbuddy.co/api/tte/combo`
 2. Check `COMBO_WEBHOOK_URL` in `.env`
 3. Test webhook manually with curl (see API.md)
 4. Check Vercel function logs for errors
@@ -393,6 +389,37 @@ If elements aren't being found, the wait timeout may be too short:
 # Default is usually 10 seconds
 WebDriverWait(self.driver, 15).until(...)  # Increase to 15
 ```
+
+---
+
+## TradingView UI Changes
+
+### Alert Dialog Redesign
+
+**Symptoms**:
+- Error: `Failed to create webhook alert`
+- Alert creation hangs or times out
+
+**Cause**: TradingView periodically redesigns their UI, breaking Selenium selectors.
+
+**Solutions**:
+1. Check if TradingView updated their alert dialog (tabs vs sub-dialogs)
+2. Verify selectors in `tte/browser/tradingview.py` `create_webhook_alert()` match current UI
+3. Run with `headless: false` to visually inspect the dialog
+4. Check `.claude/task-context.md` for the latest verified selector patterns
+
+### Timeframe Dropdown Redesign
+
+**Symptoms**:
+- Timeframe change fails or selects wrong timeframe
+- Error about timeframe section not found
+
+**Cause**: TradingView changed from flat dropdown to collapsible sections.
+
+**Solutions**:
+1. Check `tte/browser/chart.py` for `_expand_timeframe_section()` logic
+2. Verify section headers match (Ticks/Seconds/Minutes/Hours/Days/Ranges)
+3. Run with `headless: false` to debug visually
 
 ---
 

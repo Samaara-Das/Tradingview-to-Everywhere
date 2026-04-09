@@ -6,7 +6,7 @@ Stock Buddy API reference and webhook documentation for TTE.
 
 The Stock Buddy API manages signal storage, symbol data, and combo mode live signals. TTE sends webhook payloads to Stock Buddy when TradingView alerts fire.
 
-**Base URL**: `https://stock-buddy-app.vercel.app/api/tte`
+**Base URL**: `https://stockbuddy.co/api/tte`
 
 ---
 
@@ -637,15 +637,15 @@ Used by the TTE snapshot worker to manage chart screenshot requests.
 
 ```bash
 # Test combo V2 webhook
-curl -X POST https://stock-buddy-app.vercel.app/api/tte/combo \
+curl -X POST https://stockbuddy.co/api/tte/combo \
   -H "Content-Type: application/json" \
   -d '{"ts":1707264000000,"s":[{"sym":"EURUSD","c":1.085,"nwe":[],"ob":[],"b":[null,null],"se":[null,null]}]}'
 
 # Query combo signals
-curl "https://stock-buddy-app.vercel.app/api/tte/combo/signals?limit=10"
+curl "https://stockbuddy.co/api/tte/combo/signals?limit=10"
 
 # Filter by signal type
-curl "https://stock-buddy-app.vercel.app/api/tte/combo/signals?signalType=nwe&direction=bullish"
+curl "https://stockbuddy.co/api/tte/combo/signals?signalType=nwe&direction=bullish"
 ```
 
 ---
@@ -748,25 +748,25 @@ TTE's combo mode uses persistent alerts that fire continuously, so rate limiting
 
 ```bash
 # Health check
-curl https://stock-buddy-app.vercel.app/api/health
+curl https://stockbuddy.co/api/health
 
 # Get stats
-curl https://stock-buddy-app.vercel.app/api/tte/stats
+curl https://stockbuddy.co/api/tte/stats
 
 # Get init status
-curl https://stock-buddy-app.vercel.app/api/tte/init
+curl https://stockbuddy.co/api/tte/init
 
 # Get next batch
-curl "https://stock-buddy-app.vercel.app/api/tte/symbols/next-batch?size=20"
+curl "https://stockbuddy.co/api/tte/symbols/next-batch?size=20"
 
 # Get hot symbols
-curl "https://stock-buddy-app.vercel.app/api/tte/hot-symbols?limit=8"
+curl "https://stockbuddy.co/api/tte/hot-symbols?limit=8"
 
 # Get signals
-curl "https://stock-buddy-app.vercel.app/api/tte/signals?limit=10&level=3"
+curl "https://stockbuddy.co/api/tte/signals?limit=10&level=3"
 
 # Test NWE webhook (batch format)
-curl -X POST https://stock-buddy-app.vercel.app/api/tte/nwe \
+curl -X POST https://stockbuddy.co/api/tte/nwe \
   -H "Content-Type: application/json" \
   -d '{"tier":"nwe","symbols":[{"symbol":"EURUSD","direction":"bullish","timeframes":["5m"]}],"timestamp":1705312800,"count":1}'
 ```

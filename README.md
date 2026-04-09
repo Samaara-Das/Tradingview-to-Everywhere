@@ -62,6 +62,9 @@ python combo_main.py --setup-only
 
 # Maintenance only (skip setup)
 python combo_main.py --maintain-only
+
+# Setup specific symbols only
+python combo_main.py --symbols EURUSD,GBPUSD
 ```
 
 **GUI** (recommended):
@@ -89,6 +92,7 @@ tradingview-to-everywhere/
 │   │   ├── tradingview.py      # TradingView automation (Selenium)
 │   │   ├── chart.py            # Chart navigation & snapshots
 │   │   └── helpers.py          # Selenium utility functions
+│   ├── snapshot_worker.py      # Chart snapshot polling & orchestration
 │   └── data/                   # Data access layer
 │       ├── __init__.py         # Re-exports: get_symbols, get_symbol_categories
 │       └── symbols.py          # MongoDB symbol fetching
@@ -132,7 +136,7 @@ TRADINGVIEW_PASSWORD=your_password
 MONGODB_PWD=your_mongodb_password
 
 # Webhook
-COMBO_WEBHOOK_URL=https://stock-buddy-app.vercel.app/api/tte/combo
+COMBO_WEBHOOK_URL=https://stockbuddy.co/api/tte/combo
 ```
 
 ## Documentation
