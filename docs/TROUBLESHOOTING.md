@@ -423,6 +423,32 @@ WebDriverWait(self.driver, 15).until(...)  # Increase to 15
 
 ---
 
+## Known Issues
+
+### Screener Gear Click Intercepted (Open — pre-existing, surfaced again on Docker port)
+
+**Symptoms** (identical on Windows AND Linux/Docker):
+- `change_settings()` in `tte/browser/tradingview.py:599` times out waiting for the screener legend's gear icon `button[data-qa-id="legend-settings-action"]`.
+- Log pattern matches the April 8 trace Sammy archived in Coda:
+  ```
+  WARNING - Screener V2 not found
+  WARNING - Failed to make visible
+  WARNING - Failed to dismiss overlay
+  ```
+- Hits on every fresh-Chrome run; intermittent on warm sessions.
+
+**Cause**: A transient TV overlay (tooltip / promo / hover layer) sits in front of the legend gear at click time. Native Selenium `.click()` is intercepted by the overlay rather than reaching the gear button.
+
+**Status**: Open as of 2026-04-30. Same root cause on both platforms — NOT caused by the Docker port. The Docker container on the VPS is currently kept **stopped** to avoid the burn loop until this is fixed. (`change_symbol()` already works around the same class of overlay using `driver.execute_script("arguments[0].click();", el)` — that pattern is the likely fix shape here too.)
+
+**Fix constraints**:
+- The selenium-patterns sub-agent (`.claude/agents/selenium-patterns.md`) has an explicit **"NEVER modify `tte/browser/tradingview.py`"** rule — the fix has to come from the calling side or via a selector/dismissal helper, not by editing `change_settings()` directly.
+- Needs a focused selenium-patterns session to verify which overlay is intercepting and pick between (a) JS-click bypass, (b) explicit overlay-dismissal helper invoked before the gear click, or (c) re-targeting the gear via a different selector that isn't covered.
+
+**When fixed**: re-enable `tte-1` on the VPS (`docker compose up -d tte-1`) and watch `logs/tte-1/app_log.log` for a clean settings-change cycle.
+
+---
+
 ## Quick Fixes Checklist
 
 - [ ] Close all Chrome windows

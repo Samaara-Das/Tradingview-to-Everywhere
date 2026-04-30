@@ -3,6 +3,7 @@ Browser automation for TradingView. Handles sign-in, layout/timeframe management
 screener indicator configuration, webhook alert creation, and indicator re-uploading.
 """
 
+import platform
 import subprocess
 from os import getenv
 from pathlib import Path
@@ -144,8 +145,11 @@ class Browser:
         actual_profile = chrome_profile or PROFILE
         open_tv_logger.debug(f"Chrome profile: {actual_profile}")
 
-        # Kill Chrome processes that would conflict with our user-data-dir
-        if browser_id == 0:
+        # Kill Chrome processes that would conflict with our user-data-dir.
+        # Linux/Docker containers start with a fresh user-data-dir on every run, so
+        # there's never a leftover Chrome to kill — and `powershell` / `taskkill`
+        # don't exist there. Skip entirely outside Windows.
+        if browser_id == 0 and platform.system() == "Windows":
             # Combo mode (first browser only): kill Chrome processes using TTE user-data-dirs
             # This prevents profile lock conflicts without killing unrelated Chrome windows
             open_tv_logger.debug("Killing Chrome processes using TTE profiles...")

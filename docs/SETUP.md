@@ -11,7 +11,8 @@ Complete installation and configuration guide for TradingView to Everywhere (TTE
 5. [Environment Variables](#environment-variables)
 6. [MongoDB Setup](#mongodb-setup)
 7. [Combo Mode Setup](#combo-mode-setup)
-8. [Verification Steps](#verification-steps)
+8. [Linux / Docker Deployment](#linux--docker-deployment)
+9. [Verification Steps](#verification-steps)
 
 ---
 
@@ -22,7 +23,7 @@ Complete installation and configuration guide for TradingView to Everywhere (TTE
 | Python | 3.11.x | Must be exactly 3.11 |
 | Google Chrome | Latest | Auto-updated preferred |
 | MongoDB | 6.0+ | Atlas Cloud or local |
-| Operating System | Windows 10/11 | Tested on Windows |
+| Operating System | Windows 10/11 OR Linux (Docker) | Windows for dev, Linux/Docker for prod (since 2026-04-30) |
 | RAM | 8GB+ | Browser automation is memory-intensive |
 
 ### Verify Python Version
@@ -275,6 +276,82 @@ dist\TTE.exe
 ```
 
 The GUI provides a visual interface for editing `combo_settings.yaml`, selecting run modes, and monitoring progress.
+
+---
+
+## Linux / Docker Deployment
+
+Production runs in a Docker container on the Hostinger VPS (`168.231.103.163`). Same codebase as Windows — three platform-portable patches (see root `CLAUDE.md`) make `tte/main.py` Linux-safe.
+
+### Build the image
+
+```bash
+# From repo root
+docker build -t tte:latest .
+```
+
+The `Dockerfile` (`python:3.11-slim-bookworm` base) installs Chrome stable + matching ChromeDriver via the chrome-for-testing `LATEST_RELEASE_<MAJOR>` API, runs as non-root user `tte` (uid 1000), and sets these env defaults:
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `CHROME_USER_DATA_DIR` | `/home/tte/chrome-profile` | Chrome profile volume mount target |
+| `CHROME_PROFILE` | `Default` (set by compose) | Profile dir name inside user-data-dir; overrides `tte/config.py` PROFILE constant |
+| `LOG_DIR` | `/app/logs` | App log dir; mount a host volume here for persistence |
+| `CHROMEDRIVER_PATH` | `/usr/local/bin/chromedriver` | Where the build placed chromedriver |
+| `PYTHONUNBUFFERED` | `1` | Stream stdout/stderr to compose logs |
+
+### Per-instance volumes (compose)
+
+Run multiple TTE instances (one per TradingView Ultimate account) by giving each its own user-data-dir + log volume:
+
+```yaml
+services:
+  tte-1:
+    image: tte:latest
+    environment:
+      CHROME_PROFILE: Default
+      LOG_DIR: /app/logs
+      MONGODB_URI: mongodb://mongo:27017/?directConnection=true
+      COMBO_WEBHOOK_URL: https://stockbuddy.co/api/tte/combo
+      STOCK_BUDDY_API_URL: http://stockbuddy:3000/api/tte
+      TRADINGVIEW_EMAIL: ...
+      TRADINGVIEW_PASSWORD: ...
+    volumes:
+      - tte1-chrome-profile:/home/tte/chrome-profile
+      - ./logs/tte-1:/app/logs
+    networks: [stockbuddy_net]
+```
+
+### Bootstrap: TradingView cookie injection (REQUIRED)
+
+TV's auto-login form does NOT survive Cloudflare/bot defenses on a fresh container Chrome. Before bringing `tte-1` up the first time (or after wiping its profile volume), inject the TV session cookies directly into the user-data-dir.
+
+1. Sign in to TradingView from a normal browser, open DevTools → Application → Cookies → `https://www.tradingview.com`, copy the values of `sessionid` and `sessionid_sign`.
+2. Run the one-off bootstrap script with the volume mounted:
+
+```bash
+docker compose run --rm \
+  -e TV_SESSION_ID='<sessionid value>' \
+  -e TV_SESSION_ID_SIGN='<sessionid_sign value>' \
+  --entrypoint python tte-1 inject_tv_cookies.py
+```
+
+3. Start the service normally:
+
+```bash
+docker compose up -d tte-1
+```
+
+`inject_tv_cookies.py` writes the cookies into the same `CHROME_USER_DATA_DIR` that `tte-1` mounts and exits. TV will then recognize the existing session and the standard TTE login flow short-circuits.
+
+Re-run the bootstrap whenever:
+- The profile volume is wiped/recreated
+- TV invalidates the session (every ~30 days, or after a manual logout)
+- You see repeated "Failed to sign in to TradingView" errors in `app_log.log` from the container
+
+### Known limitation
+
+`change_settings()` (screener gear icon) currently fails on a fresh Chrome session due to a transient overlay click intercept — see `docs/TROUBLESHOOTING.md` "Screener Gear Click Intercepted (Known Issue)". The container is currently kept stopped on prod until this is fixed.
 
 ---
 

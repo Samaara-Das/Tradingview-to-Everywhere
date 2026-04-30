@@ -122,9 +122,15 @@ class OpenChart:
                     f"Symbol different, changing from {current_symbol} to {no_exchange_symbol}"
                 )
 
-                # Click on Symbol Search button to open popup
-                symbol_search.click()
-                entry_chart_logger.debug("Clicked symbol search button")
+                # Click on Symbol Search button to open popup.
+                # JS click bypasses TV's transient overlay (container-VeoIyDt4 et al)
+                # that intercepts native clicks on the toolbar from a fresh Chrome
+                # session. Falls back to native click if JS path errors.
+                try:
+                    self.driver.execute_script("arguments[0].click();", symbol_search)
+                except Exception:
+                    symbol_search.click()
+                entry_chart_logger.debug("Clicked symbol search button (JS)")
 
                 # Wait for Symbol Search popup to appear
                 symbol_search_dialog = WebDriverWait(self.driver, 10).until(
