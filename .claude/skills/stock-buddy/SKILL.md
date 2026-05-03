@@ -76,7 +76,7 @@ Stock Buddy Frontend (React - Signal display)
 
 ### Project Locations
 
-- **TTE Repository**: `C:\Users\dassa\Work\For Poolsifi\tradingview to everywhere`
+- **TTE Repository**: `C:\Users\dassa\Work\For Client\tradingview to everywhere`
 - **Stock Buddy Repository**: `C:\Users\dassa\Work\Stock-Buddy-App`
 
 ### API Base URL

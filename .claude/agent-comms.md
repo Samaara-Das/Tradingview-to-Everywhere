@@ -8,7 +8,7 @@
 ## Read This First
 
 Full architecture spec: **read the file at this path in the TTE repo:**
-`/c/Users/dassa/Work/For Poolsifi/tradingview to everywhere/.claude/exit-checker-architecture.md`
+`/c/Users/dassa/Work/For Client/tradingview to everywhere/.claude/exit-checker-architecture.md`
 
 It has the complete design: algorithm, payload format, database schema, symbol mapping, edge cases.
 

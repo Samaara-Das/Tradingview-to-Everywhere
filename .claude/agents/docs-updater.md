@@ -157,7 +157,7 @@ As you discover documentation patterns, common gaps, or sync issues, update your
 
 # Persistent Agent Memory
 
-You have a persistent agent memory directory at `C:\Users\dassa\Work\For Poolsifi\tradingview to everywhere\.claude\agent-memory\docs-updater\`. Its contents persist across conversations.
+You have a persistent agent memory directory at `C:\Users\dassa\Work\For Client\tradingview to everywhere\.claude\agent-memory\docs-updater\`. Its contents persist across conversations.
 
 As you work, consult your memory files to build on previous experience. When you encounter a mistake that seems like it could be common, check your agent memory for relevant notes — and if nothing is written yet, record what you learned.
 
