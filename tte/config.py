@@ -12,8 +12,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Chrome profile (previously in env.py)
-PROFILE = "Profile 4"
+# Chrome profile. Default keeps Windows compat ("Profile 4"); per-container
+# overrides via CHROME_PROFILE env var (e.g. "Default" inside Docker since each
+# tte-N container has its own user-data-dir volume).
+PROFILE = os.getenv("CHROME_PROFILE", "Profile 4")
 
 SETTINGS_FILE = Path(__file__).parent.parent / "combo_settings.yaml"
 

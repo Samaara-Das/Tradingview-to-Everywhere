@@ -85,6 +85,40 @@ Setup slots (`b` and `se` arrays, index 0 = LTF, index 1 = HTF) are computed fre
 
 ---
 
+## Docker / Linux Deployment (added 2026-04-30)
+
+TTE now runs as a Docker service on the Hostinger VPS (`168.231.103.163`, KVM8) alongside Stock Buddy. Dev on Windows, prod on Linux — same codebase, same Pine Script.
+
+### Container Shape
+
+- **Image**: `python:3.11-slim-bookworm` base. Installs Chrome stable + matching ChromeDriver via the chrome-for-testing `LATEST_RELEASE_<MAJOR>` API (do NOT construct the URL from `chrome --product-version` — that endpoint is gone).
+- **Service name**: `tte-1` (one container per TradingView Ultimate account; scale by adding `tte-2`, `tte-3`, etc.).
+- **User**: non-root `tte` (uid 1000).
+- **Entrypoint**: `python -m tte.main`.
+
+### Per-Instance Isolation
+
+Each `tte-N` container needs its own:
+- **Chrome user-data-dir volume** mounted at `/home/tte/chrome-profile` — keeps the TV session, cookies, and any TV-side preferences isolated. No cross-container profile collisions.
+- **`CHROME_PROFILE` env override** — `tte/config.py` reads `os.getenv("CHROME_PROFILE", "Profile 4")`. Inside a container we set `CHROME_PROFILE=Default` because the user-data-dir volume only contains one profile dir.
+- **Log volume** mounted at `/app/logs` — `tte/log.py` writes to `${LOG_DIR:-logs}/app_log.log`. The compose file binds this to a host path so logs survive container rebuilds.
+
+### Networking
+
+- **Mongo**: containers connect to a local MongoDB service on the same Docker network (no longer Atlas).
+- **Webhook**: alerts post to `https://stockbuddy.co/api/tte/combo` (was `*.vercel.app` previously — DNS now points at the VPS).
+- **Snapshot uploads**: `STOCK_BUDDY_API_URL=http://stockbuddy:3000/api/tte` — Docker DNS over the internal network, no public hop.
+
+### Bootstrap: TV Cookie Injection
+
+TV's auto-login form does NOT survive Cloudflare/bot defenses on a fresh container Chrome. Run `inject_tv_cookies.py` once per new user-data-dir volume to seed `sessionid` + `sessionid_sign` cookies before bringing up `tte-1`. See `docs/SETUP.md` "Linux/Docker" section for the exact command.
+
+### Platform-Portable Patches
+
+The three platform-conditional patches that made the Linux port work (`platform.system()` guard for Chrome cleanup, `LOG_DIR` env, `CHROME_PROFILE` env) are documented in the root `CLAUDE.md`. None of them break Windows behaviour — defaults match the pre-port hard-coded values.
+
+---
+
 > **V1 documentation follows below** for reference. V1 is no longer in active use.
 
 ## Table of Contents

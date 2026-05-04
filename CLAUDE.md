@@ -13,6 +13,10 @@ TradingView to Everywhere (TTE) is an automated trading signals distribution sys
 
 ## Combo Mode (`tte/main.py`) — Production
 
+- **Platform**: Runs on Windows AND Linux/Docker (Hostinger VPS, since 2026-04-30). See root `Dockerfile` and `docs/SETUP.md` "Linux/Docker" section. Three platform-portable patches landed in this codebase:
+  - `tte/browser/tradingview.py`: Chrome-process-cleanup block guarded by `platform.system() == "Windows"` (Linux containers never have stale Chrome to kill).
+  - `tte/log.py`: file handler writes under `${LOG_DIR:-logs}/app_log.log` (Docker mounts `/app/logs` to a host volume).
+  - `tte/config.py`: `PROFILE = os.getenv("CHROME_PROFILE", "Profile 4")` so each container can override (per-instance user-data-dir volumes).
 - **Method**: Single combo screener (NWE + OB/FVG, stateless setup detection) with persistent webhook alerts
 - **Workflow**: ~310 persistent alerts (2 symbols each, category-aware pairing) → webhook every 45s to Stock Buddy API
 - **Alert lifecycle**: Create once → run forever (+ maintenance every 2.5 mins)
