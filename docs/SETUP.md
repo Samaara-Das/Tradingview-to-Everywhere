@@ -311,9 +311,9 @@ services:
     environment:
       CHROME_PROFILE: Default
       LOG_DIR: /app/logs
-      MONGODB_URI: mongodb://mongo:27017/?directConnection=true
+      MONGODB_URI: mongodb+srv://<user>:<pwd>@<atlas-cluster>/tte
       COMBO_WEBHOOK_URL: https://stockbuddy.co/api/tte/combo
-      STOCK_BUDDY_API_URL: http://stockbuddy:3000/api/tte
+      STOCK_BUDDY_API_URL: https://stockbuddy.co/api/tte
       TRADINGVIEW_EMAIL: ...
       TRADINGVIEW_PASSWORD: ...
     volumes:

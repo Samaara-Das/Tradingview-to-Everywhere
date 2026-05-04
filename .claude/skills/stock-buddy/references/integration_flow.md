@@ -155,7 +155,7 @@ browser.create_webhook_alert(
 1. Click "Create Alert" button
 2. Select NWE screener as condition
 3. Set alert name
-4. Set webhook URL: `https://stock-buddy-app.vercel.app/api/tte/nwe`
+4. Set webhook URL: `https://stockbuddy.co/api/tte/nwe`
 5. Configure alert to trigger "Once Per Bar Close"
 6. Save alert
 

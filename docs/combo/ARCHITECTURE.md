@@ -105,9 +105,9 @@ Each `tte-N` container needs its own:
 
 ### Networking
 
-- **Mongo**: containers connect to a local MongoDB service on the same Docker network (no longer Atlas).
-- **Webhook**: alerts post to `https://stockbuddy.co/api/tte/combo` (was `*.vercel.app` previously — DNS now points at the VPS).
-- **Snapshot uploads**: `STOCK_BUDDY_API_URL=http://stockbuddy:3000/api/tte` — Docker DNS over the internal network, no public hop.
+- **Mongo**: containers connect to MongoDB Atlas (M10) via the Atlas SRV string in `MONGODB_URI`. The TTE container is on the Hostinger VPS; Atlas IP allowlist must include the VPS public IP. (Brief history: this was a local-Docker Mongo on the VPS during the late-Apr 2026 migration, then reverted to Atlas on 2026-05-04 as part of the hybrid revert.)
+- **Webhook**: alerts post to `https://stockbuddy.co/api/tte/combo`. Stock Buddy is hosted on Vercel; DNS resolves `stockbuddy.co` to Vercel.
+- **Snapshot uploads / API calls**: `STOCK_BUDDY_API_URL=https://stockbuddy.co/api/tte` — over the public internet to Vercel-hosted Stock Buddy.
 
 ### Bootstrap: TV Cookie Injection
 

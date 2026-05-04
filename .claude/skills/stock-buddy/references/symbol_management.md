@@ -410,7 +410,7 @@ for category, config in SYMBOL_CATEGORIES.items():
         })
 
 response = requests.post(
-    "https://stock-buddy-app.vercel.app/api/tte/symbols/import",
+    "https://stockbuddy.co/api/tte/symbols/import",
     json={"symbols": symbols, "clearExisting": False}
 )
 ```

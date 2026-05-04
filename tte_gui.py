@@ -602,7 +602,7 @@ class TTEGui:
         self.vars["snapshot_poll_interval"].set(snapshot.get("poll_interval", 60))
         self.vars["snapshot_bars_to_right"].set(snapshot.get("bars_to_right", 60))
 
-        default_url = "https://stock-buddy-app.vercel.app/api/tte/combo"
+        default_url = "https://stockbuddy.co/api/tte/combo"
         env_url = os.environ.get("COMBO_WEBHOOK_URL", "")
         self.vars["webhook_url"].set(webhook.get("url", "") or env_url or default_url)
 
