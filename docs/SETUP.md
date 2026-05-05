@@ -349,9 +349,9 @@ Re-run the bootstrap whenever:
 - TV invalidates the session (every ~30 days, or after a manual logout)
 - You see repeated "Failed to sign in to TradingView" errors in `app_log.log` from the container
 
-### Known limitation
+### Resolved: change_settings() screener-gear bug
 
-`change_settings()` (screener gear icon) currently fails on a fresh Chrome session due to a transient overlay click intercept — see `docs/TROUBLESHOOTING.md` "Screener Gear Click Intercepted (Known Issue)". The container is currently kept stopped on prod until this is fixed.
+The `change_settings()` timeout that previously kept the VPS container stopped was fixed in **PR #28** (commit `7e5cf20`, 2026-05-05). Field-validated on Windows the same day. See `docs/TROUBLESHOOTING.md` → "Screener Gear Click Intercepted (Resolved)" for root cause + fix detail.
 
 ---
 

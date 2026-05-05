@@ -61,10 +61,10 @@ Common issues and solutions for TTE.
 **Cause**: Chrome updated but cached ChromeDriver is outdated.
 
 **Solutions**:
-1. Update Chrome to latest version
-2. TTE uses Selenium 4's built-in driver management which auto-downloads matching ChromeDriver
-3. If issues persist, delete cached drivers and restart TTE
-4. Check `tte/browser/tradingview.py` `_find_chromedriver()` for the driver resolution logic
+1. Since PR #29 (commit `675e5b9`, 2026-05-05), `_find_chromedriver()` returns `None` when Chrome's major version is known and no major-match exists in the `~/.wdm/drivers/chromedriver/win64/` cache — Selenium 4's built-in `SeleniumManager` then auto-fetches a matching driver. Most cases now self-heal on the next run.
+2. If `_get_chrome_major_version()` fails (PowerShell unable to read `chrome.exe` version) the function falls back to the newest cached driver — verify Chrome is installed at the standard path `C:\Program Files\Google\Chrome\Application\chrome.exe`.
+3. To force a specific driver, set `CHROMEDRIVER_PATH` env var to the absolute path of the matching `chromedriver.exe`.
+4. To pre-populate the cache for the current Chrome major, the chrome-for-testing API works: `https://googlechromelabs.github.io/chrome-for-testing/known-good-versions-with-downloads.json` → find the latest `<MAJOR>.x` entry → unzip the `chromedriver` win64 download to `~/.wdm/drivers/chromedriver/win64/<version>/`.
 
 ---
 
@@ -425,27 +425,17 @@ WebDriverWait(self.driver, 15).until(...)  # Increase to 15
 
 ## Known Issues
 
-### Screener Gear Click Intercepted (Open — pre-existing, surfaced again on Docker port)
+### Screener Gear Click Intercepted (Resolved — PR #28, 2026-05-05)
 
 **Symptoms** (identical on Windows AND Linux/Docker):
-- `change_settings()` in `tte/browser/tradingview.py:599` times out waiting for the screener legend's gear icon `button[data-qa-id="legend-settings-action"]`.
-- Log pattern matches the April 8 trace Sammy archived in Coda:
-  ```
-  WARNING - Screener V2 not found
-  WARNING - Failed to make visible
-  WARNING - Failed to dismiss overlay
-  ```
-- Hits on every fresh-Chrome run; intermittent on warm sessions.
+- `change_settings()` in `tte/browser/tradingview.py:599` timed out waiting for the screener legend's gear icon `button[data-qa-id="legend-settings-action"]`.
+- Hit on every fresh-Chrome run; intermittent on warm sessions.
 
-**Cause**: A transient TV overlay (tooltip / promo / hover layer) sits in front of the legend gear at click time. Native Selenium `.click()` is intercepted by the overlay rather than reaching the gear button.
+**Root cause**: `WebDriverWait(screener, 15)` was constructed with the screener WebElement (returned by `_safe_indicator_access`) instead of `self.driver`. `WebDriverWait` scopes its locator search to its first argument, so the search was restricted to the legend container's DOM subtree — but `legend-settings-action` renders elsewhere in the DOM after the legend opens. The wait could never resolve.
 
-**Status**: Open as of 2026-04-30. Same root cause on both platforms — NOT caused by the Docker port. The Docker container on the VPS is currently kept **stopped** to avoid the burn loop until this is fixed. (`change_symbol()` already works around the same class of overlay using `driver.execute_script("arguments[0].click();", el)` — that pattern is the likely fix shape here too.)
+**Fix** (PR #28, commit `7e5cf20`): one-line change to `WebDriverWait(self.driver, 15)`. Validated end-to-end on Windows on 2026-05-05: `change_settings()` succeeds, alerts created cleanly.
 
-**Fix constraints**:
-- The selenium-patterns sub-agent (`.claude/agents/selenium-patterns.md`) has an explicit **"NEVER modify `tte/browser/tradingview.py`"** rule — the fix has to come from the calling side or via a selector/dismissal helper, not by editing `change_settings()` directly.
-- Needs a focused selenium-patterns session to verify which overlay is intercepting and pick between (a) JS-click bypass, (b) explicit overlay-dismissal helper invoked before the gear click, or (c) re-targeting the gear via a different selector that isn't covered.
-
-**When fixed**: re-enable `tte-1` on the VPS (`docker compose up -d tte-1`) and watch `logs/tte-1/app_log.log` for a clean settings-change cycle.
+**Why prior overlay-retry fix didn't catch this**: commit `60cad59` added the lines 576-598 retry block (native click ×3 → overlay-dismiss → JS click) which improved the *legend click* step but left line 599's wrong-reference WebDriverWait untouched.
 
 ---
 

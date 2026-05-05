@@ -2,7 +2,7 @@
 
 This is the canonical list of all documentation files in TradingView to Everywhere. The `/update-docs` skill uses this to know what exists and what each file covers.
 
-Last updated: April 2026
+Last updated: 2026-05-05
 
 ---
 
