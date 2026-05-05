@@ -596,7 +596,7 @@ class Browser:
                                 # Last resort: JS click bypasses overlays
                                 self.driver.execute_script("arguments[0].click();", screener)
                                 open_tv_logger.info("Used JS click to bypass overlay")
-                    WebDriverWait(screener, 15).until(
+                    WebDriverWait(self.driver, 15).until(
                         EC.element_to_be_clickable(
                             (
                                 By.CSS_SELECTOR,
