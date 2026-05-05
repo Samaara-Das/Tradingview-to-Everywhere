@@ -38,9 +38,9 @@ Accept: application/json
 
 ## Base URL
 
-Production: `https://stock-buddy-app.vercel.app/api/tte`
+Production: `https://stockbuddy.co/api/tte`
 
-Health endpoint: `https://stock-buddy-app.vercel.app/api/health` (note: not under `/tte`)
+Health endpoint: `https://stockbuddy.co/api/health` (note: not under `/tte`)
 
 ## TTE API Client
 
@@ -462,13 +462,13 @@ Query TTE signals with filtering and pagination.
 **Example Queries**:
 ```bash
 # Get latest 10 Level 3 signals
-curl "https://stock-buddy-app.vercel.app/api/tte/signals?limit=10&level=3"
+curl "https://stockbuddy.co/api/tte/signals?limit=10&level=3"
 
 # Get bullish signals for EURUSD
-curl "https://stock-buddy-app.vercel.app/api/tte/signals?symbol=EURUSD&direction=bullish"
+curl "https://stockbuddy.co/api/tte/signals?symbol=EURUSD&direction=bullish"
 
 # Get signals from last 24 hours
-curl "https://stock-buddy-app.vercel.app/api/tte/signals?from=1705230000"
+curl "https://stockbuddy.co/api/tte/signals?from=1705230000"
 ```
 
 ### PATCH /api/tte/signals/{id}
@@ -517,7 +517,7 @@ Update a specific signal by ID (e.g., add screenshot URL or mark complete).
 
 Receives Nadaraya-Watson Envelope signals (Tier 1) and adds symbols to the hot list.
 
-**Webhook URL**: `https://stock-buddy-app.vercel.app/api/tte/nwe`
+**Webhook URL**: `https://stockbuddy.co/api/tte/nwe`
 
 **Payload Format** (sent by TradingView):
 ```json
@@ -568,7 +568,7 @@ alert("{\"tier\":\"nwe\",\"symbols\":[{\"symbol\":\"{{ticker}}\",\"direction\":\
 
 Receives Order Block + Divergence confirmation signals (Tier 2) and creates confirmed trading signals.
 
-**Webhook URL**: `https://stock-buddy-app.vercel.app/api/tte/obdiv`
+**Webhook URL**: `https://stockbuddy.co/api/tte/obdiv`
 
 **Payload Format** (sent by TradingView):
 ```json

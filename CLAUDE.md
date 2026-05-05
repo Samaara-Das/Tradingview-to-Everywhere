@@ -6,6 +6,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 TradingView to Everywhere (TTE) is an automated trading signals distribution system that bridges TradingView alerts with Stock Buddy API. It uses Selenium browser automation to interact with TradingView and webhooks to distribute signals.
 
+### Hybrid Hosting (as of 2026-05-04)
+
+- **TTE container `tte-1`** runs on a Hostinger VPS in Mumbai (KVM tier; see `docs/SETUP.md` "Linux/Docker"). The VPS is TTE-only — Stock Buddy and Mongo no longer share it.
+- **Database**: MongoDB Atlas (M10). `MONGODB_URI` in `.env.tte.1` points at the same Atlas SRV string Stock Buddy uses. Atlas IP allowlist must include the VPS public IP.
+- **Stock Buddy API**: Vercel-hosted, public URL. `STOCK_BUDDY_API_URL=https://stockbuddy.co/api/tte` and `COMBO_WEBHOOK_URL=https://stockbuddy.co/api/tte/combo`. No internal Docker DNS hops anymore.
+- **Container state**: tte-1 is currently STOPPED on the VPS pending the `change_settings()` screener-gear bug fix (`tte/browser/tradingview.py` ~line 599). Atlas connectivity has been verified; the screener bug is independent of the hybrid revert and is the highest-priority post-revert TTE task.
+
 ### Critical Principles
 1. **Reuse existing code**: Before implementing anything, check if it already exists in the codebase
 2. **Changes to `tte/browser/tradingview.py` should be tested carefully**: It contains all browser automation logic

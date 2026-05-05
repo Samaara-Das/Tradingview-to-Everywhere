@@ -213,13 +213,13 @@ class Config:
 
     # Stock Buddy API
     api_base_url: str = os.getenv(
-        "STOCK_BUDDY_API_URL", "https://stock-buddy-app.vercel.app/api/tte"
+        "STOCK_BUDDY_API_URL", "https://stockbuddy.co/api/tte"
     )
     api_timeout: int = int(os.getenv("API_TIMEOUT", "30"))
 
     # Webhook URL for TradingView alerts (Stock Buddy signal endpoint)
     webhook_url: str = os.getenv(
-        "WEBHOOK_URL", "https://stock-buddy-app.vercel.app/api/tte/signal"
+        "WEBHOOK_URL", "https://stockbuddy.co/api/tte/signal"
     )
 
     # TradingView chart URL (layout with TTE Screener indicator)
@@ -301,8 +301,8 @@ config = Config()
 
 ```bash
 CHART_URL=https://www.tradingview.com/chart/XXXXXXX/   # TradingView chart with TTE Screener
-WEBHOOK_URL=https://stock-buddy-app.vercel.app/api/tte/signal
-STOCK_BUDDY_API_URL=https://stock-buddy-app.vercel.app/api/tte
+WEBHOOK_URL=https://stockbuddy.co/api/tte/signal
+STOCK_BUDDY_API_URL=https://stockbuddy.co/api/tte
 ```
 
 ---

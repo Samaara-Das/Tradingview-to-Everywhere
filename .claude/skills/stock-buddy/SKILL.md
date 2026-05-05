@@ -81,7 +81,7 @@ Stock Buddy Frontend (React - Signal display)
 
 ### API Base URL
 
-Production: `https://stock-buddy-app.vercel.app/api/tte`
+Production: `https://stockbuddy.co/api/tte`
 
 ## When to Use This Skill
 
@@ -271,10 +271,10 @@ Read [API Endpoints](references/api_endpoints.md) for:
 Example API calls:
 ```bash
 # Get latest 10 Level 3 signals
-curl "https://stock-buddy-app.vercel.app/api/tte/signals?limit=10&level=3"
+curl "https://stockbuddy.co/api/tte/signals?limit=10&level=3"
 
 # Get bullish signals for EURUSD
-curl "https://stock-buddy-app.vercel.app/api/tte/signals?symbol=EURUSD&direction=bullish"
+curl "https://stockbuddy.co/api/tte/signals?symbol=EURUSD&direction=bullish"
 ```
 
 ### Working on Frontend Signal Display
@@ -320,19 +320,19 @@ python tiered_main.py --validate    # Validate configuration
 
 ```bash
 # Health check
-curl https://stock-buddy-app.vercel.app/api/health
+curl https://stockbuddy.co/api/health
 
 # Get stats
-curl https://stock-buddy-app.vercel.app/api/tte/stats
+curl https://stockbuddy.co/api/tte/stats
 
 # Get next batch
-curl "https://stock-buddy-app.vercel.app/api/tte/symbols/next-batch?size=20"
+curl "https://stockbuddy.co/api/tte/symbols/next-batch?size=20"
 
 # Get hot symbols
-curl "https://stock-buddy-app.vercel.app/api/tte/hot-symbols?limit=8"
+curl "https://stockbuddy.co/api/tte/hot-symbols?limit=8"
 
 # Test NWE webhook
-curl -X POST https://stock-buddy-app.vercel.app/api/tte/nwe \
+curl -X POST https://stockbuddy.co/api/tte/nwe \
   -H "Content-Type: application/json" \
   -d '{"tier":"nwe","symbols":[{"symbol":"EURUSD","direction":"bullish","timeframes":["5m"]}],"timestamp":1705312800,"count":1}'
 ```
