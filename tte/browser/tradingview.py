@@ -102,8 +102,10 @@ def _find_chromedriver() -> str | None:
         if chrome_major and version_dir.name.startswith(chrome_major + "."):
             open_tv_logger.debug(f"Found version-matched chromedriver: {candidate}")
             return str(candidate)
-        # Otherwise keep the newest as fallback
-        if best_match is None:
+        # Only retain a non-matching fallback when Chrome's major version is
+        # unknown — otherwise a stale cached driver would be returned instead
+        # of letting SeleniumManager auto-fetch one matching the live Chrome.
+        if not chrome_major and best_match is None:
             best_match = candidate
 
     if best_match:
