@@ -76,11 +76,14 @@ class ComboConfig:
     snapshot_bars_to_right: int = _yaml.get("snapshot", {}).get("bars_to_right", 60)
 
     # Reversed-strategy snapshots: TP drawn at SL coord and vice versa.
-    # Stock Buddy already flips on read; this matches the visual to that.
-    # Env var takes precedence over yaml; default ON.
+    # Default OFF — the reversed Trade Drawer V2 Pine indicator handles the
+    # swap internally on Sammy's TradingView account, so the Python-side swap
+    # would double-flip. Set this to true ONLY if running with the legacy
+    # (non-reversed) Pine Trade Drawer indicator.
+    # Env var takes precedence over yaml.
     reversed_strategy_snapshots: bool = os.getenv(
         "REVERSED_STRATEGY_SNAPSHOTS",
-        str(_yaml.get("snapshot", {}).get("reversed_strategy", True)),
+        str(_yaml.get("snapshot", {}).get("reversed_strategy", False)),
     ).lower() in ("1", "true", "yes", "on")
 
     def validate(self) -> list[str]:

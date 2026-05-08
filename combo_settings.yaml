@@ -20,10 +20,11 @@ snapshot:
   batch_size: 10
   poll_interval: 60
   bars_to_right: 60
-  # Draw TP at original-SL price and SL at original-TP price (Coda i-BqLTT9VWoP).
-  # Webhook payload is unchanged; only the TradingView chart drawing flips.
-  # Override at runtime via env: REVERSED_STRATEGY_SNAPSHOTS=true|false.
-  reversed_strategy: true
+  # Reversal is handled by the reversed Trade Drawer V2 Pine indicator
+  # (Pine Script Code/Trade Drawer V2.txt). Keep this FALSE so we don't
+  # double-flip. Set to true only as emergency rollback when running with
+  # the legacy non-reversed Trade Drawer indicator.
+  reversed_strategy: false
 maintenance:
   interval: 150
 progress:
