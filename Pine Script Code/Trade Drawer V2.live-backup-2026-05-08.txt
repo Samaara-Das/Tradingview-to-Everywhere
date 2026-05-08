@@ -2,17 +2,9 @@
 // © SamaaraDas
 
 // @description
-// Draws NWE bands and trade levels (entry, SL, TP) on the chart for the
-// REVERSED strategy (Coda i-BqLTT9VWoP). The TTE snapshot worker fills the
-// inputs with the ORIGINAL-strategy values (sl = original SL, tp1 = original TP);
-// this indicator flips them internally so the visual reflects the reversed
-// strategy: TP line drawn at the original-SL price, SL line drawn at the
-// original-TP price. Resulting visual R:R = 2:1 (reversed direction).
-//
-// Inputs (sl, tp1, tp2, tp3) are kept identical to V2 so TTE Python's
-// snapshot_worker._set_trade_drawer() does NOT need to change. The Python
-// flag REVERSED_STRATEGY_SNAPSHOTS must be FALSE when this indicator is
-// loaded — otherwise the swap would be applied twice and cancel out.
+// Draws NWE bands and trade levels (entry, SL, TP) on the chart. Used by TTE's
+// snapshot worker to visualize setups. Replaces the need for a separate NWE indicator
+// on the Snapshot layout.
 
 //@version=6
 indicator("Trade Drawer V2", overlay = true, precision = 5, max_lines_count = 10, max_labels_count = 10)
@@ -23,12 +15,10 @@ indicator("Trade Drawer V2", overlay = true, precision = 5, max_lines_count = 10
 import jdehorty/KernelFunctions/2 as kernels
 
 // ============================================================================
-// INPUTS  (UNCHANGED — TTE Python writes to these by position/name)
+// INPUTS
 // ============================================================================
 
-// Trade level inputs (filled by TTE Python via indicator settings dialog).
-// `sl` and `tp1` here carry ORIGINAL-strategy values; the reversed drawing
-// below swaps them.
+// Trade level inputs (filled by TTE Python via indicator settings dialog)
 dateTime = input.int(0, 'Entry Time')
 entry    = input.float(0, 'Entry Price')
 sl       = input.float(0, 'SL Price')
@@ -57,22 +47,6 @@ s17 = input.symbol('GBPNZD', group='Symbols', inline='s17')
 s18 = input.symbol('NZDJPY', group='Symbols', inline='s18')
 s19 = input.symbol('NZDAUD', group='Symbols', inline='s19')
 s20 = input.symbol('CHFJPY', group='Symbols', inline='s20')
-
-// ============================================================================
-// REVERSAL — derive the values we will actually draw
-// ============================================================================
-// Visual SL = original TP (tp1 input). Visual TP = original SL (sl input).
-// Result: in a long-original setup (entry between sl and tp1, sl < entry < tp1),
-// the visual SL is drawn ABOVE entry and the visual TP BELOW entry — i.e. the
-// chart reads as a SHORT setup with R:R 2:1 (reversed).
-drawSl  = tp1
-drawTp1 = sl
-// tp2/tp3 have no natural reversed counterpart (they were further-out original
-// targets, not paired with sl). The snapshot worker never writes to them, so
-// they are always 0 and silently skipped below — but we explicitly suppress
-// them to make intent obvious.
-drawTp2 = 0.0
-drawTp3 = 0.0
 
 // ============================================================================
 // A. NWE BANDS (Nadaraya-Watson Envelope)
@@ -135,16 +109,16 @@ fill(p_lower_near, p_lower_avg, color = green_near, title = 'Lower Boundary: Nea
 fill(p_lower_far, p_lower_avg, color = green_far, title = 'Lower Boundary: Farmost Region')
 
 // ============================================================================
-// B. TRADE LEVELS — drawn from REVERSED values (drawSl, drawTp1)
+// B. TRADE LEVELS (Entry, SL, TP lines + fills + labels)
 // ============================================================================
 
-// Colors (semantics unchanged: orange = risk = SL, blue = profit = TP)
+// Colors
 COLOR_TP      = color.new(#2962FF, 75)  // Blue, 75% transparent — profit zone
 COLOR_SL      = color.new(#FF6D00, 75)  // Orange, 75% transparent — risk zone
 COLOR_ENTRY   = #FFFFFF                 // White — entry level
-COLOR_SL_LINE = #FF6D00                 // Orange — stop loss line
-COLOR_TP_LINE = #2962FF                 // Blue — take profit line
-COLOR_LABEL   = #E0E0E0                 // Light gray — label text
+COLOR_SL_LINE = #FF6D00                // Orange — stop loss line
+COLOR_TP_LINE = #2962FF                // Blue — take profit line
+COLOR_LABEL   = #E0E0E0               // Light gray — label text
 
 // Drawing objects (persistent)
 var line entryLine = na
@@ -162,7 +136,6 @@ var label tp1Label   = na
 var label tp2Label   = na
 var label tp3Label   = na
 
-// Inputs are valid if entry, sl, and tp1 are all populated by TTE.
 bool hasValidInputs = entry != 0 and sl != 0 and tp1 != 0
 
 if barstate.islast and hasValidInputs
@@ -182,23 +155,34 @@ if barstate.islast and hasValidInputs
     label.delete(tp2Label)
     label.delete(tp3Label)
 
-    // Calculate time range: 15 bars forward from the entry time
-    int dt = time - time[1]
+    // Calculate time range: 30 bars forward from the entry time
+    int dt = time - time[1]  // duration of one bar (always valid on last bar)
     int startTime = dateTime > 0 ? dateTime * 1000 : time
     int endTime = startTime + 15 * dt
 
-    // --- Lines (drawn at REVERSED prices) ---
-    entryLine := line.new(startTime, entry,    endTime, entry,    xloc.bar_time, color = COLOR_ENTRY,   width = 2)
-    slLine    := line.new(startTime, drawSl,   endTime, drawSl,   xloc.bar_time, color = COLOR_SL_LINE, width = 1, style = line.style_dashed)
-    tp1Line   := line.new(startTime, drawTp1,  endTime, drawTp1,  xloc.bar_time, color = COLOR_TP_LINE, width = 1, style = line.style_dashed)
+    // --- Lines ---
+    entryLine := line.new(startTime, entry, endTime, entry, xloc.bar_time, color = COLOR_ENTRY, width = 2)
+    slLine    := line.new(startTime, sl, endTime, sl, xloc.bar_time, color = COLOR_SL_LINE, width = 1, style = line.style_dashed)
+    tp1Line   := line.new(startTime, tp1, endTime, tp1, xloc.bar_time, color = COLOR_TP_LINE, width = 1, style = line.style_dashed)
 
-    // tp2/tp3 intentionally suppressed in reversed mode (no clean counterpart).
+    if tp2 != 0
+        tp2Line := line.new(startTime, tp2, endTime, tp2, xloc.bar_time, color = COLOR_TP_LINE, width = 1, style = line.style_dashed)
+    if tp3 != 0
+        tp3Line := line.new(startTime, tp3, endTime, tp3, xloc.bar_time, color = COLOR_TP_LINE, width = 1, style = line.style_dashed)
 
     // --- Fill zones ---
-    slFill  := linefill.new(slLine,    entryLine, COLOR_SL)
-    tp1Fill := linefill.new(entryLine, tp1Line,   COLOR_TP)
+    slFill  := linefill.new(slLine, entryLine, COLOR_SL)
+    tp1Fill := linefill.new(entryLine, tp1Line, COLOR_TP)
+    if tp2 != 0 and not na(tp2Line)
+        tp2Fill := linefill.new(tp1Line, tp2Line, COLOR_TP)
+    if tp3 != 0 and not na(tp3Line)
+        tp3Fill := linefill.new(tp2Line, tp3Line, COLOR_TP)
 
-    // --- Labels (use the REVERSED prices that match the lines) ---
-    entryLabel := label.new(endTime, entry,   str.format('Entry {0}', str.tostring(entry,   '#.#####')), xloc = xloc.bar_time, yloc = yloc.price, style = label.style_none, textcolor = COLOR_LABEL,   textalign = text.align_left, size = size.normal)
-    slLabel    := label.new(endTime, drawSl,  str.format('SL {0}',    str.tostring(drawSl,  '#.#####')), xloc = xloc.bar_time, yloc = yloc.price, style = label.style_none, textcolor = COLOR_SL_LINE, textalign = text.align_left, size = size.normal)
-    tp1Label   := label.new(endTime, drawTp1, str.format('TP1 {0}',   str.tostring(drawTp1, '#.#####')), xloc = xloc.bar_time, yloc = yloc.price, style = label.style_none, textcolor = COLOR_TP_LINE, textalign = text.align_left, size = size.normal)
+    // --- Labels ---
+    entryLabel := label.new(endTime, entry, str.format('Entry {0}', str.tostring(entry, '#.#####')), xloc = xloc.bar_time, yloc = yloc.price, style = label.style_none, textcolor = COLOR_LABEL, textalign = text.align_left, size = size.normal)
+    slLabel    := label.new(endTime, sl, str.format('SL {0}', str.tostring(sl, '#.#####')), xloc = xloc.bar_time, yloc = yloc.price, style = label.style_none, textcolor = COLOR_SL_LINE, textalign = text.align_left, size = size.normal)
+    tp1Label   := label.new(endTime, tp1, str.format('TP1 {0}', str.tostring(tp1, '#.#####')), xloc = xloc.bar_time, yloc = yloc.price, style = label.style_none, textcolor = COLOR_TP_LINE, textalign = text.align_left, size = size.normal)
+    if tp2 != 0
+        tp2Label := label.new(endTime, tp2, str.format('TP2 {0}', str.tostring(tp2, '#.#####')), xloc = xloc.bar_time, yloc = yloc.price, style = label.style_none, textcolor = COLOR_TP_LINE, textalign = text.align_left, size = size.normal)
+    if tp3 != 0
+        tp3Label := label.new(endTime, tp3, str.format('TP3 {0}', str.tostring(tp3, '#.#####')), xloc = xloc.bar_time, yloc = yloc.price, style = label.style_none, textcolor = COLOR_TP_LINE, textalign = text.align_left, size = size.normal)

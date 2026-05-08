@@ -20,6 +20,11 @@ snapshot:
   batch_size: 10
   poll_interval: 60
   bars_to_right: 60
+  # Reversal is handled by the reversed Trade Drawer V2 Pine indicator
+  # (Pine Script Code/Trade Drawer V2.txt). Keep this FALSE so we don't
+  # double-flip. Set to true only as emergency rollback when running with
+  # the legacy non-reversed Trade Drawer indicator.
+  reversed_strategy: false
 maintenance:
   interval: 150
 progress:

@@ -75,6 +75,17 @@ class ComboConfig:
     snapshot_poll_interval: int = _yaml.get("snapshot", {}).get("poll_interval", 60)
     snapshot_bars_to_right: int = _yaml.get("snapshot", {}).get("bars_to_right", 60)
 
+    # Reversed-strategy snapshots: TP drawn at SL coord and vice versa.
+    # Default OFF — the reversed Trade Drawer V2 Pine indicator handles the
+    # swap internally on Sammy's TradingView account, so the Python-side swap
+    # would double-flip. Set this to true ONLY if running with the legacy
+    # (non-reversed) Pine Trade Drawer indicator.
+    # Env var takes precedence over yaml.
+    reversed_strategy_snapshots: bool = os.getenv(
+        "REVERSED_STRATEGY_SNAPSHOTS",
+        str(_yaml.get("snapshot", {}).get("reversed_strategy", False)),
+    ).lower() in ("1", "true", "yes", "on")
+
     def validate(self) -> list[str]:
         """Validate required configuration. Returns list of error strings."""
         errors = []
