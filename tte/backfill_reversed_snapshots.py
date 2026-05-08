@@ -218,6 +218,13 @@ def run(worker) -> None:
             continue
         original_png = doc.get("snapshotUrl")
         original_tv = doc.get("snapshotTvUrl")
+        # Direct-Mongo docs only have `_id`. The snapshot worker reads
+        # `setupMessageId` (the field SB populates on /api/tte/snapshots/pending)
+        # so it can address the doc on the update callback. Synthesize from
+        # the ObjectId string when missing so the SB endpoint resolves the
+        # right doc by `setupMessageId` lookup.
+        if "setupMessageId" not in doc:
+            doc["setupMessageId"] = str(doc_id)
         try:
             ok = worker._take_snapshot(doc)
             if ok:
