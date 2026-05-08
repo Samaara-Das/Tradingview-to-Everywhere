@@ -11,11 +11,11 @@ The webhook payload sent to Stock Buddy is unchanged — Stock Buddy already fli
 ## Acceptance criteria
 
 ### Goal 1 (forward snapshots)
-- [ ] TP coordinate equals the original-strategy SL price; SL coordinate equals the original-strategy TP price.
-- [ ] Resulting visual R:R is 2:1 (reversed) — verified on 3 sample symbols (1 crypto, 1 forex, 1 stock).
-- [ ] Behaviour gated by env flag `REVERSED_STRATEGY_SNAPSHOTS` (default `true`); flipping to `false` restores original-strategy drawing for rollback.
-- [ ] Setup data sent via webhook to Stock Buddy is byte-identical to pre-change baseline (no schema or payload regression).
-- [ ] No change to maintenance loop / alert creation behaviour.
+- [x] TP coordinate equals the original-strategy SL price; SL coordinate equals the original-strategy TP price. (Implemented in the reversed Trade Drawer V2 Pine — `drawSl = tp1; drawTp1 = sl`.)
+- [ ] Resulting visual R:R is 2:1 (reversed) — pending verification on 3 sample symbols (1 crypto, 1 forex, 1 stock) post-Pine-upload.
+- [x] Behaviour gated by env flag `REVERSED_STRATEGY_SNAPSHOTS` (default **`false`** — Pine handles reversal; flag stays as emergency rollback for the legacy non-reversed Trade Drawer).
+- [x] Setup data sent via webhook to Stock Buddy is byte-identical to pre-change baseline.
+- [x] No change to maintenance loop / alert creation behaviour.
 
 ### Goal 2 (backfill)
 - [ ] Script enumerates **all** docs in `setup_messages` (Stock Buddy MongoDB), regenerates the snapshot via TTE, updates the doc's image field.
@@ -31,9 +31,29 @@ The webhook payload sent to Stock Buddy is unchanged — Stock Buddy already fli
 
 ## Out of scope
 - Stock Buddy schema changes (none needed — flip-on-read already in place).
-- Pine Script changes.
+- ~~Pine Script changes~~ — reversed Pine is now the implementation site (per manager directive 2026-05-08 13:07 IST). Reversal happens inside `Trade Drawer V2` indicator, not in TTE Python.
 - Alert creation / maintenance logic.
 - Webhook payload structure.
+
+## Architecture (post-13:07 directive)
+
+```
+Stock Buddy alert  →  TTE webhook payload (UNCHANGED, original-strategy values)
+                      ↓
+                      tte/snapshot_worker.py._set_trade_drawer
+                      writes inputs to "Trade Drawer V2" indicator:
+                        sl  = original stopLoss
+                        tp1 = original takeProfit
+                      ↓
+                      Trade Drawer V2 Pine indicator (REVERSED):
+                        drawSl  = tp1   (visual SL at original-TP price)
+                        drawTp1 = sl    (visual TP at original-SL price)
+                      ↓
+                      Snapshot rendered with reversed visual (R:R 2:1)
+```
+
+- Python flag `REVERSED_STRATEGY_SNAPSHOTS` defaults to `false`. With the reversed Pine loaded, leaving it on would double-flip back to original visual.
+- Set the flag to `true` ONLY if rolling back to the legacy non-reversed Trade Drawer.
 
 ## Resolved with manager (2026-05-08 12:28 IST)
 1. **R:R 2:1 confirmed** — Coda `i-oel5y6t7ST`: "TP level will be the SL level and SL level will be the TP level. R:R ratio will be 2:1."
