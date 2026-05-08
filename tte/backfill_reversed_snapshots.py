@@ -1,5 +1,11 @@
 """
-Backfill reversed-strategy snapshots.
+Backfill REVERSED-STRATEGY snapshots.
+
+NOTE: distinct from `docs/prds/backfill-snapshots.md`, which describes a
+ONE-SHOT Stock Buddy endpoint that flips `snapshotStatus`-missing setups
+to `pending` so the existing TTE worker renders them for the first time.
+THIS module is the reversed-strategy RE-RENDER backfill (Goal 2): every
+already-snapshotted setup gets a fresh chart drawn with TP/SL swapped.
 
 Re-renders every setup in Stock Buddy's `setup_messages` collection so the
 visual TP/SL match the reversed strategy. Designed to run as a long-running
