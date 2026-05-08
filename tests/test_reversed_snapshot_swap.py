@@ -117,3 +117,40 @@ class TestEdgeCases:
         # Compare to the unswapped original
         original = _swap_values(SAMPLE_LONG_SETUP, reversed_flag=False)
         assert twice == original
+
+
+class TestBackfillIdempotency:
+    """Tests for `tte.backfill_reversed_snapshots.already_reversed`."""
+
+    def test_marker_field_true_means_already_reversed(self):
+        from tte.backfill_reversed_snapshots import already_reversed
+
+        assert already_reversed({"reversedSnapshot": True}) is True
+
+    def test_marker_field_false_or_missing_falls_through(self):
+        from tte.backfill_reversed_snapshots import already_reversed
+
+        # No marker, no URL → not reversed
+        assert already_reversed({}) is False
+        assert already_reversed({"reversedSnapshot": False}) is False
+
+    def test_legacy_url_suffix_match(self):
+        from tte.backfill_reversed_snapshots import already_reversed
+
+        assert already_reversed({"image": "https://cdn.tv/snap_rev2.png"}) is True
+        assert already_reversed({"snapshotUrl": "https://cdn.tv/snap_rev2.png"}) is True
+
+    def test_url_without_suffix_is_not_reversed(self):
+        from tte.backfill_reversed_snapshots import already_reversed
+
+        assert already_reversed({"image": "https://cdn.tv/snap_abc123.png"}) is False
+
+    def test_marker_takes_precedence_over_url(self):
+        """Even if URL has no suffix, marker=True wins."""
+        from tte.backfill_reversed_snapshots import already_reversed
+
+        doc = {
+            "reversedSnapshot": True,
+            "image": "https://cdn.tv/no_suffix_here.png",
+        }
+        assert already_reversed(doc) is True
