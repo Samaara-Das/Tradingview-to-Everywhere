@@ -271,7 +271,7 @@ class SnapshotWorker:
             self.client.update_snapshot(setup_id, error="Failed to set Trade Drawer settings")
             return False
 
-        sleep(2)  # Wait for NWE + candles + trade levels to render
+        sleep(4)  # Wait for NWE + candles + trade levels to render (bumped 2→4 on 2026-05-08)
 
         # 5. Hide indicator legend so it doesn't appear in the snapshot
         self._hide_legend()
@@ -562,7 +562,14 @@ class SnapshotWorker:
                 EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[name="submit"]'))
             ).click()
 
-            sleep(2)  # Wait for indicator to render
+            # Wait for indicator to recompile and re-render after settings apply.
+            # Bumped 2s → 5s on 2026-05-08 after the reversed Trade Drawer V2 deploy:
+            # tte-1 was failing snapshots with the new Pine even though Sammy
+            # confirmed it draws correctly when given more time. Manager hypothesis:
+            # the new shorter Pine source applies faster, but the indicator's
+            # internal redraw or input-validation cycle still needs ~3-5s before
+            # the chart is in a snapshottable state.
+            sleep(5)
             logger.info("Trade Drawer settings applied")
             return True
 
