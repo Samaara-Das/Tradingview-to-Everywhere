@@ -14,9 +14,14 @@ SEPARATE TradingView profile/Chrome user-data dir.
 
 Idempotency
 -----------
-Manager rule (Q2, 2026-05-08): write a NEW image asset with a versioned
-suffix (`REV_SUFFIX` below); update the doc image-URL to the new asset.
-Skip any doc whose image-URL already ends with `REV_SUFFIX`.
+Manager rule (Q2, 2026-05-08, refined): each doc is stamped with
+`reversedSnapshot: true` after a successful re-render. Subsequent passes
+skip docs that already carry the marker. The earlier `_rev2` URL-suffix
+idea was unreachable in practice — TradingView's Alt+S generates an
+immutable S3 filename (`s3.tradingview.com/snapshots/{prefix}/{id}.png`)
+that we cannot suffix. Originals are preserved instead by copying the
+existing `snapshotUrl`/`snapshotTvUrl` into `originalSnapshotUrl` /
+`originalSnapshotTvUrl` BEFORE overwrite (atomic with the marker).
 
 Checkpointing
 -------------
@@ -28,15 +33,7 @@ Progress reporting
 ------------------
 Every 30 minutes (`PROGRESS_LOG_INTERVAL`) appends one line to
 `.claude/team-bus-C.md` as `[BACKFILL] processed N / M`.
-
-Status: SCAFFOLD — `SnapshotWorker._take_snapshot(setup)` and
-`StockBuddyClient.update_snapshot()` are already the callables we need.
-Remaining blocker is SB-side only: an enumeration endpoint
-`GET /api/tte/snapshots/all?after_id=<id>&limit=<n>` so we can iterate
-every doc in `setup_messages` with crash-resumable cursor pagination.
-The `_rev2` suffix / originals-preservation strategy may resolve to a
-metadata field on the doc rather than a literal URL suffix — awaiting
-manager clarification (queued in team-bus-C 2026-05-08 12:28 IST).
+End-of-run failed-id list dumped to `.claude/backfill-failed.json`.
 """
 
 from __future__ import annotations
@@ -50,7 +47,6 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-REV_SUFFIX = "_rev2"
 PROGRESS_FILE = Path("backfill_snapshots_progress.json")
 TEAM_BUS_FILE = Path(".claude/team-bus-C.md")
 PROGRESS_LOG_INTERVAL = 30 * 60  # seconds
@@ -93,26 +89,20 @@ class BackfillProgress:
 
 
 REVERSED_MARKER_FIELD = "reversedSnapshot"
+ORIGINAL_PNG_FIELD = "originalSnapshotUrl"
+ORIGINAL_TV_FIELD = "originalSnapshotTvUrl"
+FAILED_LIST_FILE = Path(".claude/backfill-failed.json")
 PAGE_SIZE = 100
 
 
 def already_reversed(doc: dict) -> bool:
-    """Idempotency check.
+    """Idempotency check via the `reversedSnapshot: true` marker.
 
-    Primary signal: `reversedSnapshot: true` flag on the doc (set by us when
-    we successfully re-render and write back). This is what we control
-    directly via `$set` from the backfill driver.
-
-    Fallback: legacy URL-suffix check per manager Q2 (2026-05-08). Kept so
-    docs hand-tagged elsewhere (e.g. by Sammy) are still skipped.
+    The earlier `_rev2` URL-suffix fallback was unreachable (TradingView
+    controls S3 filenames; we cannot suffix the snapshot URL). Manager
+    Q2 spec was clarified 2026-05-08: marker field is the sole signal.
     """
-    if doc.get(REVERSED_MARKER_FIELD) is True:
-        return True
-    image_url = doc.get("image", "") or doc.get("snapshotUrl", "")
-    if not image_url:
-        return False
-    base = image_url.rsplit(".", 1)[0]
-    return base.endswith(REV_SUFFIX)
+    return doc.get(REVERSED_MARKER_FIELD) is True
 
 
 def _get_setup_messages_collection():
@@ -159,10 +149,41 @@ def iter_setup_messages(after_id: str | None) -> Iterator[dict]:
             last_id = doc["_id"]
 
 
-def _mark_reversed(doc_id) -> None:
-    """Stamp the doc with the idempotency marker after a successful re-render."""
+def _mark_reversed(
+    doc_id, original_png_url: str | None = None, original_tv_url: str | None = None
+) -> None:
+    """Stamp the doc with the idempotency marker after a successful re-render.
+
+    Atomically also preserves the original `snapshotUrl` / `snapshotTvUrl` into
+    `originalSnapshotUrl` / `originalSnapshotTvUrl` so a future rollback can
+    restore the original-strategy image without a re-render. We `$set` the
+    originals only when they are non-empty AND not already preserved (the
+    `$exists: false` guard makes this safe to call repeatedly).
+    """
+    set_fields: dict = {REVERSED_MARKER_FIELD: True}
+    update: dict = {"$set": set_fields}
     coll = _get_setup_messages_collection()
-    coll.update_one({"_id": doc_id}, {"$set": {REVERSED_MARKER_FIELD: True}})
+
+    if original_png_url and not coll.count_documents(
+        {"_id": doc_id, ORIGINAL_PNG_FIELD: {"$exists": True}}, limit=1
+    ):
+        set_fields[ORIGINAL_PNG_FIELD] = original_png_url
+    if original_tv_url and not coll.count_documents(
+        {"_id": doc_id, ORIGINAL_TV_FIELD: {"$exists": True}}, limit=1
+    ):
+        set_fields[ORIGINAL_TV_FIELD] = original_tv_url
+
+    coll.update_one({"_id": doc_id}, update)
+
+
+def _dump_failed_list(failed_ids: list[str]) -> None:
+    """Persist the list of setupMessageIds that failed re-render so an operator
+    can target them for retry. Written at end-of-run only (small file)."""
+    if not failed_ids:
+        return
+    FAILED_LIST_FILE.parent.mkdir(parents=True, exist_ok=True)
+    FAILED_LIST_FILE.write_text(json.dumps({"failed_ids": failed_ids}, indent=2))
+    logger.info("Wrote %d failed ids to %s", len(failed_ids), FAILED_LIST_FILE)
 
 
 def run(worker) -> None:
@@ -180,6 +201,12 @@ def run(worker) -> None:
     progress = BackfillProgress.load()
     logger.info(f"Backfill resuming from last_id={progress.last_id!r}")
 
+    if progress.total is None:
+        coll = _get_setup_messages_collection()
+        progress.total = coll.count_documents({REVERSED_MARKER_FIELD: {"$ne": True}})
+        progress.save()
+    logger.info(f"Backfill total pending: {progress.total}")
+
     for doc in iter_setup_messages(progress.last_id):
         doc_id = doc["_id"]
         if already_reversed(doc):
@@ -187,10 +214,12 @@ def run(worker) -> None:
             progress.last_id = str(doc_id)
             progress.save()
             continue
+        original_png = doc.get("snapshotUrl")
+        original_tv = doc.get("snapshotTvUrl")
         try:
             ok = worker._take_snapshot(doc)
             if ok:
-                _mark_reversed(doc_id)
+                _mark_reversed(doc_id, original_png, original_tv)
                 progress.processed += 1
             else:
                 progress.failed += 1
@@ -203,6 +232,7 @@ def run(worker) -> None:
         progress.save()
         progress.maybe_log()
 
+    _dump_failed_list(progress.failed_ids)
     progress.save()
     logger.info(
         "Backfill done: processed=%d skipped=%d failed=%d",
