@@ -92,52 +92,114 @@ class BackfillProgress:
         self.save()
 
 
-def already_reversed(image_url: str) -> bool:
-    """Idempotency check — manager Q2 rule."""
+REVERSED_MARKER_FIELD = "reversedSnapshot"
+PAGE_SIZE = 100
+
+
+def already_reversed(doc: dict) -> bool:
+    """Idempotency check.
+
+    Primary signal: `reversedSnapshot: true` flag on the doc (set by us when
+    we successfully re-render and write back). This is what we control
+    directly via `$set` from the backfill driver.
+
+    Fallback: legacy URL-suffix check per manager Q2 (2026-05-08). Kept so
+    docs hand-tagged elsewhere (e.g. by Sammy) are still skipped.
+    """
+    if doc.get(REVERSED_MARKER_FIELD) is True:
+        return True
+    image_url = doc.get("image", "") or doc.get("snapshotUrl", "")
     if not image_url:
         return False
     base = image_url.rsplit(".", 1)[0]
     return base.endswith(REV_SUFFIX)
 
 
-def iter_setup_messages(client) -> Iterator[dict]:
-    """Yield every doc in `setup_messages`, oldest-first, via cursor pagination.
+def _get_setup_messages_collection():
+    """Return the `setup_messages` collection on the shared Atlas cluster.
 
-    BLOCKER: needs SB endpoint `GET /api/tte/snapshots/all?after_id=<id>&limit=<n>`.
-    Resumes from `progress.last_id` after a crash.
+    Uses the same `MONGODB_URI` env var the rest of TTE reads, plus
+    `STOCK_BUDDY_DATABASE` (defaults to `stock_buddy_app`) for the DB name.
+    Manager directive 2026-05-08 12:31 IST: backfill goes direct-Mongo —
+    both repos share Atlas.
     """
-    raise NotImplementedError("Pending Stock Buddy endpoint /snapshots/all")
+    import os
+
+    from pymongo import MongoClient
+
+    uri = os.getenv("MONGODB_URI")
+    if not uri:
+        raise RuntimeError(
+            "MONGODB_URI not set. Direct-Mongo backfill requires the shared "
+            "Atlas connection string."
+        )
+    db_name = os.getenv("STOCK_BUDDY_DATABASE", "stock_buddy_app")
+    client = MongoClient(uri)
+    client.admin.command("ping")  # fail fast on misconfig
+    return client[db_name]["setup_messages"]
 
 
-def run(worker, client) -> None:
+def iter_setup_messages(after_id: str | None) -> Iterator[dict]:
+    """Yield every doc in `setup_messages`, oldest-first, via _id cursor.
+
+    Cursor pagination keyed on `_id` so a crash mid-run can resume from
+    `progress.last_id`. PAGE_SIZE limits memory + Atlas round-trip latency.
+    """
+    from bson import ObjectId
+
+    coll = _get_setup_messages_collection()
+    last_id = ObjectId(after_id) if after_id else None
+    while True:
+        query = {"_id": {"$gt": last_id}} if last_id else {}
+        page = list(coll.find(query).sort("_id", 1).limit(PAGE_SIZE))
+        if not page:
+            return
+        for doc in page:
+            yield doc
+            last_id = doc["_id"]
+
+
+def _mark_reversed(doc_id) -> None:
+    """Stamp the doc with the idempotency marker after a successful re-render."""
+    coll = _get_setup_messages_collection()
+    coll.update_one({"_id": doc_id}, {"$set": {REVERSED_MARKER_FIELD: True}})
+
+
+def run(worker) -> None:
     """Drive the existing `SnapshotWorker._take_snapshot()` over every historical setup.
 
     Must be invoked with a `worker` whose browser is a SEPARATE TV profile from
     tte-1's `--maintain-only` instance (manager Q3 rule, 2026-05-08).
     `config.reversed_strategy_snapshots` should be True (default) so each
     re-rendered snapshot uses the swapped TP/SL coordinates.
+
+    `worker._take_snapshot(setup)` already POSTs the new TV URL back to
+    Stock Buddy via `update_snapshot`; we only add the `reversedSnapshot`
+    marker to the doc for our own idempotency.
     """
     progress = BackfillProgress.load()
     logger.info(f"Backfill resuming from last_id={progress.last_id!r}")
 
-    for setup in iter_setup_messages(client):
-        if already_reversed(setup.get("image", "") or setup.get("snapshotUrl", "")):
+    for doc in iter_setup_messages(progress.last_id):
+        doc_id = doc["_id"]
+        if already_reversed(doc):
             progress.skipped += 1
-            progress.last_id = setup.get("_id") or setup.get("setupMessageId")
+            progress.last_id = str(doc_id)
             progress.save()
             continue
         try:
-            ok = worker._take_snapshot(setup)  # writes new URL back via update_snapshot
+            ok = worker._take_snapshot(doc)
             if ok:
+                _mark_reversed(doc_id)
                 progress.processed += 1
             else:
                 progress.failed += 1
-                progress.failed_ids.append(str(setup.get("setupMessageId")))
+                progress.failed_ids.append(str(doc.get("setupMessageId")))
         except Exception:
-            logger.exception("Backfill error on %s", setup.get("setupMessageId"))
+            logger.exception("Backfill error on %s", doc.get("setupMessageId"))
             progress.failed += 1
-            progress.failed_ids.append(str(setup.get("setupMessageId")))
-        progress.last_id = setup.get("_id") or setup.get("setupMessageId")
+            progress.failed_ids.append(str(doc.get("setupMessageId")))
+        progress.last_id = str(doc_id)
         progress.save()
         progress.maybe_log()
 
@@ -153,5 +215,6 @@ def run(worker, client) -> None:
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     raise SystemExit(
-        "Backfill entrypoint requires (worker, client) — wire from a separate-profile launcher."
+        "Backfill entrypoint requires a configured `worker` — wire from a "
+        "separate-profile launcher."
     )
