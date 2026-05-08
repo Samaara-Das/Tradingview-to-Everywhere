@@ -529,11 +529,17 @@ class SnapshotWorker:
             # tp2 and tp3 are left unchanged (redundant)
             # alertTimestamp from Stock Buddy is already Unix milliseconds
             alert_ts = setup.get("alertTimestamp", "")
+            sl_value = setup.get("stopLoss", "")
+            tp_value = setup.get("takeProfit", "")
+            # Reversed-strategy visual: draw TP where SL is and SL where TP is.
+            # Webhook payload to Stock Buddy is unchanged — only the chart drawing flips.
+            if getattr(self.config, "reversed_strategy_snapshots", False):
+                sl_value, tp_value = tp_value, sl_value
             values = [
                 str(alert_ts),  # entry_time (Unix ms)
                 str(setup.get("entryPrice", "")),  # entry_price
-                str(setup.get("stopLoss", "")),  # sl
-                str(setup.get("takeProfit", "")),  # tp1
+                str(sl_value),  # sl
+                str(tp_value),  # tp1
             ]
 
             for i, inp in enumerate(inputs[:4]):
