@@ -44,6 +44,14 @@ def main() -> int:
         return 2
     os.environ["CHROME_PROFILE"] = backfill_profile
 
+    # If a separate-account cred pair was provided, route the TTE login to it
+    # so we never silently fall back to tte-1's TRADINGVIEW_EMAIL/PASSWORD.
+    backfill_email = os.getenv("TRADINGVIEW_EMAIL_BACKFILL")
+    backfill_password = os.getenv("TRADINGVIEW_PASSWORD_BACKFILL")
+    if backfill_email and backfill_password:
+        os.environ["TRADINGVIEW_EMAIL"] = backfill_email
+        os.environ["TRADINGVIEW_PASSWORD"] = backfill_password
+
     if not os.getenv("MONGODB_URI"):
         sys.stderr.write("MONGODB_URI is required (shared Atlas SRV string). Aborting.\n")
         return 2
