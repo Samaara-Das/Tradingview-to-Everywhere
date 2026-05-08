@@ -75,6 +75,14 @@ class ComboConfig:
     snapshot_poll_interval: int = _yaml.get("snapshot", {}).get("poll_interval", 60)
     snapshot_bars_to_right: int = _yaml.get("snapshot", {}).get("bars_to_right", 60)
 
+    # Reversed-strategy snapshots: TP drawn at SL coord and vice versa.
+    # Stock Buddy already flips on read; this matches the visual to that.
+    # Env var takes precedence over yaml; default ON.
+    reversed_strategy_snapshots: bool = os.getenv(
+        "REVERSED_STRATEGY_SNAPSHOTS",
+        str(_yaml.get("snapshot", {}).get("reversed_strategy", True)),
+    ).lower() in ("1", "true", "yes", "on")
+
     def validate(self) -> list[str]:
         """Validate required configuration. Returns list of error strings."""
         errors = []
