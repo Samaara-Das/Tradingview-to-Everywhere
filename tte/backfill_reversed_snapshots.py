@@ -119,9 +119,11 @@ def _get_setup_messages_collection():
     """Return the `setup_messages` collection on the shared Atlas cluster.
 
     Uses the same `MONGODB_URI` env var the rest of TTE reads, plus
-    `STOCK_BUDDY_DATABASE` (defaults to `stock_buddy_app`) for the DB name.
+    `STOCK_BUDDY_DATABASE` (defaults to `tte` — the actual production DB
+    name; the upstream PRD's `stock_buddy_app` naming was speculative).
     Manager directive 2026-05-08 12:31 IST: backfill goes direct-Mongo —
-    both repos share Atlas.
+    both repos share Atlas. Verified 2026-05-08 14:39 IST that the
+    `setup_messages` collection lives in the `tte` DB.
     """
     import os
 
@@ -133,7 +135,7 @@ def _get_setup_messages_collection():
             "MONGODB_URI not set. Direct-Mongo backfill requires the shared "
             "Atlas connection string."
         )
-    db_name = os.getenv("STOCK_BUDDY_DATABASE", "stock_buddy_app")
+    db_name = os.getenv("STOCK_BUDDY_DATABASE", "tte")
     client = MongoClient(uri)
     client.admin.command("ping")  # fail fast on misconfig
     return client[db_name]["setup_messages"]

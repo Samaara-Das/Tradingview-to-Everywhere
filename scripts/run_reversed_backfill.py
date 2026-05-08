@@ -31,8 +31,11 @@ import sys
 
 
 def main() -> int:
-    # Force the reversal swap on at the env layer, before tte.config is imported.
-    os.environ.setdefault("REVERSED_STRATEGY_SNAPSHOTS", "true")
+    # Force the Python-side reversal swap OFF at the env layer, before tte.config
+    # is imported. The reversed Trade Drawer V2 Pine indicator (uploaded to TV
+    # 2026-05-08) handles reversal internally — flipping the Python flag on
+    # would DOUBLE-FLIP and re-render the original visual.
+    os.environ.setdefault("REVERSED_STRATEGY_SNAPSHOTS", "false")
 
     backfill_profile = os.getenv("BACKFILL_CHROME_PROFILE")
     if not backfill_profile:
@@ -56,11 +59,12 @@ def main() -> int:
 
     logger = log.setup_logger(__name__, log.INFO)
     config = ComboConfig()
-    if not config.reversed_strategy_snapshots:
+    if config.reversed_strategy_snapshots:
         logger.error(
-            "config.reversed_strategy_snapshots is False — the launcher's env "
-            "default did not take effect. Refusing to run a NON-reversed "
-            "backfill (would overwrite snapshots with original-strategy visual)."
+            "config.reversed_strategy_snapshots is True — would DOUBLE-FLIP "
+            "with the reversed Pine indicator now live on the Snapshot layout. "
+            "Refusing to run; either unset REVERSED_STRATEGY_SNAPSHOTS or set "
+            "snapshot.reversed_strategy: false in combo_settings.yaml."
         )
         return 3
 
