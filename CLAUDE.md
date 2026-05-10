@@ -11,7 +11,7 @@ TradingView to Everywhere (TTE) is an automated trading signals distribution sys
 - **TTE container `tte-1`** runs on a Hostinger VPS in Mumbai (KVM tier; see `docs/SETUP.md` "Linux/Docker"). The VPS is TTE-only — Stock Buddy and Mongo no longer share it.
 - **Database**: MongoDB Atlas (M10). `MONGODB_URI` in `.env.tte.1` points at the same Atlas SRV string Stock Buddy uses. Atlas IP allowlist must include the VPS public IP.
 - **Stock Buddy API**: Vercel-hosted, public URL. `STOCK_BUDDY_API_URL=https://stockbuddy.co/api/tte` and `COMBO_WEBHOOK_URL=https://stockbuddy.co/api/tte/combo`. No internal Docker DNS hops anymore.
-- **Container state**: tte-1 is currently STOPPED on the VPS pending the `change_settings()` screener-gear bug fix (`tte/browser/tradingview.py` ~line 599). Atlas connectivity has been verified; the screener bug is independent of the hybrid revert and is the highest-priority post-revert TTE task.
+- **Container state**: `change_settings()` screener-gear bug fixed (PR #28 — `self.driver` was incorrectly passed as a WebElement to `WebDriverWait`). Chromedriver version-mismatch fallback bug also fixed (PR #29).
 
 ### Critical Principles
 1. **Reuse existing code**: Before implementing anything, check if it already exists in the codebase
@@ -58,6 +58,7 @@ python tte_gui.py                         # GUI interface
 - `tte/browser/helpers.py` — Selenium utility functions
 - `tte/data/symbols.py` — MongoDB symbol fetching
 - `tte/snapshot_worker.py` — Chart snapshot polling & browser orchestration
+- `tte/backfill_reversed_snapshots.py` — One-off reversed-strategy snapshot re-render job (run via `scripts/run_reversed_backfill.py`)
 
 ### Browser Automation (`tte/browser/tradingview.py`)
 - Manages all Selenium interactions with TradingView
@@ -84,9 +85,10 @@ All combo mode options are configured in `combo_settings.yaml`. Secrets (webhook
 | Snapshot batch size | `snapshot.batch_size` | 10 | Pending snapshots per poll |
 | Snapshot poll interval | `snapshot.poll_interval` | 60 | Seconds between snapshot polls |
 | Snapshot bars right | `snapshot.bars_to_right` | 60 | Right margin bars for chart framing |
+| Reversed snapshots | `snapshot.reversed_strategy` | false | Emergency rollback only — keep false; reversed Trade Drawer V2 Pine handles TP/SL swap internally |
 
 ### Environment Variables
-See `tte/config.py` and `.env` file. Key variables: `CHROME_PROFILES_PATH`, `TRADINGVIEW_EMAIL`, `TRADINGVIEW_PASSWORD`, `MONGODB_PWD`, `COMBO_WEBHOOK_URL`, `STOCK_BUDDY_API_URL`, `API_TIMEOUT`
+See `tte/config.py` and `.env` file. Key variables: `CHROME_PROFILES_PATH`, `TRADINGVIEW_EMAIL`, `TRADINGVIEW_PASSWORD`, `MONGODB_PWD`, `COMBO_WEBHOOK_URL`, `STOCK_BUDDY_API_URL`, `API_TIMEOUT`, `REVERSED_STRATEGY_SNAPSHOTS` (emergency rollback; default false)
 
 ### TradingView Requirements
 - **2FA**: Must be disabled

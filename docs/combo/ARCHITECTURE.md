@@ -11,7 +11,7 @@ V2 uses stateless setup detection in Pine Script. On every bar, if NWE + OB/FVG 
 ### What Changed
 
 | Aspect | V1 | V2 |
-|--------|----|----|
+|--------|----|----||
 | Symbols per alert | 3 | **2** |
 | Chart timeframe | 1 minute | **45 seconds** |
 | Alert frequency | `alert.freq_all` (every tick) | **`alert.freq_once_per_bar_close`** (every 45s) |
@@ -312,6 +312,7 @@ The 4-symbol hard limit (more causes memory/runtime errors in TradingView) and t
 - **Trade Drawer v2**: Pine Script indicator (`Pine Script Code/Trade Drawer V2.txt`, v6) that draws NWE bands + entry/SL/TP levels on the chart. Controlled via 4 input fields: entry_time, entry_price, sl, tp1.
 - **Chart defaults**: Bar style `candle`, with "Bars to right" margin set to 60 via chart settings (applied once at startup, then refreshed every 24h).
 - **Dual-timer integration**: Runs every 60s in the maintenance loop. Maintenance (every 2.5 min) has priority — if both timers fire simultaneously, snapshots skip that tick.
+- **Reversed-strategy snapshots**: The deployed Trade Drawer V2 Pine indicator handles the TP/SL visual swap internally (deployed 2026-05-08). `REVERSED_STRATEGY_SNAPSHOTS` env / `snapshot.reversed_strategy` yaml must stay `false` to avoid double-flipping. Set `true` only as an emergency rollback when running with the legacy non-reversed Trade Drawer. Backfill job: `tte/backfill_reversed_snapshots.py` (launcher: `scripts/run_reversed_backfill.py`), run on a SEPARATE Chrome profile/TV account to avoid disrupting tte-1.
 - **Snapshot method**: Alt+R (auto-fit/reset scale) → Alt+S (snapshot) → reads clipboard URL via `navigator.clipboard.readText()` (CDP clipboard permission granted for headless Chrome)
 - **Workflow per setup**: change_symbol → force_change_tframe → show legend → set Trade Drawer inputs → hide legend → Alt+R auto-fit → Alt+S snapshot → show legend → report URL
 - **Initialization**: `_set_bars_to_right()` sets the right margin (60 bars) via the chart settings dialog (Canvas tab → `paneRightMargin` input). Runs once at startup, then every 24 hours.
@@ -324,7 +325,7 @@ The 4-symbol hard limit (more causes memory/runtime errors in TradingView) and t
 - **Version**: Pine Script v6
 - **Purpose**: Self-contained indicator: NWE bands + entry/SL/TP trade levels on chart for snapshot screenshots
 - **Inputs**: entry_time (Unix seconds, converted to ms internally), entry_price, sl_price, tp1_price + symbol inputs (for TTE to find the indicator)
-- **Drawing behavior**: NWE bands via 7 plots + 4 fills; trade levels drawn on `barstate.islast` with 15-bar span. Deletes old drawings before redrawing.
+- **Drawing behavior**: NWE bands via 7 plots + 4 fills; trade levels drawn on `barstate.islast` with 15-bar span. Deletes old drawings before redrawing. The deployed version is **reversed**: visual SL is drawn at the original TP price and visual TP at the original SL price (reversal handled inside Pine; Python snapshot worker passes sl/tp unchanged). tp2/tp3 suppressed in reversed mode.
 - **Colors**: Orange `#FF6D00` for SL zone, Blue `#2962FF` for TP zone (distinct from NWE's red/green)
 
 ---
@@ -526,7 +527,7 @@ def run_maintenance(browser, config):
 ### Key Orchestrator Files
 
 | File | Purpose |
-|------|---------|
+|------|-------|
 | `combo_main.py` | Backward-compatible entry point (shim for `tte/main.py`) |
 | `tte/main.py` | CLI entry point (orchestrator + dual-timer maintenance) |
 | `tte/config.py` | ComboConfig dataclass (loads combo_settings.yaml) |
@@ -808,7 +809,7 @@ With V2 `alert.freq_once_per_bar_close` at 45-second timeframe:
 ### Resolved
 
 | # | Question | Decision |
-|---|----------|----------|
+|---|----------|---------|
 | Q1 | Always-send vs only-when-signals payload | **Only symbols with signals**. Dashboard shows `last_updated` timestamp for users to judge freshness. |
 | Q2 | Infrastructure | **Vercel Pro + MongoDB M2**. Production timeframes (1H/H4/D1) keep volume manageable (~5K-50K/day). |
 | Q3 | Signal level calculation | **No levels**. Raw NWE, OB/FVG, and Divergence signals displayed independently. |
@@ -819,14 +820,14 @@ With V2 `alert.freq_once_per_bar_close` at 45-second timeframe:
 ### Additionally Resolved
 
 | # | Question | Decision |
-|---|----------|----------|
+|---|----------|---------|
 | Q8 | Payload timeframe labels | **Update to match reality**: `"1H"`, `"H4"`, `"D1"` in the JSON payload. Requires screener code update. |
 | Q10 | Symbol list source | **Stock Buddy API as primary** (fetches from MongoDB), **MongoDB direct as fallback** if API is down. |
 
 ### Additionally Resolved (Q5 & Q9)
 
 | # | Question | Decision |
-|---|----------|----------|
+|---|----------|---------|
 | Q5 | Alert maintenance frequency | **Every 2.5 minutes (150s)** in V2. Orchestrator runs continuously and calls `restart_inactive_alerts()` on each cycle. This method opens the TradingView alerts settings menu → selects "All" → clicks "Restart all inactive" → confirms. Logs each restart event. |
 | Q9 | Alert creation approach | **Single browser, sequential**. Each batch of 3 symbols is processed one at a time in a single headless Chrome instance. Parallel tab approach was evaluated but abandoned in favor of simplicity and reliability. |
 
