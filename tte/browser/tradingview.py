@@ -12,6 +12,7 @@ from time import sleep, time
 from selenium import webdriver
 from selenium.common.exceptions import (
     ElementClickInterceptedException,
+    NoSuchElementException,
     StaleElementReferenceException,
     TimeoutException,
     WebDriverException,
@@ -264,6 +265,57 @@ class Browser:
         except WebDriverException:
             open_tv_logger.exception(f"Cannot open this url: {url}. Error: ")
             return False
+
+    def is_chart_layout_loaded(self) -> bool:
+        """Return True if the chart layout (Screener/Snapshot) is actually rendered.
+
+        Detects the TV "Chart Not Found / log in to see it" placeholder page that appears
+        when the session has been logged out for an owner-only chart layout. On that page
+        no chart selectors exist, so every downstream Selenium step times out.
+
+        Root cause of the 2026-05-08 snapshot blackout: long-running Chrome lost its TV
+        session, served the placeholder page for 6 days, every snapshot/maintenance round
+        failed at the first selector. See `.claude/diagnosis-2026-05-14.md`.
+        """
+        try:
+            title = (self.driver.title or "").lower()
+        except WebDriverException:
+            return False
+        if "chart not found" in title:
+            return False
+        try:
+            self.driver.find_element(By.CSS_SELECTOR, "div.chart-markup-table")
+            return True
+        except (NoSuchElementException, WebDriverException):
+            return False
+
+    def ensure_chart_layout_loaded(self) -> bool:
+        """Verify the chart layout is loaded; if not, attempt to re-establish the session.
+
+        Returns True if the chart is loaded (after recovery if needed), False if recovery
+        failed. Callers should skip their current round and rely on the next cycle when
+        this returns False.
+        """
+        if self.is_chart_layout_loaded():
+            return True
+        open_tv_logger.error(
+            "Chart layout not loaded — TV session likely logged out "
+            "(page title=%r). Attempting recovery via setup_tv().",
+            getattr(self.driver, "title", "?"),
+        )
+        try:
+            if not self.setup_tv():
+                open_tv_logger.error("setup_tv() returned False during recovery")
+                return False
+        except Exception:
+            open_tv_logger.exception("setup_tv() raised during recovery")
+            return False
+        recovered = self.is_chart_layout_loaded()
+        if recovered:
+            open_tv_logger.info("Chart layout recovered successfully")
+        else:
+            open_tv_logger.error("Chart layout still not loaded after recovery attempt")
+        return recovered
 
     def sign_in(self):
         """This signs in to TradingView if logged out"""

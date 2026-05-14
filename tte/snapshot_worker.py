@@ -143,6 +143,15 @@ class SnapshotWorker:
         max_rounds = 2
         total_completed = 0
 
+        # Login-state guard (2026-05-14): the long-running Chrome can lose its TV session
+        # silently, leaving an owner-only chart layout showing the "Chart Not Found" placeholder
+        # page. Every selector then times out. Recover before processing any snapshots.
+        if not self.browser.ensure_chart_layout_loaded():
+            logger.error(
+                "Chart layout unavailable — skipping snapshot round. Will retry on next cycle."
+            )
+            return 0
+
         for round_num in range(max_rounds):
             pending = self.client.get_pending_snapshots(self.config.snapshot_batch_size)
             if not pending:
