@@ -303,13 +303,20 @@ class Browser:
             "(page title=%r). Attempting recovery via setup_tv().",
             getattr(self.driver, "title", "?"),
         )
+        # Suppress start_fresh during recovery so a transient logout never causes
+        # setup_tv() -> delete_all_alerts() to wipe production alerts.
+        original_start_fresh = self.start_fresh
+        self.start_fresh = False
         try:
-            if not self.setup_tv():
-                open_tv_logger.error("setup_tv() returned False during recovery")
+            try:
+                if not self.setup_tv():
+                    open_tv_logger.error("setup_tv() returned False during recovery")
+                    return False
+            except Exception:
+                open_tv_logger.exception("setup_tv() raised during recovery")
                 return False
-        except Exception:
-            open_tv_logger.exception("setup_tv() raised during recovery")
-            return False
+        finally:
+            self.start_fresh = original_start_fresh
         recovered = self.is_chart_layout_loaded()
         if recovered:
             open_tv_logger.info("Chart layout recovered successfully")

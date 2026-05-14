@@ -587,6 +587,12 @@ def run_maintenance(browser: Browser, config: ComboConfig):
                     if _shutdown_event.wait(5):
                         break  # Shutdown during post-refresh wait
 
+                    # Login-state guard (must come BEFORE open_alerts_sidebar — that call
+                    # is one of the selectors that times out on the placeholder page).
+                    if not browser.ensure_chart_layout_loaded():
+                        logger.error("Chart layout unavailable — skipping maintenance cycle.")
+                        continue
+
                     # Re-open alerts sidebar (refresh may close it)
                     browser.open_alerts_sidebar()
 
