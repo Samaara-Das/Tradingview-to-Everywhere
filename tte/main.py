@@ -394,13 +394,23 @@ def run_alert_creation(
 # ---------------------------------------------------------------------------
 
 
-def restart_inactive_alerts(driver) -> bool:
+def restart_inactive_alerts(driver, browser=None) -> bool:
     """Restart all inactive alerts via TradingView UI.
 
     Standalone function (no Alerts class dependency). Replicates the Selenium
     steps from handle_alerts.py:240-303.
+
+    The optional `browser` arg enables a login-state guard (2026-05-14): if the
+    chart layout has been lost (TV session expired silently), maintenance bails
+    out early instead of timing out on every selector. The 2026-05-08 snapshot
+    blackout was caused by this exact failure mode going undetected for 6 days.
     """
     if _shutdown_event.is_set():
+        return False
+
+    # Login-state guard — bail out cleanly if TV signed us out
+    if browser is not None and not browser.ensure_chart_layout_loaded():
+        logger.error("Chart layout unavailable during maintenance — skipping this cycle.")
         return False
 
     utils = Utils()
@@ -577,11 +587,17 @@ def run_maintenance(browser: Browser, config: ComboConfig):
                     if _shutdown_event.wait(5):
                         break  # Shutdown during post-refresh wait
 
+                    # Login-state guard (must come BEFORE open_alerts_sidebar — that call
+                    # is one of the selectors that times out on the placeholder page).
+                    if not browser.ensure_chart_layout_loaded():
+                        logger.error("Chart layout unavailable — skipping maintenance cycle.")
+                        continue
+
                     # Re-open alerts sidebar (refresh may close it)
                     browser.open_alerts_sidebar()
 
                     # Restart inactive alerts
-                    restart_inactive_alerts(browser.driver)
+                    restart_inactive_alerts(browser.driver, browser=browser)
                     if _shutdown_event.is_set():
                         break
 
