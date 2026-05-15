@@ -383,7 +383,14 @@ class Browser:
                     f"Automated login failed ({e}). Waiting for manual sign-in..."
                 )
 
-            # Always wait up to 60s for sign-in to complete (handles 2FA, manual login, etc.)
+            # Handle 2FA prompt automatically if TRADINGVIEW_TOTP_SECRET is set.
+            # TV re-enabled 2FA on the account 2026-05-14; without auto-handling
+            # every container restart blocks on the 60s products-menu wait. The
+            # auth page typically appears within a few seconds of the sign-in
+            # click — poll briefly for it.
+            self._maybe_auto_submit_totp()
+
+            # Wait up to 60s for sign-in to complete (handles 2FA, manual login, etc.)
             try:
                 open_tv_logger.info("Waiting up to 60s for sign-in (enter 2FA code if prompted)...")
                 WebDriverWait(self.driver, 60).until(
@@ -396,6 +403,68 @@ class Browser:
             except TimeoutException:
                 open_tv_logger.error("Failed to sign in to TradingView (timed out after 60s)")
                 return False
+
+    def _maybe_auto_submit_totp(self, poll_timeout: float = 8.0) -> bool:
+        """If a 2FA prompt is showing and ``TRADINGVIEW_TOTP_SECRET`` is set,
+        compute the current 6-digit code via pyotp and submit it.
+
+        Returns True if a code was successfully submitted, False otherwise
+        (no secret in env, no prompt detected, or pyotp missing).
+
+        The TOTP secret is the base32 string captured during TV 2FA setup;
+        store it in ``.env`` as ``TRADINGVIEW_TOTP_SECRET`` — never commit it.
+        """
+        secret = (getenv("TRADINGVIEW_TOTP_SECRET") or "").replace(" ", "").strip()
+        if not secret:
+            return False
+        try:
+            import pyotp  # local import — keeps pyotp optional for non-2FA setups
+        except ImportError:
+            open_tv_logger.warning(
+                "TRADINGVIEW_TOTP_SECRET is set but `pyotp` is not installed; cannot auto-submit 2FA."
+            )
+            return False
+
+        # Poll for the 2FA input — TV's auth page may load a beat after sign-in click.
+        selectors = [
+            'input[name="code"]',
+            'input[autocomplete="one-time-code"]',
+            'input[inputmode="numeric"]',
+        ]
+        deadline = time() + poll_timeout
+        target = None
+        while time() < deadline:
+            for sel in selectors:
+                try:
+                    candidates = self.driver.find_elements(By.CSS_SELECTOR, sel)
+                except WebDriverException:
+                    candidates = []
+                visible = [el for el in candidates if el.is_displayed()]
+                if visible:
+                    target = visible[0]
+                    break
+            if target is not None:
+                break
+            sleep(0.5)
+
+        if target is None:
+            return False
+
+        try:
+            code = pyotp.TOTP(secret).now()
+        except Exception:
+            open_tv_logger.exception("Failed to compute TOTP code from TRADINGVIEW_TOTP_SECRET")
+            return False
+
+        try:
+            target.click()
+            target.send_keys(code)
+            target.send_keys(Keys.ENTER)
+            open_tv_logger.info("Auto-submitted TOTP code for TV 2FA")
+            return True
+        except Exception:
+            open_tv_logger.exception("Failed to submit TOTP code")
+            return False
 
     def setup_tv(self):
         """Opens TradingView, changes the layout, sets the timeframe, opens the alert sidebar,

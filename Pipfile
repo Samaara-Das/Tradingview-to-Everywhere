@@ -11,6 +11,7 @@ pyinstaller = "*"
 pyyaml = "*"
 pystray = "*"
 Pillow = "*"
+pyotp = "*"
 
 [dev-packages]
 pytest = "*"
