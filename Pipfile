@@ -12,6 +12,7 @@ pyyaml = "*"
 pystray = "*"
 Pillow = "*"
 pyotp = "*"
+requests = "*"
 
 [dev-packages]
 pytest = "*"

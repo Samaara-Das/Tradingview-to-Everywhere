@@ -1,9 +1,9 @@
 # Task Context Tracker
 
-**Last Updated**: 2026-04-09
-**Current Task**: Maintenance loop + snapshots running via TTE.exe (all alerts active)
+**Last Updated**: 2026-05-15
+**Current Task**: Production stable — tte-1 running on hybrid hosting (KVM8 + Atlas + Vercel). Latest incident (2026-05-08 → 2026-05-15) resolved.
 **Active Branch**: `main`
-**Latest Commit**: `7f344ab` — Merge pull request #24 (TradingView UI redesign fixes)
+**Latest Commit**: `40ab6bf` — Merge pull request #40 (auto-submit TV 2FA via TRADINGVIEW_TOTP_SECRET, pyotp)
 
 ---
 
@@ -26,10 +26,92 @@
 | 28 | Sync all docs after PRs #19-#24 (webhook URLs, batch sizes, counts) | **done** (2026-04-09) |
 | 29 | Create TTE-specific /update-docs skill | **done** (2026-04-09) |
 | 30 | Rebuild TTE.exe (post-PR #24 UI fixes) | **done** (2026-04-09, 19.43 MB) |
+| 31 | Diagnose 6-day snapshot blackout (root cause: TV session logged out) | **done** (2026-05-14) |
+| 32 | Ship PR #39 — `is_chart_layout_loaded()` + `ensure_chart_layout_loaded()` guards in snapshot worker + maintenance | **done** (2026-05-14) |
+| 33 | Rebuild + deploy tte:phase4 image on KVM8 (preserving 4 unupstreamed patches) | **done** (2026-05-14) |
+| 34 | Verify 5 fresh `setup_messages` PNGs render reversed Trade Drawer V2 layout correctly | **done** (2026-05-14) |
+| 35 | Install 6 TTE monitoring checks + `tte-checks.timer` (systemd, every 5 min) | **done** (2026-05-14) |
+| 36 | Switch cc-trigger Telegram → Discord webhook digests | **done** (2026-05-14) |
+| 37 | E2E smoke test all 6 monitoring → Discord pipeline | **done** (2026-05-14) |
+| 38 | Coda task `i-iNXjRwYS9h` closure (server migration & docker setup) | **done** (2026-05-14 via `.claude/coda-closure-2026-05-14.md`) |
+| 39 | Ship PR #40 — auto-2FA via pyotp + `TRADINGVIEW_TOTP_SECRET` env | **done** (2026-05-15, code merged) |
+| 40 | Verify-and-store correct TOTP secret in `.env.tte.1` | **parked** (2026-05-15) — TV's secret display unreliable; pivoted to backup-code workflow |
+| 41 | Autonomous backup-code regeneration via local Chrome MCP | **done** (2026-05-15) — 6 fresh codes captured + saved |
 
 ---
 
 ## Session History
+
+### Session: 2026-05-15 (TOTP follow-up + production unblock)
+
+**User request**: complete the 2FA follow-up so future container restarts don't need manual 2FA injection.
+
+#### 1. Shipped PR #40 (`feat/totp-autoinject`) — auto-2FA via pyotp
+- Added `Browser._maybe_auto_submit_totp()` that polls for TV's 2FA input, computes the current 6-digit code from `TRADINGVIEW_TOTP_SECRET` env var via pyotp, and submits via JS event dispatch (React-friendly).
+- Code-reviewer sub-agent caught 2 HIGH issues (8s poll vs slow render, single-text-input vs 6-digit-boxes assumption) — both addressed.
+- Merged at commit `40ab6bf` after squash. Pipfile + Pipfile.lock regenerated with pyotp dep.
+
+#### 2. Production outage during TOTP deploy (90 min)
+- After user disabled+re-enabled TV 2FA to capture the secret, the displayed base32 string (`4ZE3CWH77ER37PSQ`) **was NOT the secret TV ultimately stored** — TV rejected every code derived from it with `Incorrect verification code (403)`.
+- Container crash-looped for ~45 min through 5 hotfix iterations (TV signin UI moved past Email-button picker → fix; 2FA input renamed `code`→`id_code` → fix; React-controlled input ignored Selenium `send_keys` → switched to JS event dispatch; etc.).
+- Pyotp code path itself works correctly — verified `pyotp.TOTP(secret).now()` matched the user's phone code for the right time window. The blocker was the secret string never matching TV's server-stored secret.
+
+#### 3. Pivot to autonomous backup-code regeneration
+- Used `mcp__chrome-devtools` to drive a local Chrome through TV's "Generate new codes" flow programmatically (password-only auth, no email/SMS verification needed).
+- Captured 6 fresh codes (`txrvcBBb mdHZH07u NHSceF6k Qn4EpZZz wCYA4Yhc YosLNyUZ`) directly from the modal DOM.
+- Saved to `C:\Users\dassa\Passwords and tokens\tradingview backup codes.txt`.
+
+#### 4. Cookies-survive-disconnect observation
+- TV's "Session disconnected — only one session allowed per user" modal pops up when a second browser signs in, but **does NOT invalidate** the first session's cookies in the user-data-dir volume. After my local Chrome stole the session, tte-1's restart re-used its existing cookies and reached "Browser ready" without needing any backup code.
+
+#### 5. Documentation updates
+- `.claude/credentials-and-2fa.md` — autonomous regen-codes procedure documented end-to-end.
+- `.claude/learnings.md` — 5+ new entries (TV signin UI changes, React fill vs evaluate_script, settings URL `/settings/#account-settings`, session-disconnect doesn't invalidate cookies, must-verify-TOTP-secret before deploy).
+- `tradingview backup codes.txt` — 6 fresh codes; format documents how to mark consumed.
+
+---
+
+### Session: 2026-05-14 (Snapshot blackout incident response + Phase 6 monitoring)
+
+**User request**: investigate why snapshot pipeline has been 100% failing since 2026-05-08, fix it, build monitoring so it doesn't happen again.
+
+#### 1. Root cause: TV session logged out (NOT selector breakage)
+- Live tte-1 DevTools probe via port `/home/tte/chrome-profile/TTE/DevToolsActivePort` revealed `document.title = "Chart Not Found — TradingView"` and `body = "We can't open this chart layout for you. You need to log in..."` on the owner-only Snapshot layout (`yDNmRCDO`).
+- All 6 chart selectors (chart-markup-table, header-toolbar-symbol-search, right-toolbar Alerts, etc.) returned 0 elements — because the chart simply doesn't exist on the placeholder page.
+- Earlier hypothesis of TV-UI-redesign-breaks-selectors was wrong; all selectors are intact in a logged-in Chrome.
+
+#### 2. PR #39 (`fix/snapshot-pipeline-2026-05-14`)
+- `Browser.is_chart_layout_loaded()`: detects placeholder page via title + chart-markup-table presence.
+- `Browser.ensure_chart_layout_loaded()`: if not loaded, re-runs `setup_tv()` to re-establish session. Suppresses `self.start_fresh` during recovery so a transient logout never deletes production alerts.
+- `snapshot_worker.process_pending_snapshots`: guard at top of poll loop.
+- `main.restart_inactive_alerts` (maintenance): same guard, hoisted to run **before** `open_alerts_sidebar()` (reviewer caught this — that selector itself times out on the placeholder).
+
+#### 3. Deploy + verification
+- Rebuilt `tte:phase4` on KVM8 preserving 4 unupstreamed source patches (`tframe_skip` and `sleep(2)` tightening in `snapshot_worker.py`, `bus_log_try_except` in backfill module, `launcher_syspath` + `sign_in_call` in `scripts/run_reversed_backfill.py`).
+- One-shot stop+rm+up. **2FA hit on first cold start** — TV had auto-enabled 2FA on the bot account during the 6-day outage. User-injected backup code via DevTools script unblocked.
+- Verified 5 fresh post-deploy snapshots (GBPUSD, ODFL, BLDR, QUBT, ADSK) render Trade Drawer V2 + correctly-REVERSED TP/SL layout (Mongo `stopLoss` → on-chart `TP1`, Mongo `takeProfit` → on-chart `SL`).
+
+#### 4. Monitoring infrastructure (Phase 6 MVP)
+- 6 check scripts at `/opt/stockbuddy/monitoring/checks/tte-*.sh`:
+  - snapshot-success-rate (<80% over 1h fires)
+  - snapshot-failed-burst (>10 failures in 30m)
+  - change-symbol-errors (>5 in 30m)
+  - alert-sidebar-errors (>5 ERROR/WARNING lines in 30m — regex tightened next session to avoid false positive on success log line)
+  - container-restart (delta in RestartCount)
+  - webhook-delivery (maintenance-cycle marker count during market hours)
+- `tte-checks.timer` (systemd, every 5 min), `run-checks.sh` wrapper.
+- Helpers: `_alert_helper.sh` with dedupe state at `/opt/stockbuddy/cc-state/check-state/<name>.json` (min 1h between repeat alerts) + `fire_alert` that POSTs to `127.0.0.1:8765/alert`.
+- Mongo-backed checks call `docker exec tte-1 python3` with pymongo (no local Mongo container in this hybrid setup; data lives in Atlas).
+
+#### 5. cc-trigger migration (Telegram → Discord)
+- `/opt/stockbuddy/cc-trigger/server.js` rewritten — Telegram code path removed entirely. Discord embeds with severity-color sidebar + fields for component/severity/window/values.
+- Discord webhook URL stored at `/opt/stockbuddy/secrets/.env.cc` (chmod 600 stockbuddy-owned), NEVER committed. `cc-trigger.service` already loads via `EnvironmentFile=`.
+- E2E smoke test: 6 alerts (1 natural from monitoring + 1 explicit smoke + 4 simulated) → 0 Discord delivery errors, each cc-trigger spawn produced a meaningful claude-investigation summary.
+
+#### 6. Coda task closure
+- Coda MCP disconnected mid-session; fallback `.claude/coda-closure-2026-05-14.md` written with full closure summary, PR/commit/deploy/verification links, and limitations (orphan-image risk, off-screen-entry-time bug for old setups).
+
+---
 
 ### Session: 2026-04-09
 
@@ -223,5 +305,8 @@ python -c "from tte.data.symbols import get_symbols; s=get_symbols(); print(sum(
 ## Remaining Tasks
 
 1. [ ] Delete debug PNG files (`debug_headless.png`, `debug_tte_profile.png`, `debug_flow.png`, `debug_get_indicator_fail.png`)
-2. [ ] Monitor alerts — verify webhooks fire to Stock Buddy after next signal cycle
-3. [ ] Fix Chrome/ChromeDriver version mismatch (Chrome 146, cached driver 145) when convenient
+2. [ ] Fix Chrome/ChromeDriver version mismatch (Chrome 146, cached driver 145) when convenient
+3. [ ] **Off-screen-entry-time bug** — old setups have entryTime hours/days before render time → TP/SL labels drawn off the visible range. Cosmetic, doesn't affect new setups. Fix likely involves `chart_scroll_to_date(entryTime)` before snapshot capture.
+4. [ ] **TOTP auto-2FA verification** — pyotp code path (PR #40) is in the image but inert. To reactivate: capture a verified-correct TV TOTP secret (via a fully-instrumented disable+re-enable flow with same-window pyotp-vs-phone comparison), then populate `/opt/stockbuddy/secrets/.env.tte.1::TRADINGVIEW_TOTP_SECRET`. Backup-code workflow is fine in the meantime.
+5. [ ] Tighten `tte-alert-sidebar-errors.sh` regex — already done in this session (filters on ` - (ERROR|WARNING) - ` prefix) but worth a second review next time the file is touched.
+6. ~~When backup-code count drops to 1-2 left~~ — N/A: TV backup codes are **reusable** (confirmed 2026-05-15). Only regenerate if Sammy wants to rotate (e.g. after sharing a code with someone like Nili).

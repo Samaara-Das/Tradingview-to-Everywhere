@@ -88,10 +88,10 @@ All combo mode options are configured in `combo_settings.yaml`. Secrets (webhook
 | Reversed snapshots | `snapshot.reversed_strategy` | false | Emergency rollback only — keep false; reversed Trade Drawer V2 Pine handles TP/SL swap internally |
 
 ### Environment Variables
-See `tte/config.py` and `.env` file. Key variables: `CHROME_PROFILES_PATH`, `TRADINGVIEW_EMAIL`, `TRADINGVIEW_PASSWORD`, `MONGODB_PWD`, `COMBO_WEBHOOK_URL`, `STOCK_BUDDY_API_URL`, `API_TIMEOUT`, `REVERSED_STRATEGY_SNAPSHOTS` (emergency rollback; default false)
+See `tte/config.py` and `.env` file. Key variables: `CHROME_PROFILES_PATH`, `TRADINGVIEW_EMAIL`, `TRADINGVIEW_PASSWORD`, `TRADINGVIEW_TOTP_SECRET` (optional — base32 TOTP secret for auto-2FA via pyotp; see `.claude/credentials-and-2fa.md`), `MONGODB_PWD`, `COMBO_WEBHOOK_URL`, `STOCK_BUDDY_API_URL`, `API_TIMEOUT`, `REVERSED_STRATEGY_SNAPSHOTS` (emergency rollback; default false)
 
 ### TradingView Requirements
-- **2FA**: Must be disabled
+- **2FA**: Can be on or off — if TV's "suspicious activity" detector forces 2FA on, set `TRADINGVIEW_TOTP_SECRET` in `.env` for auto-handling (PR #40); otherwise the backup-code workflow in `.claude/credentials-and-2fa.md` is the manual recovery path
 - **Social accounts**: None linked
 - **Subscription**: Premium (for webhooks)
 - **Layout**: "Screener" with the combo indicator starred/favorited
@@ -112,6 +112,8 @@ See `tte/config.py` and `.env` file. Key variables: `CHROME_PROFILES_PATH`, `TRA
 | Change screener settings | `tte/browser/tradingview.py` `change_settings()` | Symbol configuration |
 | Safe element access | `tte/browser/tradingview.py` `_safe_indicator_access()` | When Selenium elements go stale |
 | Re-upload indicator | `tte/browser/tradingview.py` `reupload_indicator()` | Screener error recovery |
+| Login-state guard | `tte/browser/tradingview.py` `is_chart_layout_loaded()` / `ensure_chart_layout_loaded()` | TV session-expired recovery (PR #39) |
+| Auto-2FA | `tte/browser/tradingview.py` `_maybe_auto_submit_totp()` | Optional pyotp-based 2FA submit when `TRADINGVIEW_TOTP_SECRET` is set (PR #40) |
 
 ## Documentation
 

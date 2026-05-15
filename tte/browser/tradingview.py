@@ -356,13 +356,21 @@ class Browser:
                     )
                     raise Exception("No credentials")
 
-                # wait for the name="Email" button to be present and click it
-                WebDriverWait(self.driver, 5).until(
-                    EC.presence_of_element_located((By.NAME, "Email"))
-                ).click()
+                # TV used to show a method picker (Email / Google / Apple) — clicking
+                # name="Email" advanced to the credentials form. As of 2026-05-15 the
+                # signin URL now lands directly on the email/password form, so this
+                # button is optional. Try briefly, but proceed to the inputs either way.
+                try:
+                    WebDriverWait(self.driver, 2).until(
+                        EC.presence_of_element_located((By.NAME, "Email"))
+                    ).click()
+                except TimeoutException:
+                    open_tv_logger.debug(
+                        "TV signin: no 'Email' method-picker button — already on credentials form"
+                    )
 
                 # Wait for the email input field to be present
-                email_input = WebDriverWait(self.driver, 5).until(
+                email_input = WebDriverWait(self.driver, 10).until(
                     EC.presence_of_element_located((By.NAME, "id_username"))
                 )
                 email_input.send_keys(tv_email)
@@ -412,9 +420,9 @@ class Browser:
         (no secret in env, no prompt detected within the budget, or pyotp
         missing).
 
-        The poll exits early if the products menu appears (sign-in already
-        succeeded without 2FA), so the no-2FA happy path adds no latency
-        beyond a quick DOM probe.
+        The poll exits early if the URL leaves ``/accounts/`` (sign-in already
+        succeeded or navigated away from the auth flow), so the no-2FA happy
+        path adds no latency beyond a quick URL probe.
 
         The TOTP secret is the base32 string captured during TV 2FA setup;
         store it in ``.env`` as ``TRADINGVIEW_TOTP_SECRET`` — never commit it.
@@ -430,40 +438,88 @@ class Browser:
             )
             return False
 
-        # Poll for either: (a) the 2FA input — we submit a code, or
-        # (b) the products menu — sign-in already succeeded, no 2FA needed.
-        # Either outcome exits the loop; only timeout returns False.
-        totp_selectors = [
+        # Poll for either: (a) the 2FA input on /accounts/two-factor-auth/ or
+        # similar auth-flow URL — we submit a code, or
+        # (b) the URL has navigated AWAY from /accounts/ (sign-in succeeded
+        # without 2FA, or we never got to the auth flow). Either outcome exits;
+        # only timeout returns False.
+        # TV's 2FA input selector has changed across UI versions. Specific
+        # selectors first (these uniquely identify the 2FA input). The generic
+        # type="text" fallback is GATED on the page having exactly 1 input,
+        # so it never matches on the login form (which has 2 inputs:
+        # id_username + id_password).
+        specific_selectors = [
+            'input[name="id_code"]',
+            "input#id_code",
             'input[name="code"]',
             'input[autocomplete="one-time-code"]',
             'input[inputmode="numeric"]',
         ]
-        signed_in_selector = 'a[data-main-menu-root-track-id="products"]'
+        fallback_selector = 'input[type="text"]'
 
         deadline = time() + poll_timeout
         target = None
+        poll_count = 0
+        last_url = ""
         while time() < deadline:
-            # Happy-path early exit: already signed in
+            poll_count += 1
             try:
-                if self.driver.find_elements(By.CSS_SELECTOR, signed_in_selector):
-                    return False
+                current_url = self.driver.current_url or ""
             except WebDriverException:
-                pass
+                current_url = ""
+            if current_url != last_url:
+                open_tv_logger.debug("TOTP poll #%d url=%s", poll_count, current_url)
+                last_url = current_url
 
-            for sel in totp_selectors:
+            # If TV has navigated off /accounts/ entirely, sign-in is done.
+            if current_url and "/accounts/" not in current_url:
+                open_tv_logger.info(
+                    "TOTP poll: URL left /accounts/ (now %s) — sign-in succeeded without 2FA",
+                    current_url,
+                )
+                return False
+
+            # Try specific selectors first (don't filter on is_displayed —
+            # headless Chrome sometimes reports visible inputs as not displayed).
+            matched_sel = None
+            for sel in specific_selectors:
                 try:
                     candidates = self.driver.find_elements(By.CSS_SELECTOR, sel)
                 except WebDriverException:
                     candidates = []
-                visible = [el for el in candidates if el.is_displayed()]
-                if visible:
-                    target = visible[0]
+                if candidates:
+                    target = candidates[0]
+                    matched_sel = sel
                     break
+
+            # Fallback ONLY if the page has exactly 1 input — avoids matching
+            # the email field on the login form (which has 2 inputs).
+            if target is None:
+                try:
+                    all_inputs = self.driver.find_elements(By.CSS_SELECTOR, fallback_selector)
+                except WebDriverException:
+                    all_inputs = []
+                if len(all_inputs) == 1:
+                    target = all_inputs[0]
+                    matched_sel = f"{fallback_selector} (sole input)"
+
             if target is not None:
+                open_tv_logger.info(
+                    "TOTP poll: found 2FA input via selector=%r (poll #%d, url=%s)",
+                    matched_sel,
+                    poll_count,
+                    current_url,
+                )
                 break
             sleep(0.5)
 
         if target is None:
+            open_tv_logger.warning(
+                "TOTP poll: timed out after %.0fs without finding the 2FA input (last_url=%s, polls=%d)",
+                poll_timeout,
+                last_url,
+                poll_count,
+            )
             return False
 
         try:
@@ -472,11 +528,29 @@ class Browser:
             open_tv_logger.exception("Failed to compute TOTP code from TRADINGVIEW_TOTP_SECRET")
             return False
 
+        # TV's 2FA page is a React-controlled input — Selenium's send_keys()
+        # fires keyboard events but doesn't update React's internal state, so
+        # the form never actually submits. Use the native value setter +
+        # explicit input/change/keydown event dispatch (matches the working
+        # DevTools snippet from the 2026-05-14 manual injection).
         try:
-            target.click()
-            target.send_keys(code)
-            target.send_keys(Keys.ENTER)
-            open_tv_logger.info("Auto-submitted TOTP code for TV 2FA")
+            self.driver.execute_script(
+                """
+                const el = arguments[0];
+                const code = arguments[1];
+                el.focus();
+                const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+                setter.call(el, code);
+                el.dispatchEvent(new Event('input', {bubbles: true}));
+                el.dispatchEvent(new Event('change', {bubbles: true}));
+                el.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true}));
+                el.dispatchEvent(new KeyboardEvent('keypress', {key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true}));
+                el.dispatchEvent(new KeyboardEvent('keyup', {key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true}));
+                """,
+                target,
+                code,
+            )
+            open_tv_logger.info("Auto-submitted TOTP code for TV 2FA via JS event dispatch")
             return True
         except Exception:
             open_tv_logger.exception("Failed to submit TOTP code")
