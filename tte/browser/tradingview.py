@@ -404,12 +404,17 @@ class Browser:
                 open_tv_logger.error("Failed to sign in to TradingView (timed out after 60s)")
                 return False
 
-    def _maybe_auto_submit_totp(self, poll_timeout: float = 8.0) -> bool:
+    def _maybe_auto_submit_totp(self, poll_timeout: float = 30.0) -> bool:
         """If a 2FA prompt is showing and ``TRADINGVIEW_TOTP_SECRET`` is set,
         compute the current 6-digit code via pyotp and submit it.
 
         Returns True if a code was successfully submitted, False otherwise
-        (no secret in env, no prompt detected, or pyotp missing).
+        (no secret in env, no prompt detected within the budget, or pyotp
+        missing).
+
+        The poll exits early if the products menu appears (sign-in already
+        succeeded without 2FA), so the no-2FA happy path adds no latency
+        beyond a quick DOM probe.
 
         The TOTP secret is the base32 string captured during TV 2FA setup;
         store it in ``.env`` as ``TRADINGVIEW_TOTP_SECRET`` — never commit it.
@@ -425,16 +430,27 @@ class Browser:
             )
             return False
 
-        # Poll for the 2FA input — TV's auth page may load a beat after sign-in click.
-        selectors = [
+        # Poll for either: (a) the 2FA input — we submit a code, or
+        # (b) the products menu — sign-in already succeeded, no 2FA needed.
+        # Either outcome exits the loop; only timeout returns False.
+        totp_selectors = [
             'input[name="code"]',
             'input[autocomplete="one-time-code"]',
             'input[inputmode="numeric"]',
         ]
+        signed_in_selector = 'a[data-main-menu-root-track-id="products"]'
+
         deadline = time() + poll_timeout
         target = None
         while time() < deadline:
-            for sel in selectors:
+            # Happy-path early exit: already signed in
+            try:
+                if self.driver.find_elements(By.CSS_SELECTOR, signed_in_selector):
+                    return False
+            except WebDriverException:
+                pass
+
+            for sel in totp_selectors:
                 try:
                     candidates = self.driver.find_elements(By.CSS_SELECTOR, sel)
                 except WebDriverException:
