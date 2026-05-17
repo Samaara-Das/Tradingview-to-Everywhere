@@ -23,7 +23,7 @@ TTE uses Selenium browser automation to create and maintain persistent webhook a
 
 - Python 3.11
 - Google Chrome browser
-- TradingView account (Premium, 2FA disabled)
+- TradingView account (Premium; 2FA optional — set `TRADINGVIEW_TOTP_SECRET` if enabled)
 - MongoDB Atlas account (for symbol storage)
 
 ### Installation
@@ -131,6 +131,8 @@ CHROME_PROFILES_PATH=C:\Users\<YourUsername>\AppData\Local\Google\Chrome\User Da
 # TradingView
 TRADINGVIEW_EMAIL=your@email.com
 TRADINGVIEW_PASSWORD=your_password
+# Optional: base32 TOTP secret for auto-2FA (set if TV enables 2FA on the account)
+# TRADINGVIEW_TOTP_SECRET=your_base32_secret
 
 # MongoDB
 MONGODB_PWD=your_mongodb_password
@@ -154,7 +156,7 @@ COMBO_WEBHOOK_URL=https://stockbuddy.co/api/tte/combo
 - Python 3.11
 - Chrome browser (latest)
 - TradingView account with:
-  - Two-factor authentication disabled
+  - Two-factor authentication: optional (set `TRADINGVIEW_TOTP_SECRET` in `.env` if TV enables 2FA)
   - No linked social accounts
   - "Screener" layout with TTE Screener indicator saved and starred
 

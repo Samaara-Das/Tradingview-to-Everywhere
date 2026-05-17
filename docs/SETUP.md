@@ -117,9 +117,9 @@ PROFILE = "Profile 4"  # Or the profile number you want to use
 
 ### Account Requirements
 
-1. **Disable Two-Factor Authentication**
-   - Go to TradingView Settings > Security
-   - Disable all 2FA methods
+1. **Two-Factor Authentication** (optional)
+   - TTE handles 2FA automatically if you set `TRADINGVIEW_TOTP_SECRET` in `.env` (base32 secret from TV's 2FA setup flow; see `.claude/credentials-and-2fa.md`)
+   - If `TRADINGVIEW_TOTP_SECRET` is not set, 2FA must be disabled in TradingView Settings > Security
 
 2. **Unlink Social Accounts**
    - Remove any linked Google, Facebook, or Apple accounts
@@ -169,6 +169,9 @@ MONGODB_DATABASE=tte
 
 # Combo Webhook
 COMBO_WEBHOOK_URL=https://stockbuddy.co/api/tte/combo
+
+# Optional: base32 TOTP secret for auto-2FA when TV enables 2FA on the account
+# TRADINGVIEW_TOTP_SECRET=your_base32_secret
 ```
 
 ---
@@ -393,7 +396,7 @@ python -c "from tte.data.symbols import get_symbols; symbols = get_symbols(); pr
 
 **Solution**:
 1. Verify credentials in `.env`
-2. Ensure 2FA is disabled
+2. If TV has 2FA enabled, set `TRADINGVIEW_TOTP_SECRET` (base32 secret) in `.env` for auto-handling; otherwise disable 2FA in TV settings
 3. Try logging in manually to check for captcha
 
 ### MongoDB Connection Failed

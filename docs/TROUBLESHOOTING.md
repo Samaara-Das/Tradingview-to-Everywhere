@@ -83,7 +83,7 @@ Common issues and solutions for TTE.
    TRADINGVIEW_EMAIL=correct@email.com
    TRADINGVIEW_PASSWORD=correct_password
    ```
-2. Ensure 2FA is disabled in TradingView settings
+2. Handle 2FA: if TV has 2FA enabled, set `TRADINGVIEW_TOTP_SECRET` (base32 secret from TV's authenticator setup) in `.env`; otherwise disable 2FA in TradingView Settings > Security
 3. Unlink any social accounts (Google, Facebook, Apple)
 4. Try logging in manually to check for CAPTCHA
 5. If CAPTCHA appears:
@@ -443,7 +443,7 @@ WebDriverWait(self.driver, 15).until(...)  # Increase to 15
 
 - [ ] Close all Chrome windows
 - [ ] Verify `.env` file has correct credentials
-- [ ] Check TradingView 2FA is disabled
+- [ ] If TV has 2FA enabled, verify `TRADINGVIEW_TOTP_SECRET` is set in `.env`
 - [ ] Verify "Screener" layout exists with correct name
 - [ ] Confirm TTE Screener indicator is starred/favorited
 - [ ] Test MongoDB connection
