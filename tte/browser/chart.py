@@ -202,7 +202,9 @@ class OpenChart:
             err_str = str(e)
             # WS-0 retry: detect renderer-stall via the urllib3 read-timeout signature
             # and recover with a full page refresh + one retry. Only on attempt 1.
-            if "Read timed out" in err_str and _attempt == 1:
+            # Lowercase substring match so we catch urllib3 variants ("Read timed out",
+            # "read timeout", etc.) — code-reviewer flagged exact-case as fragile.
+            if "timed out" in err_str.lower() and _attempt == 1:
                 entry_chart_logger.warning(
                     "Symbol change hit a renderer-stall read-timeout — refreshing page "
                     "and retrying once."

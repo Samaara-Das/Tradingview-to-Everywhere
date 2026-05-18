@@ -240,20 +240,18 @@ class Browser:
         # streaming), Selenium clicks can stall and the full 120s wait wastes time per
         # failed snapshot. 45s is fail-fast enough to leave retry budget while still
         # tolerating normal slow renders. Selenium 4.x exposes the timeout via
-        # `command_executor._client_config.timeout`; fall back to the older
-        # `_conn.timeout` attribute on slightly different Selenium builds.
+        # `command_executor._client_config.timeout`. We previously also had a
+        # `_conn.timeout = 45` fallback, but code review confirmed it was dead code:
+        # `_conn` is a urllib3 PoolManager whose timeout is set at pool creation and
+        # not honoured by post-hoc mutation. Removed.
         try:
             self.driver.command_executor._client_config.timeout = 45  # type: ignore[attr-defined]
             open_tv_logger.debug("chromedriver read timeout lowered to 45s via _client_config")
         except AttributeError:
-            try:
-                self.driver.command_executor._conn.timeout = 45  # type: ignore[attr-defined]
-                open_tv_logger.debug("chromedriver read timeout lowered to 45s via _conn")
-            except AttributeError:
-                open_tv_logger.warning(
-                    "Could not lower chromedriver read timeout — Selenium internals changed; "
-                    "stays at 120s default. WS-0 fail-fast behaviour is degraded."
-                )
+            open_tv_logger.warning(
+                "Could not lower chromedriver read timeout (_client_config attr missing) — "
+                "stays at 120s default. WS-0 fail-fast behaviour is degraded."
+            )
 
         self.open_chart = OpenChart(self.driver)
         self.utils = Utils()

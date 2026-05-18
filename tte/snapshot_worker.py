@@ -245,6 +245,11 @@ class SnapshotWorker:
             sleep(5)  # let TV re-establish its WebSocket + redraw the chart
             # Force the per-round setup to re-run on the next round.
             self._bars_right_last_set = 0
+            # Reset per-symbol failure counters — a fresh chrome state means
+            # symbols that previously stalled deserve another shot. Belt-and-
+            # suspenders alongside the in-line clear at the skip site (caught
+            # in code review of the original patch).
+            self._consec_failures.clear()
             # Defensive: ensure the chart layout is back (refresh can occasionally
             # leave the placeholder page if the session was wobbly).
             if not self.browser.ensure_chart_layout_loaded():
@@ -308,14 +313,17 @@ class SnapshotWorker:
             f"Entry {setup.get('entryPrice')}, SL {setup.get('stopLoss')}, TP {setup.get('takeProfit')}"
         )
 
-        # WS-0 fail-fast: if a symbol has already failed twice in a row, skip it
-        # outright on this poll cycle. Stock Buddy will keep the doc in `pending`
-        # so the next cycle (or post-recycle attempt) gets a clean shot at it.
+        # WS-0 fail-fast: if a symbol has already failed twice in a row in this
+        # poll cycle, skip it ONCE and clear the counter so it gets a fresh
+        # attempt next cycle. Without the clear, the dict acted as a permanent
+        # per-process blacklist — every subsequent cycle would skip the same
+        # symbol forever (caught in code review).
         if self._consec_failures.get(symbol, 0) >= 2:
             logger.warning(
                 f"Skipping {symbol} — failed {self._consec_failures[symbol]} times in a row; "
-                "deferring to next cycle."
+                "clearing counter so it's eligible again next cycle."
             )
+            self._consec_failures.pop(symbol, None)
             self.client.update_snapshot(setup_id, error="renderer_stall_skipped")
             return False
 
