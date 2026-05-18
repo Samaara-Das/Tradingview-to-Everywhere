@@ -5,6 +5,7 @@ screener indicator configuration, webhook alert creation, and indicator re-uploa
 
 import platform
 import subprocess
+import threading
 from os import getenv
 from pathlib import Path
 from time import sleep, time
@@ -254,6 +255,123 @@ class Browser:
         self.init_succeeded = True
         self.tv_email = ""
         self.tv_password = ""
+
+        # WS-F (2026-05-18): TradingView pops a "Session disconnected" modal when
+        # the same account signs in from another desktop. The modal blocks all UI
+        # interaction until dismissed. The watcher thread below polls every 5s
+        # and clicks "Connect" if it appears, so TTE can keep going even when
+        # Sammy/Nili/Rahul opens TV elsewhere. Selenium's WebDriver is not
+        # strictly thread-safe, but find_elements + click are short serial HTTP
+        # round-trips to chromedriver and don't corrupt main-thread state.
+        self._disconnect_watcher_stop = threading.Event()
+        self._disconnect_watcher_thread: threading.Thread | None = None
+        self.start_disconnect_watcher()
+
+    # ---------------- WS-F: session-disconnect watcher ----------------
+
+    DISCONNECT_WATCHER_POLL_SECONDS = 5.0
+
+    def start_disconnect_watcher(self) -> None:
+        """Start the background thread that dismisses TV's session-disconnect popup.
+
+        Safe to call multiple times — no-op if already running. The thread terminates
+        when stop_disconnect_watcher() is called or when self._disconnect_watcher_stop
+        is set externally.
+        """
+        if (
+            self._disconnect_watcher_thread is not None
+            and self._disconnect_watcher_thread.is_alive()
+        ):
+            return
+        self._disconnect_watcher_stop.clear()
+        t = threading.Thread(
+            target=self._disconnect_watcher_loop,
+            name="tv-disconnect-watcher",
+            daemon=True,
+        )
+        self._disconnect_watcher_thread = t
+        t.start()
+        open_tv_logger.info(
+            "WS-F session-disconnect watcher started (poll=%ss)",
+            self.DISCONNECT_WATCHER_POLL_SECONDS,
+        )
+
+    def stop_disconnect_watcher(self, timeout: float = 5.0) -> None:
+        """Signal the watcher thread to exit and wait briefly for it to finish."""
+        self._disconnect_watcher_stop.set()
+        t = self._disconnect_watcher_thread
+        if t is not None and t.is_alive():
+            t.join(timeout=timeout)
+            if t.is_alive():
+                open_tv_logger.warning(
+                    "WS-F disconnect watcher did not exit within %ss; daemon thread will be force-stopped on process exit",
+                    timeout,
+                )
+
+    def _disconnect_watcher_loop(self) -> None:
+        """Poll loop. Exits when _disconnect_watcher_stop is set."""
+        while not self._disconnect_watcher_stop.wait(self.DISCONNECT_WATCHER_POLL_SECONDS):
+            try:
+                self._check_and_dismiss_disconnect_popup()
+            except Exception:
+                # Never let a watcher exception crash the thread; log and keep going.
+                open_tv_logger.exception("WS-F watcher tick raised — continuing.")
+
+    def _check_and_dismiss_disconnect_popup(self) -> None:
+        """Look for the 'Session disconnected' popup and click Connect if present.
+
+        Selectors (verified from TV's saved popup HTML, project root):
+          - Title (anchor on text, since the hash class can rotate):
+              p with class containing 'title-vhfmr0Do' and text 'Session disconnected'
+          - Connect button: button[data-overflow-tooltip-text="Connect"]
+
+        We anchor on the Connect button because data attributes are more stable
+        than hash classes. If it's present and visible, click it.
+        """
+        # Use find_elements to avoid NoSuchElementException flooding the log
+        # on every poll where the popup is (correctly) absent.
+        try:
+            buttons = self.driver.find_elements(
+                By.CSS_SELECTOR, 'button[data-overflow-tooltip-text="Connect"]'
+            )
+        except WebDriverException as e:
+            # Driver might be tearing down or mid-refresh; benign.
+            open_tv_logger.debug("WS-F watcher: driver query failed (%s); will retry next tick.", e)
+            return
+
+        if not buttons:
+            return
+
+        # Verify this is actually the session-disconnect popup (defensive against
+        # TV reusing the "Connect" label elsewhere in the UI). Look for the title.
+        try:
+            title_elements = self.driver.find_elements(
+                By.XPATH,
+                "//p[contains(@class, 'title-') and normalize-space(text())='Session disconnected']",
+            )
+        except WebDriverException:
+            title_elements = []
+        if not title_elements:
+            # Connect button exists but title not present — not our popup. Skip.
+            return
+
+        for btn in buttons:
+            try:
+                if not btn.is_displayed():
+                    continue
+                open_tv_logger.warning(
+                    "WS-F: Session-disconnected popup detected — clicking Connect to reclaim session."
+                )
+                # JS click bypasses any transient overlay between us and the button.
+                try:
+                    self.driver.execute_script("arguments[0].click();", btn)
+                except WebDriverException:
+                    btn.click()
+                open_tv_logger.info("WS-F: tv-session-reclaimed.")
+                return
+            except StaleElementReferenceException:
+                # Popup vanished between the find and the click; nothing to do.
+                return
 
     def open_page(self, url: str):
         """This opens `url` and maximizes the window"""

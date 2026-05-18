@@ -56,6 +56,15 @@ def _force_close_browser(browser):
     except Exception:
         pass
 
+    # WS-F: stop the disconnect-popup watcher thread BEFORE quit() so the daemon
+    # thread doesn't race with chromedriver tearing down (avoids spurious
+    # WebDriverException tracebacks on shutdown).
+    try:
+        if hasattr(browser, "stop_disconnect_watcher"):
+            browser.stop_disconnect_watcher()
+    except Exception:
+        pass
+
     try:
         browser.driver.quit()
     except Exception:
