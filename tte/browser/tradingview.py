@@ -341,58 +341,82 @@ class Browser:
     def _check_and_dismiss_disconnect_popup(self) -> None:
         """Look for the 'Session disconnected' popup and click Connect if present.
 
-        Selectors (verified from TV's saved popup HTML, project root):
-          - Title (anchor on text, since the hash class can rotate):
-              p with class containing 'title-vhfmr0Do' and text 'Session disconnected'
-          - Connect button: button[data-overflow-tooltip-text="Connect"]
-
-        We anchor on the Connect button because data attributes are more stable
-        than hash classes. If it's present and visible, click it.
+        Selectors (verified from TV's saved popup HTML at the repo root). Both
+        the title and the Connect button live inside the same modal container
+        `div.container-SiBYNi_V`. We anchor on the **title text** first
+        (`p[contains(@class,'title-')]` with text 'Session disconnected'),
+        then walk up to the modal ancestor, then find the Connect button
+        within that subtree. This guarantees the click target is part of
+        the same modal as the title — code review caught the earlier
+        unscoped variant where a stray "Connect" button elsewhere in the
+        TV UI could have been clicked by mistake.
         """
         # Use find_elements to avoid NoSuchElementException flooding the log
         # on every poll where the popup is (correctly) absent.
         try:
-            buttons = self.driver.find_elements(
-                By.CSS_SELECTOR, 'button[data-overflow-tooltip-text="Connect"]'
+            title_elements = self.driver.find_elements(
+                By.XPATH,
+                "//p[contains(@class, 'title-') and normalize-space(text())='Session disconnected']",
             )
         except WebDriverException as e:
             # Driver might be tearing down or mid-refresh; benign.
             open_tv_logger.debug("WS-F watcher: driver query failed (%s); will retry next tick.", e)
             return
 
-        if not buttons:
-            return
-
-        # Verify this is actually the session-disconnect popup (defensive against
-        # TV reusing the "Connect" label elsewhere in the UI). Look for the title.
-        try:
-            title_elements = self.driver.find_elements(
-                By.XPATH,
-                "//p[contains(@class, 'title-') and normalize-space(text())='Session disconnected']",
-            )
-        except WebDriverException:
-            title_elements = []
         if not title_elements:
-            # Connect button exists but title not present — not our popup. Skip.
             return
 
-        for btn in buttons:
+        # Find the Connect button scoped to the SAME modal container as the title.
+        for title in title_elements:
             try:
-                if not btn.is_displayed():
-                    continue
-                open_tv_logger.warning(
-                    "WS-F: Session-disconnected popup detected — clicking Connect to reclaim session."
+                # Walk up from the title to the modal container.
+                modal = title.find_element(
+                    By.XPATH, "ancestor::div[contains(@class, 'container-')][1]"
                 )
-                # JS click bypasses any transient overlay between us and the button.
+                btns = modal.find_elements(
+                    By.CSS_SELECTOR, 'button[data-overflow-tooltip-text="Connect"]'
+                )
+            except (StaleElementReferenceException, NoSuchElementException, WebDriverException):
+                continue
+
+            for btn in btns:
                 try:
-                    self.driver.execute_script("arguments[0].click();", btn)
-                except WebDriverException:
-                    btn.click()
-                open_tv_logger.info("WS-F: tv-session-reclaimed.")
-                return
-            except StaleElementReferenceException:
-                # Popup vanished between the find and the click; nothing to do.
-                return
+                    if not btn.is_displayed():
+                        continue
+                    open_tv_logger.warning(
+                        "WS-F: Session-disconnected popup detected — clicking Connect to reclaim session."
+                    )
+                    # JS click bypasses any transient overlay between us and the button.
+                    try:
+                        self.driver.execute_script("arguments[0].click();", btn)
+                    except WebDriverException:
+                        btn.click()
+                    open_tv_logger.info("WS-F: tv-session-reclaimed.")
+                    # Post-click: clicking Connect causes TV to reload the chart to
+                    # re-establish the session. The main thread may be mid-Selenium-op
+                    # against now-stale element references — its existing
+                    # exception handling will catch StaleElementReferenceException /
+                    # TimeoutException / NoSuchElementException and the standard retry
+                    # paths take over. We can't prevent that race without a full
+                    # cross-thread lock, but we DO log loudly so log-readers can
+                    # correlate the main thread's "Failed to..." errors with this
+                    # reclaim event. Sleep briefly + assert the chart layout is back
+                    # so the next watcher tick doesn't fire on a half-reloaded DOM.
+                    sleep(3)
+                    try:
+                        if not self.is_chart_layout_loaded():
+                            open_tv_logger.warning(
+                                "WS-F: chart layout NOT loaded 3s after Connect click — "
+                                "page may still be reloading. Main-thread errors logged "
+                                "during the next ~10s should be attributed to this reclaim."
+                            )
+                    except WebDriverException:
+                        # is_chart_layout_loaded itself raced with tear-down; benign.
+                        pass
+                    return
+                except StaleElementReferenceException:
+                    # Popup vanished between the find and the click; nothing to do.
+                    return
 
     def open_page(self, url: str):
         """This opens `url` and maximizes the window"""
