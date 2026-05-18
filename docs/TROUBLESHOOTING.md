@@ -75,7 +75,7 @@ Common issues and solutions for TTE.
 - Error: `Products menu not found`
 - Stuck on login page
 
-**Cause**: Invalid credentials, 2FA enabled, or CAPTCHA required.
+**Cause**: Invalid credentials, 2FA blocking with no TOTP secret configured, or CAPTCHA required.
 
 **Solutions**:
 1. Verify credentials in `.env`:
@@ -83,7 +83,7 @@ Common issues and solutions for TTE.
    TRADINGVIEW_EMAIL=correct@email.com
    TRADINGVIEW_PASSWORD=correct_password
    ```
-2. Handle 2FA: if TV has 2FA enabled, set `TRADINGVIEW_TOTP_SECRET` (base32 secret from TV's authenticator setup) in `.env`; otherwise disable 2FA in TradingView Settings > Security
+2. If TradingView is forcing 2FA, set `TRADINGVIEW_TOTP_SECRET` (base32) in `.env`. PR #40's `_maybe_auto_submit_totp()` will submit codes automatically. If the secret is empty, the function no-ops and you'll need to enter the code manually inside the Selenium-driven Chrome window.
 3. Unlink any social accounts (Google, Facebook, Apple)
 4. Try logging in manually to check for CAPTCHA
 5. If CAPTCHA appears:
@@ -425,6 +425,54 @@ WebDriverWait(self.driver, 15).until(...)  # Increase to 15
 
 ## Known Issues
 
+### Snapshot Renderer Stalls (Resolved — WS-0, 2026-05-18)
+
+**Symptoms** (chronic since at least 2026-05-15, possibly earlier):
+- `tte/snapshot_worker - ERROR - Failed to change symbol to <SYMBOL>` in `app_log.log`, with the underlying exception `HTTPConnectionPool(host='localhost', port=41623): Read timed out. (read timeout=120)`.
+- Not specific to any exchange — hit on NSE (TATAELXSI, HUDCO, INFY) and NYSE/NASDAQ (BRO, ALB, AJG, CME) symbols.
+- ~30% per-poll failure rate on the snapshot pipeline. Webhook + maintenance unaffected.
+
+**Root cause**: chrome's headless renderer sustains ~93-140% CPU on the production `tte:phase4` image even right after a fresh chrome restart — not a memory leak, but a steady-state load from TV's WebSocket data streaming + Trade Drawer V2 recompute + headless software rasterization. Devtools queries respond in 1ms (V8 worker threads) but Selenium clicks queue against TV's saturated main thread. Occasionally a chain of Selenium ops in `_take_snapshot` accumulates enough wait time to exceed chromedriver's default 120s urllib3 read timeout, surfacing as the `Read timed out` error. Memory: 300 MB JS heap of 4 GB limit — fine.
+
+**Fix** (WS-0): four small, additive changes:
+
+1. **Lower chromedriver read timeout 120s → 45s** in `tte/browser/tradingview.py` Browser.__init__ (via `command_executor._client_config.timeout = 45`). Fails fast on stalls; recovers 75s of wall-time per stall.
+2. **Retry-on-`Read timed out` in `change_symbol`** (`tte/browser/chart.py`). On stall: `driver.refresh()`, sleep 3s, retry once. Recursion capped at 2 attempts.
+3. **Distinguish renderer stalls from other failures** in `tte/snapshot_worker.py` `_take_snapshot`. Time the `change_symbol` call; if it returns False after ≥ 30s, POST `error="renderer_stall"` (vs. `"Failed to change symbol"` for fast failures like unknown symbol). Per-symbol consecutive failure counter; skip to next snapshot after 2 in a row on the same name.
+4. **Periodic chart recycle** every 30 snapshots in `process_pending_snapshots`. Calls `driver.refresh()` + 5s sleep, then re-runs per-cycle setup (bar style, bars-to-right, legend). Flushes accumulated DOM/tooltip state cheaply.
+
+Diagnostic patch from WS-0 (added `--remote-allow-origins=*` to chrome args) is included in the same commit so future rebuilds keep it — required by chrome 111+ for external WebSocket DevTools attach, used by future health probes.
+
+---
+
+### TradingView Session Disconnected Mid-Run (Resolved — PR #39, 2026-05-14)
+
+**Symptoms**:
+- Snapshot worker or maintenance loop logs page-not-found or chart-missing errors.
+- The TradingView tab shows the sign-in page or a "session disconnected" notice instead of the chart.
+
+**Cause**: A parallel login on another device or IP invalidated the VPS-side session. Before PR #39, the maintenance loop continued operating against the logged-out page and the snapshot pipeline silently 100%-failed (2026-05-08 → 2026-05-14 blackout).
+
+**Fix** (PR #39, commit `40311f7`): `tte/browser/tradingview.py` adds `is_chart_layout_loaded()` and `ensure_chart_layout_loaded()`. Each maintenance round calls `ensure_chart_layout_loaded()` first; if the chart is missing it re-runs `setup_tv()` (full login + layout restore) before touching alerts. No user action is required unless `TRADINGVIEW_TOTP_SECRET` is unset and TV is asking for a code — in that case see the "TradingView Login Failed" section above.
+
+---
+
+### TOTP Code Rejected (PR #40, 2026-05-15)
+
+**Symptoms**:
+- Log line `Auto-submitted TOTP code` appears, but the next selector wait times out.
+- Login page still showing the 6-digit input after submit.
+
+**Cause**: Container clock skew, wrong base32 secret, or TV silently rotated the secret.
+
+**Solutions**:
+1. Verify the container clock matches a public NTP source within a few seconds (`docker exec tte-1 date`).
+2. Re-scan the QR code in TV's 2FA setup and confirm the base32 secret in `.env` is byte-identical (no surrounding quotes, no whitespace).
+3. If the secret was added long ago, regenerate it via TV Settings → Security → 2FA → reset.
+4. Inert path: clear `TRADINGVIEW_TOTP_SECRET` and rely on backup codes (see `.claude/credentials-and-2fa.md`).
+
+---
+
 ### Screener Gear Click Intercepted (Resolved — PR #28, 2026-05-05)
 
 **Symptoms** (identical on Windows AND Linux/Docker):
@@ -443,7 +491,7 @@ WebDriverWait(self.driver, 15).until(...)  # Increase to 15
 
 - [ ] Close all Chrome windows
 - [ ] Verify `.env` file has correct credentials
-- [ ] If TV has 2FA enabled, verify `TRADINGVIEW_TOTP_SECRET` is set in `.env`
+- [ ] If TV forces 2FA, confirm `TRADINGVIEW_TOTP_SECRET` is set (or 2FA is off)
 - [ ] Verify "Screener" layout exists with correct name
 - [ ] Confirm TTE Screener indicator is starred/favorited
 - [ ] Test MongoDB connection

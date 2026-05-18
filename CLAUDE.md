@@ -25,7 +25,7 @@ TradingView to Everywhere (TTE) is an automated trading signals distribution sys
   - `tte/log.py`: file handler writes under `${LOG_DIR:-logs}/app_log.log` (Docker mounts `/app/logs` to a host volume).
   - `tte/config.py`: `PROFILE = os.getenv("CHROME_PROFILE", "Profile 4")` so each container can override (per-instance user-data-dir volumes).
 - **Method**: Single combo screener (NWE + OB/FVG, stateless setup detection) with persistent webhook alerts
-- **Workflow**: ~310 persistent alerts (2 symbols each, category-aware pairing) → webhook every 45s to Stock Buddy API
+- **Workflow**: ~340 persistent alerts (2 symbols each, category-aware pairing) covering ~677 symbols → webhook every 45s to Stock Buddy API
 - **Alert lifecycle**: Create once → run forever (+ maintenance every 2.5 mins)
 - **Screener V2**: Stateless setup detection (NWE + OB/FVG alignment). Exit detection handled by Stock Buddy cron (every 5 min via Binance/Yahoo candles)
 - **Single browser**: Alerts created sequentially with one Chrome instance (headless by default)
@@ -114,6 +114,7 @@ See `tte/config.py` and `.env` file. Key variables: `CHROME_PROFILES_PATH`, `TRA
 | Re-upload indicator | `tte/browser/tradingview.py` `reupload_indicator()` | Screener error recovery |
 | Login-state guard | `tte/browser/tradingview.py` `is_chart_layout_loaded()` / `ensure_chart_layout_loaded()` | TV session-expired recovery (PR #39) |
 | Auto-2FA | `tte/browser/tradingview.py` `_maybe_auto_submit_totp()` | Optional pyotp-based 2FA submit when `TRADINGVIEW_TOTP_SECRET` is set (PR #40) |
+| Renderer-stall recovery | `tte/browser/chart.py` `change_symbol()` retry-on-`Read timed out` + `tte/snapshot_worker.py` `_recycle_chart()` | WS-0 fixes for chronic renderer overload on long-running headless Chrome (lowers urllib3 timeout to 45s, retries on stall, recycles every 30 snapshots) |
 
 ## Documentation
 
