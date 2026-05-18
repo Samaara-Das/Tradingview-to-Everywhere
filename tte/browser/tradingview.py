@@ -348,7 +348,8 @@ class Browser:
                 if "timed out" in err_str or "read timeout" in err_str:
                     open_tv_logger.debug(
                         "WS-F watcher tick saw a chromedriver read-timeout (main thread "
-                        "likely busy) — next tick will retry. Suppressed exception."
+                        "likely busy) — next tick will retry. Suppressed exception.",
+                        exc_info=True,
                     )
                 else:
                     open_tv_logger.exception("WS-F watcher tick raised — continuing.")

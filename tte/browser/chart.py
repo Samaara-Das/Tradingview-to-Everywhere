@@ -213,13 +213,16 @@ class OpenChart:
                     self.driver.refresh()
                 except Exception as refresh_exc:
                     # The renderer is sometimes so saturated that even driver.refresh()
-                    # times out — that's just confirmation we couldn't recover this
-                    # cycle. Caller treats the False return as "snapshot failed";
-                    # the next maintenance tick will retry. No need to dump a full
-                    # traceback on every occurrence (noise from 2026-05-18 soak).
+                    # itself fails — usually another timeout, but `except Exception`
+                    # here also catches less-common failure modes (connection refused
+                    # if chromedriver just died, etc.). Either way, we can't recover
+                    # this cycle; caller treats the False return as "snapshot failed"
+                    # and the next maintenance tick will retry. One-line WARNING is
+                    # enough — no full traceback per occurrence (noise from
+                    # 2026-05-18 soak).
                     entry_chart_logger.warning(
-                        "Stall-recovery driver.refresh() also timed out (%s) — "
-                        "bailing out, next cycle will retry.",
+                        "Stall-recovery driver.refresh() failed (%s) — bailing out, "
+                        "next cycle will retry.",
                         type(refresh_exc).__name__,
                     )
                     return False
