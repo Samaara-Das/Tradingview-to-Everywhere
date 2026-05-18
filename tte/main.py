@@ -30,7 +30,7 @@ from selenium.webdriver.support.wait import WebDriverWait
 from tte import log
 from tte.browser.helpers import Utils
 from tte.browser.tradingview import Browser
-from tte.config import ComboConfig
+from tte.config import INSTANCE, ComboConfig
 
 # Logger
 logger = log.setup_logger(__name__, log.INFO)
@@ -132,8 +132,14 @@ def create_browser(config: ComboConfig, args, layout_override: str = "") -> Brow
     # not the 45-second screener timeframe which may not exist in the dropdown.
     chart_timeframe = "1 hour" if layout_override else config.chart_timeframe
 
+    # tte-1 keeps user_data_suffix="" for back-compat with the existing
+    # /home/tte/chrome-profile volume; tte-2+ append "-tte-N" so bare-metal
+    # parallel runs (Windows dev) get isolated profile dirs.
+    user_data_suffix = "" if INSTANCE == "tte-1" else f"-{INSTANCE}"
+
     browser = Browser(
         keep_open=True,
+        user_data_suffix=user_data_suffix,
         screener_shorttitle=config.screener_shorttitle,
         screener_name=config.screener_name,
         drawer_shorttitle="",

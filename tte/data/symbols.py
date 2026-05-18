@@ -16,6 +16,7 @@ import os
 from pymongo import MongoClient
 
 from tte import log
+from tte.config import INSTANCE
 
 # Set up logger for this file
 symbol_logger = log.setup_logger(__name__, log.DEBUG)
@@ -53,7 +54,14 @@ def _get_mongodb_connection():
 
 
 def _load_symbols_from_mongodb():
-    """Load symbols from MongoDB and return in the same format as main_symbols. Raises exception if it fails."""
+    """Load symbols from MongoDB and return in the same format as main_symbols.
+
+    WS-A multi-instance: returns ONLY rows tagged with this container's
+    `assigned_instance` (matches `INSTANCE` env). Docs that pre-date the
+    assigned_instance field default to `tte-1` so legacy single-instance
+    deployments continue to see all rows. Raises if the collection is
+    empty or a doc is malformed.
+    """
     db = _get_mongodb_connection()
 
     symbols_collection = db.symbols
@@ -63,9 +71,17 @@ def _load_symbols_from_mongodb():
     if doc_count == 0:
         raise ValueError("Symbols collection is empty or does not exist")
 
+    # Match this instance's slice (and legacy untagged docs for tte-1)
+    if INSTANCE == "tte-1":
+        query: dict = {
+            "$or": [{"assigned_instance": "tte-1"}, {"assigned_instance": {"$exists": False}}]
+        }
+    else:
+        query = {"assigned_instance": INSTANCE}
+
     # Group symbols by category
-    mongodb_symbols = {}
-    for doc in symbols_collection.find({}):
+    mongodb_symbols: dict = {}
+    for doc in symbols_collection.find(query):
         category = doc.get("category")
         full_symbol = doc.get("full_symbol", doc.get("symbol"))
 
@@ -78,7 +94,8 @@ def _load_symbols_from_mongodb():
         mongodb_symbols[category].append(full_symbol)
 
     symbol_logger.info(
-        f"Successfully loaded {sum(len(symbols) for symbols in mongodb_symbols.values())} symbols from MongoDB"
+        f"Loaded {sum(len(symbols) for symbols in mongodb_symbols.values())} symbols "
+        f"for INSTANCE={INSTANCE} from MongoDB"
     )
     return mongodb_symbols
 

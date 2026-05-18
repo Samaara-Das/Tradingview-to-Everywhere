@@ -17,6 +17,12 @@ load_dotenv()
 # tte-N container has its own user-data-dir volume).
 PROFILE = os.getenv("CHROME_PROFILE", "Profile 4")
 
+# Instance identifier. Each TTE container binds to a single TV Ultimate account.
+# Defaults to "tte-1" for back-compat with single-instance deployments.
+# Used to: tag webhook URLs (?instance=), filter snapshot poll claims, attach
+# tteInstance to snapshot upload, and isolate Chrome user-data-dir on bare metal.
+INSTANCE = os.getenv("TTE_INSTANCE", "tte-1")
+
 SETTINGS_FILE = Path(__file__).parent.parent / "combo_settings.yaml"
 
 
@@ -30,6 +36,15 @@ def _load_yaml() -> dict:
 
 
 _yaml = _load_yaml()
+
+
+def _build_webhook_url() -> str:
+    """Return webhook URL with `?instance=<id>` appended for SB attribution."""
+    base = os.getenv("COMBO_WEBHOOK_URL", _yaml.get("webhook", {}).get("url", ""))
+    if not base:
+        return ""
+    sep = "&" if "?" in base else "?"
+    return f"{base}{sep}instance={INSTANCE}"
 
 
 @dataclass
@@ -51,8 +66,14 @@ class ComboConfig:
     alert_creation_delay: float = _yaml.get("alerts", {}).get("creation_delay", 1.5)
     recalc_wait: float = _yaml.get("alerts", {}).get("recalc_wait", 2.0)
 
-    # Webhook — env var takes precedence over yaml
-    webhook_url: str = os.getenv("COMBO_WEBHOOK_URL", _yaml.get("webhook", {}).get("url", ""))
+    # Webhook — env var takes precedence over yaml.
+    # `?instance=<id>` is appended so Stock Buddy can attribute signals to
+    # the originating TTE container (multi-instance contract §3.2).
+    webhook_url: str = _build_webhook_url()
+
+    # Instance identifier (mirrors module-level INSTANCE; exposed on the dataclass
+    # for callers that already have a ComboConfig handle).
+    instance: str = INSTANCE
 
     # Maintenance
     maintenance_interval: int = _yaml.get("maintenance", {}).get("interval", 300)
