@@ -54,19 +54,19 @@ Check the current initialization status of the TTE system.
   "success": true,
   "initialized": true,
   "symbols": {
-    "total": 941,
+    "total": "<N>",
     "counts": {
-      "A": 28,
-      "B": 150,
-      "C": 763,
-      "total": 941
+      "A": "<N>",
+      "B": "<N>",
+      "C": "<N>",
+      "total": "<N>"
     }
   },
   "rotation_state": {
-    "batch_number": 6,
-    "rotation_number": 1,
-    "symbols_scanned": 120,
-    "total_symbols": 941
+    "batch_number": "<N>",
+    "rotation_number": "<N>",
+    "symbols_scanned": "<N>",
+    "total_symbols": "<N>"
   }
 }
 ```

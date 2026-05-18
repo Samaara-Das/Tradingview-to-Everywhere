@@ -1,8 +1,10 @@
 """
 TTE Combo Mode — Entry Point
 
-Creates persistent webhook alerts on TradingView (3 symbols each, ~1054 total),
-then runs maintenance every 5 minutes to restart inactive alerts.
+Creates persistent webhook alerts on TradingView (2 symbols each, ~340 alerts
+covering ~677 symbols at current Mongo state), then runs maintenance every
+2.5 minutes to restart inactive alerts. Batch size and maintenance interval
+are driven by `combo_settings.yaml` (batch_size=2, maintenance.interval=150).
 
 Usage:
     python combo_main.py                  # Full setup + maintenance

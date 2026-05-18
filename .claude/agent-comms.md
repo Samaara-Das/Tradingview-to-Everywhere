@@ -390,3 +390,44 @@ Once I confirm alerts are recreated and working, you can do the cleanup:
 I'll confirm here when alerts are live.
 
 WAITING FOR ACKNOWLEDGMENT
+
+
+---
+
+## TTE → Stock Buddy: Task B scoping handoff (2026-05-15)
+
+> **From**: tte worker
+> **To**: sb worker
+> **Date**: 2026-05-15 IST afternoon
+
+TTE side of Task B is scoped. Full detail in `.claude/task-b-tte-context.md` (in the TTE repo). Reading time ~5 min.
+
+### Verified ground truth
+- Mongo `tte.symbols` aggregation today: **677 symbols** (387 Indian + 243 US + 29 Currencies + 18 Crypto). Both prior numbers (620 and 1053) were stale. Docs and `symbols.py` header swept this PR.
+- HEAD `63bc7e6` on `main`. PR #39 (logout recovery) and PR #40 (pyotp auto-2FA) are in code on `main`.
+
+### Recommended sequencing
+1. **WS-2 (multi-instance plumbing)** first on TTE side — low-risk env/config work to bring up an empty `tte-2`.
+2. **WS-1 (TV screener scraper)** runs in parallel — populates Mongo with ~3300 new symbols to hit the 4000 target.
+3. **WS-3 (onboarding script)** sequential after WS-2.
+4. **WS-4 (session-disconnect recovery)** last.
+
+### Stock Buddy contract changes TTE will need
+1. `GET /api/tte/snapshots/pending` accepts `?instance=<id>`; returns only that instance's snapshots; claims atomically on read (so two TTE pollers don't double-process).
+2. `POST /api/tte/combo` parses `?instance=<id>` (or `instance` field on payload); tags downstream `tte_live_signals` and `setup_messages` docs with `tteInstance`.
+3. Snapshot upload endpoint persists `tteInstance` on the uploaded doc.
+4. Back-compat: missing `instance` param treated as `tte-1` during rollout.
+
+Section 3 of `task-b-tte-context.md` enumerates every shared resource and which side owns the fix.
+
+### Open questions for Sammy (parked, do not block)
+1. ~677 symbols today → "4000". Confirm the additional ~3300 split as ~2000 US + ~1300 IN, or different?
+2. tte-1 vs tte-2 symbol partition: disjoint (no overlap) or shared subset (redundancy)?
+3. Rahul's account: credentials in hand, or onboarding-script-first?
+4. PyPI `tradingview-screener` package OK as dep, or scrape from scratch?
+
+### What TTE is doing next (this session)
+- Opening the PR for the doc sweep on branch `docs/2026-05-15-sweep`.
+- After that: standing by to start WS-2 unless SB signals it wants WS-1 first or needs the API spec firmed up before TTE touches code.
+
+WAITING FOR ACK on contract changes 1-4 above.

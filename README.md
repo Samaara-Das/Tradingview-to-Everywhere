@@ -4,11 +4,11 @@ An automated trading signals distribution system that bridges TradingView alerts
 
 ## Overview
 
-TTE uses Selenium browser automation to create and maintain persistent webhook alerts on TradingView. A stateless combo screener indicator (NWE + OB/FVG setup detection) monitors 620 symbols across ~310 alerts, sending signals and setup data to Stock Buddy API on every 45-second bar close. Exit detection is handled server-side by a Stock Buddy cron job.
+TTE uses Selenium browser automation to create and maintain persistent webhook alerts on TradingView. A stateless combo screener indicator (NWE + OB/FVG setup detection) monitors ~677 symbols across ~340 alerts, sending signals and setup data to Stock Buddy API on every 45-second bar close. Exit detection is handled server-side by a Stock Buddy cron job.
 
 ## Features
 
-- **Combo Mode V2**: Single-indicator webhook with ~310 persistent alerts monitoring 620 symbols
+- **Combo Mode V2**: Single-indicator webhook with ~340 persistent alerts monitoring ~677 symbols
 - **Stateless Setup Detection**: Pine Script detects NWE + OB/FVG alignment; exit detection handled by Stock Buddy cron (every 5 min)
 - **Category-Aware Pairing**: Symbols paired within the same asset class (forex/crypto/stocks) for matching market hours
 - **Automated Browser Control**: Selenium-based TradingView automation (headless Chrome)
@@ -23,7 +23,7 @@ TTE uses Selenium browser automation to create and maintain persistent webhook a
 
 - Python 3.11
 - Google Chrome browser
-- TradingView account (Premium, 2FA disabled)
+- TradingView account (Premium; 2FA optional — auto-handled via `TRADINGVIEW_TOTP_SECRET`, see [Setup Guide](docs/SETUP.md))
 - MongoDB Atlas account (for symbol storage)
 
 ### Installation
@@ -131,6 +131,8 @@ CHROME_PROFILES_PATH=C:\Users\<YourUsername>\AppData\Local\Google\Chrome\User Da
 # TradingView
 TRADINGVIEW_EMAIL=your@email.com
 TRADINGVIEW_PASSWORD=your_password
+# Optional: base32 TOTP secret for auto-2FA (set if TV enables 2FA on the account)
+# TRADINGVIEW_TOTP_SECRET=your_base32_secret
 
 # MongoDB
 MONGODB_PWD=your_mongodb_password
@@ -154,7 +156,7 @@ COMBO_WEBHOOK_URL=https://stockbuddy.co/api/tte/combo
 - Python 3.11
 - Chrome browser (latest)
 - TradingView account with:
-  - Two-factor authentication disabled
+  - Two-factor authentication off if possible; otherwise set `TRADINGVIEW_TOTP_SECRET` for auto-2FA (PR #40)
   - No linked social accounts
   - "Screener" layout with TTE Screener indicator saved and starred
 
