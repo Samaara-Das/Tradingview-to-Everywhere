@@ -38,17 +38,19 @@ class StockBuddyClient:
     def __init__(self, config: ComboConfig):
         self.base_url = config.api_base_url
         self.timeout = config.api_timeout
+        self.instance = config.instance
 
     def get_pending_snapshots(self, limit: int = 5) -> list[dict]:
         """Fetch pending snapshots from Stock Buddy.
 
-        GET {base_url}/snapshots/pending?limit={limit}
-        Returns list of setup dicts, or empty list on error.
+        GET {base_url}/snapshots/pending?limit={limit}&instance={instance}
+        Returns list of setup dicts claimed for this instance (atomic per
+        multi-instance contract §3.1), or empty list on error.
         """
         try:
             resp = requests.get(
                 f"{self.base_url}/snapshots/pending",
-                params={"limit": limit},
+                params={"limit": limit, "instance": self.instance},
                 timeout=self.timeout,
             )
             resp.raise_for_status()
@@ -96,7 +98,7 @@ class StockBuddyClient:
 
         POST {base_url}/snapshots/update
         """
-        payload: dict = {"setupMessageId": setup_message_id}
+        payload: dict = {"setupMessageId": setup_message_id, "tteInstance": self.instance}
         if error:
             payload["error"] = error
         else:

@@ -19,6 +19,11 @@ import jdehorty/KernelFunctions/2 as kernels
 // INPUTS //
 ////////////
 
+// Instance ID — baked into the alert payload so Stock Buddy can attribute
+// the signal to the originating TTE container. Set per TV account (tte-1, tte-2, …).
+// Defaults to "tte-1" so existing single-instance deployments work unchanged.
+string instanceId = input.string('tte-1', 'Instance ID', group = 'Instance', tooltip = 'Identifier of the TTE container this TV account is bound to. Set to tte-1, tte-2, etc. when running multi-instance.')
+
 // Filler inputs to make the indicator panel longer for Python/Selenium to click
 int f1 = input.int(1000, 'fill1')
 int f2 = input.int(1000, 'fill2')
@@ -681,7 +686,7 @@ string allSignals = joinEntries(sig01, sig02)
 // session.ismarket prevents alerts during pre/post-market (extended hours).
 // Crypto (24/7) and forex (~24/5) are unaffected — their sessions cover normal trading hours.
 if str.length(allSignals) > 0 and barstate.isconfirmed and session.ismarket
-    string payload = '{"ts":' + str.tostring(time) + ',"s":[' + allSignals + ']}'
+    string payload = '{"ts":' + str.tostring(time) + ',"i":"' + instanceId + '","s":[' + allSignals + ']}'
     alert(payload, alert.freq_once_per_bar_close)
 
 

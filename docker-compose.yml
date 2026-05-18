@@ -1,0 +1,54 @@
+# TTE compose fragment — tte-1 + tte-2.
+# Production VPS (/opt/stockbuddy/docker-compose.yml) merges this with mongo +
+# stockbuddy + uptime-kuma services. See docs/SETUP.md.
+#
+# Each tte-N service:
+#   - Binds to ONE TradingView Ultimate account (own env_file with creds).
+#   - Has its own chrome user-data volume (no session conflicts).
+#   - Has its own log mount.
+#   - Sets TTE_INSTANCE so signals/snapshots get tagged with the source instance.
+
+services:
+  tte-1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: tte:phase4
+    command: [python, -m, tte.main, --maintain-only]
+    container_name: tte-1
+    restart: unless-stopped
+    networks: [internal]
+    env_file: /opt/stockbuddy/secrets/.env.tte.1
+    environment:
+      - TTE_INSTANCE=tte-1
+      - TTE_INSTANCE_ID=1  # legacy; retained for any external monitoring
+    volumes:
+      - tte1-userdata:/home/tte/chrome-profile
+      - /opt/stockbuddy/logs/tte-1:/app/logs
+    shm_size: 2gb
+
+  tte-2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: tte:phase4
+    command: [python, -m, tte.main, --maintain-only]
+    container_name: tte-2
+    restart: unless-stopped
+    networks: [internal]
+    env_file: /opt/stockbuddy/secrets/.env.tte.2
+    environment:
+      - TTE_INSTANCE=tte-2
+      - TTE_INSTANCE_ID=2
+    volumes:
+      - tte2-userdata:/home/tte/chrome-profile
+      - /opt/stockbuddy/logs/tte-2:/app/logs
+    shm_size: 2gb
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  tte1-userdata:
+  tte2-userdata:
