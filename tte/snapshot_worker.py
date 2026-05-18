@@ -119,6 +119,17 @@ class StockBuddyClient:
 class SnapshotWorker:
     """Orchestrates chart snapshot workflow using existing browser automation."""
 
+    # WS-0 (2026-05-15): after this many snapshots (success or fail), refresh the
+    # chart page to flush accumulated DOM + renderer state. Empirically the renderer
+    # CPU rises with each symbol switch in a single Chrome session; periodic refresh
+    # prevents the slow-creep that triggered the original NSE/NYSE stalls.
+    RECYCLE_AFTER_N_SNAPSHOTS = 30
+
+    # WS-0: if change_symbol takes longer than this many seconds before returning
+    # False, classify the failure as a renderer stall (distinct from non-stall
+    # "Failed to change symbol" causes like the symbol not existing on TV).
+    RENDERER_STALL_THRESHOLD_SECONDS = 30.0
+
     def __init__(
         self,
         browser,
@@ -131,6 +142,12 @@ class SnapshotWorker:
         self.client = client
         self._bars_right_last_set: float = 0
         self._shutdown = shutdown_event
+        # WS-0 instrumentation: track consecutive change_symbol failures per symbol
+        # so we can fail-fast (skip retry inside the snapshot worker) after the 2nd
+        # consecutive stall on the same name.
+        self._consec_failures: dict[str, int] = {}
+        # WS-0: snapshots taken since the last chart-recycle refresh.
+        self._snapshots_since_recycle: int = 0
 
     def process_pending_snapshots(self) -> int:
         """Poll for pending snapshots, take them, report results.
@@ -192,6 +209,14 @@ class SnapshotWorker:
                     self._dismiss_dialogs()
                     self._show_legend()
 
+                # WS-0 chart-recycle: every N snapshots, refresh the chart to flush
+                # accumulated renderer state. Cheap relative to chart load time and
+                # measurably reduces the per-symbol stall rate.
+                self._snapshots_since_recycle += 1
+                if self._snapshots_since_recycle >= self.RECYCLE_AFTER_N_SNAPSHOTS:
+                    self._recycle_chart()
+                    self._snapshots_since_recycle = 0
+
             total_completed += completed
             logger.info(f"Round {round_num + 1}: {completed}/{len(pending)} succeeded")
 
@@ -202,6 +227,37 @@ class SnapshotWorker:
         if total_completed:
             logger.info(f"Snapshot phase complete: {total_completed} total succeeded")
         return total_completed
+
+    def _recycle_chart(self):
+        """Refresh the TV chart page to flush accumulated renderer/DOM state.
+
+        WS-0 (2026-05-15): chrome's renderer slowly accumulates load as TTE switches
+        through symbols (each switch adds tooltips, indicator state, etc.). After
+        ~30 symbol switches the renderer can hit a sustained ~93% CPU and Selenium
+        clicks start timing out. A page refresh is cheap (~5-10s) compared to the
+        cost of a hung snapshot and resets the renderer cleanly. We also need to
+        re-run the per-cycle setup (legend visible, bar style, bars-to-right) on
+        the next round, so we just zero the bars-right marker too.
+        """
+        try:
+            logger.info(f"Chart recycled after {self.RECYCLE_AFTER_N_SNAPSHOTS} snapshots")
+            self.browser.driver.refresh()
+            sleep(5)  # let TV re-establish its WebSocket + redraw the chart
+            # Force the per-round setup to re-run on the next round.
+            self._bars_right_last_set = 0
+            # Reset per-symbol failure counters — a fresh chrome state means
+            # symbols that previously stalled deserve another shot. Belt-and-
+            # suspenders alongside the in-line clear at the skip site (caught
+            # in code review of the original patch).
+            self._consec_failures.clear()
+            # Defensive: ensure the chart layout is back (refresh can occasionally
+            # leave the placeholder page if the session was wobbly).
+            if not self.browser.ensure_chart_layout_loaded():
+                logger.warning(
+                    "Chart layout not back after recycle refresh — will retry next cycle."
+                )
+        except Exception:
+            logger.exception("Failed to recycle chart; continuing without refresh.")
 
     def _dismiss_dialogs(self):
         """Close any leftover dialogs from a failed snapshot.
@@ -257,10 +313,42 @@ class SnapshotWorker:
             f"Entry {setup.get('entryPrice')}, SL {setup.get('stopLoss')}, TP {setup.get('takeProfit')}"
         )
 
-        # 1. Change symbol
-        if not self.browser.open_chart.change_symbol(symbol):
-            logger.error(f"Failed to change symbol to {symbol}")
-            self.client.update_snapshot(setup_id, error="Failed to change symbol")
+        # WS-0 fail-fast: if a symbol has already failed twice in a row in this
+        # poll cycle, skip it ONCE and clear the counter so it gets a fresh
+        # attempt next cycle. Without the clear, the dict acted as a permanent
+        # per-process blacklist — every subsequent cycle would skip the same
+        # symbol forever (caught in code review).
+        if self._consec_failures.get(symbol, 0) >= 2:
+            logger.warning(
+                f"Skipping {symbol} — failed {self._consec_failures[symbol]} times in a row; "
+                "clearing counter so it's eligible again next cycle."
+            )
+            self._consec_failures.pop(symbol, None)
+            self.client.update_snapshot(setup_id, error="renderer_stall_skipped")
+            return False
+
+        # 1. Change symbol — WS-0 time it so we can classify renderer stalls vs other failures.
+        change_symbol_start = time()
+        change_symbol_ok = self.browser.open_chart.change_symbol(symbol)
+        change_symbol_elapsed = time() - change_symbol_start
+        if not change_symbol_ok:
+            # WS-0 classification: a stall is a slow failure (renderer was busy and the
+            # urllib3 read timeout fired); a non-stall is a fast failure (symbol not on TV,
+            # selector broken, etc.). Tag distinctly so SB can see the difference.
+            if change_symbol_elapsed >= self.RENDERER_STALL_THRESHOLD_SECONDS:
+                error_tag = "renderer_stall"
+                logger.error(
+                    f"Failed to change symbol to {symbol} after {change_symbol_elapsed:.1f}s — "
+                    "classifying as renderer_stall."
+                )
+            else:
+                error_tag = "Failed to change symbol"
+                logger.error(
+                    f"Failed to change symbol to {symbol} in {change_symbol_elapsed:.1f}s "
+                    "(not a stall)."
+                )
+            self._consec_failures[symbol] = self._consec_failures.get(symbol, 0) + 1
+            self.client.update_snapshot(setup_id, error=error_tag)
             return False
 
         # 2. Change timeframe
@@ -299,7 +387,9 @@ class SnapshotWorker:
             self.client.update_snapshot(setup_id, error="Failed to take chart snapshot")
             return False
 
-        # 7. Report success
+        # 7. Report success — and reset the WS-0 consecutive-failure counter for this
+        # symbol since the snapshot landed cleanly.
+        self._consec_failures.pop(symbol, None)
         self.client.update_snapshot(
             setup_id,
             snapshot_url=links["png"],

@@ -95,10 +95,20 @@ class OpenChart:
             entry_chart_logger.exception("Failed to change the Trade Drawer's settings. Error:")
             return False
 
-    def change_symbol(self, symbol):
-        """This changes the chart's symbol to `symbol` if it is any other symbol. Then it waits for 1.5 secs for the chart to load"""
+    def change_symbol(self, symbol, _attempt: int = 1):
+        """Change the chart's symbol to `symbol` if it differs from the current one.
+
+        WS-0 (2026-05-15): the symbol-search interaction occasionally stalls when TV's
+        renderer is saturated (Trade Drawer V2 recompute + tick streaming pin the main
+        thread). chromedriver returns a urllib3 read-timeout (`Read timed out`).
+        On that specific failure we run a single recovery: `driver.refresh()` to flush
+        the renderer's queued work, sleep briefly, then retry once. The `_attempt`
+        guard caps recursion at 2 total attempts — never loops further.
+        """
         try:
-            entry_chart_logger.debug(f"change_symbol() called with symbol={symbol}")
+            entry_chart_logger.debug(
+                f"change_symbol() called with symbol={symbol} (attempt {_attempt})"
+            )
 
             no_exchange_symbol = (
                 symbol.split(":")[-1] if ":" in symbol else symbol
@@ -189,6 +199,25 @@ class OpenChart:
                 )
                 return True
         except Exception as e:
+            err_str = str(e)
+            # WS-0 retry: detect renderer-stall via the urllib3 read-timeout signature
+            # and recover with a full page refresh + one retry. Only on attempt 1.
+            # Lowercase substring match so we catch urllib3 variants ("Read timed out",
+            # "read timeout", etc.) — code-reviewer flagged exact-case as fragile.
+            if "timed out" in err_str.lower() and _attempt == 1:
+                entry_chart_logger.warning(
+                    "Symbol change hit a renderer-stall read-timeout — refreshing page "
+                    "and retrying once."
+                )
+                try:
+                    self.driver.refresh()
+                except Exception:
+                    entry_chart_logger.exception(
+                        "driver.refresh() also failed during stall recovery; bailing out."
+                    )
+                    return False
+                sleep(3)  # let TV re-establish its WebSocket + redraw chart
+                return self.change_symbol(symbol, _attempt=2)
             entry_chart_logger.exception(f"Failed to change the symbol of the chart. Error: {e}")
             return False
 
