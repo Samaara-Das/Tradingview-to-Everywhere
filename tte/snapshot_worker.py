@@ -492,8 +492,11 @@ class SnapshotWorker:
             )
             sleep(0.3)
 
-            # 5. Click "Canvas" tab
-            canvas_tab = dialog.find_element(By.CSS_SELECTOR, 'button[data-name="canvas"]')
+            # 5. Click "Canvas" tab. TV rotated from `data-name="canvas"` to
+            # `data-qa-id="canvas"` (verified live 2026-05-18). The data-qa-id
+            # attribute is TV's stable hook for QA automation, less likely to
+            # rotate again than the data-name family.
+            canvas_tab = dialog.find_element(By.CSS_SELECTOR, 'button[data-qa-id="canvas"]')
             canvas_tab.click()
             sleep(0.3)
 
