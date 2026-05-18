@@ -175,6 +175,9 @@ MONGODB_DATABASE=tte
 
 # Combo Webhook
 COMBO_WEBHOOK_URL=https://stockbuddy.co/api/tte/combo
+
+# Optional: base32 TOTP secret for auto-2FA when TV enables 2FA on the account
+# TRADINGVIEW_TOTP_SECRET=your_base32_secret
 ```
 
 ---
@@ -399,7 +402,7 @@ python -c "from tte.data.symbols import get_symbols; symbols = get_symbols(); pr
 
 **Solution**:
 1. Verify credentials in `.env`
-2. Ensure 2FA is disabled
+2. If TV has 2FA enabled, set `TRADINGVIEW_TOTP_SECRET` (base32 secret) in `.env` for auto-handling; otherwise disable 2FA in TV settings
 3. Try logging in manually to check for captcha
 
 ### MongoDB Connection Failed

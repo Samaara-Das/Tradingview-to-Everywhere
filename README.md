@@ -131,6 +131,8 @@ CHROME_PROFILES_PATH=C:\Users\<YourUsername>\AppData\Local\Google\Chrome\User Da
 # TradingView
 TRADINGVIEW_EMAIL=your@email.com
 TRADINGVIEW_PASSWORD=your_password
+# Optional: base32 TOTP secret for auto-2FA (set if TV enables 2FA on the account)
+# TRADINGVIEW_TOTP_SECRET=your_base32_secret
 
 # MongoDB
 MONGODB_PWD=your_mongodb_password
