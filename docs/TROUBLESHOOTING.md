@@ -75,7 +75,7 @@ Common issues and solutions for TTE.
 - Error: `Products menu not found`
 - Stuck on login page
 
-**Cause**: Invalid credentials, 2FA enabled, or CAPTCHA required.
+**Cause**: Invalid credentials, 2FA blocking with no TOTP secret configured, or CAPTCHA required.
 
 **Solutions**:
 1. Verify credentials in `.env`:
@@ -83,7 +83,7 @@ Common issues and solutions for TTE.
    TRADINGVIEW_EMAIL=correct@email.com
    TRADINGVIEW_PASSWORD=correct_password
    ```
-2. Handle 2FA: if TV has 2FA enabled, set `TRADINGVIEW_TOTP_SECRET` (base32 secret from TV's authenticator setup) in `.env`; otherwise disable 2FA in TradingView Settings > Security
+2. If TradingView is forcing 2FA, set `TRADINGVIEW_TOTP_SECRET` (base32) in `.env`. PR #40's `_maybe_auto_submit_totp()` will submit codes automatically. If the secret is empty, the function no-ops and you'll need to enter the code manually inside the Selenium-driven Chrome window.
 3. Unlink any social accounts (Google, Facebook, Apple)
 4. Try logging in manually to check for CAPTCHA
 5. If CAPTCHA appears:
@@ -425,6 +425,34 @@ WebDriverWait(self.driver, 15).until(...)  # Increase to 15
 
 ## Known Issues
 
+### TradingView Session Disconnected Mid-Run (Resolved — PR #39, 2026-05-14)
+
+**Symptoms**:
+- Snapshot worker or maintenance loop logs page-not-found or chart-missing errors.
+- The TradingView tab shows the sign-in page or a "session disconnected" notice instead of the chart.
+
+**Cause**: A parallel login on another device or IP invalidated the VPS-side session. Before PR #39, the maintenance loop continued operating against the logged-out page and the snapshot pipeline silently 100%-failed (2026-05-08 → 2026-05-14 blackout).
+
+**Fix** (PR #39, commit `40311f7`): `tte/browser/tradingview.py` adds `is_chart_layout_loaded()` and `ensure_chart_layout_loaded()`. Each maintenance round calls `ensure_chart_layout_loaded()` first; if the chart is missing it re-runs `setup_tv()` (full login + layout restore) before touching alerts. No user action is required unless `TRADINGVIEW_TOTP_SECRET` is unset and TV is asking for a code — in that case see the "TradingView Login Failed" section above.
+
+---
+
+### TOTP Code Rejected (PR #40, 2026-05-15)
+
+**Symptoms**:
+- Log line `Auto-submitted TOTP code` appears, but the next selector wait times out.
+- Login page still showing the 6-digit input after submit.
+
+**Cause**: Container clock skew, wrong base32 secret, or TV silently rotated the secret.
+
+**Solutions**:
+1. Verify the container clock matches a public NTP source within a few seconds (`docker exec tte-1 date`).
+2. Re-scan the QR code in TV's 2FA setup and confirm the base32 secret in `.env` is byte-identical (no surrounding quotes, no whitespace).
+3. If the secret was added long ago, regenerate it via TV Settings → Security → 2FA → reset.
+4. Inert path: clear `TRADINGVIEW_TOTP_SECRET` and rely on backup codes (see `.claude/credentials-and-2fa.md`).
+
+---
+
 ### Screener Gear Click Intercepted (Resolved — PR #28, 2026-05-05)
 
 **Symptoms** (identical on Windows AND Linux/Docker):
@@ -443,7 +471,7 @@ WebDriverWait(self.driver, 15).until(...)  # Increase to 15
 
 - [ ] Close all Chrome windows
 - [ ] Verify `.env` file has correct credentials
-- [ ] If TV has 2FA enabled, verify `TRADINGVIEW_TOTP_SECRET` is set in `.env`
+- [ ] If TV forces 2FA, confirm `TRADINGVIEW_TOTP_SECRET` is set (or 2FA is off)
 - [ ] Verify "Screener" layout exists with correct name
 - [ ] Confirm TTE Screener indicator is starred/favorited
 - [ ] Test MongoDB connection

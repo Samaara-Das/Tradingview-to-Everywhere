@@ -1,11 +1,14 @@
 """
 Functions for loading symbols from MongoDB.
 
-Currencies - 30
-US Stocks - 719
-Indian Stocks - 268
-Crypto - 18
-Indices - 18
+Counts below were taken from a live `db.symbols` aggregation on 2026-05-15
+(~677 symbols total). Treat them as a snapshot — the collection is mutated
+by upstream seeders and the live count drifts.
+
+  Indian Stocks - 387
+  US Stocks     - 243
+  Currencies    - 29
+  Crypto        - 18
 """
 
 import os

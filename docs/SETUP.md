@@ -99,11 +99,13 @@ CHROME_PROFILES_PATH=C:\Users\<YourUsername>\AppData\Local\Google\Chrome\User Da
 
 ### 4. Configure Profile Name
 
-In `tte/config.py`, verify the `PROFILE` constant matches your setup:
+Set the `CHROME_PROFILE` env var in `.env` (the `PROFILE` constant in `tte/config.py` reads from this; don't edit the constant manually):
 
-```python
-PROFILE = "Profile 4"  # Or the profile number you want to use
+```bash
+CHROME_PROFILE=Profile 4   # Windows default; use "Default" inside Docker
 ```
+
+Each Docker container should have its own user-data-dir volume so multiple TTE instances don't clobber each other's Chrome profile state.
 
 ### Important Notes
 
@@ -117,9 +119,10 @@ PROFILE = "Profile 4"  # Or the profile number you want to use
 
 ### Account Requirements
 
-1. **Two-Factor Authentication** (optional)
-   - TTE handles 2FA automatically if you set `TRADINGVIEW_TOTP_SECRET` in `.env` (base32 secret from TV's 2FA setup flow; see `.claude/credentials-and-2fa.md`)
-   - If `TRADINGVIEW_TOTP_SECRET` is not set, 2FA must be disabled in TradingView Settings > Security
+1. **Two-Factor Authentication** — supports two paths:
+   - **2FA off** (preferred): TradingView Settings → Security → disable all 2FA methods. Simplest path.
+   - **2FA on with TOTP auto-submit** (PR #40): if TV's "suspicious activity" detector forces 2FA on, set `TRADINGVIEW_TOTP_SECRET` (base32 secret from the QR code) in `.env`. The login flow calls `pyotp.TOTP(secret).now()` and submits via React-aware native value setter + dispatch events.
+   - **Backup-code fallback**: see `.claude/credentials-and-2fa.md` for manual recovery if both above fail. Backup codes on TV are reusable, not single-use.
 
 2. **Unlink Social Accounts**
    - Remove any linked Google, Facebook, or Apple accounts
@@ -160,6 +163,9 @@ CHROME_PROFILES_PATH=C:\Users\YourUsername\AppData\Local\Google\Chrome\User Data
 # TradingView Credentials
 TRADINGVIEW_EMAIL=your@email.com
 TRADINGVIEW_PASSWORD=your_password
+# Optional: base32 TOTP secret. Set only if TV forces 2FA on the account (PR #40).
+# Leave empty to skip auto-2FA — the login flow no-ops if this is unset.
+TRADINGVIEW_TOTP_SECRET=
 
 # MongoDB
 MONGODB_PWD=your_mongodb_password
