@@ -334,9 +334,24 @@ class Browser:
         while not self._disconnect_watcher_stop.wait(self.DISCONNECT_WATCHER_POLL_SECONDS):
             try:
                 self._check_and_dismiss_disconnect_popup()
-            except Exception:
-                # Never let a watcher exception crash the thread; log and keep going.
-                open_tv_logger.exception("WS-F watcher tick raised — continuing.")
+            except Exception as e:
+                # WS-F watcher noise follow-up (2026-05-18): the watcher shares the
+                # chromedriver session with the main thread. When the main thread is
+                # mid-Selenium-op (alert creation, set_trade_drawer, change_symbol,
+                # etc.), the watcher's find_elements call serializes behind it. With
+                # the 45s urllib3 read timeout introduced by WS-0, busy main-thread
+                # ops trigger watcher-side ReadTimeoutErrors that we don't care about
+                # — the next tick will succeed. Demote those to debug so they don't
+                # spam the logs (observed 89 such tracebacks per 57-min soak).
+                # Anything else (genuine breakage) still surfaces as ERROR.
+                err_str = str(e).lower()
+                if "timed out" in err_str or "read timeout" in err_str:
+                    open_tv_logger.debug(
+                        "WS-F watcher tick saw a chromedriver read-timeout (main thread "
+                        "likely busy) — next tick will retry. Suppressed exception."
+                    )
+                else:
+                    open_tv_logger.exception("WS-F watcher tick raised — continuing.")
 
     def _check_and_dismiss_disconnect_popup(self) -> None:
         """Look for the 'Session disconnected' popup and click Connect if present.

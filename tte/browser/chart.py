@@ -211,9 +211,16 @@ class OpenChart:
                 )
                 try:
                     self.driver.refresh()
-                except Exception:
-                    entry_chart_logger.exception(
-                        "driver.refresh() also failed during stall recovery; bailing out."
+                except Exception as refresh_exc:
+                    # The renderer is sometimes so saturated that even driver.refresh()
+                    # times out — that's just confirmation we couldn't recover this
+                    # cycle. Caller treats the False return as "snapshot failed";
+                    # the next maintenance tick will retry. No need to dump a full
+                    # traceback on every occurrence (noise from 2026-05-18 soak).
+                    entry_chart_logger.warning(
+                        "Stall-recovery driver.refresh() also timed out (%s) — "
+                        "bailing out, next cycle will retry.",
+                        type(refresh_exc).__name__,
                     )
                     return False
                 sleep(3)  # let TV re-establish its WebSocket + redraw chart
