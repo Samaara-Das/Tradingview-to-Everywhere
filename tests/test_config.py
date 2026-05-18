@@ -209,14 +209,19 @@ class TestYAMLLoading:
         assert config.progress_file == "combo_progress.json"
 
     def test_env_var_overrides_yaml_for_webhook_url(self, temp_yaml_file, monkeypatch):
-        """COMBO_WEBHOOK_URL env var should take precedence over YAML."""
+        """COMBO_WEBHOOK_URL env var should take precedence over YAML.
+
+        Webhook URL is augmented with `?instance=<id>` (WS-A multi-instance
+        contract §3.2). Default INSTANCE is `tte-1` when TTE_INSTANCE is unset.
+        """
         # Write YAML with webhook URL
         yaml_content = {"webhook": {"url": "https://yaml.example.com/hook"}}
         with open(temp_yaml_file, "w") as f:
             yaml.dump(yaml_content, f)
 
-        # Set env var
+        # Set env var; ensure no TTE_INSTANCE override leaks from outer env
         monkeypatch.setenv("COMBO_WEBHOOK_URL", "https://env.example.com/hook")
+        monkeypatch.delenv("TTE_INSTANCE", raising=False)
 
         import tte.config
 
@@ -230,7 +235,61 @@ class TestYAMLLoading:
             from tte.config import ComboConfig
 
             config = ComboConfig()
-            assert config.webhook_url == "https://env.example.com/hook"
+            assert config.webhook_url == "https://env.example.com/hook?instance=tte-1"
+            assert config.instance == "tte-1"
+        finally:
+            tte.config.SETTINGS_FILE = original_settings
+            importlib.reload(tte.config)
+
+    def test_webhook_url_tags_tte_2_when_env_set(self, temp_yaml_file, monkeypatch):
+        """TTE_INSTANCE=tte-2 should produce `?instance=tte-2` on webhook URL."""
+        yaml_content = {"webhook": {"url": "https://yaml.example.com/hook"}}
+        with open(temp_yaml_file, "w") as f:
+            yaml.dump(yaml_content, f)
+
+        monkeypatch.setenv("COMBO_WEBHOOK_URL", "https://env.example.com/hook")
+        monkeypatch.setenv("TTE_INSTANCE", "tte-2")
+
+        import tte.config
+
+        original_settings = tte.config.SETTINGS_FILE
+        try:
+            tte.config.SETTINGS_FILE = temp_yaml_file
+            import importlib
+
+            importlib.reload(tte.config)
+            from tte.config import ComboConfig
+
+            config = ComboConfig()
+            assert config.webhook_url == "https://env.example.com/hook?instance=tte-2"
+            assert config.instance == "tte-2"
+        finally:
+            tte.config.SETTINGS_FILE = original_settings
+            importlib.reload(tte.config)
+
+    def test_webhook_url_uses_ampersand_when_base_has_query_string(
+        self, temp_yaml_file, monkeypatch
+    ):
+        """If base webhook URL already contains `?`, instance is appended with `&`."""
+        yaml_content: dict = {}
+        with open(temp_yaml_file, "w") as f:
+            yaml.dump(yaml_content, f)
+
+        monkeypatch.setenv("COMBO_WEBHOOK_URL", "https://env.example.com/hook?source=tv")
+        monkeypatch.delenv("TTE_INSTANCE", raising=False)
+
+        import tte.config
+
+        original_settings = tte.config.SETTINGS_FILE
+        try:
+            tte.config.SETTINGS_FILE = temp_yaml_file
+            import importlib
+
+            importlib.reload(tte.config)
+            from tte.config import ComboConfig
+
+            config = ComboConfig()
+            assert config.webhook_url == "https://env.example.com/hook?source=tv&instance=tte-1"
         finally:
             tte.config.SETTINGS_FILE = original_settings
             importlib.reload(tte.config)

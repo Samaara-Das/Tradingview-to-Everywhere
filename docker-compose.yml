@@ -32,6 +32,12 @@ services:
       context: .
       dockerfile: Dockerfile
     image: tte:phase4
+    # FIRST BOOT NOTE: tte-2 attaches to a brand-new TV account with no alerts.
+    # Running --maintain-only on an empty account loops forever finding nothing
+    # to maintain. The FIRST tte-2 deploy must override the command, e.g.:
+    #   docker compose run --rm tte-2 python -m tte.main --fresh
+    # After that initial setup creates the alert set, the persistent command
+    # below (--maintain-only) is correct for restarts.
     command: [python, -m, tte.main, --maintain-only]
     container_name: tte-2
     restart: unless-stopped

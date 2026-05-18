@@ -686,7 +686,7 @@ string allSignals = joinEntries(sig01, sig02)
 // session.ismarket prevents alerts during pre/post-market (extended hours).
 // Crypto (24/7) and forex (~24/5) are unaffected — their sessions cover normal trading hours.
 if str.length(allSignals) > 0 and barstate.isconfirmed and session.ismarket
-    string payload = '{"ts":' + str.tostring(time) + ',"i":"' + instanceId + '","s":[' + allSignals + ']}'
+    string payload = '{"ts":' + str.tostring(time) + ',"instance":"' + instanceId + '","s":[' + allSignals + ']}'
     alert(payload, alert.freq_once_per_bar_close)
 
 
