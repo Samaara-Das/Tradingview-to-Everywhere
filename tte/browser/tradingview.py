@@ -196,6 +196,9 @@ class Browser:
         chrome_options.add_argument("--disable-dev-shm-usage")
         chrome_options.add_argument("--disable-gpu")  # Helps with crashes
         chrome_options.add_argument("--disable-software-rasterizer")  # Helps with crashes
+        # Chrome 111+ requires this for any external WebSocket DevTools attach (used by
+        # WS-0 diagnostics + future health probes). Safe in headless production.
+        chrome_options.add_argument("--remote-allow-origins=*")
 
         # Prevent Chrome from throttling backgrounded/occluded windows (critical for parallel browsers)
         chrome_options.add_argument("--disable-background-timer-throttling")
@@ -231,6 +234,26 @@ class Browser:
             service = ChromeService(port=service_port)
         self.driver = webdriver.Chrome(service=service, options=chrome_options)
         open_tv_logger.debug("Chrome webdriver created successfully")
+
+        # WS-0 (2026-05-15): chromedriver's default urllib3 read timeout is 120s. When
+        # TV's main thread saturates (~93% CPU under headless + Trade Drawer V2 + tick
+        # streaming), Selenium clicks can stall and the full 120s wait wastes time per
+        # failed snapshot. 45s is fail-fast enough to leave retry budget while still
+        # tolerating normal slow renders. Selenium 4.x exposes the timeout via
+        # `command_executor._client_config.timeout`; fall back to the older
+        # `_conn.timeout` attribute on slightly different Selenium builds.
+        try:
+            self.driver.command_executor._client_config.timeout = 45  # type: ignore[attr-defined]
+            open_tv_logger.debug("chromedriver read timeout lowered to 45s via _client_config")
+        except AttributeError:
+            try:
+                self.driver.command_executor._conn.timeout = 45  # type: ignore[attr-defined]
+                open_tv_logger.debug("chromedriver read timeout lowered to 45s via _conn")
+            except AttributeError:
+                open_tv_logger.warning(
+                    "Could not lower chromedriver read timeout — Selenium internals changed; "
+                    "stays at 120s default. WS-0 fail-fast behaviour is degraded."
+                )
 
         self.open_chart = OpenChart(self.driver)
         self.utils = Utils()

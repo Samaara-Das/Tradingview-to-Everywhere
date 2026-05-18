@@ -114,6 +114,7 @@ See `tte/config.py` and `.env` file. Key variables: `CHROME_PROFILES_PATH`, `TRA
 | Re-upload indicator | `tte/browser/tradingview.py` `reupload_indicator()` | Screener error recovery |
 | Login-state guard | `tte/browser/tradingview.py` `is_chart_layout_loaded()` / `ensure_chart_layout_loaded()` | TV session-expired recovery (PR #39) |
 | Auto-2FA | `tte/browser/tradingview.py` `_maybe_auto_submit_totp()` | Optional pyotp-based 2FA submit when `TRADINGVIEW_TOTP_SECRET` is set (PR #40) |
+| Renderer-stall recovery | `tte/browser/chart.py` `change_symbol()` retry-on-`Read timed out` + `tte/snapshot_worker.py` `_recycle_chart()` | WS-0 fixes for chronic renderer overload on long-running headless Chrome (lowers urllib3 timeout to 45s, retries on stall, recycles every 30 snapshots) |
 
 ## Documentation
 

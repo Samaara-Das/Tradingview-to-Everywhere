@@ -425,7 +425,25 @@ WebDriverWait(self.driver, 15).until(...)  # Increase to 15
 
 ## Known Issues
 
-### Screener Gear Click Intercepted (Resolved — PR #28, 2026-05-05)
+### Snapshot Renderer Stalls (Resolved — WS-0, 2026-05-18)
+
+**Symptoms** (chronic since at least 2026-05-15, possibly earlier):
+- `tte/snapshot_worker - ERROR - Failed to change symbol to <SYMBOL>` in `app_log.log`, with the underlying exception `HTTPConnectionPool(host='localhost', port=41623): Read timed out. (read timeout=120)`.
+- Not specific to any exchange — hit on NSE (TATAELXSI, HUDCO, INFY) and NYSE/NASDAQ (BRO, ALB, AJG, CME) symbols.
+- ~30% per-poll failure rate on the snapshot pipeline. Webhook + maintenance unaffected.
+
+**Root cause**: chrome's headless renderer sustains ~93-140% CPU on the production `tte:phase4` image even right after a fresh chrome restart — not a memory leak, but a steady-state load from TV's WebSocket data streaming + Trade Drawer V2 recompute + headless software rasterization. Devtools queries respond in 1ms (V8 worker threads) but Selenium clicks queue against TV's saturated main thread. Occasionally a chain of Selenium ops in `_take_snapshot` accumulates enough wait time to exceed chromedriver's default 120s urllib3 read timeout, surfacing as the `Read timed out` error. Memory: 300 MB JS heap of 4 GB limit — fine.
+
+**Fix** (WS-0): four small, additive changes:
+
+1. **Lower chromedriver read timeout 120s → 45s** in `tte/browser/tradingview.py` Browser.__init__ (via `command_executor._client_config.timeout = 45`). Fails fast on stalls; recovers 75s of wall-time per stall.
+2. **Retry-on-`Read timed out` in `change_symbol`** (`tte/browser/chart.py`). On stall: `driver.refresh()`, sleep 3s, retry once. Recursion capped at 2 attempts.
+3. **Distinguish renderer stalls from other failures** in `tte/snapshot_worker.py` `_take_snapshot`. Time the `change_symbol` call; if it returns False after ≥ 30s, POST `error="renderer_stall"` (vs. `"Failed to change symbol"` for fast failures like unknown symbol). Per-symbol consecutive failure counter; skip to next snapshot after 2 in a row on the same name.
+4. **Periodic chart recycle** every 30 snapshots in `process_pending_snapshots`. Calls `driver.refresh()` + 5s sleep, then re-runs per-cycle setup (bar style, bars-to-right, legend). Flushes accumulated DOM/tooltip state cheaply.
+
+Diagnostic patch from WS-0 (added `--remote-allow-origins=*` to chrome args) is included in the same commit so future rebuilds keep it — required by chrome 111+ for external WebSocket DevTools attach, used by future health probes.
+
+
 
 **Symptoms** (identical on Windows AND Linux/Docker):
 - `change_settings()` in `tte/browser/tradingview.py:599` timed out waiting for the screener legend's gear icon `button[data-qa-id="legend-settings-action"]`.
