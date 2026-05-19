@@ -773,8 +773,10 @@ class Browser:
         # TV's 2FA page is a React-controlled input — Selenium's send_keys()
         # fires keyboard events but doesn't update React's internal state, so
         # the form never actually submits. Use the native value setter +
-        # explicit input/change/keydown event dispatch (matches the working
-        # DevTools snippet from the 2026-05-14 manual injection).
+        # explicit input/change event dispatch, then explicitly call form.requestSubmit()
+        # AND click the visible submit button. Just dispatching Enter keydown was
+        # silently ignored on fresh-account first-time-2FA flows (Rahul's tte-2,
+        # 2026-05-19) — the form needs a real submit click.
         try:
             self.driver.execute_script(
                 """
@@ -792,7 +794,46 @@ class Browser:
                 target,
                 code,
             )
-            open_tv_logger.info("Auto-submitted TOTP code for TV 2FA via JS event dispatch")
+            open_tv_logger.info("Auto-submitted TOTP code via JS event dispatch (value+Enter)")
+
+            # Now explicitly trigger form submission — required for first-time-2FA
+            # on fresh accounts where the Enter dispatch above is swallowed.
+            from time import sleep as _sleep
+
+            _sleep(0.3)
+            try:
+                clicked = self.driver.execute_script(
+                    """
+                    const el = arguments[0];
+                    // Try requestSubmit on the enclosing form
+                    const form = el.closest('form');
+                    if (form && typeof form.requestSubmit === 'function') {
+                        form.requestSubmit();
+                        return 'form.requestSubmit';
+                    }
+                    // Fall back to clicking any visible submit-button on the page
+                    const buttons = Array.from(document.querySelectorAll('button[type="submit"], button'));
+                    for (const b of buttons) {
+                        const txt = (b.textContent || '').trim().toLowerCase();
+                        if (b.offsetParent !== null && (b.type === 'submit' ||
+                                txt === 'sign in' || txt === 'submit' || txt === 'verify' || txt === 'continue')) {
+                            b.click();
+                            return 'btn:' + txt;
+                        }
+                    }
+                    return '';
+                    """,
+                    target,
+                )
+                if clicked:
+                    open_tv_logger.info(f"TOTP submit triggered via {clicked}")
+                else:
+                    open_tv_logger.warning(
+                        "TOTP submit fallback: no form.requestSubmit and no visible Sign-in button found"
+                    )
+            except Exception:
+                open_tv_logger.exception("Failed to trigger explicit TOTP form submit")
+
             return True
         except Exception:
             open_tv_logger.exception("Failed to submit TOTP code")
