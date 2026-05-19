@@ -29,7 +29,7 @@ from selenium.webdriver.support.wait import WebDriverWait
 from tte import log
 from tte.browser.chart import OpenChart
 from tte.browser.helpers import Utils
-from tte.config import PROFILE
+from tte.config import INSTANCE, PROFILE
 
 # Set up logger for this file
 open_tv_logger = log.setup_logger(__name__, log.INFO)
@@ -2132,6 +2132,21 @@ class Browser:
                 f"{indicator_shorttitle} is on the chart after re-add (old copy still present if any; safe by design)"
             )
 
+            # Step 4b: the freshly-added copy from Favorites uses Pine input
+            # defaults — including Instance ID = 'tte-1'. If we're on a different
+            # instance (tte-2, tte-3, ...) we MUST overwrite the Instance ID
+            # before alerts get created off the new copy; otherwise their
+            # webhook payload will carry the wrong "instance" tag and Stock
+            # Buddy will mis-attribute the setups. Discovered 2026-05-19 on
+            # tte-2 (6 alerts ended up tagged tte-1 before this guard existed).
+            if INSTANCE and INSTANCE != "tte-1":
+                if not self._set_indicator_instance_id(indicator_shorttitle, INSTANCE):
+                    open_tv_logger.error(
+                        f"reupload {indicator_shorttitle}: added fresh copy but FAILED to set "
+                        f"Instance ID={INSTANCE}. Aborting — chart left with Instance ID=tte-1 default."
+                    )
+                    return False
+
             # Step 5: now that the chart has the indicator, delete the ORIGINAL
             # one passed in (if it's still a valid reference). If this fails,
             # we leave both copies — change_settings will operate on whichever
@@ -2157,6 +2172,103 @@ class Browser:
         except Exception as e:
             open_tv_logger.exception(
                 f"Unexpected error in reupload_indicator({indicator_shorttitle}): {e}"
+            )
+            return False
+
+    def _set_indicator_instance_id(self, indicator_shorttitle: str, instance_id: str) -> bool:
+        """Open the indicator's settings dialog and overwrite the 'Instance ID'
+        text input with `instance_id`. Returns True on success.
+
+        Used by reupload_indicator() to restore the customized Instance ID
+        after re-adding a fresh copy from Favorites (which uses Pine defaults).
+        """
+        try:
+            indicator = self._safe_indicator_access(indicator_shorttitle)
+            if not indicator:
+                open_tv_logger.error(
+                    f"_set_indicator_instance_id: could not find {indicator_shorttitle} on chart"
+                )
+                return False
+
+            # Open settings dialog (same path change_settings uses)
+            try:
+                indicator.click()
+            except ElementClickInterceptedException:
+                ActionChains(self.driver).send_keys(Keys.ESCAPE).perform()
+                sleep(0.5)
+                self.driver.execute_script("arguments[0].click();", indicator)
+            WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable(
+                    (By.CSS_SELECTOR, 'button[data-qa-id="legend-settings-action"]')
+                )
+            ).click()
+            settings = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located(
+                    (
+                        By.CSS_SELECTOR,
+                        'div[data-outside-boundary-for="indicator-properties-dialog"]',
+                    )
+                )
+            )
+
+            # Find the input whose ROW label is "Instance ID" (string input).
+            # Pine input.string renders a <input type="text"> with a sibling/parent
+            # row containing the label text. We locate the row by visible text
+            # then take its <input>.
+            target_input = None
+            try:
+                target_input = settings.find_element(
+                    By.XPATH,
+                    './/div[contains(., "Instance ID")]/following::input[1] | .//tr[contains(., "Instance ID")]//input',
+                )
+            except Exception:
+                # Broader fallback: scan every text input in the dialog and pick
+                # the one whose value matches a known instance pattern.
+                for el in settings.find_elements(By.CSS_SELECTOR, 'input[type="text"]'):
+                    try:
+                        v = (el.get_attribute("value") or "").strip()
+                        if v.startswith("tte-") or v == "tte-1":
+                            target_input = el
+                            break
+                    except Exception:
+                        continue
+
+            if target_input is None:
+                open_tv_logger.error(
+                    "_set_indicator_instance_id: could not locate 'Instance ID' input in settings dialog"
+                )
+                # Close dialog before returning so the chart UI is usable
+                try:
+                    ActionChains(self.driver).send_keys(Keys.ESCAPE).perform()
+                except Exception:
+                    pass
+                return False
+
+            # Clear (Ctrl+A+Delete — .clear() unreliable on React inputs) then type
+            target_input.click()
+            sleep(0.1)
+            ActionChains(self.driver).key_down(Keys.CONTROL).send_keys("a").key_up(
+                Keys.CONTROL
+            ).send_keys(Keys.DELETE).perform()
+            sleep(0.1)
+            target_input.send_keys(instance_id)
+            sleep(0.2)
+            actual = target_input.get_attribute("value") or ""
+            if actual != instance_id:
+                open_tv_logger.warning(
+                    f"_set_indicator_instance_id: input shows {actual!r} not {instance_id!r} — will still submit"
+                )
+
+            # Click Submit
+            self.driver.find_element(By.CSS_SELECTOR, 'button[name="submit"]').click()
+            sleep(0.5)
+            open_tv_logger.info(
+                f"_set_indicator_instance_id: set Instance ID={instance_id!r} on {indicator_shorttitle}"
+            )
+            return True
+        except Exception:
+            open_tv_logger.exception(
+                f"_set_indicator_instance_id failed for {indicator_shorttitle}={instance_id!r}"
             )
             return False
 
