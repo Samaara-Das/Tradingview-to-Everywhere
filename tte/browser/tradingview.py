@@ -504,7 +504,70 @@ class Browser:
         return recovered
 
     def sign_in(self):
-        """This signs in to TradingView if logged out"""
+        """This signs in to TradingView if logged out.
+
+        Fast-path: if the cookie-injected session is already valid (e.g. a
+        prior `inject_tv_cookies.py` run seeded sessionid/sessionid_sign),
+        `/chart/` loads without redirecting to /accounts/signin/. We detect
+        that and skip the email/password flow entirely. This is required for
+        accounts where no creds are in the env (cookie-only auth, e.g.
+        tte-2 against Rahul's TV).
+        """
+        # Cookie-auth fast-path. Optional `TTE_INITIAL_CHART_URL` env points
+        # at a specific layout chart (e.g. /chart/bSgWQNPC for Rahul's
+        # "Screener" layout) so we land directly on the right view without
+        # depending on TV's flaky save-load-menu DOM.
+        try:
+            initial = getenv("TTE_INITIAL_CHART_URL")
+            target = (
+                f"https://www.tradingview.com{initial}"
+                if initial and initial.startswith("/")
+                else (initial or "https://www.tradingview.com/chart/")
+            )
+            self.driver.get(target)
+            WebDriverWait(self.driver, 8).until(
+                lambda d: "/accounts/signin" not in d.current_url and "/chart/" in d.current_url
+            )
+            # /chart/ URL alone isn't proof of login — TV shows a public
+            # marketing chart for logged-out users. Verify by checking for
+            # the user-menu button (only rendered for authenticated sessions).
+            try:
+                WebDriverWait(self.driver, 6).until(
+                    EC.presence_of_element_located(
+                        (By.CSS_SELECTOR, 'button[aria-label*="Open user menu"]')
+                    )
+                )
+            except TimeoutException:
+                open_tv_logger.info(
+                    "Cookie-auth fast-path: chart loaded but user-menu not found "
+                    "— treating as logged out, will fall through to credential flow."
+                )
+                raise TimeoutException("Not logged in despite /chart/ URL") from None
+
+            # Wait for the toolbar layout-name button to settle on a non-empty
+            # value — otherwise the immediately-following change_layout() race
+            # reads stale text and tries to open the dropdown unnecessarily.
+            try:
+                WebDriverWait(self.driver, 15).until(
+                    lambda d: bool(
+                        d.find_element(
+                            By.CSS_SELECTOR, "button#header-toolbar-save-load"
+                        ).text.strip()
+                    )
+                )
+            except TimeoutException:
+                open_tv_logger.warning(
+                    "Cookie-auth fast-path: toolbar layout-name didn't settle in 15s"
+                )
+            open_tv_logger.info(f"Cookie-auth fast-path: chart loaded ({target}), signed in.")
+            return True
+        except TimeoutException:
+            open_tv_logger.info("Cookie-auth fast-path failed; falling back to credential flow.")
+        except Exception as e:
+            open_tv_logger.info(
+                f"Cookie-auth fast-path error ({e}); falling back to credential flow."
+            )
+
         self.driver.get("https://www.tradingview.com/accounts/signin/")
         if not getattr(self, "headless", False):
             try:
@@ -744,29 +807,43 @@ class Browser:
             open_tv_logger.error("Failed to sign in to TradingView. Exiting function")
             return False
 
-        # open tradingview
-        if not self.open_page("https://www.tradingview.com/chart"):
-            if not self.open_page("https://www.tradingview.com/chart"):  # try once more
-                open_tv_logger.error("Failed to open tradingview. Exiting function")
-                return False
+        # open tradingview — but if TTE_INITIAL_CHART_URL was honored by
+        # the cookie-auth fast-path, we're already on the correct layout's
+        # chart URL. Skip the generic /chart navigation + layout-switch in
+        # that case (headless Chrome's save-load-menu DOM is unreliable on
+        # Rahul-style cookie-bootstrapped accounts).
+        skip_layout_switch = bool(getenv("TTE_INITIAL_CHART_URL"))
+        if not skip_layout_switch:
+            if not self.open_page("https://www.tradingview.com/chart"):
+                if not self.open_page("https://www.tradingview.com/chart"):  # try once more
+                    open_tv_logger.error("Failed to open tradingview. Exiting function")
+                    return False
 
-        # change to the correct layout (if we are on any other layout)
-        if not self.change_layout(self.layout_name):
-            self.change_layout(self.layout_name)  # try once more
-            if self.current_layout() != self.layout_name:
-                open_tv_logger.error(
-                    f"Cannot change the layout to {self.layout_name}. Exiting function"
-                )
-                return False
+            # change to the correct layout (if we are on any other layout)
+            if not self.change_layout(self.layout_name):
+                self.change_layout(self.layout_name)  # try once more
+                if self.current_layout() != self.layout_name:
+                    open_tv_logger.error(
+                        f"Cannot change the layout to {self.layout_name}. Exiting function"
+                    )
+                    return False
+        else:
+            open_tv_logger.info(
+                "setup_tv: TTE_INITIAL_CHART_URL set — trusting layout from fast-path nav"
+            )
 
-        # set the timeframe to the correct timeframe
-        if not self.open_chart.change_tframe(self.chart_timeframe):
-            self.open_chart.change_tframe(self.chart_timeframe)  # try once more
-            if self.current_chart_tframe() != self.chart_timeframe:
-                open_tv_logger.error(
-                    f"Cannot change the chart timeframe to {self.chart_timeframe}. Exiting function"
-                )
-                return False
+        # set the timeframe to the correct timeframe.
+        # Skipped when TTE_INITIAL_CHART_URL was used — the manual-onboarded
+        # layout already has the correct timeframe baked in (per
+        # `.claude/specs/manual-tv-account-setup.md`).
+        if not skip_layout_switch:
+            if not self.open_chart.change_tframe(self.chart_timeframe):
+                self.open_chart.change_tframe(self.chart_timeframe)  # try once more
+                if self.current_chart_tframe() != self.chart_timeframe:
+                    open_tv_logger.error(
+                        f"Cannot change the chart timeframe to {self.chart_timeframe}. Exiting function"
+                    )
+                    return False
 
         # open the alerts sidebar
         if not self.open_alerts_sidebar():
@@ -845,17 +922,42 @@ class Browser:
             )
             sleep(0.3)
 
-            # Find layout in "Recently used" section by visible text
-            # Scoped to data-qa-id to avoid matching chart legend or other page elements
-            layout_item = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located(
-                    (
-                        By.XPATH,
-                        '//*[@data-qa-id="save-load-menu-item-recent"]'
-                        f'[.//span[normalize-space(text())="{layout_name}"]]',
+            # Find layout in "Recently used" section by visible text.
+            # Primary: exact-text match. Fallback: case-insensitive contains
+            # (defends against TV adding suffix chars or A/B-test DOM tweaks).
+            layout_item = None
+            try:
+                layout_item = WebDriverWait(self.driver, 10).until(
+                    EC.presence_of_element_located(
+                        (
+                            By.XPATH,
+                            '//*[@data-qa-id="save-load-menu-item-recent"]'
+                            f'[.//span[normalize-space(text())="{layout_name}"]]',
+                        )
                     )
                 )
-            )
+            except TimeoutException:
+                open_tv_logger.warning(
+                    f"Exact-text XPath for layout '{layout_name}' timed out — "
+                    "trying case-insensitive contains() fallback"
+                )
+                lower = layout_name.lower()
+                items = self.driver.find_elements(
+                    By.CSS_SELECTOR, 'a[data-qa-id="save-load-menu-item-recent"]'
+                )
+                for it in items:
+                    try:
+                        title_span = it.find_element(By.CSS_SELECTOR, '[class*="title"] span')
+                        if title_span.text and lower in title_span.text.lower():
+                            layout_item = it
+                            break
+                    except Exception:
+                        continue
+                if layout_item is None:
+                    raise TimeoutException(
+                        f"No 'Recently used' menu item matched layout '{layout_name}' "
+                        f"(checked {len(items)} items)"
+                    ) from None
 
             # Non-current layouts are <a target="_blank"> links.
             # Clicking them opens a new tab — navigate directly instead.
@@ -1160,6 +1262,19 @@ class Browser:
             self.utils.open_alert_tab(self.driver)
             open_tv_logger.info("create_webhook_alert: alert tab opened, looking for + button...")
 
+            # Snapshot the topmost alert row text BEFORE creating, so we can detect
+            # silent TV-side drops (Selenium "Create" can succeed visually while TV's
+            # backend rejects the alert — see Rahul's 1001 ghost-creates incident).
+            pre_top_text = ""
+            try:
+                pre_rows = self.driver.find_elements(
+                    By.CSS_SELECTOR, 'div[data-name="alert-item-name"]'
+                )
+                if pre_rows:
+                    pre_top_text = (pre_rows[0].text or "").strip()
+            except Exception:
+                pass
+
             # Click the + button to open alert creation dialog
             plus_button = WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-name="set-alert-button"]'))
@@ -1287,10 +1402,49 @@ class Browser:
                 return (False, None)
 
             except TimeoutException:
-                open_tv_logger.info(
-                    f"Webhook alert created successfully for {indicator_shorttitle}"
+                # The Create button's submit succeeded visually (no error popup), but
+                # TV's backend may still silently drop the alert (Ultimate plan cap,
+                # symbol-feed glitch, etc.). Re-query the sidebar to confirm the alert
+                # actually persisted by checking that the topmost row changed.
+                try:
+                    WebDriverWait(self.driver, 5).until(
+                        EC.invisibility_of_element_located(
+                            (By.CSS_SELECTOR, 'div[data-qa-id="alerts-create-edit-dialog"]')
+                        )
+                    )
+                except TimeoutException:
+                    pass
+
+                # Poll the sidebar for up to 3s waiting for the topmost row to differ
+                # from the snapshot (TV needs a moment to insert the new alert).
+                post_top_text = ""
+                deadline = time() + 3.0
+                while time() < deadline:
+                    try:
+                        post_rows = self.driver.find_elements(
+                            By.CSS_SELECTOR, 'div[data-name="alert-item-name"]'
+                        )
+                        if post_rows:
+                            post_top_text = (post_rows[0].text or "").strip()
+                            if post_top_text and post_top_text != pre_top_text:
+                                break
+                    except Exception:
+                        pass
+                    sleep(0.2)
+
+                if post_top_text and post_top_text != pre_top_text:
+                    open_tv_logger.info(
+                        f"Webhook alert created successfully for {indicator_shorttitle} "
+                        f"(verified: sidebar top changed '{pre_top_text[:40]}' -> '{post_top_text[:40]}')"
+                    )
+                    return (True, None)
+
+                open_tv_logger.error(
+                    f"Alert NOT persisted on TV for {indicator_shorttitle}: "
+                    f"sidebar top unchanged ('{pre_top_text[:40]}'). "
+                    "Likely silently dropped by TV backend (plan cap / rate limit / symbol)."
                 )
-                return (True, None)
+                return (False, "not_persisted")
 
         except Exception:
             open_tv_logger.exception(
@@ -1606,11 +1760,10 @@ class Browser:
                 open_tv_logger.info("There are no alerts. No need to delete any alerts!")
                 return True
 
-            # Step 1: Pause all alerts
+            # Step 1: Pause all alerts (active → inactive)
             open_dropdown()
             pause_btn = find_menu_item("Pause all")
             if not pause_btn:
-                # Try legacy label
                 pause_btn = find_menu_item("Stop all")
             if pause_btn and "isDisabled" not in (pause_btn.get_attribute("class") or ""):
                 pause_btn.click()
@@ -1619,7 +1772,7 @@ class Browser:
             else:
                 open_tv_logger.info("Pause all is disabled or not found — alerts already inactive")
 
-            # Step 2: Delete all inactive alerts
+            # Step 2: Delete all inactive alerts (covers paused + stopped)
             open_dropdown()
             delete_btn = find_menu_item("Delete all inactive")
             if delete_btn and "isDisabled" not in (delete_btn.get_attribute("class") or ""):
@@ -1630,6 +1783,59 @@ class Browser:
                 open_tv_logger.info(
                     "Delete all inactive is disabled or not found — no inactive alerts"
                 )
+
+            # Step 3: Sweep any survivors (e.g. "Stopped" state TV sometimes keeps out of
+            # the inactive bucket). Try the broader "Delete all" if present; if not, loop
+            # over remaining alert-item rows and delete each via its row-level menu.
+            open_dropdown()
+            delete_all_btn = find_menu_item("Delete all")
+            if delete_all_btn and "isDisabled" not in (delete_all_btn.get_attribute("class") or ""):
+                delete_all_btn.click()
+                self.utils.click_yes_in_confirm_popup(self.driver)
+                open_tv_logger.info("Deleted all remaining alerts (Delete all)")
+            else:
+                # Close any open dropdown before per-row delete
+                try:
+                    self.driver.find_element(By.CSS_SELECTOR, "body").click()
+                except Exception:
+                    pass
+
+                # Per-row fallback: iterate and delete one by one. Cap at 2000 to avoid
+                # infinite loop if a row keeps reappearing.
+                remaining = self.driver.find_elements(By.CSS_SELECTOR, alert_selector)
+                if remaining:
+                    open_tv_logger.warning(
+                        f"{len(remaining)} alert(s) still present after bulk delete — sweeping per-row"
+                    )
+                    swept = 0
+                    for _ in range(min(len(remaining) + 50, 2000)):
+                        rows = self.driver.find_elements(By.CSS_SELECTOR, alert_selector)
+                        if not rows:
+                            break
+                        try:
+                            self.driver.execute_script("arguments[0].scrollIntoView();", rows[0])
+                            ActionChains(self.driver).move_to_element(rows[0]).perform()
+                            # Click row-level kebab (... button) then "Delete"
+                            kebab = rows[0].find_element(
+                                By.CSS_SELECTOR, 'div[data-name="alert-item-menu"]'
+                            )
+                            kebab.click()
+                            delete_item = WebDriverWait(self.driver, 3).until(
+                                EC.element_to_be_clickable(
+                                    (
+                                        By.XPATH,
+                                        '//div[@data-qa-id="menu-inner"]/div[.//span[normalize-space(text())="Delete"]]',
+                                    )
+                                )
+                            )
+                            delete_item.click()
+                            self.utils.click_yes_in_confirm_popup(self.driver)
+                            swept += 1
+                            sleep(0.3)
+                        except Exception:
+                            open_tv_logger.debug("Per-row delete failed for one row — continuing")
+                            sleep(0.5)
+                    open_tv_logger.info(f"Per-row sweep deleted {swept} alert(s)")
 
             open_tv_logger.info("All alerts deleted successfully")
             return True
