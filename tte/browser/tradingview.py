@@ -1153,10 +1153,56 @@ class Browser:
                             )
                         )
                     )
-                    symbol_inputs = settings.find_elements(
-                        By.CSS_SELECTOR,
-                        '.inlineRow-uuCuCMOL div[data-name="edit-button"]',
-                    )  # symbol inputs
+
+                    # Wait until at least len(symbols_list) symbol-input buttons
+                    # are rendered inside the settings dialog. Without this wait
+                    # the post-renderer-stall page refresh (WS-0 recovery) leaves
+                    # the dialog half-rendered → symbol_inputs has 0 elements →
+                    # IndexError on symbol_inputs[0]. Observed live 2026-05-19
+                    # on tte-1 after 14:44 UTC renderer-stall recovery cascaded
+                    # into 4.4% success rate.
+                    need = len(symbols_list)
+                    symbol_inputs = []
+
+                    def _have_n_inputs(_d, _settings=settings, _n=need):
+                        els = _settings.find_elements(
+                            By.CSS_SELECTOR,
+                            '.inlineRow-uuCuCMOL div[data-name="edit-button"]',
+                        )
+                        return els if len(els) >= _n else False
+
+                    try:
+                        symbol_inputs = WebDriverWait(self.driver, 6).until(_have_n_inputs)
+                    except TimeoutException:
+                        # Re-query once with a broader fallback selector — TV
+                        # may have updated the hashed `.inlineRow-uuCuCMOL`
+                        # class. `data-name="edit-button"` is more stable.
+                        fallback = settings.find_elements(
+                            By.CSS_SELECTOR, 'div[data-name="edit-button"]'
+                        )
+                        if len(fallback) >= need:
+                            symbol_inputs = fallback
+                            open_tv_logger.warning(
+                                f"change_settings: hashed-class selector found <{need} inputs; "
+                                f"falling back to data-name selector ({len(fallback)} found)"
+                            )
+                        else:
+                            open_tv_logger.error(
+                                f"change_settings: only {len(fallback)} symbol-input buttons in dialog "
+                                f"(need {need}). Dismissing dialog and aborting batch — chart not modified."
+                            )
+                            # Close the half-rendered dialog so the next batch starts clean
+                            try:
+                                self.driver.find_element(
+                                    By.CSS_SELECTOR, 'button[name="cancel"]'
+                                ).click()
+                            except Exception:
+                                try:
+                                    ActionChains(self.driver).send_keys(Keys.ESCAPE).perform()
+                                except Exception:
+                                    pass
+                            all_success = False
+                            continue
 
                     # change the symbol inputs based on the total number of symbols
                     for i, to_be_symbol in enumerate(symbols_list):
