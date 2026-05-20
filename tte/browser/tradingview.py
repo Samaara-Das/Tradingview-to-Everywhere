@@ -2178,25 +2178,14 @@ class Browser:
                 f"{indicator_shorttitle} is on the chart after re-add (old copy still present if any; safe by design)"
             )
 
-            # Step 4b: the freshly-added copy from Favorites uses Pine input
-            # defaults — including Instance ID = 'tte-1'. If we're on a different
-            # instance (tte-2, tte-3, ...) we MUST overwrite the Instance ID
-            # before alerts get created off the new copy; otherwise their
-            # webhook payload will carry the wrong "instance" tag and Stock
-            # Buddy will mis-attribute the setups. Discovered 2026-05-19 on
-            # tte-2 (6 alerts ended up tagged tte-1 before this guard existed).
-            if INSTANCE and INSTANCE != "tte-1":
-                if not self._set_indicator_instance_id(indicator_shorttitle, INSTANCE):
-                    open_tv_logger.error(
-                        f"reupload {indicator_shorttitle}: added fresh copy but FAILED to set "
-                        f"Instance ID={INSTANCE}. Aborting — chart left with Instance ID=tte-1 default."
-                    )
-                    return False
-
-            # Step 5: now that the chart has the indicator, delete the ORIGINAL
-            # one passed in (if it's still a valid reference). If this fails,
-            # we leave both copies — change_settings will operate on whichever
-            # get_indicator finds first; not ideal but never catastrophic.
+            # Step 5: delete the ORIGINAL (old) copy FIRST, while we still have
+            # a captured reference to it. This must happen BEFORE setting the
+            # Instance ID — otherwise `_safe_indicator_access` returns the first
+            # matching legend-source-item which is the OLD copy (already
+            # correctly tagged), we "successfully" set its ID, then delete it,
+            # leaving only the fresh copy with Pine default Instance ID=tte-1.
+            # That bug silently mis-tagged ~800 alerts on Rahul's tte-2 on
+            # 2026-05-20 — see memory/diary_2026-05-20.md.
             try:
                 if indicator:
                     indicator.click()
@@ -2206,13 +2195,44 @@ class Browser:
                         )
                     )
                     delete_action.click()
+                    sleep(0.5)
                     open_tv_logger.debug(
                         f"Deleted original copy of {indicator_shorttitle}; chart now has fresh copy only"
                     )
             except Exception:
                 open_tv_logger.warning(
-                    f"reupload {indicator_shorttitle}: failed to delete original copy — chart may have a duplicate (non-fatal)"
+                    f"reupload {indicator_shorttitle}: failed to delete original copy — chart may have a duplicate (set-Instance-ID may target wrong copy)"
                 )
+
+            # Step 6: the freshly-added copy from Favorites uses Pine input
+            # defaults — including Instance ID = 'tte-1'. If we're on a different
+            # instance (tte-2, tte-3, ...) we MUST overwrite the Instance ID
+            # AND save the layout so the change persists across page refresh /
+            # next maintenance reupload cycle.
+            if INSTANCE and INSTANCE != "tte-1":
+                if not self._set_indicator_instance_id(indicator_shorttitle, INSTANCE):
+                    open_tv_logger.error(
+                        f"reupload {indicator_shorttitle}: added fresh copy but FAILED to set "
+                        f"Instance ID={INSTANCE}. Aborting — chart left with Instance ID=tte-1 default."
+                    )
+                    return False
+
+                # Step 7: save layout so the new Instance ID survives the next
+                # page refresh. Without this, `setup_tv()` re-loads the chart
+                # from the saved layout (which still has tte-1 default) and
+                # the regression returns on the next maintenance reupload.
+                try:
+                    ActionChains(self.driver).key_down(Keys.CONTROL).send_keys("s").key_up(
+                        Keys.CONTROL
+                    ).perform()
+                    sleep(1.0)
+                    open_tv_logger.info(
+                        f"reupload {indicator_shorttitle}: saved layout (Ctrl+S) so Instance ID={INSTANCE} persists"
+                    )
+                except Exception:
+                    open_tv_logger.warning(
+                        f"reupload {indicator_shorttitle}: Ctrl+S layout save failed — Instance ID may revert on next refresh"
+                    )
 
             return True
         except Exception as e:
@@ -2319,9 +2339,40 @@ class Browser:
 
             # Click Submit
             self.driver.find_element(By.CSS_SELECTOR, 'button[name="submit"]').click()
-            sleep(0.5)
+            sleep(0.8)
+
+            # Post-submit verification: read the legend text and confirm the
+            # new Instance ID is reflected. Native Selenium send_keys sometimes
+            # updates the DOM `value` attribute without notifying React, so
+            # Submit applies React's stale internal value (typically the Pine
+            # default 'tte-1'). Catch that by reading the rendered legend.
+            try:
+                legend_items = self.driver.find_elements(
+                    By.CSS_SELECTOR, 'div[data-qa-id="legend-source-item"]'
+                )
+                legend_texts = []
+                for item in legend_items:
+                    try:
+                        txt = (item.text or "").replace("\n", "")
+                        legend_texts.append(txt)
+                    except StaleElementReferenceException:
+                        continue
+                if not any(instance_id in t for t in legend_texts):
+                    open_tv_logger.error(
+                        f"_set_indicator_instance_id: post-submit verification FAILED — "
+                        f"no legend-source-item contains {instance_id!r}. "
+                        f"Legend texts: {legend_texts!r}. "
+                        f"Submit applied stale React state (DOM value set but onChange not fired)."
+                    )
+                    return False
+            except Exception:
+                open_tv_logger.exception(
+                    "_set_indicator_instance_id: post-submit legend verification raised — treating as failure"
+                )
+                return False
+
             open_tv_logger.info(
-                f"_set_indicator_instance_id: set Instance ID={instance_id!r} on {indicator_shorttitle}"
+                f"_set_indicator_instance_id: set + verified Instance ID={instance_id!r} on {indicator_shorttitle}"
             )
             return True
         except Exception:

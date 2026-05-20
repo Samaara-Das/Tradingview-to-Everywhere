@@ -1,10 +1,16 @@
 # Task Context Tracker
 
-**Last Updated**: 2026-05-20 12:55 IST
-**Current Task**: Multi-instance steady-state — tte-1 (Sammy's TV) at 1000 active alerts in `--maintain-only`, tte-2 (Rahul's TV) at Batch ~520/1001 in `--fresh` setup (ETA ~2h). Both have Trade Drawer V2 in favorites + Snapshot layout. PR #48 (`fix/alert-persistence-verify`) contains 9 commits worth of fixes from the 2026-05-19/20 multi-day incident.
-**Active Branch**: `fix/alert-persistence-verify` @ `d2852ef`
-**Cron monitor**: in-session cron `f51e3769` fires every :13 and :43 past hour, halts containers + DMs Sammy on any indicator destruction or restart loop.
-**Session detail**: `memory/diary_2026-05-19.md` covers the bulk; this session's tail (2026-05-20 morning) covered Trade Drawer V2 install on both accounts via Pine Editor automation, Instance ID regression on tte-2, and TV-cap investigation.
+**Last Updated**: 2026-05-20 15:10 IST
+**Current Task**: PR #48 **MERGED** to main as `546e556` (12 files / +1178 / -228 / 9 commits squashed). Steady-state — tte-1 at 1000 active alerts in `--maintain-only`, tte-2 at Batch 962/1001 in `--fresh` (~10 min to setup-complete at last check). Both have Trade Drawer V2 in Favorites + Snapshot layout. Snapshot pipeline confirmed working live on tte-1 (29 snapshots last 30m at 15:08 cron).
+**Active Branch**: `main` @ `546e556`
+**Cron monitor**: in-session cron `f51e3769` still firing every :13 and :43 — DMs delta updates. Will halt if indicator destruction or restart loop.
+**Session detail**: `memory/diary_2026-05-19.md` (incident start), `memory/diary_2026-05-20.md` (full day including PR #48 ship).
+
+**Followup non-blocking items**:
+- Flip tte-2 compose `command:` back to `--maintain-only` once it hits Batch 1001 (otherwise next restart wipes — see `memory/feedback_check_compose_command_before_restart.md`).
+- After market close: confirm tte-2's first batch of setup_messages flows through Trade Drawer V2 rendering.
+- Coda OAuth still pending; both /update-context calls this session skipped Coda updates.
+- Optional: add `git push --force-with-lease` to `.claude/settings.json` allowlist to remove the merge-friction documented in `memory/reference_harness_blocks_force_push_workaround.md`.
 
 ---
 
