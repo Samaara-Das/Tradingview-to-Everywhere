@@ -2200,9 +2200,12 @@ class Browser:
                         f"Deleted original copy of {indicator_shorttitle}; chart now has fresh copy only"
                     )
             except Exception:
-                open_tv_logger.warning(
-                    f"reupload {indicator_shorttitle}: failed to delete original copy — chart may have a duplicate (set-Instance-ID may target wrong copy)"
+                open_tv_logger.exception(
+                    f"reupload {indicator_shorttitle}: failed to delete original copy — "
+                    f"cannot safely set Instance ID (would target the wrong copy and "
+                    f"recreate the 2026-05-20 regression). Aborting reupload."
                 )
+                return False
 
             # Step 6: the freshly-added copy from Favorites uses Pine input
             # defaults — including Instance ID = 'tte-1'. If we're on a different
@@ -2339,30 +2342,54 @@ class Browser:
 
             # Click Submit
             self.driver.find_element(By.CSS_SELECTOR, 'button[name="submit"]').click()
-            sleep(0.8)
 
-            # Post-submit verification: read the legend text and confirm the
-            # new Instance ID is reflected. Native Selenium send_keys sometimes
-            # updates the DOM `value` attribute without notifying React, so
-            # Submit applies React's stale internal value (typically the Pine
-            # default 'tte-1'). Catch that by reading the rendered legend.
+            # Post-submit verification: poll the legend text and confirm the
+            # new Instance ID is reflected AND no stale Pine-default 'tte-1'
+            # copy lingers. Native Selenium send_keys sometimes updates the
+            # DOM `value` attribute without notifying React, so Submit applies
+            # React's stale internal value. The legend reflects what Pine
+            # actually evaluated with, so it's the source of truth.
+            #
+            # The stale-default check catches the case where two copies of
+            # the indicator exist on chart (e.g. reupload's delete-old step
+            # failed and was retried): even if our set updated copy A to
+            # `tte-2`, copy B may still be on `tte-1` and the alert dialog
+            # would snapshot whichever it sees first. Reject unless every
+            # copy reflects the target instance_id.
+            legend_texts: list[str] = []
             try:
-                legend_items = self.driver.find_elements(
-                    By.CSS_SELECTOR, 'div[data-qa-id="legend-source-item"]'
-                )
-                legend_texts = []
-                for item in legend_items:
-                    try:
-                        txt = (item.text or "").replace("\n", "")
-                        legend_texts.append(txt)
-                    except StaleElementReferenceException:
-                        continue
+                for _attempt in range(6):
+                    legend_texts = []
+                    legend_items = self.driver.find_elements(
+                        By.CSS_SELECTOR, 'div[data-qa-id="legend-source-item"]'
+                    )
+                    for item in legend_items:
+                        try:
+                            txt = (item.text or "").replace("\n", "")
+                            legend_texts.append(txt)
+                        except StaleElementReferenceException:
+                            continue
+                    if legend_texts and any(instance_id in t for t in legend_texts):
+                        break
+                    sleep(0.3)
+
                 if not any(instance_id in t for t in legend_texts):
                     open_tv_logger.error(
                         f"_set_indicator_instance_id: post-submit verification FAILED — "
                         f"no legend-source-item contains {instance_id!r}. "
                         f"Legend texts: {legend_texts!r}. "
                         f"Submit applied stale React state (DOM value set but onChange not fired)."
+                    )
+                    return False
+
+                # When target is not the Pine default, ensure NO copy still
+                # shows the default — duplicates are a silent attribution leak.
+                if instance_id != "tte-1" and any("tte-1" in t for t in legend_texts):
+                    open_tv_logger.error(
+                        f"_set_indicator_instance_id: stale Pine-default 'tte-1' "
+                        f"still present in legend after set to {instance_id!r}. "
+                        f"Legend texts: {legend_texts!r}. Chart has a duplicate copy "
+                        f"that would silently mis-tag alerts. Aborting."
                     )
                     return False
             except Exception:
