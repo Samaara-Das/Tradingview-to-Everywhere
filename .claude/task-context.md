@@ -1,9 +1,10 @@
 # Task Context Tracker
 
-**Last Updated**: 2026-05-15
-**Current Task**: Production stable — tte-1 running on hybrid hosting (KVM8 + Atlas + Vercel). Latest incident (2026-05-08 → 2026-05-15) resolved.
-**Active Branch**: `main`
-**Latest Commit**: `40ab6bf` — Merge pull request #40 (auto-submit TV 2FA via TRADINGVIEW_TOTP_SECRET, pyotp)
+**Last Updated**: 2026-05-20 12:55 IST
+**Current Task**: Multi-instance steady-state — tte-1 (Sammy's TV) at 1000 active alerts in `--maintain-only`, tte-2 (Rahul's TV) at Batch ~520/1001 in `--fresh` setup (ETA ~2h). Both have Trade Drawer V2 in favorites + Snapshot layout. PR #48 (`fix/alert-persistence-verify`) contains 9 commits worth of fixes from the 2026-05-19/20 multi-day incident.
+**Active Branch**: `fix/alert-persistence-verify` @ `d2852ef`
+**Cron monitor**: in-session cron `f51e3769` fires every :13 and :43 past hour, halts containers + DMs Sammy on any indicator destruction or restart loop.
+**Session detail**: `memory/diary_2026-05-19.md` covers the bulk; this session's tail (2026-05-20 morning) covered Trade Drawer V2 install on both accounts via Pine Editor automation, Instance ID regression on tte-2, and TV-cap investigation.
 
 ---
 

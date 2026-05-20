@@ -50,22 +50,23 @@ python tte_gui.py                         # GUI interface
 ## Core Architecture
 
 ### Package Structure (`tte/`)
-- `tte/main.py` — Entry point (orchestrator)
-- `tte/config.py` — Configuration loader + PROFILE constant
+- `tte/main.py` — Entry point (orchestrator). `--symbols=<csv>` filter is partition-aware (Mongo `assigned_instance`) and works WITHOUT `--fresh` to add to an existing alert set.
+- `tte/config.py` — Configuration loader. Module constant `INSTANCE` (from `TTE_INSTANCE` env) drives partition selection. `_build_webhook_url()` appends `?instance=<INSTANCE>` to `COMBO_WEBHOOK_URL`. `PROFILE` constant from `CHROME_PROFILE` env.
 - `tte/log.py` — Logger setup (named `log` to avoid shadowing stdlib `logging`)
-- `tte/browser/tradingview.py` — TradingView browser automation (Selenium)
-- `tte/browser/chart.py` — Chart navigation & snapshots
+- `tte/browser/tradingview.py` — TradingView browser automation (Selenium). Key methods detailed in [Key Code Locations](#key-code-locations) below.
+- `tte/browser/chart.py` — Chart navigation & snapshots. WS-0 renderer-stall recovery via `change_symbol()` retry + page-refresh fallback.
 - `tte/browser/helpers.py` — Selenium utility functions
-- `tte/data/symbols.py` — MongoDB symbol fetching
-- `tte/snapshot_worker.py` — Chart snapshot polling & browser orchestration
+- `tte/data/symbols.py` — MongoDB symbol fetching. Filters by `assigned_instance` per `INSTANCE`; for `tte-1` includes legacy docs without the field, for `tte-N` (N>=2) strict-matches.
+- `tte/snapshot_worker.py` — Chart snapshot polling & Trade Drawer V2 rendering. `StockBuddyClient` passes `instance` to the SB polling endpoint so each container only picks up its own pending snapshots.
 - `tte/backfill_reversed_snapshots.py` — One-off reversed-strategy snapshot re-render job (run via `scripts/run_reversed_backfill.py`)
 
 ### Browser Automation (`tte/browser/tradingview.py`)
 - Manages all Selenium interactions with TradingView
 - Key pattern: `_safe_indicator_access()` handles stale elements with retry logic
-- `create_webhook_alert()` creates alerts with webhook notification
-- `reupload_indicator()` recovers from screener errors
-- `change_settings()` fills in symbol inputs for the screener
+- `create_webhook_alert()` — creates webhook alerts AND verifies persistence by snapshotting topmost alert-sidebar row before+after Create. Returns `(False, "not_persisted")` on silent TV drops (PR #48).
+- `reupload_indicator()` — add-before-delete order to prevent chart destruction; uses text-content match on `data-role="menuitem"` instead of hashed CSS classes (PR #48). Calls `_set_indicator_instance_id()` automatically when `INSTANCE != "tte-1"` so the fresh copy doesn't carry the Pine default.
+- `change_settings()` — waits up to 6s for symbol-input fields in the settings dialog, falls back to broader `data-name="edit-button"` selector if hashed `.inlineRow-uuCuCMOL` doesn't match (PR #48).
+- `_maybe_auto_submit_totp()` — `Ctrl+A+Delete` clears React-controlled OTP input (`.clear()` is unreliable; observed 28-char accumulation across retries), then `send_keys(code) + Enter` (PR #48).
 
 ### Settings (`combo_settings.yaml`)
 All combo mode options are configured in `combo_settings.yaml`. Secrets (webhook URL) are in `.env`.
@@ -88,10 +89,19 @@ All combo mode options are configured in `combo_settings.yaml`. Secrets (webhook
 | Reversed snapshots | `snapshot.reversed_strategy` | false | Emergency rollback only — keep false; reversed Trade Drawer V2 Pine handles TP/SL swap internally |
 
 ### Environment Variables
-See `tte/config.py` and `.env` file. Key variables: `CHROME_PROFILES_PATH`, `TRADINGVIEW_EMAIL`, `TRADINGVIEW_PASSWORD`, `TRADINGVIEW_TOTP_SECRET` (optional — base32 TOTP secret for auto-2FA via pyotp; see `.claude/credentials-and-2fa.md`), `MONGODB_PWD`, `COMBO_WEBHOOK_URL`, `STOCK_BUDDY_API_URL`, `API_TIMEOUT`, `REVERSED_STRATEGY_SNAPSHOTS` (emergency rollback; default false)
+See `tte/config.py` and `.env` file. Key variables:
+- `TTE_INSTANCE` — instance identifier (e.g. `tte-1`, `tte-2`); selects the Mongo symbol partition and is appended to webhook URL as `?instance=<value>`. Defaults to `tte-1`.
+- `CHROME_PROFILE` — per-instance Chrome profile name (e.g. `Profile 4` for tte-1, `Default` for tte-2). The actual user-data-dir is `/home/tte/chrome-profile/TTE[-<instance>]` inside containers.
+- `TRADINGVIEW_EMAIL`, `TRADINGVIEW_PASSWORD` — sign-in credentials
+- `TRADINGVIEW_TOTP_SECRET` — **required** (base32) for auto-2FA via pyotp; TV refuses webhook-alert creation without 2FA enabled on the account (see TradingView Requirements below)
+- `MONGODB_URI` — Atlas SRV connection string (shared with Stock Buddy)
+- `COMBO_WEBHOOK_URL` — Stock Buddy combo webhook base URL; runtime appends `?instance=<TTE_INSTANCE>`
+- `STOCK_BUDDY_API_URL`, `API_TIMEOUT` — Stock Buddy REST API base + HTTP timeout
+- `REVERSED_STRATEGY_SNAPSHOTS` — emergency rollback flag (default false)
+- `TTE_INITIAL_CHART_URL` — optional override of initial chart URL on sign-in (e.g. `/chart/bSgWQNPC/` for Rahul's saved Screener layout); skips layout-switch step during setup_tv
 
 ### TradingView Requirements
-- **2FA**: Can be on or off — if TV's "suspicious activity" detector forces 2FA on, set `TRADINGVIEW_TOTP_SECRET` in `.env` for auto-handling (PR #40); otherwise the backup-code workflow in `.claude/credentials-and-2fa.md` is the manual recovery path
+- **2FA**: **REQUIRED on every TV account TTE drives.** TV silently rejects webhook-alert creation when 2FA is off — it shows a "Protect your data — enable 2-factor authentication" modal that the alert dialog doesn't surface as an error, so Selenium's Create click appears to succeed while the alert never persists. Discovered 2026-05-19 via Rahul's tte-2 (1001 ghost-creates). Set `TRADINGVIEW_TOTP_SECRET` (base32) in each instance's `.env.tte.<N>` so pyotp auto-handles the OTP prompt at sign-in (PR #40).
 - **Social accounts**: None linked
 - **Subscription**: Premium (for webhooks)
 - **Layout**: "Screener" with the combo indicator starred/favorited
@@ -108,13 +118,33 @@ See `tte/config.py` and `.env` file. Key variables: `CHROME_PROFILES_PATH`, `TRA
 | What | Where | Use Case |
 |------|-------|----------|
 | Restart inactive alerts | `tte/main.py` `restart_inactive_alerts()` | Maintenance (every 2.5 mins) |
-| Create webhook alert | `tte/browser/tradingview.py` `create_webhook_alert()` | Alert creation |
-| Change screener settings | `tte/browser/tradingview.py` `change_settings()` | Symbol configuration |
+| Create webhook alert + persistence verify | `tte/browser/tradingview.py` `create_webhook_alert()` | Alert creation. Returns `(False, "not_persisted")` if sidebar topmost row doesn't change after Create — catches TV silent-drop bugs (PR #48) |
+| Change screener settings (with input-render wait) | `tte/browser/tradingview.py` `change_settings()` | Waits up to 6s for symbol-input fields to render in dialog, falls back to broader `data-name="edit-button"` selector if hashed `.inlineRow-uuCuCMOL` doesn't match (PR #48) |
+| Delete all alerts (incl. stopped sweep) | `tte/browser/tradingview.py` `delete_all_alerts()` | Pauses + deletes inactive, then sweeps "Delete all" + per-row fallback to clean stopped-state survivors (PR #48) |
 | Safe element access | `tte/browser/tradingview.py` `_safe_indicator_access()` | When Selenium elements go stale |
-| Re-upload indicator | `tte/browser/tradingview.py` `reupload_indicator()` | Screener error recovery |
+| Re-upload indicator (add-before-delete) | `tte/browser/tradingview.py` `reupload_indicator()` | Add fresh copy from Favorites FIRST, confirm on chart, THEN remove old. Stable text-match selector instead of hashed CSS classes. Prevents chart destruction (PR #48). |
+| Set Instance ID after reupload | `tte/browser/tradingview.py` `_set_indicator_instance_id()` | Restores Pine `Instance ID` input to the running container's `TTE_INSTANCE` after reupload's fresh copy lands (PR #48) |
+| TOTP auto-submit | `tte/browser/tradingview.py` `_maybe_auto_submit_totp()` | `target.click() + Ctrl+A+Delete + send_keys(code) + Enter` (PR #48). React-controlled input — `.clear()` is unreliable. |
 | Login-state guard | `tte/browser/tradingview.py` `is_chart_layout_loaded()` / `ensure_chart_layout_loaded()` | TV session-expired recovery (PR #39) |
-| Auto-2FA | `tte/browser/tradingview.py` `_maybe_auto_submit_totp()` | Optional pyotp-based 2FA submit when `TRADINGVIEW_TOTP_SECRET` is set (PR #40) |
-| Renderer-stall recovery | `tte/browser/chart.py` `change_symbol()` retry-on-`Read timed out` + `tte/snapshot_worker.py` `_recycle_chart()` | WS-0 fixes for chronic renderer overload on long-running headless Chrome (lowers urllib3 timeout to 45s, retries on stall, recycles every 30 snapshots) |
+| Skip reupload on `not_persisted` | `tte/main.py` retry path | Skips reupload-retry when failure is `not_persisted` (TV silent rejection) — reupload destroys chart and cascades into 100% failure otherwise (PR #48) |
+| Renderer-stall recovery | `tte/browser/chart.py` `change_symbol()` retry-on-`Read timed out` + `tte/snapshot_worker.py` `_recycle_chart()` | WS-0 fixes (PR #42) |
+
+## Tools (`tools/`)
+
+One-off and bootstrap utilities (NOT part of the runtime loop):
+
+| Script | Purpose |
+|--------|---------|
+| `tools/compute_missing_symbols.py` | Parse `app_log.log` for "Alert created for" lines in a time window, diff against the Mongo partition, write missing symbols CSV. Used to drive `--symbols` supplementary fills. |
+| `tools/fix_instance_id.py` | Open chart via `Browser.setup_tv()` then call `Browser._set_indicator_instance_id()` to restore Pine `Instance ID` input on the Screener layout. Saves layout via Ctrl+S. Use after a reupload-recovery side-effect leaves the wrong Instance ID. |
+| `tools/add_trade_drawer.py` | Switch to Snapshot layout, open Favorites, click `Trade Drawer V2`, save. Use after Trade Drawer V2 is favorited on a TV account to add it to the Snapshot layout. |
+| `tools/favorite_trade_drawer.py` | Check whether `Trade Drawer V2` is in My Scripts and favorited. Reports current Favorites list. Read-only diagnostic. |
+| `tools/pine_install_trade_drawer.py` | Full Pine Editor automation: paste `Pine Script Code/Trade Drawer V2.txt` into Monaco's hidden textarea → Ctrl+S → save (TV auto-populates name from `indicator('Title', ...)`). Save-and-star is partial (star-click selector hunting needed). |
+| `tools/investigate_alert_cap.py` | Read-only: open alerts sidebar, dump alerts-settings menu (shows `Active 1000 / Inactive N` and `Technicals X/1000` cap usage). |
+| `tools/csv_to_scraped_json.py` | Convert TV screener CSV exports → JSON for `tools/ingest_scraped_symbols.py`. Used during the symbol-partition bootstrap. |
+| `tools/scrape_tv_screener.py` | Selenium fallback scraper for TV screener pages (used when CSV export isn't available). |
+| `inject_tv_cookies.py` (top-level) | One-off cookie-injection bootstrap. Reads `TV_SESSION_ID`/`TV_SESSION_ID_SIGN` from env, persists them into a Chrome user-data-dir so containers skip `/accounts/signin/`. **Important**: pass `CHROME_USER_DATA_DIR=/home/tte/chrome-profile/TTE-tte-<N>` (with the subdir) so cookies land where tte-N's Chrome reads them. |
+| `tools/onboard_tv_account.py` | Skeleton script for new-TV-account bootstrap (manual setup steps live at `.claude/specs/manual-tv-account-setup.md`). |
 
 ## Documentation
 

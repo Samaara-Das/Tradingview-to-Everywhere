@@ -29,7 +29,7 @@ from selenium.webdriver.support.wait import WebDriverWait
 from tte import log
 from tte.browser.chart import OpenChart
 from tte.browser.helpers import Utils
-from tte.config import PROFILE
+from tte.config import INSTANCE, PROFILE
 
 # Set up logger for this file
 open_tv_logger = log.setup_logger(__name__, log.INFO)
@@ -504,7 +504,70 @@ class Browser:
         return recovered
 
     def sign_in(self):
-        """This signs in to TradingView if logged out"""
+        """This signs in to TradingView if logged out.
+
+        Fast-path: if the cookie-injected session is already valid (e.g. a
+        prior `inject_tv_cookies.py` run seeded sessionid/sessionid_sign),
+        `/chart/` loads without redirecting to /accounts/signin/. We detect
+        that and skip the email/password flow entirely. This is required for
+        accounts where no creds are in the env (cookie-only auth, e.g.
+        tte-2 against Rahul's TV).
+        """
+        # Cookie-auth fast-path. Optional `TTE_INITIAL_CHART_URL` env points
+        # at a specific layout chart (e.g. /chart/bSgWQNPC for Rahul's
+        # "Screener" layout) so we land directly on the right view without
+        # depending on TV's flaky save-load-menu DOM.
+        try:
+            initial = getenv("TTE_INITIAL_CHART_URL")
+            target = (
+                f"https://www.tradingview.com{initial}"
+                if initial and initial.startswith("/")
+                else (initial or "https://www.tradingview.com/chart/")
+            )
+            self.driver.get(target)
+            WebDriverWait(self.driver, 8).until(
+                lambda d: "/accounts/signin" not in d.current_url and "/chart/" in d.current_url
+            )
+            # /chart/ URL alone isn't proof of login — TV shows a public
+            # marketing chart for logged-out users. Verify by checking for
+            # the user-menu button (only rendered for authenticated sessions).
+            try:
+                WebDriverWait(self.driver, 6).until(
+                    EC.presence_of_element_located(
+                        (By.CSS_SELECTOR, 'button[aria-label*="Open user menu"]')
+                    )
+                )
+            except TimeoutException:
+                open_tv_logger.info(
+                    "Cookie-auth fast-path: chart loaded but user-menu not found "
+                    "— treating as logged out, will fall through to credential flow."
+                )
+                raise TimeoutException("Not logged in despite /chart/ URL") from None
+
+            # Wait for the toolbar layout-name button to settle on a non-empty
+            # value — otherwise the immediately-following change_layout() race
+            # reads stale text and tries to open the dropdown unnecessarily.
+            try:
+                WebDriverWait(self.driver, 15).until(
+                    lambda d: bool(
+                        d.find_element(
+                            By.CSS_SELECTOR, "button#header-toolbar-save-load"
+                        ).text.strip()
+                    )
+                )
+            except TimeoutException:
+                open_tv_logger.warning(
+                    "Cookie-auth fast-path: toolbar layout-name didn't settle in 15s"
+                )
+            open_tv_logger.info(f"Cookie-auth fast-path: chart loaded ({target}), signed in.")
+            return True
+        except TimeoutException:
+            open_tv_logger.info("Cookie-auth fast-path failed; falling back to credential flow.")
+        except Exception as e:
+            open_tv_logger.info(
+                f"Cookie-auth fast-path error ({e}); falling back to credential flow."
+            )
+
         self.driver.get("https://www.tradingview.com/accounts/signin/")
         if not getattr(self, "headless", False):
             try:
@@ -589,6 +652,30 @@ class Browser:
                 return True
             except TimeoutException:
                 open_tv_logger.error("Failed to sign in to TradingView (timed out after 60s)")
+                try:
+                    debug_url = self.driver.current_url
+                    debug_html_snippet = self.driver.execute_script(
+                        """
+                        // Capture visible text, all visible inputs/buttons, and any error elements
+                        const body = document.body ? document.body.innerText : '';
+                        const inputs = Array.from(document.querySelectorAll('input')).map(i => ({
+                            name: i.name, type: i.type, placeholder: i.placeholder, value_len: (i.value||'').length, visible: i.offsetParent !== null
+                        }));
+                        const buttons = Array.from(document.querySelectorAll('button')).map(b => ({
+                            text: (b.textContent || '').trim().slice(0,80), type: b.type, visible: b.offsetParent !== null
+                        }));
+                        const errors = Array.from(document.querySelectorAll('[class*="error"], [data-name*="error"], [role="alert"]')).map(e => (e.textContent || '').trim().slice(0,200));
+                        return JSON.stringify({inputs, buttons, errors, body_first_500: body.slice(0, 500)});
+                        """
+                    )
+                    open_tv_logger.error(
+                        f"Sign-in failure debug: url={debug_url} page_state={debug_html_snippet}"
+                    )
+                    screenshot_path = "/app/logs/signin_failure.png"
+                    self.driver.save_screenshot(screenshot_path)
+                    open_tv_logger.error(f"Sign-in failure screenshot saved to {screenshot_path}")
+                except Exception:
+                    open_tv_logger.exception("Failed to capture sign-in failure debug info")
                 return False
 
     def _maybe_auto_submit_totp(self, poll_timeout: float = 30.0) -> bool:
@@ -707,32 +794,48 @@ class Browser:
             open_tv_logger.exception("Failed to compute TOTP code from TRADINGVIEW_TOTP_SECRET")
             return False
 
-        # TV's 2FA page is a React-controlled input — Selenium's send_keys()
-        # fires keyboard events but doesn't update React's internal state, so
-        # the form never actually submits. Use the native value setter +
-        # explicit input/change/keydown event dispatch (matches the working
-        # DevTools snippet from the 2026-05-14 manual injection).
+        # Use Selenium send_keys (native keyboard events) — matches what Sammy
+        # does manually. The earlier JS-native-value-setter path worked on tte-1
+        # but submitted empty values on Rahul's tte-2 first-time-2FA flow.
+        # IMPORTANT: `.clear()` is unreliable on TV's React-controlled OTP input
+        # (2026-05-19: 28 chars accumulated across retries despite clear()).
+        # Use Ctrl+A + DELETE to nuke any existing value before typing.
         try:
-            self.driver.execute_script(
-                """
-                const el = arguments[0];
-                const code = arguments[1];
-                el.focus();
-                const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-                setter.call(el, code);
-                el.dispatchEvent(new Event('input', {bubbles: true}));
-                el.dispatchEvent(new Event('change', {bubbles: true}));
-                el.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true}));
-                el.dispatchEvent(new KeyboardEvent('keypress', {key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true}));
-                el.dispatchEvent(new KeyboardEvent('keyup', {key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true}));
-                """,
-                target,
-                code,
-            )
-            open_tv_logger.info("Auto-submitted TOTP code for TV 2FA via JS event dispatch")
+            target.click()
+            sleep(0.1)
+            ActionChains(self.driver).key_down(Keys.CONTROL).send_keys("a").key_up(
+                Keys.CONTROL
+            ).send_keys(Keys.DELETE).perform()
+            sleep(0.2)
+            # Sanity check: input should now be empty
+            try:
+                pre = target.get_attribute("value") or ""
+                if pre:
+                    open_tv_logger.warning(
+                        f"TOTP input still has {len(pre)} chars after Ctrl+A+Delete — using JS fallback"
+                    )
+                    self.driver.execute_script("arguments[0].value = '';", target)
+                    sleep(0.1)
+            except Exception:
+                pass
+            target.send_keys(code)
+            sleep(0.4)  # let React state propagate
+            try:
+                actual = target.get_attribute("value") or ""
+                open_tv_logger.info(
+                    f"TOTP input populated (len={len(actual)}, expected_len={len(code)})"
+                )
+                if len(actual) != len(code):
+                    open_tv_logger.warning(
+                        f"TOTP input length mismatch (actual={actual!r}); TV will likely reject"
+                    )
+            except Exception:
+                pass
+            target.send_keys(Keys.ENTER)
+            open_tv_logger.info("Submitted TOTP code via send_keys + ENTER")
             return True
         except Exception:
-            open_tv_logger.exception("Failed to submit TOTP code")
+            open_tv_logger.exception("Failed to submit TOTP code via send_keys")
             return False
 
     def setup_tv(self):
@@ -744,29 +847,43 @@ class Browser:
             open_tv_logger.error("Failed to sign in to TradingView. Exiting function")
             return False
 
-        # open tradingview
-        if not self.open_page("https://www.tradingview.com/chart"):
-            if not self.open_page("https://www.tradingview.com/chart"):  # try once more
-                open_tv_logger.error("Failed to open tradingview. Exiting function")
-                return False
+        # open tradingview — but if TTE_INITIAL_CHART_URL was honored by
+        # the cookie-auth fast-path, we're already on the correct layout's
+        # chart URL. Skip the generic /chart navigation + layout-switch in
+        # that case (headless Chrome's save-load-menu DOM is unreliable on
+        # Rahul-style cookie-bootstrapped accounts).
+        skip_layout_switch = bool(getenv("TTE_INITIAL_CHART_URL"))
+        if not skip_layout_switch:
+            if not self.open_page("https://www.tradingview.com/chart"):
+                if not self.open_page("https://www.tradingview.com/chart"):  # try once more
+                    open_tv_logger.error("Failed to open tradingview. Exiting function")
+                    return False
 
-        # change to the correct layout (if we are on any other layout)
-        if not self.change_layout(self.layout_name):
-            self.change_layout(self.layout_name)  # try once more
-            if self.current_layout() != self.layout_name:
-                open_tv_logger.error(
-                    f"Cannot change the layout to {self.layout_name}. Exiting function"
-                )
-                return False
+            # change to the correct layout (if we are on any other layout)
+            if not self.change_layout(self.layout_name):
+                self.change_layout(self.layout_name)  # try once more
+                if self.current_layout() != self.layout_name:
+                    open_tv_logger.error(
+                        f"Cannot change the layout to {self.layout_name}. Exiting function"
+                    )
+                    return False
+        else:
+            open_tv_logger.info(
+                "setup_tv: TTE_INITIAL_CHART_URL set — trusting layout from fast-path nav"
+            )
 
-        # set the timeframe to the correct timeframe
-        if not self.open_chart.change_tframe(self.chart_timeframe):
-            self.open_chart.change_tframe(self.chart_timeframe)  # try once more
-            if self.current_chart_tframe() != self.chart_timeframe:
-                open_tv_logger.error(
-                    f"Cannot change the chart timeframe to {self.chart_timeframe}. Exiting function"
-                )
-                return False
+        # set the timeframe to the correct timeframe.
+        # Skipped when TTE_INITIAL_CHART_URL was used — the manual-onboarded
+        # layout already has the correct timeframe baked in (per
+        # `.claude/specs/manual-tv-account-setup.md`).
+        if not skip_layout_switch:
+            if not self.open_chart.change_tframe(self.chart_timeframe):
+                self.open_chart.change_tframe(self.chart_timeframe)  # try once more
+                if self.current_chart_tframe() != self.chart_timeframe:
+                    open_tv_logger.error(
+                        f"Cannot change the chart timeframe to {self.chart_timeframe}. Exiting function"
+                    )
+                    return False
 
         # open the alerts sidebar
         if not self.open_alerts_sidebar():
@@ -845,17 +962,42 @@ class Browser:
             )
             sleep(0.3)
 
-            # Find layout in "Recently used" section by visible text
-            # Scoped to data-qa-id to avoid matching chart legend or other page elements
-            layout_item = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located(
-                    (
-                        By.XPATH,
-                        '//*[@data-qa-id="save-load-menu-item-recent"]'
-                        f'[.//span[normalize-space(text())="{layout_name}"]]',
+            # Find layout in "Recently used" section by visible text.
+            # Primary: exact-text match. Fallback: case-insensitive contains
+            # (defends against TV adding suffix chars or A/B-test DOM tweaks).
+            layout_item = None
+            try:
+                layout_item = WebDriverWait(self.driver, 10).until(
+                    EC.presence_of_element_located(
+                        (
+                            By.XPATH,
+                            '//*[@data-qa-id="save-load-menu-item-recent"]'
+                            f'[.//span[normalize-space(text())="{layout_name}"]]',
+                        )
                     )
                 )
-            )
+            except TimeoutException:
+                open_tv_logger.warning(
+                    f"Exact-text XPath for layout '{layout_name}' timed out — "
+                    "trying case-insensitive contains() fallback"
+                )
+                lower = layout_name.lower()
+                items = self.driver.find_elements(
+                    By.CSS_SELECTOR, 'a[data-qa-id="save-load-menu-item-recent"]'
+                )
+                for it in items:
+                    try:
+                        title_span = it.find_element(By.CSS_SELECTOR, '[class*="title"] span')
+                        if title_span.text and lower in title_span.text.lower():
+                            layout_item = it
+                            break
+                    except Exception:
+                        continue
+                if layout_item is None:
+                    raise TimeoutException(
+                        f"No 'Recently used' menu item matched layout '{layout_name}' "
+                        f"(checked {len(items)} items)"
+                    ) from None
 
             # Non-current layouts are <a target="_blank"> links.
             # Clicking them opens a new tab — navigate directly instead.
@@ -1011,10 +1153,56 @@ class Browser:
                             )
                         )
                     )
-                    symbol_inputs = settings.find_elements(
-                        By.CSS_SELECTOR,
-                        '.inlineRow-uuCuCMOL div[data-name="edit-button"]',
-                    )  # symbol inputs
+
+                    # Wait until at least len(symbols_list) symbol-input buttons
+                    # are rendered inside the settings dialog. Without this wait
+                    # the post-renderer-stall page refresh (WS-0 recovery) leaves
+                    # the dialog half-rendered → symbol_inputs has 0 elements →
+                    # IndexError on symbol_inputs[0]. Observed live 2026-05-19
+                    # on tte-1 after 14:44 UTC renderer-stall recovery cascaded
+                    # into 4.4% success rate.
+                    need = len(symbols_list)
+                    symbol_inputs = []
+
+                    def _have_n_inputs(_d, _settings=settings, _n=need):
+                        els = _settings.find_elements(
+                            By.CSS_SELECTOR,
+                            '.inlineRow-uuCuCMOL div[data-name="edit-button"]',
+                        )
+                        return els if len(els) >= _n else False
+
+                    try:
+                        symbol_inputs = WebDriverWait(self.driver, 6).until(_have_n_inputs)
+                    except TimeoutException:
+                        # Re-query once with a broader fallback selector — TV
+                        # may have updated the hashed `.inlineRow-uuCuCMOL`
+                        # class. `data-name="edit-button"` is more stable.
+                        fallback = settings.find_elements(
+                            By.CSS_SELECTOR, 'div[data-name="edit-button"]'
+                        )
+                        if len(fallback) >= need:
+                            symbol_inputs = fallback
+                            open_tv_logger.warning(
+                                f"change_settings: hashed-class selector found <{need} inputs; "
+                                f"falling back to data-name selector ({len(fallback)} found)"
+                            )
+                        else:
+                            open_tv_logger.error(
+                                f"change_settings: only {len(fallback)} symbol-input buttons in dialog "
+                                f"(need {need}). Dismissing dialog and aborting batch — chart not modified."
+                            )
+                            # Close the half-rendered dialog so the next batch starts clean
+                            try:
+                                self.driver.find_element(
+                                    By.CSS_SELECTOR, 'button[name="cancel"]'
+                                ).click()
+                            except Exception:
+                                try:
+                                    ActionChains(self.driver).send_keys(Keys.ESCAPE).perform()
+                                except Exception:
+                                    pass
+                            all_success = False
+                            continue
 
                     # change the symbol inputs based on the total number of symbols
                     for i, to_be_symbol in enumerate(symbols_list):
@@ -1160,6 +1348,19 @@ class Browser:
             self.utils.open_alert_tab(self.driver)
             open_tv_logger.info("create_webhook_alert: alert tab opened, looking for + button...")
 
+            # Snapshot the topmost alert row text BEFORE creating, so we can detect
+            # silent TV-side drops (Selenium "Create" can succeed visually while TV's
+            # backend rejects the alert — see Rahul's 1001 ghost-creates incident).
+            pre_top_text = ""
+            try:
+                pre_rows = self.driver.find_elements(
+                    By.CSS_SELECTOR, 'div[data-name="alert-item-name"]'
+                )
+                if pre_rows:
+                    pre_top_text = (pre_rows[0].text or "").strip()
+            except Exception:
+                pass
+
             # Click the + button to open alert creation dialog
             plus_button = WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-name="set-alert-button"]'))
@@ -1287,10 +1488,49 @@ class Browser:
                 return (False, None)
 
             except TimeoutException:
-                open_tv_logger.info(
-                    f"Webhook alert created successfully for {indicator_shorttitle}"
+                # The Create button's submit succeeded visually (no error popup), but
+                # TV's backend may still silently drop the alert (Ultimate plan cap,
+                # symbol-feed glitch, etc.). Re-query the sidebar to confirm the alert
+                # actually persisted by checking that the topmost row changed.
+                try:
+                    WebDriverWait(self.driver, 5).until(
+                        EC.invisibility_of_element_located(
+                            (By.CSS_SELECTOR, 'div[data-qa-id="alerts-create-edit-dialog"]')
+                        )
+                    )
+                except TimeoutException:
+                    pass
+
+                # Poll the sidebar for up to 3s waiting for the topmost row to differ
+                # from the snapshot (TV needs a moment to insert the new alert).
+                post_top_text = ""
+                deadline = time() + 3.0
+                while time() < deadline:
+                    try:
+                        post_rows = self.driver.find_elements(
+                            By.CSS_SELECTOR, 'div[data-name="alert-item-name"]'
+                        )
+                        if post_rows:
+                            post_top_text = (post_rows[0].text or "").strip()
+                            if post_top_text and post_top_text != pre_top_text:
+                                break
+                    except Exception:
+                        pass
+                    sleep(0.2)
+
+                if post_top_text and post_top_text != pre_top_text:
+                    open_tv_logger.info(
+                        f"Webhook alert created successfully for {indicator_shorttitle} "
+                        f"(verified: sidebar top changed '{pre_top_text[:40]}' -> '{post_top_text[:40]}')"
+                    )
+                    return (True, None)
+
+                open_tv_logger.error(
+                    f"Alert NOT persisted on TV for {indicator_shorttitle}: "
+                    f"sidebar top unchanged ('{pre_top_text[:40]}'). "
+                    "Likely silently dropped by TV backend (plan cap / rate limit / symbol)."
                 )
-                return (True, None)
+                return (False, "not_persisted")
 
         except Exception:
             open_tv_logger.exception(
@@ -1606,11 +1846,10 @@ class Browser:
                 open_tv_logger.info("There are no alerts. No need to delete any alerts!")
                 return True
 
-            # Step 1: Pause all alerts
+            # Step 1: Pause all alerts (active → inactive)
             open_dropdown()
             pause_btn = find_menu_item("Pause all")
             if not pause_btn:
-                # Try legacy label
                 pause_btn = find_menu_item("Stop all")
             if pause_btn and "isDisabled" not in (pause_btn.get_attribute("class") or ""):
                 pause_btn.click()
@@ -1619,7 +1858,7 @@ class Browser:
             else:
                 open_tv_logger.info("Pause all is disabled or not found — alerts already inactive")
 
-            # Step 2: Delete all inactive alerts
+            # Step 2: Delete all inactive alerts (covers paused + stopped)
             open_dropdown()
             delete_btn = find_menu_item("Delete all inactive")
             if delete_btn and "isDisabled" not in (delete_btn.get_attribute("class") or ""):
@@ -1631,6 +1870,59 @@ class Browser:
                     "Delete all inactive is disabled or not found — no inactive alerts"
                 )
 
+            # Step 3: Sweep any survivors (e.g. "Stopped" state TV sometimes keeps out of
+            # the inactive bucket). Try the broader "Delete all" if present; if not, loop
+            # over remaining alert-item rows and delete each via its row-level menu.
+            open_dropdown()
+            delete_all_btn = find_menu_item("Delete all")
+            if delete_all_btn and "isDisabled" not in (delete_all_btn.get_attribute("class") or ""):
+                delete_all_btn.click()
+                self.utils.click_yes_in_confirm_popup(self.driver)
+                open_tv_logger.info("Deleted all remaining alerts (Delete all)")
+            else:
+                # Close any open dropdown before per-row delete
+                try:
+                    self.driver.find_element(By.CSS_SELECTOR, "body").click()
+                except Exception:
+                    pass
+
+                # Per-row fallback: iterate and delete one by one. Cap at 2000 to avoid
+                # infinite loop if a row keeps reappearing.
+                remaining = self.driver.find_elements(By.CSS_SELECTOR, alert_selector)
+                if remaining:
+                    open_tv_logger.warning(
+                        f"{len(remaining)} alert(s) still present after bulk delete — sweeping per-row"
+                    )
+                    swept = 0
+                    for _ in range(min(len(remaining) + 50, 2000)):
+                        rows = self.driver.find_elements(By.CSS_SELECTOR, alert_selector)
+                        if not rows:
+                            break
+                        try:
+                            self.driver.execute_script("arguments[0].scrollIntoView();", rows[0])
+                            ActionChains(self.driver).move_to_element(rows[0]).perform()
+                            # Click row-level kebab (... button) then "Delete"
+                            kebab = rows[0].find_element(
+                                By.CSS_SELECTOR, 'div[data-name="alert-item-menu"]'
+                            )
+                            kebab.click()
+                            delete_item = WebDriverWait(self.driver, 3).until(
+                                EC.element_to_be_clickable(
+                                    (
+                                        By.XPATH,
+                                        '//div[@data-qa-id="menu-inner"]/div[.//span[normalize-space(text())="Delete"]]',
+                                    )
+                                )
+                            )
+                            delete_item.click()
+                            self.utils.click_yes_in_confirm_popup(self.driver)
+                            swept += 1
+                            sleep(0.3)
+                        except Exception:
+                            open_tv_logger.debug("Per-row delete failed for one row — continuing")
+                            sleep(0.5)
+                    open_tv_logger.info(f"Per-row sweep deleted {swept} alert(s)")
+
             open_tv_logger.info("All alerts deleted successfully")
             return True
         except Exception:
@@ -1640,34 +1932,100 @@ class Browser:
             return False
 
     def get_indicator(self, ind_shorttitle: str):
-        """Returns the indicator which has the same shorttitle as `ind_shorttitle`. If an indicator with the same shorttitle can't be found or an error occurs, `None` will be returned"""
+        """Returns the indicator whose legend title matches `ind_shorttitle`.
+        Returns None on miss or error. Tries several selectors because TV's
+        legend DOM is unstable across renders (2026-05-19: 70% failure rate on
+        tte-1 when the exact `data-qa-id="legend-source-item"` selector raced
+        with re-rendering on each symbol swap)."""
         try:
             indicator = None
-            sleep(0.5)  # brief DOM stability buffer (WebDriverWait below handles actual waiting)
-            wait = WebDriverWait(self.driver, 15)
+            sleep(0.5)
+            wait = WebDriverWait(self.driver, 20)
+            # Probe multiple selector variants — TV intermittently renders the
+            # legend with a slightly different attribute (data-qa-id exact,
+            # data-qa-id substring, or class-based fallback).
+            selector_variants = [
+                'div[data-qa-id="legend-source-item"]',
+                '[data-qa-id="legend-source-item"]',
+                '[data-qa-id*="legend-source-item"]',
+                '[class*="legend-source-item"]',
+            ]
             indicators = wait.until(
-                EC.presence_of_all_elements_located(
-                    (By.CSS_SELECTOR, 'div[data-qa-id="legend-source-item"]')
+                lambda d: next(
+                    (
+                        d.find_elements(By.CSS_SELECTOR, s)
+                        for s in selector_variants
+                        if d.find_elements(By.CSS_SELECTOR, s)
+                    ),
+                    None,
                 )
             )
 
+            names_seen = []
             for ind in indicators:
                 indicator_name = self.driver.execute_script(
-                    'var el = arguments[0].querySelector(\'[data-qa-id*="legend-source-title"]\'); return el ? el.textContent.trim() : "";',
+                    """
+                    const el = arguments[0];
+                    const title = el.querySelector('[data-qa-id*="legend-source-title"], [class*="legend-source-title"], [class*="title"]');
+                    const text = title ? title.textContent.trim() : '';
+                    return text || el.getAttribute('aria-label') || el.getAttribute('title') || '';
+                    """,
                     ind,
                 )
-                if indicator_name == ind_shorttitle:
-                    open_tv_logger.info(f"Found indicator {ind_shorttitle}!")
+                names_seen.append(indicator_name[:80])
+                # Match by prefix because TV appends input values to the title
+                # on the new Pine source (e.g. "Screener V2 (tte-1, 1,000, ...")
+                # OR the title may include the indicator's "long title" too.
+                # Use substring containment as the loosest fallback.
+                short_l = ind_shorttitle.lower()
+                name_l = indicator_name.lower()
+                if (
+                    indicator_name == ind_shorttitle
+                    or name_l.startswith(short_l + " ")
+                    or name_l.startswith(short_l + "(")
+                    or name_l.startswith(short_l)
+                    or short_l in name_l
+                ):
+                    open_tv_logger.info(
+                        f"Found indicator {ind_shorttitle} (legend text: {indicator_name[:80]!r})"
+                    )
                     indicator = ind
                     break
+            if indicator is None:
+                open_tv_logger.warning(
+                    f"get_indicator: no match for {ind_shorttitle!r} among "
+                    f"{len(indicators)} legend items. Names seen: {names_seen[:10]}"
+                )
         except Exception:
-            # Debug: check why legend items aren't found
+            # Debug: dump what's actually on the page when match fails
             try:
                 in_source = "legend-source-item" in self.driver.page_source
                 url = self.driver.current_url
+                # Dump first 3 elements matching any variant — so we can see what
+                # selector / text TV is actually using right now.
+                probe = self.driver.execute_script(
+                    """
+                    const variants = [
+                        'div[data-qa-id="legend-source-item"]',
+                        '[data-qa-id*="legend-source"]',
+                        '[class*="legend-source-item"]',
+                        '[class*="legend"]',
+                    ];
+                    const out = {};
+                    for (const v of variants) {
+                        const els = Array.from(document.querySelectorAll(v)).slice(0, 3);
+                        out[v] = els.map(e => ({
+                            qaid: e.getAttribute('data-qa-id'),
+                            cls: (e.className || '').slice(0, 80),
+                            text: (e.textContent || '').trim().slice(0, 80),
+                        }));
+                    }
+                    return JSON.stringify(out);
+                    """
+                )
                 open_tv_logger.error(
                     f"Failed to find indicator {ind_shorttitle}. "
-                    f"URL={url}, legend-source-item in page_source={in_source}"
+                    f"URL={url}, legend-source-item in page_source={in_source}, probe={probe}"
                 )
                 self.driver.save_screenshot("debug_get_indicator_fail.png")
                 open_tv_logger.error("Debug screenshot saved to debug_get_indicator_fail.png")
@@ -1704,90 +2062,273 @@ class Browser:
         return None
 
     def reupload_indicator(self, indicator, indicator_name, indicator_shorttitle):
-        """removes indicator and reuploads it again to the chart by clicking on the screener in the Favorites dropdown. It then waits for the indicator to show up on the chart and returns `True` if it does otherwise `False`.
+        """Reuploads the screener indicator by ADDING a fresh copy from Favorites
+        BEFORE deleting the existing one. If anything fails along the way the chart
+        is never left without the indicator.
 
-        Don't remove the print statements. It seems like the code will only run with the print statements.
+        Previous order (delete → add) destroyed Sammy's and Rahul's charts on
+        2026-05-19 when the favorites-dropdown text selector
+        `span[class="label-l0nf43ai apply-overflow-tooltip"]` stopped matching
+        TV's new menu DOM: the indicator was deleted but the re-add failed, so
+        the chart was left empty and EVERY subsequent batch errored with
+        `Could not find screener indicator`.
         """
-        val = False
-
         try:
-            # Get fresh indicator reference to avoid stale element
-            fresh_indicator = self._safe_indicator_access(indicator_shorttitle)
-            if not fresh_indicator:
-                open_tv_logger.error(f"Could not get fresh reference to {indicator_shorttitle}")
+            # Step 1: open Favorites dropdown
+            try:
+                WebDriverWait(self.driver, 10).until(
+                    EC.element_to_be_clickable(
+                        (
+                            By.CSS_SELECTOR,
+                            'div[id="header-toolbar-indicators"] button[data-name="show-favorite-indicators"]',
+                        )
+                    )
+                ).click()
+                open_tv_logger.debug("Favorites dropdown opened")
+            except Exception:
+                open_tv_logger.exception(
+                    f"reupload {indicator_shorttitle}: could not open Favorites dropdown — aborting"
+                )
                 return False
 
-            # click on the indicator
-            fresh_indicator.click()
-
-            # click on data-qa-id="legend-delete-action" (a sub element under the indicator)
-            delete_action = WebDriverWait(fresh_indicator, 10).until(
-                EC.element_to_be_clickable(
-                    (By.CSS_SELECTOR, 'button[data-qa-id="legend-delete-action"]')
-                )
-            )
-            open_tv_logger.debug(f"Found remove button: {delete_action}")
-            delete_action.click()
-
-            # click on "Favorites" dropdowm
-            WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable(
-                    (
-                        By.CSS_SELECTOR,
-                        'div[id="header-toolbar-indicators"] button[data-name="show-favorite-indicators"]',
+            # Step 2: find the indicator by NAME (text match, not hashed CSS class).
+            # TV's menu DOM changes hashed class names on every UI revision, so
+            # the only stable identifier is the rendered text of the menuitem.
+            try:
+                menu = WebDriverWait(self.driver, 10).until(
+                    EC.presence_of_element_located(
+                        (By.CSS_SELECTOR, 'div[data-qa-id="menu-inner"]')
                     )
                 )
-            ).click()
-            open_tv_logger.debug("Favorites dropdown was clicked")
+                dropdown_indicators = WebDriverWait(menu, 10).until(
+                    EC.presence_of_all_elements_located(
+                        (By.CSS_SELECTOR, 'div[data-role="menuitem"]')
+                    )
+                )
+            except Exception:
+                open_tv_logger.exception(
+                    f"reupload {indicator_shorttitle}: dropdown menu didn't appear — aborting WITHOUT touching the chart"
+                )
+                return False
 
-            # Wait for the dropdown menu to appear
-            menu = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-qa-id="menu-inner"]'))
-            )
-            open_tv_logger.debug("Dropdown menu appeared")
-
-            # find the indicator in the dropdown menu and click on it
-            dropdown_indicators = WebDriverWait(menu, 10).until(
-                EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[data-role="menuitem"]'))
-            )
+            target_item = None
             for el in dropdown_indicators:
-                open_tv_logger.debug(f"Current indicator: {el}")
-                text = el.find_element(
-                    By.CSS_SELECTOR,
-                    'span[class="label-l0nf43ai apply-overflow-tooltip"]',
-                ).text
-                if indicator_name == text:
-                    open_tv_logger.debug(f"Found {indicator_name}")
-                    if el.is_displayed():
-                        el.click()
+                try:
+                    # Multi-strategy: try aria-label, title, then full text.
+                    item_text = (
+                        el.get_attribute("aria-label")
+                        or el.get_attribute("title")
+                        or (el.text or "").strip()
+                    )
+                    if indicator_name and indicator_name in item_text:
+                        target_item = el
                         break
-                    else:
-                        # Scroll the element into view
-                        actions = ActionChains(self.driver).move_to_element(el)
-                        actions.perform()
-                        el.click()
-                        break
+                except Exception:
+                    continue
 
-            # Wait for the indicator to show up on the chart
+            if target_item is None:
+                open_tv_logger.error(
+                    f"reupload {indicator_shorttitle}: '{indicator_name}' not found in Favorites dropdown "
+                    f"(checked {len(dropdown_indicators)} items). Closing dropdown WITHOUT removing existing indicator."
+                )
+                # Dismiss the dropdown so the rest of the UI is usable
+                try:
+                    ActionChains(self.driver).send_keys(Keys.ESCAPE).perform()
+                except Exception:
+                    pass
+                return False
+
+            # Step 3: click the favorite to add a fresh copy. NOW there are two
+            # copies of the indicator on the chart (the old one + the new one).
+            try:
+                if target_item.is_displayed():
+                    target_item.click()
+                else:
+                    ActionChains(self.driver).move_to_element(target_item).perform()
+                    target_item.click()
+                open_tv_logger.debug(
+                    f"Clicked {indicator_name} in Favorites dropdown to add fresh copy"
+                )
+            except Exception:
+                open_tv_logger.exception(
+                    f"reupload {indicator_shorttitle}: click on favorite failed — aborting"
+                )
+                return False
+
+            # Step 4: wait for the indicator to be present on the chart.
+            # We can't easily distinguish "old indicator still there" from
+            # "new indicator loaded" by name alone, but in either case the
+            # chart has the indicator and that's the post-condition we need.
             start_time = time()
-            timeout = SCREENER_REUPLOAD_TIMEOUT  # max seconds to wait
+            timeout = SCREENER_REUPLOAD_TIMEOUT
+            reloaded_indicator = None
             while time() - start_time <= timeout:
-                # Use _safe_indicator_access to reuse existing selector logic
                 reloaded_indicator = self._safe_indicator_access(indicator_shorttitle)
                 if reloaded_indicator:
-                    val = True
-                    open_tv_logger.info(
-                        f"{indicator_shorttitle} is on the chart after re-uploading it!"
-                    )
                     break
-                sleep(1)  # Wait a bit before retrying
+                sleep(1)
+
+            if not reloaded_indicator:
+                open_tv_logger.error(
+                    f"reupload {indicator_shorttitle}: indicator did not appear within {timeout}s after add — chart may now be without indicator"
+                )
+                return False
+
+            open_tv_logger.info(
+                f"{indicator_shorttitle} is on the chart after re-add (old copy still present if any; safe by design)"
+            )
+
+            # Step 4b: the freshly-added copy from Favorites uses Pine input
+            # defaults — including Instance ID = 'tte-1'. If we're on a different
+            # instance (tte-2, tte-3, ...) we MUST overwrite the Instance ID
+            # before alerts get created off the new copy; otherwise their
+            # webhook payload will carry the wrong "instance" tag and Stock
+            # Buddy will mis-attribute the setups. Discovered 2026-05-19 on
+            # tte-2 (6 alerts ended up tagged tte-1 before this guard existed).
+            if INSTANCE and INSTANCE != "tte-1":
+                if not self._set_indicator_instance_id(indicator_shorttitle, INSTANCE):
+                    open_tv_logger.error(
+                        f"reupload {indicator_shorttitle}: added fresh copy but FAILED to set "
+                        f"Instance ID={INSTANCE}. Aborting — chart left with Instance ID=tte-1 default."
+                    )
+                    return False
+
+            # Step 5: now that the chart has the indicator, delete the ORIGINAL
+            # one passed in (if it's still a valid reference). If this fails,
+            # we leave both copies — change_settings will operate on whichever
+            # get_indicator finds first; not ideal but never catastrophic.
+            try:
+                if indicator:
+                    indicator.click()
+                    delete_action = WebDriverWait(indicator, 5).until(
+                        EC.element_to_be_clickable(
+                            (By.CSS_SELECTOR, 'button[data-qa-id="legend-delete-action"]')
+                        )
+                    )
+                    delete_action.click()
+                    open_tv_logger.debug(
+                        f"Deleted original copy of {indicator_shorttitle}; chart now has fresh copy only"
+                    )
+            except Exception:
+                open_tv_logger.warning(
+                    f"reupload {indicator_shorttitle}: failed to delete original copy — chart may have a duplicate (non-fatal)"
+                )
+
+            return True
         except Exception as e:
             open_tv_logger.exception(
-                f"An error occurred when re-uploading {indicator_shorttitle}. Could not reupload {indicator_shorttitle}. Error: {e}"
+                f"Unexpected error in reupload_indicator({indicator_shorttitle}): {e}"
             )
             return False
 
-        return val
+    def _set_indicator_instance_id(self, indicator_shorttitle: str, instance_id: str) -> bool:
+        """Open the indicator's settings dialog and overwrite the 'Instance ID'
+        text input with `instance_id`. Returns True on success.
+
+        Used by reupload_indicator() to restore the customized Instance ID
+        after re-adding a fresh copy from Favorites (which uses Pine defaults).
+        """
+        try:
+            indicator = self._safe_indicator_access(indicator_shorttitle)
+            if not indicator:
+                open_tv_logger.error(
+                    f"_set_indicator_instance_id: could not find {indicator_shorttitle} on chart"
+                )
+                return False
+
+            # Open settings dialog (same path change_settings uses)
+            try:
+                indicator.click()
+            except ElementClickInterceptedException:
+                ActionChains(self.driver).send_keys(Keys.ESCAPE).perform()
+                sleep(0.5)
+                self.driver.execute_script("arguments[0].click();", indicator)
+            WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable(
+                    (By.CSS_SELECTOR, 'button[data-qa-id="legend-settings-action"]')
+                )
+            ).click()
+            settings = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located(
+                    (
+                        By.CSS_SELECTOR,
+                        'div[data-outside-boundary-for="indicator-properties-dialog"]',
+                    )
+                )
+            )
+
+            # Find the input whose ROW label is "Instance ID" (string input).
+            # Pine input.string renders a <input type="text"> with a sibling/parent
+            # row containing the label text. We locate the row by visible text
+            # then take its <input>.
+            target_input = None
+            try:
+                target_input = settings.find_element(
+                    By.XPATH,
+                    './/div[contains(., "Instance ID")]/following::input[1] | .//tr[contains(., "Instance ID")]//input',
+                )
+            except Exception:
+                # Broader fallback: scan every text input in the dialog and pick
+                # the one whose value matches a known instance pattern.
+                for el in settings.find_elements(By.CSS_SELECTOR, 'input[type="text"]'):
+                    try:
+                        v = (el.get_attribute("value") or "").strip()
+                        if v.startswith("tte-") or v == "tte-1":
+                            target_input = el
+                            break
+                    except Exception:
+                        continue
+
+            if target_input is None:
+                open_tv_logger.error(
+                    "_set_indicator_instance_id: could not locate 'Instance ID' input in settings dialog"
+                )
+                # Close dialog before returning so the chart UI is usable
+                try:
+                    ActionChains(self.driver).send_keys(Keys.ESCAPE).perform()
+                except Exception:
+                    pass
+                return False
+
+            # Clear (Ctrl+A+Delete — .clear() unreliable on React inputs) then type
+            target_input.click()
+            sleep(0.1)
+            ActionChains(self.driver).key_down(Keys.CONTROL).send_keys("a").key_up(
+                Keys.CONTROL
+            ).send_keys(Keys.DELETE).perform()
+            sleep(0.1)
+            target_input.send_keys(instance_id)
+            sleep(0.2)
+            actual = target_input.get_attribute("value") or ""
+            if actual != instance_id:
+                # The whole point of this function is to STOP wrong-Instance-ID
+                # alerts from being created. If the input didn't take, abort —
+                # don't submit, don't return success. Reupload caller then
+                # returns False and the alert pipeline halts rather than
+                # silently tagging every subsequent alert with the wrong
+                # instance (the 2026-05-20 morning incident on Rahul's TV).
+                open_tv_logger.error(
+                    f"_set_indicator_instance_id: input shows {actual!r} not {instance_id!r} — "
+                    f"aborting without submit (caller will halt + screenshot)"
+                )
+                try:
+                    ActionChains(self.driver).send_keys(Keys.ESCAPE).perform()
+                except Exception:
+                    pass
+                return False
+
+            # Click Submit
+            self.driver.find_element(By.CSS_SELECTOR, 'button[name="submit"]').click()
+            sleep(0.5)
+            open_tv_logger.info(
+                f"_set_indicator_instance_id: set Instance ID={instance_id!r} on {indicator_shorttitle}"
+            )
+            return True
+        except Exception:
+            open_tv_logger.exception(
+                f"_set_indicator_instance_id failed for {indicator_shorttitle}={instance_id!r}"
+            )
+            return False
 
     def current_chart_tframe(self):
         """Returns the current chart's timeframe via the active quick-access button."""

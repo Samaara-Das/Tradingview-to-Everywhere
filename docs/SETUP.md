@@ -119,10 +119,11 @@ Each Docker container should have its own user-data-dir volume so multiple TTE i
 
 ### Account Requirements
 
-1. **Two-Factor Authentication** — supports two paths:
-   - **2FA off** (preferred): TradingView Settings → Security → disable all 2FA methods. Simplest path.
-   - **2FA on with TOTP auto-submit** (PR #40): if TV's "suspicious activity" detector forces 2FA on, set `TRADINGVIEW_TOTP_SECRET` (base32 secret from the QR code) in `.env`. The login flow calls `pyotp.TOTP(secret).now()` and submits via React-aware native value setter + dispatch events.
-   - **Backup-code fallback**: see `.claude/credentials-and-2fa.md` for manual recovery if both above fail. Backup codes on TV are reusable, not single-use.
+1. **Two-Factor Authentication — REQUIRED on every TV account TTE drives.**
+   - TV silently rejects webhook-alert creation when 2FA is off — a "Protect your data — enable 2-factor authentication" modal appears AFTER the Create button submits, never as an error inside the alert dialog. Selenium sees no error and the new `not_persisted` verification catches the silent drop. Discovered 2026-05-19 via Rahul's tte-2 (1001 ghost-creates).
+   - **Setup**: TradingView → Profile → Security → Authenticator app → reveal the **base32 secret** ("Can't scan? Enter this code") → save it.
+   - **Wire it**: set `TRADINGVIEW_TOTP_SECRET=<base32>` in the per-instance `.env.tte.<N>` file. `_maybe_auto_submit_totp()` in `tte/browser/tradingview.py` uses `target.click() + Ctrl+A+Delete + send_keys(code) + Enter` (PR #48; the older JS-native-setter path didn't update React state on first-time-2FA flows).
+   - **Backup codes**: save the 6 codes TV shows after enabling 2FA. They're reusable. See `.claude/credentials-and-2fa.md` for the recovery flow.
 
 2. **Unlink Social Accounts**
    - Remove any linked Google, Facebook, or Apple accounts
@@ -303,33 +304,58 @@ The `Dockerfile` (`python:3.11-slim-bookworm` base) installs Chrome stable + mat
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `CHROME_USER_DATA_DIR` | `/home/tte/chrome-profile` | Chrome profile volume mount target |
+| `TTE_INSTANCE` | `tte-1` | Instance identifier. Drives Mongo partition (`assigned_instance` filter) and webhook URL query-param (`?instance=<value>`). Set to `tte-1`, `tte-2`, etc. per container. |
+| `CHROME_USER_DATA_DIR` | `/home/tte/chrome-profile` | Chrome profile volume mount target. For `tte-N` (N>=2) Chrome actually reads from `<this>/TTE-tte-<N>/Default` — relevant when running `inject_tv_cookies.py`. |
 | `CHROME_PROFILE` | `Default` (set by compose) | Profile dir name inside user-data-dir; overrides `tte/config.py` PROFILE constant |
 | `LOG_DIR` | `/app/logs` | App log dir; mount a host volume here for persistence |
 | `CHROMEDRIVER_PATH` | `/usr/local/bin/chromedriver` | Where the build placed chromedriver |
 | `PYTHONUNBUFFERED` | `1` | Stream stdout/stderr to compose logs |
+| `TRADINGVIEW_TOTP_SECRET` | (none — REQUIRED) | Base32 TOTP secret for the TV account on this instance. TV refuses webhook alerts without 2FA enabled. |
+| `TTE_INITIAL_CHART_URL` | (none) | Optional override of initial chart URL (e.g. `/chart/bSgWQNPC/` for Rahul's saved Screener layout). Skips layout-switch step in `setup_tv()`. |
 
-### Per-instance volumes (compose)
+### Per-instance volumes (compose) — current prod has 2 instances
 
-Run multiple TTE instances (one per TradingView Ultimate account) by giving each its own user-data-dir + log volume:
+Run multiple TTE instances (one per TradingView Ultimate account) by giving each its own user-data-dir + log volume. **Each instance needs `TTE_INSTANCE` set** so it loads the right Mongo partition and tags webhook payloads correctly:
 
 ```yaml
 services:
   tte-1:
     image: tte:latest
+    command: [python, -m, tte.main, --maintain-only]   # or --fresh on first bring-up
+    env_file: /opt/stockbuddy/secrets/.env.tte.1
     environment:
-      CHROME_PROFILE: Default
-      LOG_DIR: /app/logs
-      MONGODB_URI: mongodb+srv://<user>:<pwd>@<atlas-cluster>/tte
-      COMBO_WEBHOOK_URL: https://stockbuddy.co/api/tte/combo
-      STOCK_BUDDY_API_URL: https://stockbuddy.co/api/tte
-      TRADINGVIEW_EMAIL: ...
-      TRADINGVIEW_PASSWORD: ...
+      - TTE_INSTANCE=tte-1
+      - CHROME_PROFILE=Default      # inside the per-instance volume
     volumes:
-      - tte1-chrome-profile:/home/tte/chrome-profile
+      - tte1-userdata:/home/tte/chrome-profile
       - ./logs/tte-1:/app/logs
     networks: [stockbuddy_net]
+
+  tte-2:
+    image: tte:latest
+    command: [python, -m, tte.main, --maintain-only]
+    env_file: /opt/stockbuddy/secrets/.env.tte.2
+    environment:
+      - TTE_INSTANCE=tte-2
+      - CHROME_PROFILE=Default
+    volumes:
+      - tte2-userdata:/home/tte/chrome-profile
+      - ./logs/tte-2:/app/logs
+    networks: [stockbuddy_net]
 ```
+
+Each `.env.tte.<N>` holds per-account creds: `TRADINGVIEW_EMAIL`, `TRADINGVIEW_PASSWORD`, `TRADINGVIEW_TOTP_SECRET`, plus shared `MONGODB_URI`, `COMBO_WEBHOOK_URL`, `STOCK_BUDDY_API_URL`.
+
+**IMPORTANT**: when you finish a `--fresh` run, flip `command:` back to `--maintain-only` BEFORE the next `docker compose up -d`. A stale `--fresh` flag wiped 991 tte-2 alerts on 2026-05-20 morning (see `memory/feedback_check_compose_command_before_restart.md`).
+
+### Bringing up a new TV account (tte-3+)
+
+1. Enable 2FA on the new TV account; capture base32 TOTP secret.
+2. Manual setup per `.claude/specs/manual-tv-account-setup.md` — Pine Editor → paste both Pine sources → save → ⭐ favorite both → save `Screener` and `Snapshot` layouts.
+3. Create `.env.tte.<N>` under `/opt/stockbuddy/secrets/` (mode 600) with `TTE_INSTANCE=tte-<N>`, creds, TOTP secret.
+4. Run `inject_tv_cookies.py` to seed the user-data-dir (pass `CHROME_USER_DATA_DIR=/home/tte/chrome-profile/TTE-tte-<N>` — the subdir matters; without it the cookies land in the wrong place and the bootstrap looks successful but the running container still falls back to credential signin).
+5. Update Mongo `tte.symbols` `assigned_instance` round-robin to include the new instance.
+6. Add the compose service block and bring up with `--fresh`. Flip to `--maintain-only` once setup completes.
 
 ### Bootstrap: TradingView cookie injection (REQUIRED)
 

@@ -8,10 +8,95 @@ Common issues and solutions for TTE.
 2. [Webhook Issues](#webhook-issues)
 3. [MongoDB Issues](#mongodb-issues)
 4. [Alert Issues](#alert-issues)
-5. [GUI / Executable Issues](#gui--executable-issues)
-6. [Headless Mode Issues](#headless-mode-issues)
-7. [Log Analysis Guide](#log-analysis-guide)
-8. [Debug Techniques](#debug-techniques)
+5. [Alert Persistence Failures (PR #48)](#alert-persistence-failures-pr-48)
+6. [Multi-Instance Issues](#multi-instance-issues)
+7. [Snapshot Worker Issues](#snapshot-worker-issues)
+8. [GUI / Executable Issues](#gui--executable-issues)
+9. [Headless Mode Issues](#headless-mode-issues)
+10. [Log Analysis Guide](#log-analysis-guide)
+11. [Debug Techniques](#debug-techniques)
+
+---
+
+## Alert Persistence Failures (PR #48)
+
+### "Alert NOT persisted on TV: sidebar top unchanged"
+
+**Symptoms**:
+- Log: `Alert NOT persisted on TV for Screener V2: sidebar top unchanged ...`
+- `create_webhook_alert` returns `(False, "not_persisted")`
+- Selenium's Create click APPEARED to succeed (no error popup in alert dialog)
+- But the new alert isn't on the chart sidebar
+
+**Cause**: TV's backend silently dropped the alert. Triggered by:
+1. **1000-Technicals cap hit** — most common (see next section).
+2. **2FA not enabled on the account** — TV blocks webhook creation with a "Protect your data" modal that the alert dialog doesn't surface as an error.
+3. **Symbol not on the account's data plan** — TV rejects with no visible message.
+4. **Session glitch / chart in recovery state**.
+
+**Solutions**:
+1. Run `tools/investigate_alert_cap.py` (read-only) to see TV's own counters via the alerts-settings menu.
+2. Verify the TV account has 2FA enabled — every TV account TTE drives MUST have 2FA (`TRADINGVIEW_TOTP_SECRET` in `.env.tte.<N>`).
+3. If only 1-3 batches `not_persisted` out of hundreds, it's noise — maintenance loop will retry. If 100% of batches fail, halt and investigate.
+4. Code-side fix already in place: `tte/main.py` SKIPS the reupload retry path on `not_persisted` (would otherwise destroy the chart by removing the indicator then failing to re-add).
+
+### "Error in alert dialog: error! alert saving failed. please, try again"
+
+**Symptoms**:
+- `create_webhook_alert` reports the dialog error text
+- Every supplementary `--symbols` batch rejected
+
+**Cause**: TV's Technicals alert cap is exactly 1000 active alerts per account. Inactive/stopped alerts ALSO count toward the cap.
+
+**Solutions**:
+1. Check via `tools/investigate_alert_cap.py` — dumps alerts-settings menu values like `Active 1000 / Inactive N` and `Technicals X/1000`.
+2. Delete unwanted alerts (typically `Stopped — Calculation error` ones on illiquid OTC symbols).
+3. When planning instance partitions, budget at most ~990 alerts per TV account.
+
+See `memory/decision_tv_alert_cap_is_hard_1000.md` for full discovery details.
+
+---
+
+## Multi-Instance Issues
+
+### Chart legend shows wrong `tte-N` instance label
+
+**Symptoms**:
+- Alerts being created with wrong `"instance"` value in payload
+- Chart legend reads `Screener V2 (tte-1, ...)` on what should be `tte-2`'s chart
+
+**Cause**: The Pine `Instance ID` input defaults to `tte-1`. After a `reupload_indicator` event the fresh copy from Favorites uses that default. `_set_indicator_instance_id` is supposed to auto-restore the correct value when `INSTANCE != "tte-1"`, but can fail silently (DOM hiccup, dialog selector mismatch).
+
+**Solutions**:
+1. **Programmatic**: stop the affected container, run `tools/fix_instance_id.py` (uses `Browser._set_indicator_instance_id` against the running chart), then `--fresh` restart to recreate alerts with the correct tag.
+2. **Manual**: open the TV chart in a real browser, double-click `Screener V2` → Instance group → set Instance ID → click the layout-save icon (not just Ctrl+S — the floppy in the top toolbar). Refresh and confirm the legend persists.
+
+Existing alerts created with the wrong instance value cannot be re-tagged — Pine inputs are snapshotted at alert creation. Delete + recreate via `--fresh` to fix.
+
+### Stale `--fresh` flag wiped alerts
+
+**Symptoms**: `docker compose up -d tte-N` deletes all alerts on that account and starts a 1000-batch setup from scratch when you expected maintain-only.
+
+**Cause**: A previous `--fresh` run left the compose `command:` line stuck on `--fresh`. The next `up -d` re-runs setup.
+
+**Solution**: ALWAYS `grep 'command:' /opt/stockbuddy/docker-compose.yml` before `docker compose up -d`. If you see `--fresh` and you didn't intend a fresh run, `sed`-flip it to `--maintain-only` first. See `memory/feedback_check_compose_command_before_restart.md`.
+
+---
+
+## Snapshot Worker Issues
+
+### "Trade Drawer 'Trade Drawer V2' not found on chart"
+
+**Symptoms**:
+- Snapshot worker logs `Failed to set Trade Drawer settings` on every setup
+- Snapshots in Stock Buddy show no TP/SL drawing or fail to render
+
+**Cause**: The `Trade Drawer V2` Pine source isn't saved + favorited + on the Snapshot layout for this TV account.
+
+**Solutions**:
+1. On the TV account in question: Pine Editor → New blank → paste `Pine Script Code/Trade Drawer V2.txt` → Ctrl+S → name `Trade Drawer V2` → Indicators → My Scripts → ⭐ favorite it.
+2. Run `tools/add_trade_drawer.py` (with the right `TTE_INSTANCE` env) to switch to Snapshot layout, click Trade Drawer V2 from Favorites, and save the layout.
+3. Verify via `tools/favorite_trade_drawer.py` that `Trade Drawer V2` appears in the favorites dropdown.
 
 ---
 

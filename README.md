@@ -4,18 +4,20 @@ An automated trading signals distribution system that bridges TradingView alerts
 
 ## Overview
 
-TTE uses Selenium browser automation to create and maintain persistent webhook alerts on TradingView. A stateless combo screener indicator (NWE + OB/FVG setup detection) monitors ~677 symbols across ~340 alerts, sending signals and setup data to Stock Buddy API on every 45-second bar close. Exit detection is handled server-side by a Stock Buddy cron job.
+TTE uses Selenium browser automation to create and maintain persistent webhook alerts on TradingView. A stateless combo screener indicator (NWE + OB/FVG setup detection) monitors **~4000 symbols across ~2000 alerts split between two TV accounts** (instances `tte-1` and `tte-2`, one Docker container per account on a shared Hostinger VPS), sending signals and setup data to Stock Buddy API on every 45-second bar close. Exit detection is handled server-side by a Stock Buddy cron job.
 
 ## Features
 
-- **Combo Mode V2**: Single-indicator webhook with ~340 persistent alerts monitoring ~677 symbols
-- **Stateless Setup Detection**: Pine Script detects NWE + OB/FVG alignment; exit detection handled by Stock Buddy cron (every 5 min)
-- **Category-Aware Pairing**: Symbols paired within the same asset class (forex/crypto/stocks) for matching market hours
-- **Automated Browser Control**: Selenium-based TradingView automation (headless Chrome)
-- **Webhook Distribution**: Compact JSON payload fires to Stock Buddy API on every 45-second bar close
-- **Alert Maintenance**: Automatic restart of inactive alerts every 2.5 minutes
-- **GUI Interface**: Visual interface for configuration and monitoring (`TTE.exe` or `tte_gui.py`)
-- **Chart Snapshots**: Asynchronous chart screenshot worker for setup messages in Stock Buddy
+- **Combo Mode V2**: Single-indicator webhook with **~1000 persistent alerts per TV account** (Ultimate plan cap), monitoring ~2000 symbols per instance.
+- **Multi-instance partition**: Symbols are split via Mongo `assigned_instance` field. `TTE_INSTANCE` env var selects which slice a container processes and is appended to the webhook URL as `?instance=<value>` for Stock Buddy routing.
+- **Stateless Setup Detection**: Pine Script detects NWE + OB/FVG alignment; exit detection handled by Stock Buddy cron (every 5 min).
+- **Category-Aware Pairing**: Symbols paired within the same asset class (forex/crypto/stocks) for matching market hours.
+- **Automated Browser Control**: Selenium-based TradingView automation (headless Chrome). Persistence verification catches TV silent-drops; safe `add-before-delete` reupload prevents chart destruction.
+- **Webhook Distribution**: Compact JSON payload fires to Stock Buddy API on every 45-second bar close. Payload includes an `"instance"` field baked in at alert-creation time from the Pine `Instance ID` input.
+- **Alert Maintenance**: Automatic restart of inactive alerts every 2.5 minutes.
+- **GUI Interface**: Visual interface for configuration and monitoring (`TTE.exe` or `tte_gui.py`).
+- **Chart Snapshots**: Asynchronous chart-screenshot worker renders Trade Drawer V2 (TP/SL drawing) for every setup message in Stock Buddy.
+- **Bootstrap & repair tools**: `tools/` directory has utilities for missing-symbol diffs, Pine Editor automation, Instance ID repair, cookie-injection, and alert-cap investigation (see `CLAUDE.md`).
 
 ## Quick Start
 
@@ -23,7 +25,8 @@ TTE uses Selenium browser automation to create and maintain persistent webhook a
 
 - Python 3.11
 - Google Chrome browser
-- TradingView account (Premium; 2FA optional — auto-handled via `TRADINGVIEW_TOTP_SECRET`, see [Setup Guide](docs/SETUP.md))
+- TradingView account (Premium/Ultimate). **2FA is REQUIRED** — TV silently rejects webhook-alert creation without 2FA enabled. Auto-handled via `TRADINGVIEW_TOTP_SECRET`, see [Setup Guide](docs/SETUP.md).
+- Per TV account: `TTE Screener V2` and `Trade Drawer V2` Pine scripts saved to My Scripts + favorited; `Screener` and `Snapshot` layouts saved with the relevant indicator(s) on them. See `.claude/specs/manual-tv-account-setup.md` for the per-account checklist.
 - MongoDB Atlas account (for symbol storage)
 
 ### Installation
