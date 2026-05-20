@@ -321,6 +321,19 @@ def run_alert_creation(
                     f"err={t_error_check:.1f}s alert={t_alert:.1f}s total={t_batch:.1f}s]"
                 )
             else:
+                # Skip the reupload retry on `not_persisted` — the indicator
+                # is healthy; TV silently rejected the alert for an unrelated
+                # reason (rate-limit, plan cap, no-2FA). Reuploading destroys
+                # the chart's indicator and cascades into 100% failure on
+                # every subsequent batch (observed 2026-05-19 on Sammy's TV).
+                if error == "not_persisted":
+                    failed.append({"batch": i, "symbols": batch, "error": "not_persisted_no_retry"})
+                    logger.warning(
+                        f"Alert not_persisted — skipping reupload retry to avoid destroying chart indicator. batch={batch}"
+                    )
+                    _shutdown_event.wait(config.alert_creation_delay)
+                    continue
+
                 # Retry with recovery
                 logger.warning("First attempt failed, retrying with recovery...")
 

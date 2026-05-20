@@ -8,14 +8,14 @@
 
 ## 1. Product Overview
 
-TradingView to Everywhere (TTE) Combo Mode V2 is an automated trading signal distribution system. It creates persistent webhook alerts on TradingView that continuously monitor 620 trading symbols for NWE + OB/FVG signals using stateless setup detection, and send compact pre-computed setup data to the Stock Buddy API on every 45-second bar close. Exit detection is handled server-side by a Stock Buddy cron job (every 5 min).
+TradingView to Everywhere (TTE) Combo Mode V2 is an automated trading signal distribution system. It creates persistent webhook alerts on TradingView that continuously monitor **~4000 trading symbols split across 2 TV accounts** (instances `tte-1` and `tte-2`, ~2000 symbols each) for NWE + OB/FVG signals using stateless setup detection, and send compact pre-computed setup data to the Stock Buddy API on every 45-second bar close. Exit detection is handled server-side by a Stock Buddy cron job (every 5 min).
 
 ### Why Combo Mode Replaced Tiered Mode
 
 | Factor | Tiered Mode | Combo Mode |
 |--------|-------------|------------|
 | Alert lifecycle | Create → wait → delete → repeat | Create once → run forever |
-| Symbol coverage | 20 per cycle, rotating | All 620 simultaneously |
+| Symbol coverage | 20 per cycle, rotating | All ~4000 simultaneously (~2000 per instance) |
 | Browser needed | Every cycle (~90s each) | Only setup + maintenance |
 | Signal merging | 2 separate webhooks to correlate | Single payload with all data |
 | Webhook delivery | After each batch cycle | Every bar close (45s) |
@@ -50,9 +50,10 @@ TradingView Pine Script (TTE Screener V2)
 
 | Setting | Value | Notes |
 |---------|-------|-------|
-| Total symbols | 620 | Currencies, US stocks, Indian stocks, crypto |
+| Total symbols | **~4000** (across 2 instances: ~2001 tte-1 + ~1999 tte-2) | Currencies, US stocks, Indian stocks, crypto |
 | Batch size | 2 | Category-aware pairing (same asset class) |
-| Total alerts | ~310 | 620 ÷ 2 |
+| Total alerts | **~2000** (~1000 per TV account, AT the Ultimate-plan cap) | ~4000 ÷ 2 |
+| Instances | 2 (`tte-1`, `tte-2`) | One container per TV Ultimate account; separate Mongo `assigned_instance` partition + webhook query-param routing |
 | Browser mode | Single (sequential) | Headless Chrome, one browser instance |
 | Chart timeframe | 45 seconds | Fastest practical bar close for signal detection |
 | Bar style | Candle | Required for accurate high/low exit detection |
@@ -236,14 +237,15 @@ python tte_gui.py                     # GUI interface
 
 | Enhancement | Description |
 |------------|-------------|
-| Symbol expansion | Expand from 620 to ~800 symbols (architecture supports up to 400 alerts) |
+| Python-native indicator/screener stack | Replace TV-driven setup detection with Python-native pipeline (indicators, strategy backtests, exit detection, snapshots all in Python on a single canonical data source). Motivated by 2026-05-19/20 TTE fragility (TV alert cap, chart drift, 2FA modal, Selenium DOM churn). See `memory/project_python_native_stack_proposal.md`. |
+| Add tte-3+ to scale past 2 TV accounts | Each new TV Ultimate account adds ~1000 alert slots. Per-instance setup is now stable (see `.claude/specs/manual-tv-account-setup.md`). |
 
 ---
 
 ## 10. Production Metrics (V2)
 
-- **Total symbols**: 620 (currencies, US stocks, Indian stocks, crypto)
-- **Total alerts**: ~310 (2 symbols per alert, category-aware pairing)
+- **Total symbols**: ~4000 (currencies, US stocks, Indian stocks, crypto) split across 2 instances (~2001 tte-1 + ~1999 tte-2)
+- **Total alerts**: ~2000 (2 symbols per alert, category-aware pairing) — ~1000 per TV account, at the Ultimate plan cap
 - **Setup time**: Sequential with single headless browser
 - **Browser mode**: Single Chrome instance, headless by default
 - **Maintenance cycle**: Every 2.5 minutes (includes page refresh + alert log clearing)

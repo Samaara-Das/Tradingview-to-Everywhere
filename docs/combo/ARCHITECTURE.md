@@ -22,8 +22,8 @@ V2 uses stateless setup detection in Pine Script. On every bar, if NWE + OB/FVG 
 | Payload content | Raw signals only | **Signals + setups** (exits handled server-side) |
 | `request.security()` calls | 12 (4 symbols × 3 TFs) | **8** (2 symbols × 4 call types) |
 | Maintenance interval | 300s (5 min) | **150s** (2.5 min) |
-| Total symbols | ~1,028 | **620** (expandable to 800) |
-| Total alerts | ~338 | **~310** (expandable to 400) |
+| Total symbols | ~1,028 | **~4000 across 2 instances** (~2001 tte-1 + ~1999 tte-2) |
+| Total alerts | ~338 | **~2000 across 2 instances** (~1000 per TV account at the Ultimate plan cap) |
 
 ### V2 Pine Script Indicator
 
@@ -45,9 +45,9 @@ Symbols are paired within the same asset class (forex with forex, crypto with cr
 |----------|---------|--------|
 | Currencies | 29 | 15 |
 | Crypto | 18 | 9 |
-| US Stocks | 376 | 188 |
-| Indian Stocks | 197 | 99 |
-| **Total** | **620** | **~310** |
+| US Stocks | 2767 | 1384 |
+| Indian Stocks | 1186 | 593 |
+| **Total (across 2 instances)** | **~4000** (~2001 tte-1 + ~1999 tte-2) | **~2000** (~1000 per TV account) |
 
 ### V2 Compact Payload Format
 
@@ -60,11 +60,12 @@ Symbols are paired within the same asset class (forex with forex, crypto with cr
     "ob": [{"zt": "OB", "st": "un", "t": "bull", "zh": 1.99, "zl": 1.97, "tf": "H4", "zts": 1707260400, "ots": 1707264000}],
     "b": [{"e": 1.98, "sl": 1.975, "tp": 1.99, "et": 1707260000, "l": "LTF", "ntf": "1H", "otf": "H4"}, null],
     "se": [null, null]
-  }]
+  }],
+  "instance": "tte-1"
 }
 ```
 
-Key legend: `ts`=timestamp, `s`=symbols, `sym`=symbol, `c`=close, `nwe`=NWE signals, `ob`=OB/FVG signals, `b`=buy setups [LTF, HTF], `se`=sell setups [LTF, HTF], `e`=entry, `sl`=stopLoss, `tp`=takeProfit, `et`=entryTime, `l`=label(LTF/HTF), `ntf`=nweTf, `otf`=obTf
+Key legend: `ts`=timestamp, `s`=symbols, `sym`=symbol, `c`=close, `nwe`=NWE signals, `ob`=OB/FVG signals, `b`=buy setups [LTF, HTF], `se`=sell setups [LTF, HTF], `e`=entry, `sl`=stopLoss, `tp`=takeProfit, `et`=entryTime, `l`=label(LTF/HTF), `ntf`=nweTf, `otf`=obTf, `instance`=TV-account identifier baked in at alert-creation from the Pine `Instance ID` input.
 
 ### V2 Stateless Setup Behavior
 
@@ -92,7 +93,28 @@ TTE now runs as a Docker service on the Hostinger VPS (`168.231.103.163`, KVM8) 
 ### Container Shape
 
 - **Image**: `python:3.11-slim-bookworm` base. Installs Chrome stable + matching ChromeDriver via the chrome-for-testing `LATEST_RELEASE_<MAJOR>` API (do NOT construct the URL from `chrome --product-version` — that endpoint is gone).
-- **Service name**: `tte-1` (one container per TradingView Ultimate account; scale by adding `tte-2`, `tte-3`, etc.).
+- **Service names**: `tte-1` and `tte-2` (one container per TradingView Ultimate account; scale further by adding `tte-3+`). Each instance has its own `.env.tte.<N>`, Chrome user-data-dir volume, and TV account. See **Multi-Instance Topology** below.
+
+### Multi-Instance Topology (deployed 2026-05-18, hardened 2026-05-19/20)
+
+| Aspect | How it works |
+|--------|--------------|
+| Partition source-of-truth | Mongo `tte.symbols` collection. Each symbol doc has `assigned_instance` field with value `tte-1` or `tte-2` (round-robin per category). |
+| Container → partition mapping | `TTE_INSTANCE` env var (e.g. `tte-1`, `tte-2`) tells `tte/data/symbols.py` which slice to load. For `tte-1` the query is `{$or: [{assigned_instance: "tte-1"}, {assigned_instance: {$exists: false}}]}` (legacy-safe); for `tte-N` (N>=2) it's strict-match. |
+| Webhook routing | `tte/config.py:_build_webhook_url()` appends `?instance=<TTE_INSTANCE>` to `COMBO_WEBHOOK_URL`. Stock Buddy reads the query param to know which TV account fired the payload. |
+| Instance tag in payload | The Pine source declares `input.string('tte-1', 'Instance ID', group='Instance')`. Operator must override per-account in Settings → Instance group before saving the chart layout. The value is snapshotted into each alert at creation time, so it appears as `"instance":"tte-N"` in the webhook JSON. |
+| Snapshot worker isolation | `StockBuddyClient` passes `instance=<TTE_INSTANCE>` to `GET /api/tte/snapshots/pending` so each container only claims its own pending setups. |
+| Chrome user-data-dir | Per-instance dir at `/home/tte/chrome-profile/TTE[-<instance>]` inside the container — `tte-1` keeps the bare `TTE` dir; `tte-N` (N>=2) uses `TTE-tte-<N>`. Each volume is independent — sign-ins, cookies, chart state are NOT shared. |
+
+### Failure-Mode Catalog (PR #48 derived)
+
+| Symptom | Root cause | Recovery path |
+|---------|-----------|---------------|
+| `Alert NOT persisted on TV ... sidebar top unchanged` | TV's backend silently dropped the alert despite no error popup. Triggered by: cap hit (Technicals 1000/1000), missing 2FA, suspect symbol, or session glitch. | `create_webhook_alert` returns `(False, "not_persisted")`. Retry path in `tte/main.py` SKIPS reupload (would otherwise destroy chart). Maintenance loop or supplementary `--symbols` run can re-attempt later. |
+| `Error in alert dialog: error! alert saving failed. please, try again` | TV's Technicals alert cap is at exactly 1000 active alerts. Inactive alerts also count. | Read TV's alerts-settings menu (read-only) via `tools/investigate_alert_cap.py` to confirm. Delete unwanted/stopped alerts to free slots. |
+| `Trade Drawer 'Trade Drawer V2' not found on chart` (snapshot worker) | Indicator not on the Snapshot layout. Common after a fresh TV account or a layout-save accident. | Paste Pine, save, ⭐ favorite in My Scripts. Run `tools/add_trade_drawer.py` to add to Snapshot layout and save. |
+| Chart legend shows wrong `tte-N` after a reupload | The fresh copy added by `reupload_indicator` from Favorites uses the Pine default (`tte-1`). `_set_indicator_instance_id` auto-restores when `INSTANCE != "tte-1"`. | If auto-restore fails, run `tools/fix_instance_id.py` with `TTE_INSTANCE` set, then `--fresh` restart. |
+| WS-F session-disconnect popup | TV detected a competing session on the account. Watcher in `tte/browser/tradingview.py` clicks "Connect" automatically. Side-effect: chart may briefly enter recovery state — `is_no_error` returns False, triggering `reupload_indicator` (now safe — add-before-delete). | Other browsers/tabs on the same TV account must stay closed while a TTE container is running. |
 - **User**: non-root `tte` (uid 1000).
 - **Entrypoint**: `python -m tte.main`.
 
@@ -142,7 +164,7 @@ The three platform-conditional patches that made the Linux port work (`platform.
 
 ## 1. Context & Why This Architecture
 
-> **V1 archived section.** V2 uses 620 symbols, 2 per alert, ~310 alerts, 45-second timeframe, no divergence.
+> **V1 archived section.** V2 uses ~4000 symbols (split across 2 TV-account instances), 2 per alert, ~2000 alerts (~1000 per account at TV's Ultimate cap), 45-second timeframe, no divergence.
 
 ### Problem
 TTE needs to monitor hundreds of trading symbols across multiple timeframes for NWE and Order Block/FVG signals, track positions, and send pre-computed trade state to Stock Buddy for real-time display.
@@ -158,8 +180,8 @@ Architecture 1 was chosen because:
 
 | Factor | Arch 1 (Combo) | Arch 2 (Separate) |
 |--------|---------------|-------------------|
-| Alert cycles for 620 symbols | **~310** | **~620** (2x more) |
-| Browser automation interactions | 310 create | 620 create |
+| Alert cycles for ~4000 symbols (2 instances) | **~2000** (~1000 per TV account) | **~4000** (2x more) |
+| Browser automation interactions | ~2000 create | ~4000 create |
 | Setup approach | Single browser, sequential | Single browser, sequential |
 | Signal merging needed | No — single payload has all data | Yes — payloads must be correlated per batch |
 | Pine Script already built | Yes | No |
@@ -176,12 +198,15 @@ The 4-symbol hard limit (more causes memory/runtime errors in TradingView) and t
 │                    ONE-TIME SETUP PHASE                         │
 │                                                                 │
 │  TTE Orchestrator (Python + Selenium, headless Chrome)          │
-│  ├── Fetches 620 symbols (category-aware pairing)              │
+│  One container per TV account: tte-1, tte-2 (per-instance flow)│
+│  ├── Fetches ~2000 symbols for THIS instance from Mongo         │
+│  │   (assigned_instance == TTE_INSTANCE)                        │
 │  ├── Takes batch of 2 symbols (same category)                  │
 │  ├── Opens TradingView, inputs symbols into combo screener     │
-│  ├── Creates webhook alert → points to Stock Buddy API         │
-│  ├── Repeats for all ~310 batches (single browser, sequential) │
-│  └── Result: ~310 alerts live on TradingView                   │
+│  ├── Creates webhook alert → Stock Buddy API w/ ?instance=tte-N │
+│  ├── Verifies persistence via sidebar-top-row snapshot          │
+│  ├── Repeats for ~1000 batches (single browser, sequential)    │
+│  └── Result: ~1000 alerts per TV account (cap), ~2000 total    │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -189,7 +214,7 @@ The 4-symbol hard limit (more causes memory/runtime errors in TradingView) and t
 │                   CONTINUOUS OPERATION                          │
 │                                                                 │
 │  TradingView (Server-Side)                                     │
-│  ├── ~310 alerts running continuously                          │
+│  ├── ~2000 alerts running continuously (~1000 per instance)   │
 │  ├── Each alert monitors 2 symbols via V2 combo screener       │
 │  ├── On every 45-second bar close: evaluates signals/positions │
 │  ├── Fires webhook with compact JSON payload                   │
@@ -258,11 +283,11 @@ The 4-symbol hard limit (more causes memory/runtime errors in TradingView) and t
 ### 3.2 TTE Orchestrator (Python)
 
 - **File**: `tte/main.py`, `tte/config.py`
-- **Purpose**: One-time setup of all ~310 alerts, plus periodic maintenance
+- **Purpose**: One-time setup of ~1000 alerts per instance (~2000 across both), plus periodic maintenance
 - **Technology**: Python + Selenium (single headless Chrome browser)
 - **GUI**: `tte_gui.py` (or standalone `dist/TTE.exe`) provides a desktop interface for settings and execution
 - **Responsibilities**:
-  1. Fetch 620 symbols from MongoDB, grouped by category
+  1. Fetch ~2000 symbols for THIS instance from MongoDB (`assigned_instance` filter), grouped by category
   2. Pair into batches of 2 within the same category (category-aware pairing)
   3. For each batch: open TradingView → input symbols → create webhook alert (sequential, single browser)
   4. Periodically (every 2.5 min): refresh page, clear alert log, restart stopped alerts
@@ -270,7 +295,7 @@ The 4-symbol hard limit (more causes memory/runtime errors in TradingView) and t
 ### 3.3 TradingView Platform
 
 - **Subscription**: Premium (required for webhooks)
-- **~310 alerts**: All running simultaneously as server-side alerts
+- **~1000 alerts per instance, ~2000 total**: All running simultaneously as server-side alerts (TV's Technicals cap is 1000/account)
 - **Each alert**: Monitors 2 symbols via the V2 combo screener indicator
 - **Server-side execution**: Alerts continue running after browser is closed
 - **Alert snapshots**: When an alert is created, TradingView captures a snapshot of the indicator. Editing the script does NOT update existing alerts — they must be deleted and recreated.
@@ -336,8 +361,8 @@ The 4-symbol hard limit (more causes memory/runtime errors in TradingView) and t
 
 ```
 Step 1: TTE Orchestrator starts
-Step 2: Fetches 620 symbols from MongoDB, grouped by category
-Step 3: Divides into ~310 batches of 2 symbols (same category per batch)
+Step 2: Fetches ~2000 symbols for THIS instance from MongoDB (filter `assigned_instance == TTE_INSTANCE`), grouped by category
+Step 3: Divides into ~1000 batches of 2 symbols per instance (same category per batch)
 Step 4: For batch #1 (e.g., GBPAUD, AUDJPY — both currencies):
         a. Opens TradingView in headless Chrome via Selenium
         b. Loads the "Screener" layout (has TTE Screener V2 indicator)
@@ -350,8 +375,8 @@ Step 4: For batch #1 (e.g., GBPAUD, AUDJPY — both currencies):
         i. Enables webhook checkbox
         j. Enters webhook URL: https://stockbuddy.co/api/tte/combo
         k. Clicks Create
-Step 5: Repeats Step 4 for all ~310 batches (sequential, single browser)
-Step 6: All ~310 alerts are now live on TradingView's servers
+Step 5: Repeats Step 4 for all ~1000 batches per instance (sequential, single browser)
+Step 6: ~1000 alerts now live per TV account (~2000 across both instances)
 ```
 
 ### Phase 2: Continuous Signal Flow
@@ -478,7 +503,7 @@ The same browser instance is shared — they never run concurrently.
 ```python
 # Pseudocode for the setup phase (V2)
 def setup_all_alerts():
-    batches, total = fetch_symbols_by_category(batch_size=2)  # ~310 batches of 2
+    batches, total = fetch_symbols_by_category(batch_size=2)  # ~1000 batches of 2 per instance
 
     browser = Browser()  # Selenium Chrome
     browser.open_tradingview()
@@ -674,7 +699,7 @@ When a webhook arrives, Stock Buddy upserts the signal + setup state for each in
 ### Volume Estimate (V2 — 45-second timeframe)
 
 With `alert.freq_once_per_bar_close` at 45 seconds:
-- ~310 alerts × ~1.3 bars/min × 60 min × market hours ≈ manageable volume
+- ~2000 alerts × ~1.3 bars/min × 60 min × market hours ≈ manageable volume (~1000 per instance — both instances fire in parallel to Stock Buddy)
 - Actual firing depends on when symbols are active vs stale
 - Well within Vercel Pro capacity
 
@@ -707,10 +732,10 @@ With `alert.freq_once_per_bar_close` at 45 seconds:
 
 ### Overview (V2)
 
-- **Total symbols**: 620 (expandable to ~800)
+- **Total symbols**: ~4000 across 2 instances (~2001 tte-1 + ~1999 tte-2). Expandable by adding tte-3+ TV accounts.
 - **Batch size**: 2 symbols per alert (category-aware pairing)
-- **Total batches**: ~310 alerts
-- **Full coverage**: All 620 symbols covered by ~310 simultaneously running alerts
+- **Total batches**: ~1000 alerts per instance, ~2000 total
+- **Full coverage**: All ~4000 symbols covered by ~2000 simultaneously running alerts (across both TV accounts)
 
 ### Symbol Categories (V2)
 
@@ -718,9 +743,9 @@ With `alert.freq_once_per_bar_close` at 45 seconds:
 |----------|---------|--------|
 | Currencies | 29 | 15 |
 | Crypto | 18 | 9 |
-| US Stocks | 376 | 188 |
-| Indian Stocks | 197 | 99 |
-| **Total** | **620** | **~310** |
+| US Stocks | 2767 | 1384 |
+| Indian Stocks | 1186 | 593 |
+| **Total (across 2 instances)** | **~4000** (~2001 tte-1 + ~1999 tte-2) | **~2000** (~1000 per TV account) |
 
 ### Category-Aware Pairing
 
@@ -728,7 +753,7 @@ Symbols are paired within the same asset class so that both symbols in an alert 
 
 ### Important Note
 
-"Rotation" in V2 means the initial setup phase. Once all ~310 alerts are created and running, they continuously monitor their 2 symbols. The setup must be re-run when:
+"Rotation" in V2 means the initial setup phase. Once all ~1000 alerts per instance (~2000 total) are created and running, they continuously monitor their 2 symbols. The setup must be re-run when:
 1. **Script updates**: After editing the Pine Script indicator (alerts use a snapshot of the code at creation time)
 2. **Symbol list changes**: If symbols are added/removed from MongoDB
 3. **Fresh start**: Use `--fresh` flag to delete all alerts and recreate

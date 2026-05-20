@@ -535,12 +535,15 @@ Combo mode V2 uses a single webhook endpoint that receives compact pre-computed 
 
 Receives the V2 combo screener webhook payload containing NWE signals, OB/FVG signals, and active trade positions for 2 symbols.
 
-**URL**: `POST /api/tte/combo`
+**URL**: `POST /api/tte/combo?instance=<tte-1|tte-2|...>`
+
+TTE appends the `?instance=<TTE_INSTANCE>` query string from `tte/config.py:_build_webhook_url()` so Stock Buddy can route each payload to the correct partition. The same identifier appears in the payload body as the `"instance"` field (baked in at alert-creation time from the Pine `Instance ID` input) — Stock Buddy can use either source.
 
 **Payload Format** (sent by TradingView — V2 compact format):
 ```json
 {
   "ts": 1707264000000,
+  "instance": "tte-1",
   "s": [{
     "sym": "GBPAUD", "c": 1.985,
     "nwe": [{"z": "la", "t": "bull", "tf": "1H", "ots": 1707264000}],
@@ -555,6 +558,7 @@ Receives the V2 combo screener webhook payload containing NWE signals, OB/FVG si
 | Key | Meaning |
 |-----|---------|
 | `ts` | Timestamp (ms) |
+| `instance` | TV-account identifier (`tte-1`, `tte-2`, …). Baked in at alert-creation time from the Pine `input.string('tte-1', 'Instance ID', ...)`. Stock Buddy uses this + the URL `?instance=` query param for routing/attribution. |
 | `s` | Symbols array |
 | `sym` | Symbol name |
 | `c` | Close price |
