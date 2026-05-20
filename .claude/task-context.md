@@ -1,16 +1,25 @@
 # Task Context Tracker
 
-**Last Updated**: 2026-05-20 15:10 IST
-**Current Task**: PR #48 **MERGED** to main as `546e556` (12 files / +1178 / -228 / 9 commits squashed). Steady-state — tte-1 at 1000 active alerts in `--maintain-only`, tte-2 at Batch 962/1001 in `--fresh` (~10 min to setup-complete at last check). Both have Trade Drawer V2 in Favorites + Snapshot layout. Snapshot pipeline confirmed working live on tte-1 (29 snapshots last 30m at 15:08 cron).
-**Active Branch**: `main` @ `546e556`
-**Cron monitor**: in-session cron `f51e3769` still firing every :13 and :43 — DMs delta updates. Will halt if indicator destruction or restart loop.
-**Session detail**: `memory/diary_2026-05-19.md` (incident start), `memory/diary_2026-05-20.md` (full day including PR #48 ship).
+**Last Updated**: 2026-05-20 18:40 IST
+**Current Task**: 3 PRs shipped today — TTE PR #48 (`546e556`), TTE PR #49 (`8a9119c`, Instance ID regression prevention), SB PR #681 (`0cc69d7`, failed-retry filter null-claimedAt fix). Both containers stable in `--maintain-only` on `tte:phase4` image rebuilt at ~15:30 IST with PR #49 + Trade Drawer V2 in Snapshot layouts. End-to-end snapshot rendering verified live on both (NSE:SUNFLAG, NSE:CHENNPETRO, BSE:NSDL completed with Trade Drawer V2 settings applied).
+**Active Branch**: `main` @ `8a9119c`
+**Cron monitor**: cancelled (`f51e3769`) — both containers stable, monitoring no longer needed. Resume on demand if needed.
+**Session detail**: `memory/diary_2026-05-19.md`, `memory/diary_2026-05-20.md`.
+
+**State at session-end (18:40 IST)**:
+- tte-1: 1000 active alerts on Sammy's TV, maintain-only ✓
+- tte-2: 990 active alerts on Rahul's TV (14 silent-drops near cap), maintain-only ✓
+  - ~800 of tte-2's alerts are tagged `tteInstance: "tte-1"` in payload (audit-only damage from the 2026-05-20 morning regression — Option A confirmed safe, SB's `tteInstance` is "audit only, not used for routing" per `src/lib/tte/collections.ts` §2.3)
+- Snapshot pipeline working end-to-end on both
+- Compose `command:` is `--maintain-only` for both (verified post-deploy) ✓
+- Docker image `tte:phase4` rebuilt 2026-05-20 ~15:30 IST with PR #49 + Trade Drawer V2 baked in
 
 **Followup non-blocking items**:
-- Flip tte-2 compose `command:` back to `--maintain-only` once it hits Batch 1001 (otherwise next restart wipes — see `memory/feedback_check_compose_command_before_restart.md`).
-- After market close: confirm tte-2's first batch of setup_messages flows through Trade Drawer V2 rendering.
-- Coda OAuth still pending; both /update-context calls this session skipped Coda updates.
-- Optional: add `git push --force-with-lease` to `.claude/settings.json` allowlist to remove the merge-friction documented in `memory/reference_harness_blocks_force_push_workaround.md`.
+- The ~800 wrong-tagged tte-2 alerts will stay until next `--fresh` (audit-only damage; no production impact).
+- Snapshot layouts on both TVs now have **2 copies of Trade Drawer V2** (legacy + my deploy-time add). Snapshot worker picks first match and proceeds normally. Worth cleaning up the dupe sometime via manual indicator-delete on each TV's Snapshot layout.
+- Coda OAuth still pending; /update-context calls this session skipped Coda updates.
+- Optional: add `git push --force-with-lease` to `.claude/settings.json` allowlist (see `memory/reference_harness_blocks_force_push_workaround.md`).
+- `tools/add_trade_drawer_v2.py` (deploy-time helper using `create_browser(layout_override=Snapshot)`) is untracked. Worth committing if we'll need it for tte-3+.
 
 ---
 
