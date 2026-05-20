@@ -65,10 +65,10 @@ See `memory/decision_tv_alert_cap_is_hard_1000.md` for full discovery details.
 - Alerts being created with wrong `"instance"` value in payload
 - Chart legend reads `Screener V2 (tte-1, ...)` on what should be `tte-2`'s chart
 
-**Cause**: The Pine `Instance ID` input defaults to `tte-1`. After a `reupload_indicator` event the fresh copy from Favorites uses that default. `_set_indicator_instance_id` is supposed to auto-restore the correct value when `INSTANCE != "tte-1"`, but can fail silently (DOM hiccup, dialog selector mismatch).
+**Cause**: The Pine `Instance ID` input defaults to `tte-1`. After a `reupload_indicator` event the fresh copy from Favorites uses that default. As of PR #49, `_set_indicator_instance_id` self-detects mismatches: it polls the legend after submit and returns False if the rendered legend doesn't contain the target instance ID OR if any legend item still shows the stale `tte-1` default. On failure, `reupload_indicator` returns False so the caller halts rather than continuing to silently mis-tag alerts. The old silent-failure mode (PR #48-era code) was the root cause of the 2026-05-20 regression on tte-2.
 
 **Solutions**:
-1. **Programmatic**: stop the affected container, run `tools/fix_instance_id.py` (uses `Browser._set_indicator_instance_id` against the running chart), then `--fresh` restart to recreate alerts with the correct tag.
+1. **Programmatic**: stop the affected container, run `tools/fix_instance_id.py` (uses `Browser._set_indicator_instance_id` against the running chart and `Ctrl+S` to persist), then `--fresh` restart to recreate alerts with the correct tag.
 2. **Manual**: open the TV chart in a real browser, double-click `Screener V2` → Instance group → set Instance ID → click the layout-save icon (not just Ctrl+S — the floppy in the top toolbar). Refresh and confirm the legend persists.
 
 Existing alerts created with the wrong instance value cannot be re-tagged — Pine inputs are snapshotted at alert creation. Delete + recreate via `--fresh` to fix.

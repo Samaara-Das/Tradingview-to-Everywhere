@@ -2,7 +2,7 @@
 
 This is the canonical list of all documentation files in TradingView to Everywhere. The `/update-docs` skill uses this to know what exists and what each file covers.
 
-Last updated: 2026-05-20 (round 2 — thorough pass. CLAUDE.md (PR #48), README.md (multi-instance tagline), ARCHITECTURE.md (numbers 620/310 → ~4000/~2000, multi-instance topology, failure-mode catalog, payload `instance` field), PRD.md (numbers + completed milestones + Python-native stack proposal), SETUP.md (2FA REQUIRED, TTE_INSTANCE env, multi-instance compose example, tte-3+ bring-up), API.md (?instance= query param, payload `instance` field), TROUBLESHOOTING.md (Alert persistence failures, Multi-instance issues, Snapshot worker issues sections))
+Last updated: 2026-05-20 PM (post-PR-#49 delta sweep — CLAUDE.md `reupload_indicator` + `_set_indicator_instance_id` rows tightened to reflect delete-then-set ordering, Ctrl+S persistence, post-submit legend verification, stale-default rejection, fails-closed on delete failure. TROUBLESHOOTING.md Instance ID section updated to note PR #49 self-detection replaces the old silent-failure mode.) Earlier 2026-05-20 round 2 — thorough pass — covered CLAUDE.md (PR #48), README.md (multi-instance tagline), ARCHITECTURE.md (numbers 620/310 → ~4000/~2000, multi-instance topology, failure-mode catalog, payload `instance` field), PRD.md (numbers + completed milestones + Python-native stack proposal), SETUP.md (2FA REQUIRED, TTE_INSTANCE env, multi-instance compose example, tte-3+ bring-up), API.md (?instance= query param, payload `instance` field), TROUBLESHOOTING.md (Alert persistence failures, Multi-instance issues, Snapshot worker issues sections).
 
 ---
 
