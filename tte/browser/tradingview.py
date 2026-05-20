@@ -2301,9 +2301,21 @@ class Browser:
             sleep(0.2)
             actual = target_input.get_attribute("value") or ""
             if actual != instance_id:
-                open_tv_logger.warning(
-                    f"_set_indicator_instance_id: input shows {actual!r} not {instance_id!r} — will still submit"
+                # The whole point of this function is to STOP wrong-Instance-ID
+                # alerts from being created. If the input didn't take, abort —
+                # don't submit, don't return success. Reupload caller then
+                # returns False and the alert pipeline halts rather than
+                # silently tagging every subsequent alert with the wrong
+                # instance (the 2026-05-20 morning incident on Rahul's TV).
+                open_tv_logger.error(
+                    f"_set_indicator_instance_id: input shows {actual!r} not {instance_id!r} — "
+                    f"aborting without submit (caller will halt + screenshot)"
                 )
+                try:
+                    ActionChains(self.driver).send_keys(Keys.ESCAPE).perform()
+                except Exception:
+                    pass
+                return False
 
             # Click Submit
             self.driver.find_element(By.CSS_SELECTOR, 'button[name="submit"]').click()
